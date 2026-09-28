@@ -1,0 +1,32 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /api
+    schedule:
+      interval: weekly
+    groups:
+      api-minor-and-patch:
+        update-types: [minor, patch]
+
+  # Expo SDK packages must move together via `npx expo install --fix`, so only
+  # non-Expo patch/minor bumps are proposed automatically.
+  - package-ecosystem: npm
+    directory: /app
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: 'expo*'
+      - dependency-name: '@expo/*'
+      - dependency-name: 'react-native*'
+      - dependency-name: 'react'
+      - dependency-name: 'react-dom'
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+    groups:
+      app-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
