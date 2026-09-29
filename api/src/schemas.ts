@@ -58,3 +58,8 @@ export function mealAnalysisJsonSchema() {
 export function issuePaths(error: z.ZodError): string[] {
   return [...new Set(error.issues.map((issue) => issue.path.join('.') || '(root)'))].slice(0, 20);
 }
+
+/** Zod issue codes only (e.g. `invalid_value`, `unrecognized_keys`), never values, safe to log. */
+export function issueCodes(error: z.ZodError): string[] {
+  return [...new Set(error.issues.map((issue) => issue.code))];
+}

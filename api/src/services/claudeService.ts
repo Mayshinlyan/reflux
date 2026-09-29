@@ -36,7 +36,8 @@ export interface ClaudeService {
 }
 
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
-const MAX_TOKENS = 1200;
+// Multi-item dishes (dim sum, a full plate) run past 1000 output tokens; a lower cap truncates them.
+const MAX_TOKENS = 3000;
 const TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 1;
 const RETRY_DELAY_MS = 750;
@@ -127,7 +128,12 @@ export function createClaudeService(options: {
             (block) => block.type === 'tool_use' && block.name === TOOL_NAME,
           );
           if (!toolUse || toolUse.type !== 'tool_use' || message.stop_reason === 'max_tokens') {
-            throw new HttpError('AI_INVALID_OUTPUT');
+            // Content-free, so a truncated or tool-less answer is diagnosable from the log.
+            throw new HttpError('AI_INVALID_OUTPUT', undefined, {
+              stopReason: message.stop_reason,
+              outputTokens: telemetry.outputTokens,
+              anthropicRequestId: telemetry.anthropicRequestId,
+            });
           }
           return { raw: toolUse.input, telemetry };
         } catch (error) {

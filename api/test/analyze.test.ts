@@ -3,6 +3,7 @@ import sharp from 'sharp';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { InMemoryRateLimitStore } from '../src/lib/rateLimitStore.js';
+import { HttpError } from '../src/errors.js';
 import { fakeClaude, goodAnalysis, testApp, VALID_TOKEN } from './helpers.js';
 
 const auth = { Authorization: `Bearer ${VALID_TOKEN}` };
@@ -273,6 +274,55 @@ describe('POST /v1/analyze-food: model output', () => {
     expect(res.body.error.code).toBe('AI_INVALID_OUTPUT');
   });
 
+  it('retries once when the first answer is off-schema, then succeeds', async () => {
+    let call = 0;
+    const claude = fakeClaude(() => (call++ === 0 ? { ...goodAnalysis, hidden: 'x' } : goodAnalysis));
+    const { app } = testApp({}, { claude: claude.service });
+    const res = await post(app).send({ text: 'dim sum' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.mealName).toBe('Mint tea');
+    expect(claude.calls).toHaveLength(2);
+  });
+
+  it('retries once when the model answer is truncated, then succeeds', async () => {
+    let call = 0;
+    const claude = fakeClaude(() => {
+      if (call++ === 0) throw new HttpError('AI_INVALID_OUTPUT', undefined, { stopReason: 'max_tokens' });
+      return goodAnalysis;
+    });
+    const { app, logs } = testApp({}, { claude: claude.service });
+    const res = await post(app).send({ text: 'dim sum' });
+
+    expect(res.status).toBe(200);
+    expect(claude.calls).toHaveLength(2);
+    // The retry is visible in the log with the reason, so the fix can be measured in production.
+    const retry = logs.parsed().find((entry) => entry.message === 'invalid model output, retrying');
+    expect(retry).toMatchObject({ attempt: 1, stopReason: 'max_tokens' });
+  });
+
+  it('gives up after two bad answers instead of looping', async () => {
+    const claude = fakeClaude(() => ({ nope: true }));
+    const { app } = testApp({}, { claude: claude.service });
+    const res = await post(app).send({ text: 'dim sum' });
+
+    expect(res.status).toBe(502);
+    expect(res.body.error.code).toBe('AI_INVALID_OUTPUT');
+    expect(claude.calls).toHaveLength(2);
+  });
+
+  it('does not retry other errors', async () => {
+    const claude = fakeClaude(() => {
+      throw new HttpError('AI_UPSTREAM_ERROR');
+    });
+    const { app } = testApp({}, { claude: claude.service });
+    const res = await post(app).send({ text: 'tea' });
+
+    expect(res.status).toBe(502);
+    expect(res.body.error.code).toBe('AI_UPSTREAM_ERROR');
+    expect(claude.calls).toHaveLength(1);
+  });
+
   it('still returns schema-valid output for a prompt-injection input', async () => {
     const claude = fakeClaude(() => goodAnalysis);
     const { app } = testApp({}, { claude: claude.service });
@@ -341,6 +391,8 @@ describe('privacy: logs stay content-free on this route', () => {
     for (const secret of SECRETS) expect(output).not.toContain(secret);
     const line = logs.parsed().find((entry) => entry.message === 'claude call completed');
     expect(line?.zodPaths).toEqual(expect.arrayContaining(['overall.verdict']));
+    // Codes name the kind of failure and never carry the offending value.
+    expect(line?.zodCodes).toEqual(expect.arrayContaining(['unrecognized_keys']));
   });
 
   it('never logs content on rejected input or auth failures', async () => {
