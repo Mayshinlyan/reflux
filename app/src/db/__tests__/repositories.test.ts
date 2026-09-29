@@ -25,6 +25,7 @@ import {
   getSymptomLog,
   listSymptomLogs,
   removeSymptomFromLog,
+  removeTagFromLog,
   updateSymptomLog,
 } from '../repositories/symptoms';
 import { medicationLogs, medications, symptomLogItems, symptomLogTags } from '../schema';
@@ -123,6 +124,49 @@ describe('symptom logs', () => {
     expect(getSymptomLog(db, id)).toBeUndefined();
     expect(db.select({ n: count() }).from(symptomLogItems).get()?.n).toBe(0);
     expect(db.select({ n: count() }).from(symptomLogTags).get()?.n).toBe(0);
+  });
+
+  describe('removeTagFromLog', () => {
+    it('takes one tag off and keeps the symptoms, other tags and note', () => {
+      const { db } = createTestDb();
+      const id = createSymptomLog(db, {
+        items: [{ key: 'heartburn' }, { key: 'cough' }],
+        tags: ['stress', 'large_meal'],
+        notes: 'keep me',
+      });
+
+      removeTagFromLog(db, id, 'stress');
+
+      expect(getSymptomLog(db, id)).toMatchObject({
+        tags: ['large_meal'],
+        notes: 'keep me',
+        items: [
+          { key: 'cough', score: 1 },
+          { key: 'heartburn', score: 1 },
+        ],
+      });
+    });
+
+    it('lets the last tag go too, since tags are optional', () => {
+      const { db } = createTestDb();
+      const id = createSymptomLog(db, { items: [{ key: 'cough' }], tags: ['alcohol'] });
+
+      removeTagFromLog(db, id, 'alcohol');
+
+      expect(getSymptomLog(db, id)).toMatchObject({ tags: [], items: [{ key: 'cough' }] });
+    });
+
+    it('refuses a tag that is not on the entry, and only touches that entry', () => {
+      const { db } = createTestDb();
+      const a = createSymptomLog(db, { items: [{ key: 'cough' }], tags: ['stress'] });
+      const b = createSymptomLog(db, { items: [{ key: 'cough' }], tags: ['stress'] });
+
+      expect(() => removeTagFromLog(db, a, 'exercise')).toThrow(/not on this entry/);
+      removeTagFromLog(db, a, 'stress');
+
+      expect(getSymptomLog(db, a)?.tags).toEqual([]);
+      expect(getSymptomLog(db, b)?.tags).toEqual(['stress']);
+    });
   });
 
   describe('removeSymptomFromLog', () => {

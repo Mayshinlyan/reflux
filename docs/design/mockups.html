@@ -109,7 +109,7 @@
   .step-title{font-size:17px;font-weight:800;margin-bottom:6px}
   .step-sub{color:var(--ink-soft);font-size:14px;line-height:1.5;margin-bottom:18px}
   .step-footer{margin-top:auto;position:sticky;bottom:0;background:var(--bg);padding:14px 0 20px}
-  .chip.removable{padding-right:6px;gap:4px}
+  .chip.removable,.tag.removable{padding-right:6px;padding-top:6px;padding-bottom:6px;gap:4px}
   .chip-minus{width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.7);color:inherit;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
   .chip-minus svg{width:16px;height:16px}
   .only-hint{font-size:12.5px;color:var(--ink-soft);margin-top:8px;line-height:1.4}
@@ -930,11 +930,11 @@
           return '<div class="detail-title">'+g.label+' · '+g.keys.length+'</div><div class="chip-grid">'+
             g.keys.map(function(k){
               var removable = e.items.length > 1;
-              return '<span class="chip selected'+(removable?' removable':'')+'">'+symptomLabel(k)+(removable ? minusButton(e.id, k, symptomLabel(k)) : '')+'</span>';
+              return '<span class="chip selected'+(removable?' removable':'')+'">'+symptomLabel(k)+(removable ? minusButton('symptom', e.id, k, symptomLabel(k)) : '')+'</span>';
             }).join('')+'</div>';
         }).join('')+
         (e.items.length === 1 ? '<p class="only-hint">This is the only symptom, so it can\'t be removed. Delete the entry instead.</p>' : '')+
-        (e.tags.length ? '<div class="detail-title">Anything else going on</div><div class="chip-grid">'+e.tags.map(function(t){return '<span class="tag selected">'+t+'</span>';}).join('')+'</div>' : '')+
+        (e.tags.length ? '<div class="detail-title">Anything else going on</div><div class="chip-grid">'+e.tags.map(function(t){return '<span class="tag selected removable">'+escapeHtml(t)+minusButton('tag', e.id, t, t)+'</span>';}).join('')+'</div>' : '')+
         (e.notes ? '<div class="detail-title">Your note</div><div class="note-card">'+escapeHtml(e.notes)+'</div>' : '')+
         '<div style="display:grid;gap:8px;margin-top:22px">'+
           '<button class="btn btn-primary full" data-edit-entry="'+e.id+'">Edit entry</button>'+
@@ -1149,8 +1149,8 @@
     toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 1700);
   }
 
-  function minusButton(entryId, key, label){
-    return '<button class="chip-minus" data-remove-symptom-from-entry="'+entryId+'" data-key="'+escapeHtml(key)+'" aria-label="Remove '+escapeHtml(label)+'">'+
+  function minusButton(kind, entryId, key, label){
+    return '<button class="chip-minus" data-remove-from-entry="'+kind+'" data-entry-id="'+entryId+'" data-key="'+escapeHtml(key)+'" aria-label="Remove '+escapeHtml(label)+'">'+
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 12h12"/></svg></button>';
   }
 
@@ -1216,10 +1216,11 @@
         return;
       }
 
-      var minus = t.closest('[data-remove-symptom-from-entry]');
+      var minus = t.closest('[data-remove-from-entry]');
       if(minus){
-        state.pendingRemove = { entryId: minus.dataset.removeSymptomFromEntry, key: minus.dataset.key };
-        $('confirmTitle').textContent = 'Remove '+symptomLabel(minus.dataset.key)+'?';
+        var isTag = minus.dataset.removeFromEntry === 'tag';
+        state.pendingRemove = { kind: minus.dataset.removeFromEntry, entryId: minus.dataset.entryId, key: minus.dataset.key };
+        $('confirmTitle').textContent = 'Remove '+(isTag ? minus.dataset.key : symptomLabel(minus.dataset.key))+'?';
         $('confirmDialog').hidden = false;
         return;
       }
@@ -1227,7 +1228,10 @@
       if(t.closest('#confirmRemove')){
         var pr = state.pendingRemove;
         var target = pr && state.symptomLogs.filter(function(l){ return l.id === pr.entryId; })[0];
-        if(target && target.items.length > 1){
+        if(target && pr.kind === 'tag'){
+          target.tags = target.tags.filter(function(tg){ return tg !== pr.key; });
+          openDetail('symptom', pr.entryId); renderHistory();
+        } else if(target && target.items.length > 1){
           target.items = target.items.filter(function(it){ return it.key !== pr.key; });
           openDetail('symptom', pr.entryId); renderHistory();
         }

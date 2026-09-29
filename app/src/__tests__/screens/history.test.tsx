@@ -64,15 +64,21 @@ const pressAlertButton = (spy: jest.SpyInstance, text: string) => {
 };
 
 describe('History: removing a symptom from an entry', () => {
-  it('puts a minus on every symptom but not on the tags, and explains when the last one cannot go', async () => {
+  it('puts a minus on every symptom and every "anything else" tag', async () => {
     seedFullEntry();
     await render(<HistoryScreen />);
     await openEntry();
 
-    for (const label of ['Hoarse voice', 'Heartburn', 'Feeling full', 'Constipation']) {
+    for (const label of [
+      'Hoarse voice',
+      'Heartburn',
+      'Feeling full',
+      'Constipation',
+      'Stress',
+      'Large meal',
+    ]) {
       expect(screen.getByRole('button', { name: `Remove ${label}` })).toBeTruthy();
     }
-    expect(screen.queryByRole('button', { name: 'Remove Stress' })).toBeNull();
     expect(screen.queryByText(/only symptom/)).toBeNull();
   });
 
@@ -115,13 +121,71 @@ describe('History: removing a symptom from an entry', () => {
     alert.mockRestore();
   });
 
-  it('gives the last symptom no minus, and says why', async () => {
+  it('gives the last symptom no minus, and says why (its tags still have one)', async () => {
     createSymptomLog(mockDb, { items: [{ key: 'cough' }], tags: ['stress'] });
     await render(<HistoryScreen />);
     await fireEvent.press(screen.getByRole('button', { name: /^Symptoms: Chest/ }));
 
-    expect(screen.queryByRole('button', { name: /^Remove/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove Nagging cough' })).toBeNull();
     expect(screen.getByText(/only symptom, so it can.t be removed/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove Stress' })).toBeTruthy();
+  });
+});
+
+describe('History: removing an "anything else" tag from an entry', () => {
+  it('asks first, and cancelling changes nothing', async () => {
+    const id = seedFullEntry();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await render(<HistoryScreen />);
+    await openEntry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove Stress' }));
+
+    expect(alert).toHaveBeenLastCalledWith(
+      'Remove Stress?',
+      'It will be taken off this entry.',
+      expect.any(Array),
+    );
+    pressAlertButton(alert, 'Cancel');
+    expect(getSymptomLog(mockDb, id)?.tags).toContain('stress');
+    alert.mockRestore();
+  });
+
+  it('removes just that tag once confirmed, keeping the symptoms and note, and updates the open sheet', async () => {
+    const id = seedFullEntry();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await render(<HistoryScreen />);
+    await openEntry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove Stress' }));
+    await React.act(async () => pressAlertButton(alert, 'Remove'));
+
+    expect(getSymptomLog(mockDb, id)).toMatchObject({
+      tags: ['large_meal'],
+      notes: 'Lost voice',
+      items: expect.arrayContaining([{ key: 'heartburn', score: 1 }]),
+    });
+    expect(screen.queryByRole('button', { name: 'Remove Stress' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Remove Large meal' })).toBeTruthy();
+    expect(screen.getByText(/^7 symptoms · /)).toBeTruthy(); // symptoms untouched
+    alert.mockRestore();
+  });
+
+  it('lets every tag go, and then drops the empty "Anything else going on" heading', async () => {
+    const id = seedFullEntry();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await render(<HistoryScreen />);
+    await openEntry();
+
+    for (const label of ['Stress', 'Large meal']) {
+      await fireEvent.press(screen.getByRole('button', { name: `Remove ${label}` }));
+      await React.act(async () => pressAlertButton(alert, 'Remove'));
+    }
+
+    expect(getSymptomLog(mockDb, id)?.tags).toEqual([]);
+    expect(screen.queryByRole('header', { name: 'Anything else going on' })).toBeNull();
+    expect(screen.getByRole('header', { name: 'Your note' })).toBeTruthy();
+    alert.mockRestore();
   });
 });
 

@@ -114,6 +114,19 @@ export function removeSymptomFromLog(db: AppDb, id: number, key: SymptomKey): vo
   });
 }
 
+/** Takes one lifestyle tag off an entry. Unlike symptoms, tags are optional, so all of them can go. */
+export function removeTagFromLog(db: AppDb, id: number, tag: LifestyleTagKey): void {
+  db.transaction((tx) => {
+    const removed = tx
+      .delete(symptomLogTags)
+      .where(and(eq(symptomLogTags.symptomLogId, id), eq(symptomLogTags.tagKey, tag)))
+      .returning({ id: symptomLogTags.id })
+      .all();
+    if (removed.length === 0) throw new Error('That tag is not on this entry');
+    tx.update(symptomLogs).set({ updatedAt: nowIso() }).where(eq(symptomLogs.id, id)).run();
+  });
+}
+
 export function deleteSymptomLog(db: AppDb, id: number): void {
   // Items and tags go with it (ON DELETE CASCADE).
   db.delete(symptomLogs).where(eq(symptomLogs.id, id)).run();

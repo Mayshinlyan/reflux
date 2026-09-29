@@ -15,11 +15,17 @@ import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
 import { TimelineItem } from '@/components/TimelineItem';
 import { useToast } from '@/components/Toast';
+import type { LifestyleTagKey } from '@/constants/lifestyleTags';
 import type { SymptomKey } from '@/constants/symptomItems';
 import { useDb } from '@/db/DatabaseProvider';
 import { deleteFoodLog, listDiaryFoodLogs } from '@/db/repositories/food';
 import { deleteMedicationLog, listMedicationLogs } from '@/db/repositories/medications';
-import { deleteSymptomLog, listSymptomLogs, removeSymptomFromLog } from '@/db/repositories/symptoms';
+import {
+  deleteSymptomLog,
+  listSymptomLogs,
+  removeSymptomFromLog,
+  removeTagFromLog,
+} from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 import { friendlyMessages } from '@/lib/errors';
 import { dayLabel, localDayKey } from '@/lib/localDay';
@@ -125,17 +131,18 @@ export default function HistoryScreen() {
     ]);
   };
 
-  const confirmRemoveSymptom = (entry: SymptomEntry, key: SymptomKey) => {
-    Alert.alert(`Remove ${symptomLabel(key)}?`, 'It will be taken off this entry.', [
+  /** Asks "Remove X?" and, if confirmed, runs `remove` and refreshes the list and the open sheet. */
+  const confirmRemove = (label: string, operation: string, remove: () => void) => {
+    Alert.alert(`Remove ${label}?`, 'It will be taken off this entry.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
         style: 'destructive',
         onPress: () => {
           try {
-            removeSymptomFromLog(db, entry.id, key);
+            remove();
           } catch (error) {
-            logger.error('removeSymptom', error);
+            logger.error(operation, error);
             Alert.alert("Couldn't remove", friendlyMessages.INTERNAL);
             return;
           }
@@ -145,6 +152,10 @@ export default function HistoryScreen() {
       },
     ]);
   };
+  const confirmRemoveSymptom = (entry: SymptomEntry, key: SymptomKey) =>
+    confirmRemove(symptomLabel(key), 'removeSymptom', () => removeSymptomFromLog(db, entry.id, key));
+  const confirmRemoveTag = (entry: SymptomEntry, tag: LifestyleTagKey) =>
+    confirmRemove(tagLabel(tag), 'removeTag', () => removeTagFromLog(db, entry.id, tag));
 
   // Open the editor only after the sheet has finished sliding away, so the new screen
   // doesn't push in underneath a closing modal.
@@ -220,6 +231,7 @@ export default function HistoryScreen() {
             onEdit={edit}
             onDelete={confirmDelete}
             onRemoveSymptom={confirmRemoveSymptom}
+            onRemoveTag={confirmRemoveTag}
           />
         )}
       </BottomSheet>
@@ -232,11 +244,13 @@ function EntryDetail({
   onEdit,
   onDelete,
   onRemoveSymptom,
+  onRemoveTag,
 }: {
   entry: TimelineEntry;
   onEdit: (entry: TimelineEntry) => void;
   onDelete: (entry: TimelineEntry) => void;
   onRemoveSymptom: (entry: SymptomEntry, key: SymptomKey) => void;
+  onRemoveTag: (entry: SymptomEntry, tag: LifestyleTagKey) => void;
 }) {
   const colors = useColors();
   const when = `${dayLabel(localDayKey(entry.at, entry.tz))} · ${entry.time}`;
@@ -275,7 +289,13 @@ function EntryDetail({
             <DetailSection title="Anything else going on">
               <View style={styles.chips}>
                 {entry.log.tags.map((tag) => (
-                  <TagChip key={tag} label={tagLabel(tag)} selected readOnly />
+                  <TagChip
+                    key={tag}
+                    label={tagLabel(tag)}
+                    selected
+                    readOnly
+                    onRemove={() => onRemoveTag(entry, tag)}
+                  />
                 ))}
               </View>
             </DetailSection>

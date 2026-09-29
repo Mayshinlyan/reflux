@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { Minus } from 'lucide-react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { radius, typography, useColors } from '@/theme';
 
@@ -11,11 +12,36 @@ type Props = {
   /** 'toggle' = a multi-select tag (checkbox); 'filter' = one of a set of filters (tab); 'button' = opens something. */
   role?: 'toggle' | 'filter' | 'button';
   readOnly?: boolean;
+  /** Shows a minus button on the chip that calls this (used to remove a tag from a saved entry). */
+  onRemove?: () => void;
 };
 
 /** Small pill for lifestyle tags and filter rows. Selected = clay tint, per the style guide. */
-export function TagChip({ label, selected, onPress, role = 'toggle', readOnly }: Props) {
+export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, onRemove }: Props) {
   const colors = useColors();
+  const colorStyle = selected
+    ? { backgroundColor: colors.clayTint, borderColor: colors.clay }
+    : { backgroundColor: colors.surface, borderColor: colors.hairline };
+
+  // The label and the minus are separate accessibility elements, so a screen reader can reach
+  // both ("Stress" and the button "Remove Stress").
+  if (onRemove) {
+    return (
+      <View style={[styles.tag, styles.removable, colorStyle]}>
+        <AppText accessible accessibilityRole="text" style={[styles.label, { color: colors.clayInk }]}>
+          {label}
+        </AppText>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${label}`}
+          onPress={onRemove}
+          hitSlop={6}
+          style={({ pressed }) => [styles.minus, { opacity: pressed ? 0.6 : 1 }]}>
+          <Minus size={16} color={colors.clayInk} strokeWidth={2.8} />
+        </Pressable>
+      </View>
+    );
+  }
   return (
     <Pressable
       disabled={readOnly}
@@ -26,12 +52,7 @@ export function TagChip({ label, selected, onPress, role = 'toggle', readOnly }:
         role === 'filter' ? { selected } : role === 'button' ? undefined : { checked: selected }
       }
       hitSlop={4}
-      style={[
-        styles.tag,
-        selected
-          ? { backgroundColor: colors.clayTint, borderColor: colors.clay }
-          : { backgroundColor: colors.surface, borderColor: colors.hairline },
-      ]}>
+      style={[styles.tag, colorStyle]}>
       <AppText style={[styles.label, { color: selected ? colors.clayInk : colors.inkSoft }]}>{label}</AppText>
     </Pressable>
   );
@@ -46,4 +67,14 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   label: { ...typography.label, fontSize: 14, fontFamily: typography.bodyEm.fontFamily },
+  // Same size as the removable symptom chips so the two rows line up.
+  removable: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 6, paddingVertical: 6 },
+  minus: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFFB3',
+  },
 });
