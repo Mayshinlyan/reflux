@@ -1,7 +1,9 @@
-import { StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import type { MealAnalysis } from '@/types/analysis';
-import { radius, space, useColors } from '@/theme';
+import { mainIngredients } from '@/lib/ingredients';
+import { minTouchTarget, radius, space, useColors } from '@/theme';
+import type { MealAnalysis, MealItem } from '@/types/analysis';
 
 import { AppText } from './AppText';
 import { VerdictBadge } from './VerdictBadge';
@@ -28,11 +30,7 @@ export function MealResultCard({ analysis }: { analysis: MealAnalysis }) {
             </AppText>
             <VerdictBadge verdict={item.verdict} />
           </View>
-          {item.ingredients.length > 0 && (
-            <AppText variant="caption" color="inkSoft">
-              {item.ingredients.map((ingredient) => ingredient.name).join(', ')}
-            </AppText>
-          )}
+          <IngredientLine ingredients={item.ingredients} />
           <AppText variant="caption" color="inkSoft">
             {item.reasoning}
           </AppText>
@@ -42,7 +40,40 @@ export function MealResultCard({ analysis }: { analysis: MealAnalysis }) {
   );
 }
 
+/** Main ingredients by default (triggers always included); "Show all" reveals the rest. */
+function IngredientLine({ ingredients }: { ingredients: MealItem['ingredients'] }) {
+  const colors = useColors();
+  const [expanded, setExpanded] = useState(false);
+  if (ingredients.length === 0) return null;
+
+  const { shown, hiddenCount } = mainIngredients(ingredients);
+  const visible = expanded ? ingredients : shown;
+  return (
+    <View>
+      <AppText variant="caption" color="inkSoft">
+        {expanded || hiddenCount === 0 ? 'Ingredients: ' : 'Main ingredients: '}
+        {visible.map((ingredient) => ingredient.name).join(', ')}
+      </AppText>
+      {hiddenCount > 0 && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            expanded ? 'Show fewer ingredients' : `Show all ${ingredients.length} ingredients`
+          }
+          accessibilityState={{ expanded }}
+          onPress={() => setExpanded((value) => !value)}
+          style={styles.toggle}>
+          <AppText variant="caption" style={{ color: colors.cta }}>
+            {expanded ? 'Show fewer' : `Show all ${ingredients.length}`}
+          </AppText>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  toggle: { minHeight: minTouchTarget, justifyContent: 'center', alignSelf: 'flex-start' },
   card: { borderWidth: 1, borderRadius: radius.lg, padding: space.s2, gap: space.s1, marginBottom: space.s1 },
   item: { borderWidth: 1, borderRadius: radius.md, padding: space.s2, gap: 4, marginBottom: space.s1 },
   itemHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s1 },
