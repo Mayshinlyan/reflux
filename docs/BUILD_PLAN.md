@@ -48,7 +48,7 @@ Superseded earlier choices: Cloud SQL, Prisma, GCS photo storage and account lin
 | Companion pet | An animal companion on Today that grows with consistent, reflux-friendly logging (see Navigation & Screens). The user picks the animal (dog is the default) and can rename it. Progress is derived from the log history; only name + animal are stored. Local-only; purely motivational, no medical claims |
 | Design | Design system from mockups, light mode, accessibility basics |
 | Data | On-device SQLite + Drizzle, backup-before-migrate |
-| Relay | `/healthz`, `/v1/analyze-food`, sourced ruleset, strict output schema, prompt caching, version stamps, kill switch |
+| Relay | `/health`, `/v1/analyze-food`, sourced ruleset, strict output schema, prompt caching, version stamps, kill switch |
 | Security | Anonymous auth, per-user + global daily caps, Anthropic spend limit, GCP budget alert, input limits, server-side image sanitizing, strict output schema, Firestore deny-all, Secret Manager, least-privilege IAM, max instances, redacted logs |
 | Logging | pino → Cloud Logging / Error Reporting, error contract, request IDs, Sentry for JS errors (scrubbed) |
 | Dev / CI / CD | One GCP/Firebase project + Firebase emulators locally; CI tests (incl. security tests), CodeQL, Dependabot, secret scanning; relay auto-deploys to Cloud Run |
@@ -230,7 +230,7 @@ Defined in `app/src/db/schema.ts`. Migrations are generated with `drizzle-kit ge
 ## Relay API (Cloud Run)
 
 ```
-GET  /healthz            # liveness check for Cloud Run probes, deploy smoke test
+GET  /health            # liveness check for Cloud Run probes, deploy smoke test
 POST /v1/analyze-food
   headers: Authorization (Firebase anon ID token), X-Request-Id
   body: multipart { photo } OR JSON { text }
@@ -361,7 +361,7 @@ Also: `codeql.yml`, Dependabot, `npm audit --audit-level=high`, Actions pinned t
 1. Authenticate via Workload Identity Federation.
 2. Build the image and push to Artifact Registry, tagged with the SHA.
 3. `gcloud run deploy`.
-4. Smoke test `/healthz`. On failure, roll back to the previous revision.
+4. Smoke test `/health`. On failure, roll back to the previous revision.
 
 The app has no deploy step in the MVP; testers load it from the dev server in Expo Go.
 
@@ -382,7 +382,7 @@ The app has no deploy step in the MVP; testers load it from the dev server in Ex
 ### MVP
 
 0. **Skills + docs + mockups.** Install and verify both skills, `git init`, PRD + runbook, clickable mockups to user sign-off.
-1. **Skeleton + CI + logging.** Expo app (TypeScript, SDK matching Expo Go) with theme tokens; Express relay with `/healthz`, pino, error contract; Sentry (JS); strict TypeScript, ESLint, Prettier, husky; `ci.yml` + CodeQL + Dependabot green on a private GitHub repo. Verify: the app opens in Expo Go on your phone, `/healthz` returns 200, a forced error appears in Sentry (no app data) and in Cloud Error Reporting (with request ID).
+1. **Skeleton + CI + logging.** Expo app (TypeScript, SDK matching Expo Go) with theme tokens; Express relay with `/health`, pino, error contract; Sentry (JS); strict TypeScript, ESLint, Prettier, husky; `ci.yml` + CodeQL + Dependabot green on a private GitHub repo. Verify: the app opens in Expo Go on your phone, `/health` returns 200, a forced error appears in Sentry (no app data) and in Cloud Error Reporting (with request ID).
 2. **Local database.** Schema, first migration, backup-then-migrate, repositories and tests. Verify: fresh install creates tables; a second migration applies over seeded data; a simulated failure restores the backup.
 3. **Symptoms + tags.** Quick log, History, edit/delete. Verify: 2 chips + 2 tags stored; correct local-day grouping; data persists across app restarts.
 4. **Medications + settings.** My meds, one-tap logging, bedtime. Verify: a medication logged in one tap appears on Today and in History.

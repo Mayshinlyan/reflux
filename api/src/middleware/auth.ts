@@ -16,13 +16,19 @@ declare global {
 export function firebaseAuth(verifier: TokenVerifier) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const match = /^Bearer (\S+)$/.exec(req.get('authorization') ?? '');
-    if (!match?.[1]) return next(new HttpError('AUTH_FAILED'));
+    if (!match?.[1]) return next(new HttpError('AUTH_FAILED', undefined, { reason: 'missing-bearer' }));
     try {
       const { uid } = await verifier.verify(match[1]);
       res.locals.uid = uid;
       next();
-    } catch {
-      next(new HttpError('AUTH_FAILED'));
+    } catch (error) {
+      // Log the verifier's error code (e.g. auth/argument-error), never the token or its message.
+      const code = (error as { code?: unknown } | null)?.code;
+      next(
+        new HttpError('AUTH_FAILED', undefined, {
+          reason: typeof code === 'string' ? code : 'unknown',
+        }),
+      );
     }
   };
 }

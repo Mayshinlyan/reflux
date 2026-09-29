@@ -39,6 +39,7 @@ export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 const MAX_TOKENS = 1200;
 const TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 1;
+const RETRY_DELAY_MS = 750;
 
 /**
  * Request parameters that differ by model generation. Claude 5.x models reject forced
@@ -64,7 +65,10 @@ export function createClaudeService(options: {
   apiKey: string;
   model?: string;
   client?: Anthropic;
+  /** Pause before the single retry; tests set 0. */
+  retryDelayMs?: number;
 }): ClaudeService {
+  const retryDelayMs = options.retryDelayMs ?? RETRY_DELAY_MS;
   const model = options.model ?? DEFAULT_MODEL;
   // The SDK's own retries are off; we retry once ourselves so the count can be reported.
   const client =
@@ -130,6 +134,7 @@ export function createClaudeService(options: {
           if (error instanceof HttpError) throw error;
           if (retries < MAX_RETRIES && isRetryable(error)) {
             retries += 1;
+            await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
             continue;
           }
           throw toHttpError(error);
@@ -149,8 +154,14 @@ function isRetryable(error: unknown): boolean {
 }
 
 function toHttpError(error: unknown): HttpError {
-  if (error instanceof Anthropic.APIConnectionTimeoutError) return new HttpError('AI_TIMEOUT');
-  return new HttpError('AI_UPSTREAM_ERROR');
+  const logContext =
+    error instanceof Anthropic.APIError
+      ? { upstreamStatus: error.status ?? null, upstreamRequestId: error.requestID ?? null }
+      : { upstreamStatus: null, upstreamRequestId: null };
+  if (error instanceof Anthropic.APIConnectionTimeoutError) {
+    return new HttpError('AI_TIMEOUT', undefined, logContext);
+  }
+  return new HttpError('AI_UPSTREAM_ERROR', undefined, logContext);
 }
 
 /** Used when no API key is configured: analysis reports busy instead of crashing the process. */

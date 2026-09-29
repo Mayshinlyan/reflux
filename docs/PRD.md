@@ -103,7 +103,7 @@ On-device SQLite tables: `symptom_logs` / `symptom_log_items` / `symptom_log_tag
 
 ## 11. Relay API (summary)
 
-`GET /healthz` (liveness) and `POST /v1/analyze-food` (the one functional endpoint — accepts a photo or text, returns a structured multi-item meal analysis). Versioned under `/v1` so future API changes don't break installed app versions; full endpoint and middleware spec is in the build plan.
+`GET /health` (liveness) and `POST /v1/analyze-food` (the one functional endpoint — accepts a photo or text, returns a structured multi-item meal analysis). Versioned under `/v1` so future API changes don't break installed app versions; full endpoint and middleware spec is in the build plan.
 
 ## 12. Success Metrics
 
