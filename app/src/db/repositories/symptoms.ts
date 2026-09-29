@@ -1,13 +1,17 @@
 import { and, asc, eq, gte, inArray, lt } from 'drizzle-orm';
 
 import { LIFESTYLE_TAG_KEYS, type LifestyleTagKey } from '@/constants/lifestyleTags';
-import { MAX_SCORE, SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
+import { QUICK_LOG_SCORE, SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
 import { currentTimeZone, nowIso } from '@/lib/time';
 
 import { type SymptomLog, symptomLogItems, symptomLogs, symptomLogTags } from '../schema';
 import type { AppDb } from '../types';
 
-export type SymptomItemInput = { key: SymptomKey; score: number };
+/** The quick log records that a symptom was felt; it does not rate severity. */
+export type SymptomItemInput = { key: SymptomKey };
+
+/** As stored. Quick logs always have QUICK_LOG_SCORE; only the RSI check-in (M2) varies it. */
+export type StoredSymptomItem = { key: SymptomKey; score: number };
 
 export type SymptomLogInput = {
   items: SymptomItemInput[];
@@ -19,12 +23,10 @@ export type SymptomLogInput = {
 };
 
 export type SymptomLogWithDetails = SymptomLog & {
-  items: SymptomItemInput[];
+  items: StoredSymptomItem[];
   tags: LifestyleTagKey[];
 };
 
-/** Quick logs score 1–5 (a symptom you tapped is at least 1). */
-const MIN_QUICK_SCORE = 1;
 const MAX_NOTES_LENGTH = 1000;
 
 function validate(input: SymptomLogInput): void {
@@ -34,9 +36,6 @@ function validate(input: SymptomLogInput): void {
     if (!SYMPTOM_KEYS.includes(item.key)) throw new Error(`Unknown symptom: ${item.key}`);
     if (seen.has(item.key)) throw new Error(`Duplicate symptom: ${item.key}`);
     seen.add(item.key);
-    if (!Number.isInteger(item.score) || item.score < MIN_QUICK_SCORE || item.score > MAX_SCORE) {
-      throw new Error(`Score must be ${MIN_QUICK_SCORE}–${MAX_SCORE}`);
-    }
   }
   for (const tag of input.tags ?? []) {
     if (!LIFESTYLE_TAG_KEYS.includes(tag)) throw new Error(`Unknown tag: ${tag}`);
@@ -46,7 +45,7 @@ function validate(input: SymptomLogInput): void {
 
 function writeChildren(tx: AppDb, logId: number, input: SymptomLogInput): void {
   tx.insert(symptomLogItems)
-    .values(input.items.map((item) => ({ symptomLogId: logId, itemKey: item.key, score: item.score })))
+    .values(input.items.map((item) => ({ symptomLogId: logId, itemKey: item.key, score: QUICK_LOG_SCORE })))
     .run();
   const tags = [...new Set(input.tags ?? [])];
   if (tags.length > 0) {

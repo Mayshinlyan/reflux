@@ -97,13 +97,10 @@
   .chip .dot{width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.6);border:1.5px solid var(--sage);display:flex;align-items:center;justify-content:center;cursor:pointer}
   .chip .dot.on{background:var(--sage-ink);border-color:var(--sage-ink)}
   .bodymap{display:block;width:100%;max-width:340px;margin:0 auto}
-  .bodymap .body-shape{fill:var(--surface-2);stroke:var(--hairline);stroke-width:2}
-  .bodymap .face{fill:var(--ink)}
-  .bodymap .smile{fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round}
   .bodymap .zone{cursor:pointer;outline:none}
-  .bodymap .zone-shape{fill:var(--clay-tint);fill-opacity:.55;stroke:var(--clay);stroke-width:2;stroke-dasharray:5 4;transition:fill-opacity .15s}
-  .bodymap .zone:hover .zone-shape,.bodymap .zone:focus-visible .zone-shape{fill-opacity:1}
-  .bodymap .zone.on .zone-shape{fill:var(--sage-tint);fill-opacity:1;stroke:var(--sage);stroke-dasharray:none}
+  .bodymap .zone-shape{fill:var(--clay-tint);fill-opacity:.18;stroke:var(--clay);stroke-width:2;stroke-dasharray:5 4;transition:fill-opacity .15s}
+  .bodymap .zone:hover .zone-shape,.bodymap .zone:focus-visible .zone-shape{fill-opacity:.4}
+  .bodymap .zone.on .zone-shape{fill:#fff;fill-opacity:.28;stroke:var(--sage-ink);stroke-width:3;stroke-dasharray:none}
   .bodymap .zone-leader{stroke:var(--hairline);stroke-width:2}
   .bodymap .zone-label{font-family:inherit;font-weight:700;font-size:14px;fill:var(--ink)}
   .bodymap .badge-dot{fill:var(--cta)}
@@ -988,39 +985,32 @@
   }
 
   // ---------- Log symptoms ----------
-  // Body areas -> the symptoms shown after tapping them (a few at a time, never all 13).
+  // Body areas -> the symptoms shown after tapping them (a few at a time, never all 12).
   var ZONES = {
     throat: {label:'Throat & voice', keys:['hoarseness','throat_clearing','mucus','swallowing','lump']},
     chest:  {label:'Chest', keys:['heartburn','breathing','cough_after_eating','cough']},
-    tummy:  {label:'Tummy', keys:['stomach_pain','feeling_full','constipation']},
-    other:  {label:'Something else', keys:['sleep']}
+    tummy:  {label:'Tummy', keys:['stomach_pain','feeling_full','constipation']}
   };
   function zoneCount(zone){ return ZONES[zone].keys.filter(function(k){ return state.selectedSymptoms[k]; }).length; }
 
   function zoneSvg(zone, shape, leader, label, badge){
     var n = zoneCount(zone);
     return '<g class="zone'+(n?' on':'')+'" data-zone="'+zone+'" role="button" tabindex="0" aria-label="'+ZONES[zone].label+(n?', '+n+' selected':'')+'">'+
-      shape+'<line class="zone-leader" x1="'+leader[0]+'" y1="'+leader[1]+'" x2="208" y2="'+leader[1]+'"/>'+
-      '<text class="zone-label" x="214" y="'+(leader[1]+5)+'">'+label+'</text>'+
+      shape+'<line class="zone-leader" x1="'+leader[0]+'" y1="'+leader[1]+'" x2="226" y2="'+leader[1]+'"/>'+
+      '<text class="zone-label" x="232" y="'+(leader[1]+5)+'">'+label+'</text>'+
       (n ? '<circle class="badge-dot" cx="'+badge[0]+'" cy="'+badge[1]+'" r="10"/><text class="badge-num" x="'+badge[0]+'" y="'+(badge[1]+4)+'">'+n+'</text>' : '')+
       '</g>';
   }
   function bodyMapSvg(){
-    return '<svg class="bodymap" viewBox="0 0 360 300" role="group" aria-label="Body map. Tap an area to choose symptoms.">'+
-      '<path class="body-shape" d="M62 150 Q62 118 102 116 L158 116 Q198 118 198 150 L198 292 L62 292 Z"/>'+
-      '<rect class="body-shape" x="114" y="92" width="32" height="26" rx="10"/>'+
-      '<ellipse class="body-shape" cx="130" cy="52" rx="38" ry="44"/>'+
-      '<circle class="face" cx="117" cy="52" r="3.2"/><circle class="face" cx="143" cy="52" r="3.2"/>'+
-      '<path class="smile" d="M120 66 Q130 74 140 66"/>'+
-      zoneSvg('throat','<rect class="zone-shape" x="106" y="88" width="48" height="36" rx="18"/>',[156,106],'Throat &amp; voice',[154,92])+
-      zoneSvg('chest','<rect class="zone-shape" x="74" y="128" width="112" height="64" rx="26"/>',[188,160],'Chest',[184,132])+
-      zoneSvg('tummy','<rect class="zone-shape" x="80" y="202" width="100" height="62" rx="26"/>',[182,233],'Tummy',[178,206])+
+    return '<svg class="bodymap" viewBox="0 0 360 328" role="group" aria-label="Body map. Tap an area to choose symptoms.">'+
+      '<image href="torso.png" x="14" y="4" width="225" height="318" aria-hidden="true"/>'+
+      zoneSvg('throat','<rect class="zone-shape" x="110" y="35" width="52" height="44" rx="18"/>',[162,57],'Throat &amp; voice',[160,38])+
+      zoneSvg('chest','<rect class="zone-shape" x="63" y="82" width="130" height="70" rx="26"/>',[193,117],'Chest',[190,86])+
+      zoneSvg('tummy','<rect class="zone-shape" x="69" y="157" width="122" height="148" rx="30"/>',[191,231],'Tummy',[187,161])+
       '</svg>';
   }
   function refreshSymptomMap(){
-    var otherN = zoneCount('other');
-    $('bodyMap').innerHTML = bodyMapSvg()+
-      '<div class="chip-grid" style="justify-content:center;margin-top:8px"><span class="tag'+(otherN?' selected':'')+'" data-zone="other">Something else'+(otherN?' · '+otherN:'')+'</span></div>';
+    $('bodyMap').innerHTML = bodyMapSvg();
     renderSymptomStep();
   }
   // Three short steps: 1 body area + symptoms, 2 lifestyle tags, 3 note + save.

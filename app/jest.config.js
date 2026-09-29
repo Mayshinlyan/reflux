@@ -3,6 +3,8 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.ts?(x)'],
   // Metro resolves lucide's ESM build; Jest needs its CommonJS build.
   moduleNameMapper: {
+    // `@/assets/*` lives outside src (see tsconfig paths); must come before the generic `@/*` mapping.
+    '^@/assets/(.*)$': '<rootDir>/assets/$1',
     '^lucide-react-native$': '<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js',
   },
   transformIgnorePatterns: [

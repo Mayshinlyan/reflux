@@ -65,7 +65,7 @@ describe('migrations', () => {
     const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'reflux-db-')), 'reflux.db');
     const first = createTestDb({ file });
     createSymptomLog(first.db, {
-      items: [{ key: 'heartburn', score: 3 }],
+      items: [{ key: 'heartburn' }],
       loggedAt: '2026-09-28T08:00:00.000Z',
     });
     first.sqlite.close();
@@ -86,7 +86,7 @@ describe('migrations', () => {
     const backupFile = path.join(dir, 'reflux.backup-1.db');
     const seeded = createTestDb({ file });
     createSymptomLog(seeded.db, {
-      items: [{ key: 'cough', score: 2 }],
+      items: [{ key: 'cough' }],
       loggedAt: '2026-09-28T08:00:00.000Z',
     });
     seeded.sqlite.close();
@@ -121,7 +121,7 @@ describe('migrations', () => {
 
     const db = drizzle(sqlite, { schema }) as unknown as AppDb;
     expect(listSymptomLogs(db, DAY)).toEqual([
-      expect.objectContaining({ items: [{ key: 'cough', score: 2 }] }),
+      expect.objectContaining({ items: [{ key: 'cough', score: 1 }] }),
     ]);
     const columns = (sqlite.prepare('PRAGMA table_info(symptom_logs)').all() as { name: string }[]).map(
       (column) => column.name,
@@ -209,7 +209,7 @@ describe('table rebuild migrations', () => {
   function seededDb() {
     const { db, sqlite } = createTestDb();
     createSymptomLog(db, {
-      items: [{ key: 'heartburn', score: 3 }],
+      items: [{ key: 'heartburn' }],
       tags: ['stress'],
       loggedAt: '2026-09-28T08:00:00.000Z',
     });
@@ -241,7 +241,7 @@ describe('table rebuild migrations', () => {
 
     expect(childRows(sqlite)).toBe(2);
     expect(listSymptomLogs(db, DAY)[0]).toMatchObject({
-      items: [{ key: 'heartburn', score: 3 }],
+      items: [{ key: 'heartburn' }],
       tags: ['stress'],
     });
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1);

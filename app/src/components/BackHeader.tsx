@@ -6,15 +6,18 @@ import { minTouchTarget, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
-/** The mockup's back row: chevron + screen title. */
-export function BackHeader({ title }: { title: string }) {
+/**
+ * The mockup's back row: chevron + screen title. Pass `onBack` when the screen has its own
+ * inner steps to walk back through before leaving.
+ */
+export function BackHeader({ title, onBack }: { title: string; onBack?: () => void }) {
   const colors = useColors();
   return (
     <View style={styles.row}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Back"
-        onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+        onPress={onBack ?? (() => (router.canGoBack() ? router.back() : router.replace('/')))}
         style={styles.back}>
         <ChevronLeft size={26} color={colors.ink} strokeWidth={2.2} />
       </Pressable>

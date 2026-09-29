@@ -8,8 +8,8 @@ type Props = {
   label: string;
   selected: boolean;
   onPress?: () => void;
-  /** 'toggle' = a multi-select tag (checkbox); 'filter' = one of a set of filters (tab). */
-  role?: 'toggle' | 'filter';
+  /** 'toggle' = a multi-select tag (checkbox); 'filter' = one of a set of filters (tab); 'button' = opens something. */
+  role?: 'toggle' | 'filter' | 'button';
   readOnly?: boolean;
 };
 
@@ -20,9 +20,11 @@ export function TagChip({ label, selected, onPress, role = 'toggle', readOnly }:
     <Pressable
       disabled={readOnly}
       onPress={onPress}
-      accessibilityRole={role === 'filter' ? 'tab' : 'checkbox'}
+      accessibilityRole={role === 'filter' ? 'tab' : role === 'button' ? 'button' : 'checkbox'}
       accessibilityLabel={label}
-      accessibilityState={role === 'filter' ? { selected } : { checked: selected }}
+      accessibilityState={
+        role === 'filter' ? { selected } : role === 'button' ? undefined : { checked: selected }
+      }
       hitSlop={4}
       style={[
         styles.tag,

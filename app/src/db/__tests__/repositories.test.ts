@@ -76,10 +76,7 @@ describe('symptom logs', () => {
   it('stores symptoms and tags together and reads them back', () => {
     const { db } = createTestDb();
     const id = createSymptomLog(db, {
-      items: [
-        { key: 'heartburn', score: 3 },
-        { key: 'hoarseness', score: 2 },
-      ],
+      items: [{ key: 'heartburn' }, { key: 'hoarseness' }],
       tags: ['large_meal', 'lay_down_after_eating'],
       notes: ' after dinner ',
       loggedAt: '2026-09-28T20:20:00.000Z',
@@ -90,8 +87,8 @@ describe('symptom logs', () => {
     expect(log).toMatchObject({ kind: 'quick', notes: 'after dinner', tz: 'Europe/London' });
     expect(log?.items).toEqual(
       expect.arrayContaining([
-        { key: 'heartburn', score: 3 },
-        { key: 'hoarseness', score: 2 },
+        { key: 'heartburn', score: 1 },
+        { key: 'hoarseness', score: 1 },
       ]),
     );
     expect(log?.tags.sort()).toEqual(['large_meal', 'lay_down_after_eating']);
@@ -99,9 +96,9 @@ describe('symptom logs', () => {
 
   it('lists logs in a time range, oldest first', () => {
     const { db } = createTestDb();
-    createSymptomLog(db, { items: [{ key: 'cough', score: 1 }], loggedAt: '2026-09-28T21:00:00.000Z' });
-    createSymptomLog(db, { items: [{ key: 'lump', score: 2 }], loggedAt: '2026-09-28T08:00:00.000Z' });
-    createSymptomLog(db, { items: [{ key: 'sleep', score: 4 }], loggedAt: '2026-09-27T23:59:59.000Z' });
+    createSymptomLog(db, { items: [{ key: 'cough' }], loggedAt: '2026-09-28T21:00:00.000Z' });
+    createSymptomLog(db, { items: [{ key: 'lump' }], loggedAt: '2026-09-28T08:00:00.000Z' });
+    createSymptomLog(db, { items: [{ key: 'sleep' }], loggedAt: '2026-09-27T23:59:59.000Z' });
 
     const logs = listSymptomLogs(db, DAY);
     expect(logs.map((log) => log.items[0]?.key)).toEqual(['lump', 'cough']);
@@ -109,16 +106,16 @@ describe('symptom logs', () => {
 
   it('replaces items and tags on update', () => {
     const { db } = createTestDb();
-    const id = createSymptomLog(db, { items: [{ key: 'heartburn', score: 3 }], tags: ['stress'] });
+    const id = createSymptomLog(db, { items: [{ key: 'heartburn' }], tags: ['stress'] });
 
-    updateSymptomLog(db, id, { items: [{ key: 'mucus', score: 5 }], tags: [] });
+    updateSymptomLog(db, id, { items: [{ key: 'mucus' }], tags: [] });
 
-    expect(getSymptomLog(db, id)).toMatchObject({ items: [{ key: 'mucus', score: 5 }], tags: [] });
+    expect(getSymptomLog(db, id)).toMatchObject({ items: [{ key: 'mucus' }], tags: [] });
   });
 
   it('deletes items and tags with the log (cascade)', () => {
     const { db } = createTestDb();
-    const id = createSymptomLog(db, { items: [{ key: 'heartburn', score: 3 }], tags: ['stress'] });
+    const id = createSymptomLog(db, { items: [{ key: 'heartburn' }], tags: ['stress'] });
 
     deleteSymptomLog(db, id);
 
@@ -127,20 +124,16 @@ describe('symptom logs', () => {
     expect(db.select({ n: count() }).from(symptomLogTags).get()?.n).toBe(0);
   });
 
-  it('rejects empty logs, unknown keys, duplicates and out-of-range scores', () => {
+  it('rejects empty logs, unknown keys and duplicates', () => {
     const { db } = createTestDb();
     expect(() => createSymptomLog(db, { items: [] })).toThrow();
     // @ts-expect-error unknown key
-    expect(() => createSymptomLog(db, { items: [{ key: 'nausea', score: 2 }] })).toThrow();
+    expect(() => createSymptomLog(db, { items: [{ key: 'nausea' }] })).toThrow();
     expect(() =>
       createSymptomLog(db, {
-        items: [
-          { key: 'cough', score: 2 },
-          { key: 'cough', score: 3 },
-        ],
+        items: [{ key: 'cough' }, { key: 'cough' }],
       }),
     ).toThrow();
-    expect(() => createSymptomLog(db, { items: [{ key: 'cough', score: 9 }] })).toThrow();
   });
 
   it('is protected by CHECK constraints even if validation is bypassed', () => {

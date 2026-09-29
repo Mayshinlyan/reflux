@@ -205,7 +205,7 @@ function EntryDetail({
           </AppText>
           <View style={styles.chips}>
             {entry.log.items.map((item) => (
-              <SymptomChip key={item.key} label={symptomLabel(item.key)} score={item.score} readOnly />
+              <SymptomChip key={item.key} label={symptomLabel(item.key)} selected readOnly />
             ))}
           </View>
           {entry.log.tags.length > 0 && (
