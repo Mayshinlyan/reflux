@@ -4,6 +4,7 @@ import { Alert, type AlertButton } from 'react-native';
 
 import HistoryScreen from '@/app/history';
 import { createTestDb } from '@/db/__tests__/testDb';
+import { createFoodLog } from '@/db/repositories/food';
 import { createSymptomLog, getSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 import { lightColors } from '@/theme';
@@ -260,5 +261,26 @@ describe('History: symptom entry', () => {
     expect(backgroundOf('Edit entry')).toBe(lightColors.cta);
     // Delete does not compete with it: no tinted fill, just red text on the sheet.
     expect(backgroundOf('Delete')).toBe(lightColors.surface);
+  });
+});
+
+describe('History: saved meals', () => {
+  it('lists a meal saved from Log food', async () => {
+    createFoodLog(mockDb, {
+      entryType: 'diary',
+      source: 'text',
+      inputText: 'oatmeal with banana',
+      analysis: {
+        isFood: true,
+        mealName: 'Oatmeal with banana',
+        items: [],
+        overall: { verdict: 'ok', confidence: 'high', reasoning: 'Gentle breakfast.' },
+      },
+      meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
+    });
+
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('Oatmeal with banana')).toBeTruthy();
   });
 });

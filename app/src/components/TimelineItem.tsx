@@ -1,4 +1,4 @@
-import { Activity, Camera, type LucideIcon, Pill } from 'lucide-react-native';
+import { Activity, Carrot, type LucideIcon, Pill } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -9,7 +9,7 @@ import { AppText } from './AppText';
 
 const KIND_STYLE: Record<TimelineKind, { icon: LucideIcon; bg: ColorToken; fg: ColorToken; noun: string }> = {
   symptom: { icon: Activity, bg: 'sageTint', fg: 'sageInk', noun: 'Symptoms' },
-  food: { icon: Camera, bg: 'surface2', fg: 'inkSoft', noun: 'Meal' },
+  food: { icon: Carrot, bg: 'surface2', fg: 'inkSoft', noun: 'Meal' },
   medication: { icon: Pill, bg: 'clayTint', fg: 'clayInk', noun: 'Medication' },
 };
 
