@@ -10,6 +10,11 @@ const envSchema = z.object({
   ANALYSIS_ENABLED: booleanString.default(true),
   PER_USER_DAILY_LIMIT: z.coerce.number().int().positive().default(30),
   GLOBAL_DAILY_LIMIT: z.coerce.number().int().positive().default(300),
+  /** Injected from Secret Manager in the cloud. Never logged. */
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  ANTHROPIC_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
+  /** Optional: Application Default Credentials normally supply the project. */
+  FIREBASE_PROJECT_ID: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

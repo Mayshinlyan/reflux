@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import { MulterError } from 'multer';
 
 import { errorBody, HttpError } from '../errors.js';
 
@@ -19,6 +20,9 @@ export function errorHandler(error: unknown, _req: Request, res: Response, _next
 
 function toHttpError(error: unknown): HttpError {
   if (error instanceof HttpError) return error;
+  if (error instanceof MulterError) {
+    return new HttpError(error.code === 'LIMIT_FILE_SIZE' ? 'UPLOAD_TOO_LARGE' : 'INPUT_REJECTED');
+  }
   // body-parser errors carry a `type`; map them without echoing any of the input.
   const type = (error as { type?: unknown } | null)?.type;
   if (type === 'entity.too.large') return new HttpError('UPLOAD_TOO_LARGE');

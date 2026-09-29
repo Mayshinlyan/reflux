@@ -48,6 +48,23 @@ gcloud run services update-traffic reflux-relay --region <region> \
 
 `deploy-api.yml` does this automatically on a failed `/healthz` smoke test; use this manually if a bad revision passed the smoke test but misbehaves under real use.
 
+## Step 5 setup checklist for the owner
+
+The relay code for `POST /v1/analyze-food` is built and tested with Claude and Firebase mocked. These steps need your credentials and are not done yet. Replace `<region>` and `<project>` with your values.
+
+1. **Anthropic (dev key first):** in the Anthropic Console create a `reflux` workspace, set a monthly **spend limit** on it, and create an API key inside that workspace. Never paste the key into a file, chat or commit.
+2. **Secret Manager:** `echo -n "<key>" | gcloud secrets create reflux-anthropic-api-key --data-file=-`
+3. **Runtime service account** (least privilege): create `reflux-relay-sa` and grant only `roles/secretmanager.secretAccessor` on that one secret and `roles/datastore.user` on the project. Nothing else. The relay verifies Firebase tokens with Application Default Credentials, so no key file is needed.
+4. **Firebase:** enable Anonymous sign-in under Authentication. Create a Firestore database in native mode with rules that **deny all client access** (`allow read, write: if false;`); the relay reaches it through the service account, which bypasses rules.
+5. **Firestore TTL:** `gcloud firestore fields ttls update expiresAt --collection-group=rate_limits --enable-ttl` so old daily counters delete themselves after 48 h.
+6. **Cloud Run flags** when deploying (`deploy-api.yml` in Step 8, or by hand for the first test):
+   `--service-account reflux-relay-sa --max-instances 3 --concurrency 20 --timeout 60 --set-secrets ANTHROPIC_API_KEY=reflux-anthropic-api-key:latest --set-env-vars PER_USER_DAILY_LIMIT=30,GLOBAL_DAILY_LIMIT=300,ANALYSIS_ENABLED=true`
+   Optionally set `ANTHROPIC_MODEL` (default `claude-sonnet-5-5`) and `FIREBASE_PROJECT_ID`.
+7. **GCP budget alert:** create a budget on the project with alerts at 50 %, 90 % and 100 %. Claude token cost bills on the Anthropic invoice, not GCP, so the Anthropic spend limit in step 1 is the real cap.
+8. **Log-based alerts** in Cloud Monitoring on: severity `ERROR` spikes, `message="global circuit breaker tripped"`, and `AI_UPSTREAM_ERROR` / `AI_INVALID_OUTPUT` counts.
+9. **Curl check** once deployed (needs an anonymous ID token from the Firebase Auth REST API): a text request and a photo request return valid JSON; a non-food photo returns 422; the 31st call in a day returns 429; lowering `GLOBAL_DAILY_LIMIT` to 1 returns 503 `SERVICE_BUSY`; a corrupt or huge image returns 400/413; logs contain no food text; and `cacheReadTokens` becomes non-zero on repeat calls in the `claude call completed` log line. If it stays at zero, the fixed system prompt + ruleset is below the model's minimum cacheable length or something in it varies between requests.
+10. **Clinician review:** `api/src/config/refluxRuleset.json` is flagged `needsClinicianReview`. It must be reviewed before any public launch (Milestone 2).
+
 ## Running the MVP pilot (Expo Go)
 
 1. Confirm the relay is deployed and healthy: `curl https://<relay-url>/healthz`.

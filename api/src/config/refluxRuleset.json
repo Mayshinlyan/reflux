@@ -1,0 +1,117 @@
+{
+  "version": "2026-09-29.1",
+  "needsClinicianReview": true,
+  "reviewNote": "Draft ruleset compiled for a private pilot. Not medical advice and not yet reviewed by a clinician; a clinician must review categories, keywords and sources before any public launch (Milestone 2).",
+  "sources": {
+    "acg2022": "Katz PO, Dunbar KB, Schnoll-Sussman FH, Greer KB, Yadlapati R, Spechler SJ. ACG Clinical Guideline for the Diagnosis and Management of Gastroesophageal Reflux Disease. Am J Gastroenterol. 2022;117(1):27-56.",
+    "koufman2011": "Koufman JA. Low-acid diet for recalcitrant laryngopharyngeal reflux: therapeutic benefits and their implications. Ann Otol Rhinol Laryngol. 2011;120(5):281-287.",
+    "zalvan2017": "Zalvan CH, Hu S, Greenberg B, Geliebter J. A comparison of alkaline water and Mediterranean diet vs proton pump inhibition for treatment of laryngopharyngeal reflux. JAMA Otolaryngol Head Neck Surg. 2017;143(10):1023-1029.",
+    "newberry2019": "Newberry C, Lynch K. The role of diet in the development and management of gastroesophageal reflux disease: why we feel the burn. J Thorac Dis. 2019;11(Suppl 12):S1594-S1601."
+  },
+  "categories": {
+    "acidic": {
+      "description": "Low-pH foods and drinks (roughly pH below 4). Especially relevant for laryngopharyngeal reflux (LPR), where acid and pepsin exposure irritate the throat.",
+      "keywords": [
+        "tomato",
+        "tomato sauce",
+        "ketchup",
+        "citrus",
+        "orange",
+        "lemon",
+        "lime",
+        "grapefruit",
+        "vinegar",
+        "pickles",
+        "wine",
+        "soda",
+        "cola",
+        "cranberry",
+        "pineapple"
+      ],
+      "sources": ["koufman2011", "zalvan2017", "newberry2019"]
+    },
+    "caffeine": {
+      "description": "Caffeinated drinks and foods; caffeine may lower lower-esophageal-sphincter pressure in some people.",
+      "keywords": [
+        "coffee",
+        "espresso",
+        "black tea",
+        "green tea",
+        "matcha",
+        "energy drink",
+        "cola",
+        "yerba mate"
+      ],
+      "sources": ["acg2022", "newberry2019"]
+    },
+    "mint": {
+      "description": "Peppermint and spearmint may relax the lower esophageal sphincter in some people.",
+      "keywords": ["peppermint", "spearmint", "mint tea", "mint chocolate", "mint gum", "menthol"],
+      "sources": ["newberry2019"]
+    },
+    "alcohol": {
+      "description": "Alcoholic drinks; wine and spirits are commonly reported reflux triggers.",
+      "keywords": ["wine", "beer", "cocktail", "whiskey", "vodka", "gin", "liquor", "champagne"],
+      "sources": ["acg2022", "newberry2019"]
+    },
+    "carbonation": {
+      "description": "Carbonated drinks can distend the stomach and are also acidic.",
+      "keywords": ["soda", "sparkling water", "seltzer", "tonic", "cola", "beer", "champagne"],
+      "sources": ["koufman2011", "newberry2019"]
+    },
+    "high_fat": {
+      "description": "Fatty or fried foods slow stomach emptying and may lower sphincter pressure.",
+      "keywords": [
+        "fried",
+        "deep-fried",
+        "french fries",
+        "bacon",
+        "sausage",
+        "cheese burger",
+        "cream sauce",
+        "butter",
+        "pastry",
+        "pizza",
+        "fast food"
+      ],
+      "sources": ["acg2022", "newberry2019"]
+    },
+    "spicy": {
+      "description": "Spicy foods can trigger heartburn symptoms in some people.",
+      "keywords": [
+        "chili",
+        "hot sauce",
+        "curry",
+        "jalapeno",
+        "cayenne",
+        "sriracha",
+        "wasabi",
+        "black pepper"
+      ],
+      "sources": ["newberry2019"]
+    },
+    "chocolate": {
+      "description": "Chocolate contains methylxanthines and fat and is a commonly reported trigger.",
+      "keywords": ["chocolate", "cocoa", "brownie", "chocolate cake", "hot chocolate"],
+      "sources": ["acg2022", "newberry2019"]
+    },
+    "raw_garlic_onion": {
+      "description": "Raw garlic and onion are commonly reported triggers; cooked forms are usually better tolerated.",
+      "keywords": ["raw onion", "raw garlic", "onion rings", "salsa", "aioli", "garlic sauce"],
+      "sources": ["newberry2019"]
+    },
+    "large_portion": {
+      "description": "Very large meals distend the stomach and increase reflux episodes; eating close to bedtime adds to the effect.",
+      "keywords": [
+        "large portion",
+        "buffet",
+        "all-you-can-eat",
+        "double",
+        "extra large",
+        "family size",
+        "second helping"
+      ],
+      "sources": ["acg2022", "newberry2019"]
+    }
+  }
+}
