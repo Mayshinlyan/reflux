@@ -108,6 +108,15 @@
   .bodymap .zone-label{font-family:inherit;font-weight:700;font-size:14px;fill:var(--ink)}
   .bodymap .badge-dot{fill:var(--cta)}
   .bodymap .badge-num{font-family:inherit;font-weight:800;font-size:12px;fill:var(--cta-ink);text-anchor:middle}
+  .step-flow{display:flex;flex-direction:column;min-height:100%;padding-bottom:0}
+  .step-title{font-size:17px;font-weight:800;margin-bottom:6px}
+  .step-sub{color:var(--ink-soft);font-size:14px;line-height:1.5;margin-bottom:18px}
+  .step-footer{margin-top:auto;position:sticky;bottom:0;background:var(--bg);padding:14px 0 20px}
+  .stepper{display:flex;gap:6px;margin-top:16px}
+  .stepper .seg{flex:1;height:6px;border-radius:var(--r-pill);background:var(--surface-2)}
+  .stepper .seg.done{background:var(--sage)}
+  .stepper .seg.now{background:var(--cta)}
+  .step-caption{text-align:center;font-size:12px;font-weight:700;color:var(--ink-soft);margin-top:8px}
   .tag{display:inline-flex;align-items:center;font-weight:600;font-size:13.5px;padding:9px 14px;border-radius:var(--r-pill);border:1.5px solid var(--hairline);background:var(--surface);color:var(--ink-soft);cursor:pointer;min-height:40px}
   .tag.selected{background:var(--clay-tint);border-color:var(--clay);color:var(--clay-ink)}
   .filter-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:4px}
@@ -429,20 +438,29 @@
 
         <!-- LOG SYMPTOMS (overlay) -->
         <section class="app-screen overlay" id="screen-logSymptoms" hidden>
-          <div class="screen-pad">
+          <div class="screen-pad step-flow">
             <div class="back-row">
               <button data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
               <h1>Log symptoms</h1>
             </div>
-            <p class="subtitle">Where are you feeling it? Tap a spot.</p>
-            <div id="bodyMap"></div>
-            <div id="symptomSummary"></div>
-            <div class="section-title">Anything else going on?</div>
-            <div class="chip-grid" id="lifestyleTags"></div>
-            <div class="section-title">Note (optional)</div>
-            <textarea id="symptomNote" placeholder="Anything worth remembering about this..."></textarea>
-            <div style="margin-top:22px">
-              <button class="btn btn-primary full" id="saveSymptomsBtn" disabled>Save entry</button>
+            <div class="step" data-step="1">
+              <p class="subtitle">Where are you feeling it? Tap a spot.</p>
+              <div id="bodyMap"></div>
+            </div>
+            <div class="step" data-step="2" hidden>
+              <div class="step-title">Anything else going on?</div>
+              <p class="step-sub">Optional. Tap anything that fits.</p>
+              <div class="chip-grid" id="lifestyleTags"></div>
+            </div>
+            <div class="step" data-step="3" hidden>
+              <div class="step-title">Note (optional)</div>
+              <p class="step-sub">Anything worth remembering about this?</p>
+              <textarea id="symptomNote" placeholder="Anything worth remembering about this..."></textarea>
+            </div>
+            <div class="step-footer">
+              <button class="btn btn-primary full" id="symptomNextBtn" disabled>Next</button>
+              <div class="stepper" id="symptomStepper" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1" aria-label="Step 1 of 3"></div>
+              <div class="step-caption" id="symptomStepCaption"></div>
             </div>
           </div>
         </section>
@@ -1003,15 +1021,27 @@
     var otherN = zoneCount('other');
     $('bodyMap').innerHTML = bodyMapSvg()+
       '<div class="chip-grid" style="justify-content:center;margin-top:8px"><span class="tag'+(otherN?' selected':'')+'" data-zone="other">Something else'+(otherN?' · '+otherN:'')+'</span></div>';
-    var chosen = Object.keys(state.selectedSymptoms);
-    $('symptomSummary').innerHTML = chosen.length
-      ? '<div class="section-title">Logging</div><div class="chip-grid">'+chosen.map(function(k){ return '<span class="chip selected" data-remove-symptom="'+k+'" aria-label="Remove '+symptomLabel(k)+'">'+symptomLabel(k)+' <span aria-hidden="true">×</span></span>'; }).join('')+'</div>'
-      : '';
-    $('saveSymptomsBtn').disabled = chosen.length === 0;
+    renderSymptomStep();
+  }
+  // Three short steps: 1 body area + symptoms, 2 lifestyle tags, 3 note + save.
+  var STEP_CAPTIONS = ['Where it bothers you','Anything else','Add a note'];
+  function renderSymptomStep(){
+    var step = state.symptomStep;
+    qsa('#screen-logSymptoms .step').forEach(function(el){ el.hidden = (parseInt(el.dataset.step,10) !== step); });
+    var segs = '';
+    for(var i=1;i<=3;i++) segs += '<span class="seg'+(i<step?' done':(i===step?' now':''))+'"></span>';
+    $('symptomStepper').innerHTML = segs;
+    $('symptomStepper').setAttribute('aria-valuenow', step);
+    $('symptomStepper').setAttribute('aria-label', 'Step '+step+' of 3');
+    $('symptomStepCaption').textContent = 'Step '+step+' of 3 · '+STEP_CAPTIONS[step-1];
+    var btn = $('symptomNextBtn');
+    btn.textContent = step < 3 ? 'Next' : 'Save entry';
+    btn.disabled = (step === 1 && Object.keys(state.selectedSymptoms).length === 0);
   }
   function renderLogSymptoms(){
     state.selectedSymptoms = {};
     state.selectedTags = {};
+    state.symptomStep = 1;
     $('symptomNote').value = '';
     $('lifestyleTags').innerHTML = TAGS.map(function(t){
       return '<span class="tag" data-tag="'+escapeHtml(t)+'">'+t+'</span>';
@@ -1089,7 +1119,11 @@
       if(openBtn){ openOverlay(openBtn.dataset.open); return; }
 
       var backBtn = t.closest('[data-back]');
-      if(backBtn){ closeOverlay(); return; }
+      if(backBtn){
+        // Inside the 3-step symptom flow, back goes to the previous step first.
+        if(nav.overlay === 'logSymptoms' && state.symptomStep > 1){ state.symptomStep--; renderSymptomStep(); $('screen-logSymptoms').scrollTop = 0; return; }
+        closeOverlay(); return;
+      }
 
       if(t.closest('#petTapBtn') || t.closest('#addLogBtn') || t.closest('#petBubble')){ $('petMenu').hidden = !$('petMenu').hidden; return; }
       if(t.closest('#cameraBtn')){ openOverlay('check'); return; }
@@ -1131,8 +1165,6 @@
 
       var zoneBtn = t.closest('[data-zone]');
       if(zoneBtn){ openZone(zoneBtn.dataset.zone); return; }
-      var removeBtn = t.closest('[data-remove-symptom]');
-      if(removeBtn){ delete state.selectedSymptoms[removeBtn.dataset.removeSymptom]; refreshSymptomMap(); return; }
       var symptomChip = t.closest('[data-symptom]');
       if(symptomChip){ toggleSymptomChip(symptomChip); return; }
       var tagChip = t.closest('[data-tag]');
@@ -1142,7 +1174,8 @@
         else { state.selectedTags[tag] = true; tagChip.classList.add('selected'); }
         return;
       }
-      if(t.closest('#saveSymptomsBtn') && !t.closest('#saveSymptomsBtn').disabled){
+      if(t.closest('#symptomNextBtn') && !t.closest('#symptomNextBtn').disabled){
+        if(state.symptomStep < 3){ state.symptomStep++; renderSymptomStep(); $('screen-logSymptoms').scrollTop = 0; return; }
         var items = Object.keys(state.selectedSymptoms).map(function(k){ return {key:k}; });
         var tags = Object.keys(state.selectedTags);
         var now = new Date();
