@@ -1,20 +1,29 @@
 import { Pressable, StyleSheet } from 'react-native';
 
-import { minTouchTarget, radius, space, useColors } from '@/theme';
+import { type ColorToken, minTouchTarget, radius, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
+
+type Variant = 'primary' | 'secondary' | 'danger';
 
 type Props = {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary';
+  variant?: Variant;
   disabled?: boolean;
   accessibilityHint?: string;
 };
 
+const VARIANTS: Record<Variant, { bg: ColorToken; border: ColorToken; text: ColorToken }> = {
+  primary: { bg: 'cta', border: 'cta', text: 'ctaInk' },
+  secondary: { bg: 'surface', border: 'hairline', text: 'ink' },
+  danger: { bg: 'redTint', border: 'redTint', text: 'redInk' },
+};
+
 export function Button({ label, onPress, variant = 'primary', disabled, accessibilityHint }: Props) {
   const colors = useColors();
-  const primary = variant === 'primary';
+  // Disabled buttons use the mockup's muted fill rather than fading, so the label stays readable.
+  const style = disabled ? { bg: 'surface2', border: 'surface2', text: 'inkSoft' } : VARIANTS[variant];
   return (
     <Pressable
       accessibilityRole="button"
@@ -26,12 +35,12 @@ export function Button({ label, onPress, variant = 'primary', disabled, accessib
       style={({ pressed }) => [
         styles.base,
         {
-          backgroundColor: primary ? colors.cta : colors.surface,
-          borderColor: primary ? colors.cta : colors.hairline,
-          opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
+          backgroundColor: colors[style.bg as ColorToken],
+          borderColor: colors[style.border as ColorToken],
+          opacity: pressed ? 0.85 : 1,
         },
       ]}>
-      <AppText variant="button" style={{ color: primary ? colors.ctaInk : colors.ink }}>
+      <AppText variant="button" style={{ color: colors[style.text as ColorToken] }}>
         {label}
       </AppText>
     </Pressable>

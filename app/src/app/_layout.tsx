@@ -14,6 +14,7 @@ import { StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import { ToastProvider } from '@/components/Toast';
 import { DatabaseProvider } from '@/db/DatabaseProvider';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -44,14 +45,16 @@ function RootLayout() {
       <StatusBar style="dark" />
       <DatabaseProvider fallback={null} errorView={<DatabaseErrorScreen />}>
         <HideSplash />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: lightColors.bg },
-          }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
-        </Stack>
+        <ToastProvider>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: lightColors.bg },
+            }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
+          </Stack>
+        </ToastProvider>
       </DatabaseProvider>
     </>
   );

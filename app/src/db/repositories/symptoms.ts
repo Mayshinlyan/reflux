@@ -105,13 +105,24 @@ function withDetails(db: AppDb, logs: SymptomLog[]): SymptomLogWithDetails[] {
   const ids = logs.map((log) => log.id);
   const items = db.select().from(symptomLogItems).where(inArray(symptomLogItems.symptomLogId, ids)).all();
   const tags = db.select().from(symptomLogTags).where(inArray(symptomLogTags.symptomLogId, ids)).all();
+  // SQLite returns rows in index order (alphabetical keys); present them in the app's own order.
   return logs.map((log) => ({
     ...log,
     items: items
       .filter((item) => item.symptomLogId === log.id)
-      .map((item) => ({ key: item.itemKey as SymptomKey, score: item.score })),
-    tags: tags.filter((tag) => tag.symptomLogId === log.id).map((tag) => tag.tagKey as LifestyleTagKey),
+      .map((item) => ({ key: item.itemKey as SymptomKey, score: item.score }))
+      .sort((a, b) => orderOf(SYMPTOM_KEYS, a.key) - orderOf(SYMPTOM_KEYS, b.key)),
+    tags: tags
+      .filter((tag) => tag.symptomLogId === log.id)
+      .map((tag) => tag.tagKey as LifestyleTagKey)
+      .sort((a, b) => orderOf(LIFESTYLE_TAG_KEYS, a) - orderOf(LIFESTYLE_TAG_KEYS, b)),
   }));
+}
+
+/** Position in the canonical list; unknown keys (from a newer app version) go last. */
+function orderOf(keys: readonly string[], key: string): number {
+  const index = keys.indexOf(key);
+  return index === -1 ? keys.length : index;
 }
 
 export function getSymptomLog(db: AppDb, id: number): SymptomLogWithDetails | undefined {
