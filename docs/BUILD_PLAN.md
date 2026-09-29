@@ -51,7 +51,7 @@ Superseded earlier choices: Cloud SQL, Prisma, GCS photo storage and account lin
 | Relay | `/health`, `/v1/analyze-food`, sourced ruleset, strict output schema, prompt caching, version stamps, kill switch |
 | Security | Anonymous auth, per-user + global daily caps, Anthropic spend limit, GCP budget alert, input limits, server-side image sanitizing, strict output schema, Firestore deny-all, Secret Manager, least-privilege IAM, max instances, redacted logs |
 | Logging | pino → Cloud Logging / Error Reporting, error contract, request IDs, Sentry for JS errors (scrubbed) |
-| Dev / CI / CD | One GCP/Firebase project + Firebase emulators locally; CI tests (incl. security tests), CodeQL, Dependabot, secret scanning; relay auto-deploys to Cloud Run |
+| Dev / CI / CD | One GCP/Firebase project + Firebase emulators locally; CI tests (incl. security tests), Dependabot, secret scanning (CodeQL deferred, see Security); relay auto-deploys to Cloud Run |
 | Docs | Skills installed, PRD, short runbook, mockups |
 | Distribution | `npx expo start --tunnel`; testers open the app in Expo Go (the dev server must be running) |
 
@@ -199,7 +199,7 @@ Reflux/
 │   │   └── config/ refluxRuleset.json, env.ts
 │   ├── test/
 │   └── Dockerfile
-└── .github/ workflows/ci.yml, codeql.yml, deploy-api.yml; dependabot.yml
+└── .github/ workflows/ci.yml, deploy-api.yml; dependabot.yml
 ```
 
 - M2 adds: `middleware/appCheck.ts`, `appVersion.ts`, `modelArmor.ts`; `services/modelArmorService.ts`; `app/src/lib/analytics.ts`; `app/e2e/`; `mobile.yml`, `ai-eval.yml`.
@@ -276,7 +276,7 @@ The main risk without App Check is that anyone who finds the relay URL can mint 
   - Firestore rules deny all client access. Anthropic key only in Secret Manager. Least-privilege runtime service account.
   - Workload Identity Federation for GitHub restricted to this repo + `main`.
   - Non-root slim container; `helmet`; no CORS.
-- **GitHub:** private repo, branch protection, secret scanning + push protection, Dependabot, CodeQL, Actions pinned to SHAs, `npm audit` gate.
+- **GitHub:** private repo, branch protection, secret scanning + push protection, Dependabot, Actions pinned to SHAs, `npm audit` gate. **CodeQL is deferred:** on a private repo GitHub only accepts its results with the paid GitHub Code Security add-on, so `codeql.yml` was removed. Restore it from the commit history if the repo goes public or gets that add-on.
 
 **Added in M2 (before public launch)**
 - **App Check** enforced (App Attest / Play Integrity; debug tokens for development; no bypass flag).
@@ -355,7 +355,7 @@ The main risk without App Check is that anyone who finds the relay URL can mint 
   - Repository and migration tests (migrate over seeded data) on `better-sqlite3`.
   - `mealTiming` tests across timezones and DST; EXIF-strip test; Sentry scrubber test.
 
-Also: `codeql.yml`, Dependabot, `npm audit --audit-level=high`, Actions pinned to SHAs. Branch protection requires CI to pass.
+Also: Dependabot, `npm audit --audit-level=high`, Actions pinned to SHAs. Branch protection requires CI to pass.
 
 `deploy-api.yml` runs on merge to `main` when `api/**` changes:
 1. Authenticate via Workload Identity Federation.
@@ -382,7 +382,7 @@ The app has no deploy step in the MVP; testers load it from the dev server in Ex
 ### MVP
 
 0. **Skills + docs + mockups.** Install and verify both skills, `git init`, PRD + runbook, clickable mockups to user sign-off.
-1. **Skeleton + CI + logging.** Expo app (TypeScript, SDK matching Expo Go) with theme tokens; Express relay with `/health`, pino, error contract; Sentry (JS); strict TypeScript, ESLint, Prettier, husky; `ci.yml` + CodeQL + Dependabot green on a private GitHub repo. Verify: the app opens in Expo Go on your phone, `/health` returns 200, a forced error appears in Sentry (no app data) and in Cloud Error Reporting (with request ID).
+1. **Skeleton + CI + logging.** Expo app (TypeScript, SDK matching Expo Go) with theme tokens; Express relay with `/health`, pino, error contract; Sentry (JS); strict TypeScript, ESLint, Prettier, husky; `ci.yml` + Dependabot green on a private GitHub repo. Verify: the app opens in Expo Go on your phone, `/health` returns 200, a forced error appears in Sentry (no app data) and in Cloud Error Reporting (with request ID).
 2. **Local database.** Schema, first migration, backup-then-migrate, repositories and tests. Verify: fresh install creates tables; a second migration applies over seeded data; a simulated failure restores the backup.
 3. **Symptoms + tags.** Quick log, History, edit/delete. Verify: 2 chips + 2 tags stored; correct local-day grouping; data persists across app restarts.
 4. **Medications + settings.** My meds, one-tap logging, bedtime. Verify: a medication logged in one tap appears on Today and in History.
