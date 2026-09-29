@@ -26,23 +26,34 @@ function getFirebaseAuth(): Auth {
   return auth;
 }
 
-/** Ensures an anonymous session exists (persisted across launches). Used only for relay rate limiting. */
-export async function ensureAnonymousSession(): Promise<void> {
-  const instance = getFirebaseAuth();
-  await instance.authStateReady();
-  if (instance.currentUser) return;
-  try {
-    await signInAnonymously(instance);
-  } catch {
-    throw new AppError('AUTH_FAILED');
-  }
+let signingIn: Promise<void> | undefined;
+
+/**
+ * Ensures an anonymous session exists (persisted across launches). Used only for relay rate
+ * limiting. Concurrent callers share one attempt so we never create two anonymous users.
+ */
+export function ensureAnonymousSession(): Promise<void> {
+  signingIn ??= (async () => {
+    try {
+      const instance = getFirebaseAuth();
+      await instance.authStateReady();
+      if (!instance.currentUser) await signInAnonymously(instance);
+    } catch {
+      throw new AppError('AUTH_FAILED');
+    }
+  })().finally(() => {
+    signingIn = undefined;
+  });
+  return signingIn;
 }
 
 /** A fresh ID token (the SDK refreshes it when close to expiry). Signs in first if needed. */
 export async function getIdToken(): Promise<string> {
   await ensureAnonymousSession();
   try {
-    return await getFirebaseAuth().currentUser!.getIdToken();
+    const user = getFirebaseAuth().currentUser;
+    if (!user) throw new Error('signed out');
+    return await user.getIdToken();
   } catch {
     throw new AppError('AUTH_FAILED');
   }
