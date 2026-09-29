@@ -1,3 +1,5 @@
+import { File } from 'expo-file-system';
+
 import { relayBaseUrl } from '@/lib/config';
 import { AppError, isRelayErrorCode } from '@/lib/errors';
 import type { AnalysisMeta, MealAnalysis } from '@/types/analysis';
@@ -5,6 +7,7 @@ import type { AnalysisMeta, MealAnalysis } from '@/types/analysis';
 import { getIdToken } from './firebase';
 
 export type AnalysisResult = MealAnalysis & { meta: AnalysisMeta };
+/** For a photo, `mimeType` is informational only: the relay detects the real type from the bytes. */
 export type AnalyzeInput = { text: string } | { photo: { uri: string; mimeType?: string } };
 
 // Longer than the relay's 30 s Claude timeout, so the relay's own AI_TIMEOUT wins when it can.
@@ -37,13 +40,11 @@ export async function analyzeFood(input: AnalyzeInput, signal?: AbortSignal): Pr
     headers['Content-Type'] = 'application/json';
     body = JSON.stringify({ text: input.text });
   } else {
-    // React Native's FormData accepts a { uri, name, type } file descriptor.
+    // Expo's fetch rebuilds multipart bodies itself and only accepts a Blob-like value with
+    // bytes (an expo-file-system File). The old React Native { uri, name, type } object throws
+    // "Unsupported FormDataPart implementation" and would surface as a network error.
     const form = new FormData();
-    form.append('photo', {
-      uri: input.photo.uri,
-      name: 'photo.jpg',
-      type: input.photo.mimeType ?? 'image/jpeg',
-    } as unknown as Blob);
+    form.append('photo', new File(input.photo.uri) as unknown as Blob);
     body = form;
   }
 
