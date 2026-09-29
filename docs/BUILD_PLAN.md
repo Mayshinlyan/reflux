@@ -61,7 +61,7 @@ Superseded earlier choices: Cloud SQL, Prisma, GCS photo storage and account lin
 |---|---|
 | Builds | EAS development + store builds (free plan to start), EAS Update with `runtimeVersion: fingerprint`, TestFlight + Play internal testing |
 | Native Firebase | Migrate to `@react-native-firebase` (auth, App Check, Analytics). Anonymous UIDs reset on migration; harmless, since no user data is server-side |
-| Security | **App Check** enforced (App Attest / Play Integrity), **load balancer + Cloud Armor** + custom domain, **Model Armor**, min-app-version check, separate dev/prod projects |
+| Security | **App Check** enforced (App Attest / Play Integrity), **load balancer + Cloud Armor** + custom domain, **Model Armor**, min-app-version check, separate dev/prod projects, **Anthropic workload identity federation** (replaces the long-lived API key) |
 | Observability | Firebase Analytics (content-free allowlist, opt-out toggle), Sentry native crashes + source maps, crash-reporting toggle |
 | Features | Weekly RSI check-in + total score, 7-day trend strip, export data (JSON/CSV), dark mode |
 | Quality | Maestro E2E flows, nightly AI eval golden set |
@@ -283,6 +283,7 @@ The main risk without App Check is that anyone who finds the relay URL can mint 
 - **External HTTPS load balancer + Cloud Armor:** path allowlist, per-IP rate ban, custom domain; Cloud Run ingress internal + load balancer only (about $25/mo from credits).
 - **Model Armor** on text input and reasoning output.
 - Min-app-version check; separate dev/prod projects.
+- **Anthropic workload identity federation (WIF)** in place of the long-lived `ANTHROPIC_API_KEY` in Secret Manager, so no static Anthropic secret exists. In the Anthropic org create a federation issuer, rule and service account for the Cloud Run identity; have `claudeService` use the SDK's zero-argument client when the federation env vars are set (keep the key as a fallback for local dev); then delete the secret and revoke the key. First confirm WIF is available on the account and check the current SDK docs for the exact env vars. The MVP uses an API key with a workspace spend limit.
 - Raise the global circuit breaker to fit expected traffic.
 - Monitoring alerts on App Check failures and Cloud Armor bans.
 
@@ -396,7 +397,7 @@ The app has no deploy step in the MVP; testers load it from the dev server in Ex
 ### Milestone 2
 
 1. **EAS + native Firebase:** EAS dev builds; migrate to `@react-native-firebase` (auth, App Check, Analytics); App Check enforced on the relay.
-2. **Environments + edge:** split dev/prod; load balancer + Cloud Armor + domain; Model Armor; min-app-version check. Verify: the `*.run.app` URL is refused; unknown paths get 403; an IP burst gets banned; an injection returns `INPUT_REJECTED`.
+2. **Environments + edge:** split dev/prod; load balancer + Cloud Armor + domain; Model Armor; min-app-version check; Anthropic workload identity federation instead of the Secret Manager API key (see Security). Verify: the `*.run.app` URL is refused; unknown paths get 403; an IP burst gets banned; an injection returns `INPUT_REJECTED`.
 3. **Features:** weekly RSI check-in, 7-day trend strip, export, dark mode, analytics and crash toggles.
 4. **Observability + quality:** Sentry native + source maps, analytics allowlist (verify in DebugView), Maestro E2E, nightly AI eval, `mobile.yml`.
 5. **Launch readiness:** privacy policy + terms, store privacy forms, Anthropic Usage Policy review, RSI terms, clinician review, store assets, TestFlight / Play internal beta on real devices.
