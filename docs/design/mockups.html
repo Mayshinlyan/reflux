@@ -94,9 +94,20 @@
   .chip-grid{display:flex;flex-wrap:wrap;gap:9px}
   .chip{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;padding:10px 15px;border-radius:var(--r-pill);border:1.5px solid var(--hairline);background:var(--surface);color:var(--ink);cursor:pointer;min-height:44px}
   .chip.selected{background:var(--sage-tint);border-color:var(--sage);color:var(--sage-ink)}
-  .chip .dots{display:flex;gap:5px;margin-left:2px}
   .chip .dot{width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.6);border:1.5px solid var(--sage);display:flex;align-items:center;justify-content:center;cursor:pointer}
   .chip .dot.on{background:var(--sage-ink);border-color:var(--sage-ink)}
+  .bodymap{display:block;width:100%;max-width:340px;margin:0 auto}
+  .bodymap .body-shape{fill:var(--surface-2);stroke:var(--hairline);stroke-width:2}
+  .bodymap .face{fill:var(--ink)}
+  .bodymap .smile{fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round}
+  .bodymap .zone{cursor:pointer;outline:none}
+  .bodymap .zone-shape{fill:var(--clay-tint);fill-opacity:.55;stroke:var(--clay);stroke-width:2;stroke-dasharray:5 4;transition:fill-opacity .15s}
+  .bodymap .zone:hover .zone-shape,.bodymap .zone:focus-visible .zone-shape{fill-opacity:1}
+  .bodymap .zone.on .zone-shape{fill:var(--sage-tint);fill-opacity:1;stroke:var(--sage);stroke-dasharray:none}
+  .bodymap .zone-leader{stroke:var(--hairline);stroke-width:2}
+  .bodymap .zone-label{font-family:inherit;font-weight:700;font-size:14px;fill:var(--ink)}
+  .bodymap .badge-dot{fill:var(--cta)}
+  .bodymap .badge-num{font-family:inherit;font-weight:800;font-size:12px;fill:var(--cta-ink);text-anchor:middle}
   .tag{display:inline-flex;align-items:center;font-weight:600;font-size:13.5px;padding:9px 14px;border-radius:var(--r-pill);border:1.5px solid var(--hairline);background:var(--surface);color:var(--ink-soft);cursor:pointer;min-height:40px}
   .tag.selected{background:var(--clay-tint);border-color:var(--clay);color:var(--clay-ink)}
   .filter-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:4px}
@@ -423,14 +434,30 @@
               <button data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
               <h1>Log symptoms</h1>
             </div>
-            <p class="subtitle">Tap what you're feeling right now.</p>
-            <div class="chip-grid" id="symptomChips"></div>
+            <p class="subtitle">Where are you feeling it? Tap a spot.</p>
+            <div id="bodyMap"></div>
+            <div id="symptomSummary"></div>
             <div class="section-title">Anything else going on?</div>
             <div class="chip-grid" id="lifestyleTags"></div>
             <div class="section-title">Note (optional)</div>
             <textarea id="symptomNote" placeholder="Anything worth remembering about this..."></textarea>
             <div style="margin-top:22px">
               <button class="btn btn-primary full" id="saveSymptomsBtn" disabled>Save entry</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- LOG SYMPTOMS: ONE BODY AREA (overlay) -->
+        <section class="app-screen overlay" id="screen-logSymptomZone" hidden>
+          <div class="screen-pad">
+            <div class="back-row">
+              <button data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <h1 id="zoneTitle"></h1>
+            </div>
+            <p class="subtitle">Tap anything that applies.</p>
+            <div class="chip-grid" id="zoneChips"></div>
+            <div style="margin-top:22px">
+              <button class="btn btn-primary full" data-back>Done</button>
             </div>
           </div>
         </section>
@@ -648,8 +675,8 @@
       bedtimeIndex: 2,
       pet: { name:'Buddy', stage:0, progress:35, mood:'happy' },
       symptomLogs: [
-        {id:'s1', day:'today', time:'8:20 PM', items:[{key:'heartburn',score:3},{key:'hoarseness',score:2}], tags:['Large meal','Lay down after eating'], notes:''},
-        {id:'s2', day:'yesterday', time:'9:30 PM', items:[{key:'throat_clearing',score:2},{key:'sleep',score:3}], tags:['Poor sleep'], notes:''}
+        {id:'s1', day:'today', time:'8:20 PM', items:[{key:'heartburn'},{key:'hoarseness'}], tags:['Large meal','Lay down after eating'], notes:''},
+        {id:'s2', day:'yesterday', time:'9:30 PM', items:[{key:'throat_clearing'},{key:'sleep'}], tags:['Poor sleep'], notes:''}
       ],
       foodLogs: [
         {id:'f1', day:'today', time:'8:12 AM', photo:false, mealName:'Oatmeal with banana', overall:{verdict:'ok'}, ingredients:['Oats','Banana','Almond milk']},
@@ -675,7 +702,7 @@
     };
   }
 
-  var OVERLAYS = ['check','history','checkResult','logFood','logFoodResult','logSymptoms','logMedication','settings'];
+  var OVERLAYS = ['check','history','checkResult','logFood','logFoodResult','logSymptoms','logSymptomZone','logMedication','settings'];
   var nav = { overlay:null, backStack:[] };
 
   function $(id){ return document.getElementById(id); }
@@ -715,6 +742,7 @@
       return;
     }
     if(nav.overlay === 'logMedication') renderMedications();
+    if(nav.overlay === 'logSymptoms') refreshSymptomMap();
   }
 
   function bedtime(){ return BEDTIME_OPTIONS[state.bedtimeIndex]; }
@@ -846,8 +874,8 @@
     } else if(kind==='symptom'){
       html = '<h2 style="margin-bottom:4px">Symptom entry</h2><p style="font-size:13px;color:var(--ink-soft);margin-bottom:14px">'+e.time+'</p>'+
         '<div class="chip-grid" style="margin-bottom:14px">'+e.items.map(function(it){
-          var dots=''; for(var i=1;i<=5;i++) dots += '<span class="dot'+(i<=it.score?' on':'')+'"></span>';
-          return '<span class="chip selected">'+symptomLabel(it.key)+'<span class="dots">'+dots+'</span></span>';
+          
+          return '<span class="chip selected">'+symptomLabel(it.key)+'</span>';
         }).join('')+'</div>'+
         (e.tags.length ? '<div class="chip-grid">'+e.tags.map(function(t){return '<span class="tag selected">'+t+'</span>';}).join('')+'</div>' : '');
     } else {
@@ -940,36 +968,65 @@
   }
 
   // ---------- Log symptoms ----------
+  // Body areas -> the symptoms shown after tapping them (a few at a time, never all 11).
+  var ZONES = {
+    throat: {label:'Throat & voice', keys:['hoarseness','throat_clearing','mucus','swallowing','lump']},
+    chest:  {label:'Chest', keys:['heartburn','breathing','cough_after_eating','cough']},
+    tummy:  {label:'Tummy', keys:['constipation']},
+    other:  {label:'Something else', keys:['sleep']}
+  };
+  function zoneCount(zone){ return ZONES[zone].keys.filter(function(k){ return state.selectedSymptoms[k]; }).length; }
+
+  function zoneSvg(zone, shape, leader, label, badge){
+    var n = zoneCount(zone);
+    return '<g class="zone'+(n?' on':'')+'" data-zone="'+zone+'" role="button" tabindex="0" aria-label="'+ZONES[zone].label+(n?', '+n+' selected':'')+'">'+
+      shape+'<line class="zone-leader" x1="'+leader[0]+'" y1="'+leader[1]+'" x2="208" y2="'+leader[1]+'"/>'+
+      '<text class="zone-label" x="214" y="'+(leader[1]+5)+'">'+label+'</text>'+
+      (n ? '<circle class="badge-dot" cx="'+badge[0]+'" cy="'+badge[1]+'" r="10"/><text class="badge-num" x="'+badge[0]+'" y="'+(badge[1]+4)+'">'+n+'</text>' : '')+
+      '</g>';
+  }
+  function bodyMapSvg(){
+    return '<svg class="bodymap" viewBox="0 0 360 300" role="group" aria-label="Body map. Tap an area to choose symptoms.">'+
+      '<path class="body-shape" d="M62 150 Q62 118 102 116 L158 116 Q198 118 198 150 L198 292 L62 292 Z"/>'+
+      '<rect class="body-shape" x="114" y="92" width="32" height="26" rx="10"/>'+
+      '<ellipse class="body-shape" cx="130" cy="52" rx="38" ry="44"/>'+
+      '<circle class="face" cx="117" cy="52" r="3.2"/><circle class="face" cx="143" cy="52" r="3.2"/>'+
+      '<path class="smile" d="M120 66 Q130 74 140 66"/>'+
+      zoneSvg('throat','<rect class="zone-shape" x="106" y="88" width="48" height="36" rx="18"/>',[156,106],'Throat &amp; voice',[154,92])+
+      zoneSvg('chest','<rect class="zone-shape" x="74" y="128" width="112" height="64" rx="26"/>',[188,160],'Chest',[184,132])+
+      zoneSvg('tummy','<rect class="zone-shape" x="80" y="202" width="100" height="62" rx="26"/>',[182,233],'Tummy',[178,206])+
+      '</svg>';
+  }
+  function refreshSymptomMap(){
+    var otherN = zoneCount('other');
+    $('bodyMap').innerHTML = bodyMapSvg()+
+      '<div class="chip-grid" style="justify-content:center;margin-top:8px"><span class="tag'+(otherN?' selected':'')+'" data-zone="other">Something else'+(otherN?' · '+otherN:'')+'</span></div>';
+    var chosen = Object.keys(state.selectedSymptoms);
+    $('symptomSummary').innerHTML = chosen.length
+      ? '<div class="section-title">Logging</div><div class="chip-grid">'+chosen.map(function(k){ return '<span class="chip selected" data-remove-symptom="'+k+'" aria-label="Remove '+symptomLabel(k)+'">'+symptomLabel(k)+' <span aria-hidden="true">×</span></span>'; }).join('')+'</div>'
+      : '';
+    $('saveSymptomsBtn').disabled = chosen.length === 0;
+  }
   function renderLogSymptoms(){
     state.selectedSymptoms = {};
     state.selectedTags = {};
     $('symptomNote').value = '';
-    $('symptomChips').innerHTML = SYMPTOMS.map(function(s){
-      return '<span class="chip" data-symptom="'+s.key+'">'+s.label+'</span>';
-    }).join('');
     $('lifestyleTags').innerHTML = TAGS.map(function(t){
       return '<span class="tag" data-tag="'+escapeHtml(t)+'">'+t+'</span>';
     }).join('');
-    $('saveSymptomsBtn').disabled = true;
-    bindDelegated();
+    refreshSymptomMap();
   }
-
+  function openZone(zone){
+    $('zoneTitle').textContent = ZONES[zone].label;
+    $('zoneChips').innerHTML = ZONES[zone].keys.map(function(k){
+      return '<span class="chip'+(state.selectedSymptoms[k]?' selected':'')+'" data-symptom="'+k+'">'+symptomLabel(k)+'</span>';
+    }).join('');
+    openOverlay('logSymptomZone');
+  }
   function toggleSymptomChip(el){
     var key = el.dataset.symptom;
-    if(state.selectedSymptoms[key]){
-      delete state.selectedSymptoms[key];
-      el.classList.remove('selected');
-      el.innerHTML = symptomLabel(key);
-    } else {
-      state.selectedSymptoms[key] = 3;
-      renderSymptomChipSelected(el, key, 3);
-    }
-    $('saveSymptomsBtn').disabled = Object.keys(state.selectedSymptoms).length===0;
-  }
-  function renderSymptomChipSelected(el, key, score){
-    el.classList.add('selected');
-    var dots=''; for(var i=1;i<=5;i++) dots += '<span class="dot'+(i<=score?' on':'')+'" data-dot="'+i+'"></span>';
-    el.innerHTML = symptomLabel(key)+'<span class="dots">'+dots+'</span>';
+    if(state.selectedSymptoms[key]){ delete state.selectedSymptoms[key]; el.classList.remove('selected'); }
+    else { state.selectedSymptoms[key] = true; el.classList.add('selected'); }
   }
 
   // ---------- Log medication ----------
@@ -1018,6 +1075,11 @@
   function init(){
     state = seedState();
 
+    document.body.addEventListener('keydown', function(e){
+      var zoneEl = (e.key === 'Enter' || e.key === ' ') && e.target.closest ? e.target.closest('[data-zone]') : null;
+      if(zoneEl){ e.preventDefault(); openZone(zoneEl.dataset.zone); }
+    });
+
     document.body.addEventListener('click', function(e){
       var t = e.target;
 
@@ -1065,17 +1127,12 @@
         return;
       }
 
+      var zoneBtn = t.closest('[data-zone]');
+      if(zoneBtn){ openZone(zoneBtn.dataset.zone); return; }
+      var removeBtn = t.closest('[data-remove-symptom]');
+      if(removeBtn){ delete state.selectedSymptoms[removeBtn.dataset.removeSymptom]; refreshSymptomMap(); return; }
       var symptomChip = t.closest('[data-symptom]');
-      if(symptomChip && !t.closest('.dot')){ toggleSymptomChip(symptomChip); return; }
-      var dot = t.closest('.dot');
-      if(dot){
-        var chip = dot.closest('[data-symptom]');
-        var key = chip.dataset.symptom;
-        var score = parseInt(dot.dataset.dot,10);
-        state.selectedSymptoms[key] = score;
-        renderSymptomChipSelected(chip, key, score);
-        return;
-      }
+      if(symptomChip){ toggleSymptomChip(symptomChip); return; }
       var tagChip = t.closest('[data-tag]');
       if(tagChip){
         var tag = tagChip.dataset.tag;
@@ -1084,16 +1141,15 @@
         return;
       }
       if(t.closest('#saveSymptomsBtn') && !t.closest('#saveSymptomsBtn').disabled){
-        var items = Object.keys(state.selectedSymptoms).map(function(k){ return {key:k, score: state.selectedSymptoms[k]}; });
+        var items = Object.keys(state.selectedSymptoms).map(function(k){ return {key:k}; });
         var tags = Object.keys(state.selectedTags);
         var now = new Date();
         var h = now.getHours(), min = now.getMinutes();
         var ampm = h>=12?'PM':'AM'; var h12 = h%12; if(h12===0) h12=12;
         var timeStr = h12+':'+(min<10?'0':'')+min+' '+ampm;
         state.symptomLogs.unshift({ id:'s'+Date.now(), day:'today', time:timeStr, items:items, tags:tags, notes:$('symptomNote').value });
-        var avgScore = items.reduce(function(sum,it){ return sum+it.score; }, 0) / items.length;
-        var symptomDelta = avgScore <= 2 ? 3 : avgScore >= 4 ? -8 : 0;
-        applyPetDelta(symptomDelta);
+        // Checking in is always rewarded; having symptoms is never punished.
+        applyPetDelta(2, 'happy');
         showToast('Symptoms logged', 'check');
         goToday();
         return;
