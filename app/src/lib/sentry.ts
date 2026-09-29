@@ -19,4 +19,9 @@ export function initSentry() {
   });
 }
 
+/** Wraps the root component with Sentry only when Sentry is actually enabled. */
+export function wrapRoot<P extends Record<string, unknown>>(component: React.ComponentType<P>) {
+  return dsn ? Sentry.wrap(component) : component;
+}
+
 export { Sentry };

@@ -15,7 +15,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { logger } from '@/lib/logger';
-import { initSentry, Sentry } from '@/lib/sentry';
+import { initSentry, wrapRoot } from '@/lib/sentry';
 import { lightColors, space } from '@/theme';
 
 initSentry();
@@ -52,7 +52,7 @@ function RootLayout() {
   );
 }
 
-export default Sentry.wrap(RootLayout);
+export default wrapRoot(RootLayout);
 
 /** Last-resort boundary; routes can export their own for finer-grained recovery. */
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
