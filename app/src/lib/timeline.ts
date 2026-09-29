@@ -1,6 +1,7 @@
+import { BODY_ZONES, type ZoneKey } from '@/constants/bodyZones';
 import { LIFESTYLE_TAGS } from '@/constants/lifestyleTags';
 import { MEDICATION_TYPES } from '@/constants/medicationTypes';
-import { SYMPTOM_ITEMS } from '@/constants/symptomItems';
+import { SYMPTOM_ITEMS, type SymptomKey } from '@/constants/symptomItems';
 import type { StoredFoodLog } from '@/db/repositories/food';
 import type { SymptomLogWithDetails } from '@/db/repositories/symptoms';
 import type { MedicationLog } from '@/db/schema';
@@ -18,9 +19,20 @@ export type TimelineEntry =
       tz: string;
       title: string;
       time: string;
+      /** The line under the title: time, plus a count for symptom entries. */
+      meta: string;
       log: SymptomLogWithDetails;
     }
-  | { kind: 'food'; id: number; at: string; tz: string; title: string; time: string; log: StoredFoodLog }
+  | {
+      kind: 'food';
+      id: number;
+      at: string;
+      tz: string;
+      title: string;
+      time: string;
+      meta: string;
+      log: StoredFoodLog;
+    }
   | {
       kind: 'medication';
       id: number;
@@ -28,6 +40,7 @@ export type TimelineEntry =
       tz: string;
       title: string;
       time: string;
+      meta: string;
       log: MedicationLog;
     };
 
@@ -38,6 +51,26 @@ const tagLabels = new Map<string, string>(LIFESTYLE_TAGS.map((tag) => [tag.key, 
 const medicationTypeLabels = new Map<string, string>(MEDICATION_TYPES.map((type) => [type.key, type.label]));
 
 export const symptomLabel = (key: string) => symptomLabels.get(key) ?? key;
+
+export type SymptomGroup = { zone: ZoneKey | 'other'; label: string; keys: SymptomKey[] };
+
+/**
+ * Splits an entry's symptoms into their body areas (in map order), so they can be shown
+ * under headings. Symptoms that no longer belong to an area (retired ones such as Trouble
+ * sleeping, still present on older entries) go in a final "Other" group.
+ */
+export function groupSymptoms(items: readonly { key: SymptomKey }[]): SymptomGroup[] {
+  const groups: SymptomGroup[] = [];
+  const placed = new Set<SymptomKey>();
+  for (const zone of BODY_ZONES) {
+    const keys = zone.symptoms.filter((key) => items.some((item) => item.key === key));
+    keys.forEach((key) => placed.add(key));
+    if (keys.length > 0) groups.push({ zone: zone.key, label: zone.label, keys });
+  }
+  const other = items.map((item) => item.key).filter((key) => !placed.has(key));
+  if (other.length > 0) groups.push({ zone: 'other', label: 'Other', keys: other });
+  return groups;
+}
 export const tagLabel = (key: string) => tagLabels.get(key) ?? key;
 export const medicationTypeLabel = (key: string) => medicationTypeLabels.get(key) ?? key;
 
@@ -54,13 +87,19 @@ export function buildTimeline(
   const entries: TimelineEntry[] = [];
   if (filter === 'all' || filter === 'symptom') {
     for (const log of data.symptoms) {
+      const time = formatTime(log.loggedAt, log.tz);
       entries.push({
         kind: 'symptom',
         id: log.id,
         at: log.loggedAt,
         tz: log.tz,
-        title: log.items.map((item) => symptomLabel(item.key)).join(', '),
-        time: formatTime(log.loggedAt, log.tz),
+        // Which areas were affected, rather than a long list that gets cut off.
+        title:
+          groupSymptoms(log.items)
+            .map((group) => group.label)
+            .join(' · ') || 'Symptoms',
+        time,
+        meta: `${log.items.length} ${log.items.length === 1 ? 'symptom' : 'symptoms'} · ${time}`,
         log,
       });
     }
@@ -74,6 +113,7 @@ export function buildTimeline(
         tz: log.tz,
         title: log.mealName,
         time: formatTime(log.loggedAt, log.tz),
+        meta: formatTime(log.loggedAt, log.tz),
         log,
       });
     }
@@ -87,6 +127,7 @@ export function buildTimeline(
         tz: log.tz,
         title: log.doseText ? `${log.name} ${log.doseText}` : log.name,
         time: formatTime(log.takenAt, log.tz),
+        meta: formatTime(log.takenAt, log.tz),
         log,
       });
     }

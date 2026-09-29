@@ -109,6 +109,9 @@
   .step-title{font-size:17px;font-weight:800;margin-bottom:6px}
   .step-sub{color:var(--ink-soft);font-size:14px;line-height:1.5;margin-bottom:18px}
   .step-footer{margin-top:auto;position:sticky;bottom:0;background:var(--bg);padding:14px 0 20px}
+  .note-card{background:var(--surface-2);border-radius:var(--r-md);padding:12px 14px;font-size:15px;line-height:1.5}
+  .btn-quiet{background:none;color:var(--red-ink)}
+  .detail-title{font-size:13px;font-weight:700;color:var(--ink-soft);margin:16px 0 8px}
   .stepper{display:flex;gap:6px;margin-top:16px}
   .stepper .seg{flex:1;height:6px;border-radius:var(--r-pill);background:var(--surface-2)}
   .stepper .seg.done{background:var(--sage)}
@@ -692,7 +695,7 @@
       bedtimeIndex: 2,
       pet: { name:'Buddy', stage:0, progress:35, mood:'happy' },
       symptomLogs: [
-        {id:'s1', day:'today', time:'8:20 PM', items:[{key:'heartburn'},{key:'hoarseness'}], tags:['Large meal','Lay down after eating'], notes:''},
+        {id:'s1', day:'today', time:'8:20 PM', items:[{key:'heartburn'},{key:'hoarseness'}], tags:['Large meal','Lay down after eating'], notes:'Lost voice after dinner'},
         {id:'s2', day:'yesterday', time:'9:30 PM', items:[{key:'throat_clearing'},{key:'sleep'}], tags:['Poor sleep'], notes:''}
       ],
       foodLogs: [
@@ -764,6 +767,17 @@
 
   function bedtime(){ return BEDTIME_OPTIONS[state.bedtimeIndex]; }
 
+  function groupSymptoms(items){
+    var placed = {}, groups = [];
+    Object.keys(ZONES).forEach(function(z){
+      var keys = ZONES[z].keys.filter(function(k){ return items.some(function(it){ return it.key === k; }); });
+      keys.forEach(function(k){ placed[k] = true; });
+      if(keys.length) groups.push({label: ZONES[z].label, keys: keys});
+    });
+    var other = items.map(function(it){ return it.key; }).filter(function(k){ return !placed[k]; });
+    if(other.length) groups.push({label: 'Other', keys: other});
+    return groups;
+  }
   function symptomLabel(key){ for(var i=0;i<SYMPTOMS.length;i++) if(SYMPTOMS[i].key===key) return SYMPTOMS[i].label; return key; }
 
   // ---------- Today (pet hero) ----------
@@ -865,7 +879,7 @@
     if(e.kind==='symptom'){
       var s = e.data;
       return '<div class="row-item" data-detail="symptom" data-id="'+s.id+'"><div class="row-item__icon" style="background:var(--sage-tint);color:var(--sage-ink)">'+svg('caution')+'</div>'+
-        '<div class="row-item__main"><div class="name">'+s.items.map(function(it){return symptomLabel(it.key);}).join(', ')+'</div><div class="meta">'+s.time+'</div></div></div>';
+        '<div class="row-item__main"><div class="name">'+groupSymptoms(s.items).map(function(g){return g.label;}).join(' · ')+'</div><div class="meta">'+s.items.length+(s.items.length===1?' symptom':' symptoms')+' · '+s.time+'</div></div></div>';
     }
     var m = e.data;
     return '<div class="row-item" data-detail="med" data-id="'+m.id+'"><div class="row-item__icon" style="background:var(--clay-tint);color:var(--clay-ink)">'+svg('pill')+'</div>'+
@@ -889,12 +903,17 @@
         '<div class="ingredients" style="margin-bottom:14px">'+e.ingredients.map(function(i){return '<span class="ing">'+escapeHtml(i)+'</span>';}).join('')+'</div>'+
         '<div style="display:flex;gap:8px;flex-wrap:wrap">'+badges+'</div>';
     } else if(kind==='symptom'){
-      html = '<h2 style="margin-bottom:4px">Symptom entry</h2><p style="font-size:13px;color:var(--ink-soft);margin-bottom:14px">'+e.time+'</p>'+
-        '<div class="chip-grid" style="margin-bottom:14px">'+e.items.map(function(it){
-          
-          return '<span class="chip selected">'+symptomLabel(it.key)+'</span>';
-        }).join('')+'</div>'+
-        (e.tags.length ? '<div class="chip-grid">'+e.tags.map(function(t){return '<span class="tag selected">'+t+'</span>';}).join('')+'</div>' : '');
+      html = '<h2 style="margin-bottom:4px">Symptom entry</h2><p style="font-size:13px;color:var(--ink-soft);margin-bottom:6px">'+e.time+'</p>'+
+        groupSymptoms(e.items).map(function(g){
+          return '<div class="detail-title">'+g.label+' · '+g.keys.length+'</div><div class="chip-grid">'+
+            g.keys.map(function(k){ return '<span class="chip selected">'+symptomLabel(k)+'</span>'; }).join('')+'</div>';
+        }).join('')+
+        (e.tags.length ? '<div class="detail-title">Anything else going on</div><div class="chip-grid">'+e.tags.map(function(t){return '<span class="tag selected">'+t+'</span>';}).join('')+'</div>' : '')+
+        (e.notes ? '<div class="detail-title">Your note</div><div class="note-card">'+escapeHtml(e.notes)+'</div>' : '')+
+        '<div style="display:grid;gap:8px;margin-top:22px">'+
+          '<button class="btn btn-primary full" data-edit-entry="'+e.id+'">Edit entry</button>'+
+          '<button class="btn btn-quiet full" data-delete-entry="'+e.id+'">Delete</button>'+
+        '</div>';
     } else {
       html = '<h2 style="margin-bottom:4px">'+e.name+(e.dose?' '+e.dose:'')+'</h2><p style="font-size:13px;color:var(--ink-soft)">'+e.type+' · '+e.time+'</p>';
     }
@@ -1025,16 +1044,23 @@
     $('symptomStepper').setAttribute('aria-label', 'Step '+step+' of 3');
     $('symptomStepCaption').textContent = 'Step '+step+' of 3 · '+STEP_CAPTIONS[step-1];
     var btn = $('symptomNextBtn');
-    btn.textContent = step < 3 ? 'Next' : 'Save entry';
+    btn.textContent = step < 3 ? 'Next' : (state.editingId ? 'Save changes' : 'Save entry');
     btn.disabled = (step === 1 && Object.keys(state.selectedSymptoms).length === 0);
   }
   function renderLogSymptoms(){
+    var editing = state.editRequested ? state.symptomLogs.filter(function(l){ return l.id === state.editingId; })[0] : null;
+    state.editRequested = false;
+    state.editingId = editing ? editing.id : null;
     state.selectedSymptoms = {};
     state.selectedTags = {};
     state.symptomStep = 1;
-    $('symptomNote').value = '';
+    if(editing){
+      editing.items.forEach(function(it){ state.selectedSymptoms[it.key] = true; });
+      editing.tags.forEach(function(t){ state.selectedTags[t] = true; });
+    }
+    $('symptomNote').value = editing ? (editing.notes || '') : '';
     $('lifestyleTags').innerHTML = TAGS.map(function(t){
-      return '<span class="tag" data-tag="'+escapeHtml(t)+'">'+t+'</span>';
+      return '<span class="tag'+(state.selectedTags[t]?' selected':'')+'" data-tag="'+escapeHtml(t)+'">'+t+'</span>';
     }).join('');
     refreshSymptomMap();
   }
@@ -1153,6 +1179,13 @@
         return;
       }
 
+      var editBtn = t.closest('[data-edit-entry]');
+      if(editBtn){ state.editingId = editBtn.dataset.editEntry; state.editRequested = true; $('detailSheet').hidden = true; openOverlay('logSymptoms'); return; }
+      var deleteBtn = t.closest('[data-delete-entry]');
+      if(deleteBtn){
+        state.symptomLogs = state.symptomLogs.filter(function(l){ return l.id !== deleteBtn.dataset.deleteEntry; });
+        $('detailSheet').hidden = true; renderHistory(); showToast('Entry deleted', 'check'); return;
+      }
       var zoneBtn = t.closest('[data-zone]');
       if(zoneBtn){ openZone(zoneBtn.dataset.zone); return; }
       var symptomChip = t.closest('[data-symptom]');
@@ -1172,6 +1205,14 @@
         var h = now.getHours(), min = now.getMinutes();
         var ampm = h>=12?'PM':'AM'; var h12 = h%12; if(h12===0) h12=12;
         var timeStr = h12+':'+(min<10?'0':'')+min+' '+ampm;
+        if(state.editingId){
+          var entry = state.symptomLogs.filter(function(l){ return l.id === state.editingId; })[0];
+          if(entry){ entry.items = items; entry.tags = tags; entry.notes = $('symptomNote').value; }
+          state.editingId = null;
+          showToast('Entry updated', 'check');
+          goToday();
+          return;
+        }
         state.symptomLogs.unshift({ id:'s'+Date.now(), day:'today', time:timeStr, items:items, tags:tags, notes:$('symptomNote').value });
         // Checking in is always rewarded; having symptoms is never punished.
         applyPetDelta(2, 'happy');

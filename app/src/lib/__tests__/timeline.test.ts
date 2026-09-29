@@ -2,7 +2,7 @@ import type { StoredFoodLog } from '@/db/repositories/food';
 import type { SymptomLogWithDetails } from '@/db/repositories/symptoms';
 import type { MedicationLog } from '@/db/schema';
 
-import { buildTimeline } from '../timeline';
+import { buildTimeline, groupSymptoms } from '../timeline';
 
 const base = { createdAt: '', updatedAt: '', notes: null };
 
@@ -42,15 +42,41 @@ describe('buildTimeline', () => {
     medications: [med(1, '2026-09-28T07:00:00.000Z')],
   };
 
-  it('groups by local day, newest first, with readable titles', () => {
+  it('groups by local day, newest first, summarising a symptom entry by body area', () => {
     const sections = buildTimeline(data, 'all', now, 'Europe/London');
 
     expect(sections.map((s) => s.label)).toEqual(['Today', 'Yesterday']);
     expect(sections[0]?.entries.map((e) => [e.kind, e.title])).toEqual([
-      ['symptom', 'Heartburn, Hoarse voice'],
+      ['symptom', 'Throat & voice · Chest'],
       ['food', 'Oatmeal with banana'],
       ['medication', 'Omeprazole 20mg'],
     ]);
+  });
+
+  it('puts a count and the time under the title of a symptom entry', () => {
+    const [entry] = buildTimeline(data, 'symptom', now, 'Europe/London')[0]?.entries ?? [];
+
+    expect(entry?.meta).toMatch(/^2 symptoms · .*8:20/);
+    expect(entry?.time).toMatch(/8:20/);
+  });
+
+  it('says "1 symptom" in the singular and keeps the time-only line for meals and medications', () => {
+    const one: SymptomLogWithDetails = {
+      ...symptom(4, '2026-09-28T19:00:00.000Z'),
+      items: [{ key: 'cough', score: 1 }],
+    };
+    const sections = buildTimeline(
+      { symptoms: [one], food: data.food, medications: data.medications },
+      'all',
+      now,
+      'Europe/London',
+    );
+    const byKind = Object.fromEntries((sections[0]?.entries ?? []).map((e) => [e.kind, e]));
+
+    expect(byKind.symptom?.title).toBe('Chest');
+    expect(byKind.symptom?.meta).toMatch(/^1 symptom · /);
+    expect(byKind.food?.meta).toBe(byKind.food?.time);
+    expect(byKind.medication?.meta).toBe(byKind.medication?.time);
   });
 
   it('filters by kind', () => {
@@ -72,5 +98,35 @@ describe('buildTimeline', () => {
 
   it('returns no sections when there is nothing logged', () => {
     expect(buildTimeline({ symptoms: [], food: [], medications: [] }, 'all', now)).toEqual([]);
+  });
+});
+
+describe('groupSymptoms', () => {
+  it('groups symptoms under their body area, in map order', () => {
+    const groups = groupSymptoms([
+      { key: 'feeling_full' },
+      { key: 'heartburn' },
+      { key: 'hoarseness' },
+      { key: 'lump' },
+      { key: 'stomach_pain' },
+    ]);
+
+    expect(groups).toEqual([
+      { zone: 'throat', label: 'Throat & voice', keys: ['hoarseness', 'lump'] },
+      { zone: 'chest', label: 'Chest', keys: ['heartburn'] },
+      { zone: 'tummy', label: 'Tummy', keys: ['stomach_pain', 'feeling_full'] },
+    ]);
+  });
+
+  it('leaves out areas with nothing chosen', () => {
+    expect(groupSymptoms([{ key: 'constipation' }]).map((group) => group.label)).toEqual(['Tummy']);
+    expect(groupSymptoms([])).toEqual([]);
+  });
+
+  it('shows a retired symptom (Trouble sleeping on older entries) under "Other", after the areas', () => {
+    const groups = groupSymptoms([{ key: 'sleep' }, { key: 'cough' }]);
+
+    expect(groups.map((group) => group.label)).toEqual(['Chest', 'Other']);
+    expect(groups[1]?.keys).toEqual(['sleep']);
   });
 });

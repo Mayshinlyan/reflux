@@ -1,7 +1,10 @@
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect } from 'expo-router';
+import { Pencil } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
 import { Alert, ScrollView, SectionList, StyleSheet, View } from 'react-native';
+
+import type { ReactNode } from 'react';
 
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
@@ -22,6 +25,7 @@ import { dayLabel, localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
 import {
   buildTimeline,
+  groupSymptoms,
   medicationTypeLabel,
   symptomLabel,
   tagLabel,
@@ -29,7 +33,7 @@ import {
   type TimelineFilter,
   type TimelineSection,
 } from '@/lib/timeline';
-import { space } from '@/theme';
+import { radius, space, useColors } from '@/theme';
 
 const FILTERS: { key: TimelineFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -154,7 +158,7 @@ export default function HistoryScreen() {
           <TimelineItem
             kind={item.kind}
             title={item.title}
-            time={item.time}
+            time={item.meta}
             onPress={() => setSelected(item)}
           />
         )}
@@ -192,6 +196,7 @@ function EntryDetail({
   onEdit: (entry: TimelineEntry) => void;
   onDelete: (entry: TimelineEntry) => void;
 }) {
+  const colors = useColors();
   const when = `${dayLabel(localDayKey(entry.at, entry.tz))} · ${entry.time}`;
   return (
     <View>
@@ -203,19 +208,31 @@ function EntryDetail({
           <AppText variant="caption" color="inkSoft" style={styles.when}>
             {when}
           </AppText>
-          <View style={styles.chips}>
-            {entry.log.items.map((item) => (
-              <SymptomChip key={item.key} label={symptomLabel(item.key)} selected readOnly />
-            ))}
-          </View>
+          {groupSymptoms(entry.log.items).map((group) => (
+            <DetailSection key={group.zone} title={`${group.label} · ${group.keys.length}`}>
+              <View style={styles.chips}>
+                {group.keys.map((key) => (
+                  <SymptomChip key={key} label={symptomLabel(key)} selected readOnly />
+                ))}
+              </View>
+            </DetailSection>
+          ))}
           {entry.log.tags.length > 0 && (
-            <View style={styles.chips}>
-              {entry.log.tags.map((tag) => (
-                <TagChip key={tag} label={tagLabel(tag)} selected readOnly />
-              ))}
-            </View>
+            <DetailSection title="Anything else going on">
+              <View style={styles.chips}>
+                {entry.log.tags.map((tag) => (
+                  <TagChip key={tag} label={tagLabel(tag)} selected readOnly />
+                ))}
+              </View>
+            </DetailSection>
           )}
-          {entry.log.notes ? <AppText style={styles.notes}>{entry.log.notes}</AppText> : null}
+          {entry.log.notes ? (
+            <DetailSection title="Your note">
+              <View style={[styles.noteCard, { backgroundColor: colors.surface2 }]}>
+                <AppText style={styles.noteText}>{entry.log.notes}</AppText>
+              </View>
+            </DetailSection>
+          ) : null}
         </>
       )}
       {entry.kind === 'food' && (
@@ -241,10 +258,22 @@ function EntryDetail({
 
       <View style={styles.actions}>
         {entry.kind === 'symptom' && (
-          <Button label="Edit" variant="secondary" onPress={() => onEdit(entry)} />
+          <Button label="Edit entry" icon={Pencil} onPress={() => onEdit(entry)} />
         )}
-        <Button label="Delete" variant="danger" onPress={() => onDelete(entry)} />
+        <Button label="Delete" variant="quietDanger" onPress={() => onDelete(entry)} />
       </View>
+    </View>
+  );
+}
+
+/** A small heading over a group of chips (or the note) in the entry detail. */
+function DetailSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <AppText variant="label" color="inkSoft" accessibilityRole="header" style={styles.sectionTitle}>
+        {title}
+      </AppText>
+      {children}
     </View>
   );
 }
@@ -258,7 +287,10 @@ const styles = StyleSheet.create({
   emptyTitle: { marginBottom: space.s1 },
   emptyBody: { textAlign: 'center' },
   when: { marginTop: 4, marginBottom: 14 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1, marginBottom: 14 },
-  notes: { fontSize: 15, lineHeight: 22, marginBottom: 14 },
-  actions: { gap: space.s1, marginTop: space.s1 },
+  section: { marginTop: space.s2 },
+  sectionTitle: { marginBottom: space.s1 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
+  noteCard: { borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12 },
+  noteText: { fontSize: 15, lineHeight: 22 },
+  actions: { gap: space.s1, marginTop: space.s3 },
 });
