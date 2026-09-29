@@ -1,0 +1,121 @@
+name: Deploy API
+
+# Deploys the relay to Cloud Run when api/ changes on main (or on demand).
+# Auth is Workload Identity Federation: no key file or secret is stored in GitHub.
+# Setup: docs/RUNBOOK.md ("Automatic deployment").
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never run two deploys at once, and never cancel one halfway through.
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+env:
+  SERVICE: reflux-relay
+  REGION: us-central1
+
+jobs:
+  # The deploy is gated on the same checks as ci.yml, so a broken commit
+  # pushed to main stops here and the running revision keeps serving.
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=high --omit=dev
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # lets the run request a short-lived OIDC token for Google
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      # The new revision is deployed with no traffic under a "candidate" tag, smoke tested on its
+      # own URL, and only then given production traffic. A bad build therefore never serves users.
+      # (--no-traffic needs an existing service, which the first manual deploy created.)
+      # --update-* keeps other env vars/secrets already on the service. ANALYSIS_ENABLED is left
+      # out on purpose so a deploy never undoes the kill switch.
+      - name: Deploy candidate (no traffic)
+        env:
+          PROJECT: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --source api \
+            --region "$REGION" \
+            --project "$PROJECT" \
+            --service-account "reflux-relay-sa@$PROJECT.iam.gserviceaccount.com" \
+            --allow-unauthenticated \
+            --max-instances 3 \
+            --concurrency 20 \
+            --timeout 60 \
+            --update-secrets ANTHROPIC_API_KEY=reflux-anthropic-api-key:latest \
+            --update-env-vars PER_USER_DAILY_LIMIT=30,GLOBAL_DAILY_LIMIT=300 \
+            --no-traffic \
+            --tag candidate
+
+      - name: Smoke test candidate /health
+        env:
+          PROJECT: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" --region "$REGION" \
+            --project "$PROJECT" --format='value(status.url)')
+          CANDIDATE="${URL/https:\/\//https://candidate---}"
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --max-time 10 "$CANDIDATE/health" | grep -q '"status":"ok"'; then
+              echo "Candidate healthy: $CANDIDATE"
+              exit 0
+            fi
+            echo "Attempt $attempt failed; retrying in 6s"
+            sleep 6
+          done
+          echo "::error::Candidate failed its smoke test; production traffic was not changed"
+          exit 1
+
+      # --to-latest also clears any traffic pin left by a manual rollback.
+      - name: Promote to production
+        env:
+          PROJECT: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          gcloud run services update-traffic "$SERVICE" \
+            --region "$REGION" --project "$PROJECT" --to-latest
+
+      - name: Verify production /health
+        env:
+          PROJECT: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" --region "$REGION" \
+            --project "$PROJECT" --format='value(status.url)')
+          curl --fail --silent --show-error --max-time 10 "$URL/health" | grep -q '"status":"ok"'

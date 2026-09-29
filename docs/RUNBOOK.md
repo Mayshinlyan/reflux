@@ -46,7 +46,7 @@ gcloud run services update-traffic reflux-relay --region <region> \
   --to-revisions <previous-revision-name>=100
 ```
 
-`deploy-api.yml` does this automatically on a failed `/health` smoke test; use this manually if a bad revision passed the smoke test but misbehaves under real use.
+`deploy-api.yml` never sends traffic to a revision that fails its `/health` smoke test, so use this only if a bad revision passed the smoke test but misbehaves under real use. Rolling back pins traffic to that revision; the next automatic deploy clears the pin (`--to-latest`), or run `gcloud run services update-traffic reflux-relay --region <region> --to-latest` yourself.
 
 ## Step 5 setup checklist for the owner
 
@@ -78,3 +78,23 @@ The relay code for `POST /v1/analyze-food` is built and tested with Claude and F
 - **Raising `MIN_APP_VERSION`:** set the env var, confirm the version-check middleware returns `426 UPGRADE_REQUIRED` for older installs, and post in the update notes why the bump was needed.
 - **EAS Update rollback:** `eas update:rollback` (or republish the previous update group) on the affected channel if an OTA update introduces a regression.
 - **Cloud Armor rule tuning:** adjust the per-IP rate-based ban threshold in the security policy if legitimate users are getting banned, or tighten it if abuse patterns emerge; test changes in preview mode before enforcing.
+
+## Automatic deployment (`deploy-api.yml`)
+
+A push to `main` that changes `api/**` (or a manual **Run workflow** in the Actions tab) runs the API checks, deploys a new revision to Cloud Run with no traffic under the `candidate` tag, smoke tests its `/health`, and only then moves production traffic to it. If the smoke test fails, production keeps serving the old revision.
+
+Auth is Workload Identity Federation: GitHub gives the run a short-lived token and Google lets it act as the `gh-deployer` service account, only for this repo. No key file or secret is stored in GitHub.
+
+One-time setup (already done for this project):
+
+1. Enable `iamcredentials`, `sts`, `run`, `cloudbuild` and `artifactregistry` APIs.
+2. Create service account `gh-deployer`; grant it `run.admin`, `cloudbuild.builds.editor`, `artifactregistry.writer`, `storage.admin`, `serviceusage.serviceUsageConsumer`, and `iam.serviceAccountUser` on the runtime and build service accounts.
+3. Create workload identity pool `github` and OIDC provider `github-oidc` (issuer `https://token.actions.githubusercontent.com`) with attribute condition `assertion.repository=='<owner>/<repo>'`.
+4. Grant `roles/iam.workloadIdentityUser` on `gh-deployer` to `principalSet://iam.googleapis.com/projects/<number>/locations/global/workloadIdentityPools/github/attribute.repository/<owner>/<repo>`.
+5. In GitHub → Settings → Secrets and variables → Actions → **Variables**, set `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER` (full provider resource name) and `GCP_DEPLOY_SA` (service account email).
+
+Notes:
+
+- The workflow uses `--update-env-vars` / `--update-secrets`, so other settings already on the service (for example `FIREBASE_PROJECT_ID`) are kept. Change the per-user and global limits by editing the workflow, not by hand, or the next deploy overwrites them. `ANALYSIS_ENABLED` is deliberately not set by the workflow, so a deploy never undoes the kill switch.
+- Branch protection needs GitHub Pro on a private repo. Without it the `test` job in the workflow is the gate: a failing check stops the deploy but does not block the push.
+- To disable auto-deploy, turn the workflow off in the Actions tab; manual `gcloud run deploy` still works.
