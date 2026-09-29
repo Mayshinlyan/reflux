@@ -114,7 +114,8 @@ const styles = StyleSheet.create({
   pet: { width: PET_SIZE, height: PET_HEIGHT },
   menu: {
     position: 'absolute',
-    bottom: PET_SIZE * 0.35,
+    // Opens above the pet's head so it never covers the face.
+    bottom: PET_HEIGHT + space.s2,
     width: 260,
     flexDirection: 'row',
     alignItems: 'flex-end',
