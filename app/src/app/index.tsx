@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { type Href, router } from 'expo-router';
 import { Activity, Camera, Pill, Plus, UserRound } from 'lucide-react-native';
 import { useState } from 'react';
@@ -8,12 +9,16 @@ import { CircleActionButton } from '@/components/CircleActionButton';
 import { Screen } from '@/components/Screen';
 import { fontFamily, radius, space, useColors } from '@/theme';
 
-const PET_SIZE = 180;
+const PET_SIZE = 200;
+const DOG_IMAGE = require('@/assets/images/pet/dog.png');
+/** dog.png is 276×298; keep its aspect ratio. */
+const PET_HEIGHT = Math.round((PET_SIZE * 298) / 276);
 
 /**
  * Today — the pet-hero home screen, laid out as in docs/design/mockups.html.
- * "Log" opens a floating menu over the pet; "Scan" opens Check. The pet itself is a
- * placeholder until Step 6; Step 2 adds the redirect to /welcome on first launch.
+ * "Log" opens a floating menu over the pet; "Scan" opens Check. The pet is a static
+ * image until Step 6 adds stages, moods and animation; Step 2 adds the redirect to
+ * /welcome on first launch.
  */
 export default function TodayScreen() {
   const colors = useColors();
@@ -40,10 +45,10 @@ export default function TodayScreen() {
         <View style={styles.stageWrap}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Add an entry"
-            onPress={() => setMenuOpen((open) => !open)}
-            style={[styles.petPlaceholder, { backgroundColor: colors.sageTint }]}
-          />
+            accessibilityLabel="Buddy. Add an entry"
+            onPress={() => setMenuOpen((open) => !open)}>
+            <Image source={DOG_IMAGE} style={styles.pet} contentFit="contain" accessible={false} />
+          </Pressable>
           {menuOpen && (
             <View style={styles.menu}>
               <CircleActionButton
@@ -106,7 +111,7 @@ const styles = StyleSheet.create({
   },
   hero: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
   stageWrap: { alignItems: 'center', justifyContent: 'center' },
-  petPlaceholder: { width: PET_SIZE, height: PET_SIZE, borderRadius: radius.pill },
+  pet: { width: PET_SIZE, height: PET_HEIGHT },
   menu: {
     position: 'absolute',
     bottom: PET_SIZE * 0.35,
