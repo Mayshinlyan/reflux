@@ -141,7 +141,9 @@ export default function SettingsScreen() {
           maxLength={MAX_PET_NAME}
           autoCapitalize="words"
           returnKeyType="done"
-          onSubmitEditing={() => trimmedName.length > 0 && savePetName()}
+          onSubmitEditing={() => {
+            if (trimmedName.length > 0) savePetName();
+          }}
         />
         {saveFailed && (
           <AppText color="redInk" style={styles.error}>

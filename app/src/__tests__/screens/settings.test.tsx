@@ -18,7 +18,6 @@ jest.mock('@/db/DatabaseProvider', () => ({
     const { useState } = require('react');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const repo = require('@/db/repositories/settings');
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     const [settings, setSettings] = useState(() => repo.getAllSettings(mockDb));
     return {
       settings,
@@ -150,7 +149,7 @@ describe('Settings: my pet', () => {
     await render(<SettingsScreen />);
     await press('button', 'My pet, Buddy');
     await fireEvent.changeText(screen.getByLabelText('Name'), 'Halfway');
-    await fireEvent.press(screen.getByRole('button', { name: 'Close' })); // dismiss without saving
+    await fireEvent.press(screen.getByRole('button', { name: 'Close', includeHiddenElements: true })); // dismiss without saving
 
     await press('button', 'My pet, Buddy');
 

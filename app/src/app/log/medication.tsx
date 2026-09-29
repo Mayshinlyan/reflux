@@ -139,6 +139,8 @@ export default function MedicationScreen() {
   };
 
   const logOnce = (med: Medication) => {
+    // `disabled` only applies after a re-render, so two taps in the same instant must be caught here.
+    if (timers.current.has(med.id)) return;
     try {
       logMedication(db, med.id);
     } catch (error) {
@@ -201,6 +203,7 @@ export default function MedicationScreen() {
               Alert.alert("Couldn't remove", friendlyMessages.INTERNAL);
               return;
             }
+            toast('Removed from your list');
             setForm(null);
             reload();
           },
@@ -268,7 +271,7 @@ export default function MedicationScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <BackHeader title="Medications" />
-        {loadFailed ? (
+        {loadFailed && meds.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
             {`${friendlyMessages.INTERNAL} Your medications are still on this phone.`}
           </AppText>

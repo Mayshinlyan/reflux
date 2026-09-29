@@ -87,6 +87,21 @@ describe('Medications: one-tap logging', () => {
     expect(listMedicationLogs(mockDb, ALL_TIME)).toHaveLength(1);
   });
 
+  it('cannot log twice from two taps in the same instant', async () => {
+    jest.useFakeTimers();
+    seedOmeprazole();
+    await render(<MedicationScreen />);
+    const button = screen.getByRole('button', { name: 'Log Omeprazole 20mg' });
+
+    // Both calls happen before React can re-render the button as disabled.
+    await act(async () => {
+      void fireEvent.press(button);
+      void fireEvent.press(button);
+    });
+
+    expect(listMedicationLogs(mockDb, ALL_TIME)).toHaveLength(1);
+  });
+
   it('returns to "Log" after a moment so a second dose can be logged, and counts them', async () => {
     jest.useFakeTimers();
     seedOmeprazole();
@@ -166,7 +181,7 @@ describe('Medications: adding', () => {
   it('goes back from the form to the list without leaving the screen', async () => {
     await render(<MedicationScreen />);
     await press('button', '+ Add a medication');
-    expect(screen.getByText('Add medication', { selector: undefined } as never)).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Add medication' })).toBeTruthy(); // the form is open
 
     await press('button', 'Back');
 
@@ -212,6 +227,7 @@ describe('Medications: editing and removing', () => {
     expect(listMedications(mockDb, { includeArchived: true })).toHaveLength(1);
     expect(listMedicationLogs(mockDb, ALL_TIME)).toHaveLength(1);
     expect(screen.getByText(/Add the medications you take/)).toBeTruthy();
+    expect(mockToast).toHaveBeenCalledWith('Removed from your list');
     alert.mockRestore();
   });
 
