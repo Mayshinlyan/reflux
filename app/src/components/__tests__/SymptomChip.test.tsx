@@ -24,6 +24,20 @@ describe('SymptomChip', () => {
     expect(screen.getByText('Heartburn')).toBeTruthy();
   });
 
+  it('shows a labelled minus button when it can be removed, and the label stays readable', async () => {
+    const onRemove = jest.fn();
+    await render(<SymptomChip label="Heartburn" selected readOnly onRemove={onRemove} />);
+
+    expect(screen.getByText('Heartburn')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove Heartburn' }));
+    expect(onRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it('has no minus button unless asked to', async () => {
+    await render(<SymptomChip label="Heartburn" selected readOnly />);
+    expect(screen.queryByRole('button', { name: /Remove/ })).toBeNull();
+  });
+
   it('reads as plain text when read-only and ignores presses', async () => {
     const onToggle = jest.fn();
     await render(<SymptomChip label="Heartburn" selected readOnly onToggle={onToggle} />);

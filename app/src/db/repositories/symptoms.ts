@@ -94,6 +94,26 @@ export function updateSymptomLog(db: AppDb, id: number, input: SymptomLogInput):
   });
 }
 
+/**
+ * Takes one symptom off an entry, keeping its other symptoms, tags and note. An entry must
+ * keep at least one symptom, so removing the last one is refused (delete the entry instead).
+ */
+export function removeSymptomFromLog(db: AppDb, id: number, key: SymptomKey): void {
+  db.transaction((tx) => {
+    const items = tx
+      .select({ itemKey: symptomLogItems.itemKey })
+      .from(symptomLogItems)
+      .where(eq(symptomLogItems.symptomLogId, id))
+      .all();
+    if (!items.some((item) => item.itemKey === key)) throw new Error('That symptom is not on this entry');
+    if (items.length <= 1) throw new Error('An entry needs at least one symptom');
+    tx.delete(symptomLogItems)
+      .where(and(eq(symptomLogItems.symptomLogId, id), eq(symptomLogItems.itemKey, key)))
+      .run();
+    tx.update(symptomLogs).set({ updatedAt: nowIso() }).where(eq(symptomLogs.id, id)).run();
+  });
+}
+
 export function deleteSymptomLog(db: AppDb, id: number): void {
   // Items and tags go with it (ON DELETE CASCADE).
   db.delete(symptomLogs).where(eq(symptomLogs.id, id)).run();

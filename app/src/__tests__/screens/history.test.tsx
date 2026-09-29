@@ -1,8 +1,10 @@
+import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Alert, type AlertButton } from 'react-native';
 
 import HistoryScreen from '@/app/history';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { createSymptomLog } from '@/db/repositories/symptoms';
+import { createSymptomLog, getSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 import { lightColors } from '@/theme';
 
@@ -54,6 +56,74 @@ const seedFullEntry = () =>
 const openEntry = async () => {
   await fireEvent.press(screen.getByRole('button', { name: /^Symptoms: Throat & voice/ }));
 };
+
+/** Presses a button of the most recent Alert.alert, as a tap on the system dialog would. */
+const pressAlertButton = (spy: jest.SpyInstance, text: string) => {
+  const buttons = spy.mock.calls.at(-1)?.[2] as AlertButton[];
+  buttons.find((button) => button.text === text)?.onPress?.();
+};
+
+describe('History: removing a symptom from an entry', () => {
+  it('puts a minus on every symptom but not on the tags, and explains when the last one cannot go', async () => {
+    seedFullEntry();
+    await render(<HistoryScreen />);
+    await openEntry();
+
+    for (const label of ['Hoarse voice', 'Heartburn', 'Feeling full', 'Constipation']) {
+      expect(screen.getByRole('button', { name: `Remove ${label}` })).toBeTruthy();
+    }
+    expect(screen.queryByRole('button', { name: 'Remove Stress' })).toBeNull();
+    expect(screen.queryByText(/only symptom/)).toBeNull();
+  });
+
+  it('asks first, and cancelling changes nothing', async () => {
+    const id = seedFullEntry();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await render(<HistoryScreen />);
+    await openEntry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove Heartburn' }));
+
+    expect(alert).toHaveBeenLastCalledWith(
+      'Remove Heartburn?',
+      'It will be taken off this entry.',
+      expect.any(Array),
+    );
+    pressAlertButton(alert, 'Cancel');
+    expect(getSymptomLog(mockDb, id)?.items.map((item) => item.key)).toContain('heartburn');
+    expect(screen.getByRole('button', { name: 'Remove Heartburn' })).toBeTruthy();
+    alert.mockRestore();
+  });
+
+  it('removes the symptom once confirmed and updates the open sheet and the list straight away', async () => {
+    const id = seedFullEntry();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await render(<HistoryScreen />);
+    await openEntry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove Heartburn' }));
+    await React.act(async () => pressAlertButton(alert, 'Remove'));
+
+    expect(getSymptomLog(mockDb, id)?.items.map((item) => item.key)).not.toContain('heartburn');
+    // The sheet is still open and no longer lists it; the empty Chest heading is gone too.
+    expect(screen.queryByRole('button', { name: 'Remove Heartburn' })).toBeNull();
+    expect(screen.queryByRole('header', { name: /^Chest/ })).toBeNull();
+    expect(screen.getByRole('header', { name: 'Throat & voice · 4' })).toBeTruthy();
+    // The row behind it now counts six symptoms and only names the areas that are left.
+    expect(screen.getByText(/^6 symptoms · /)).toBeTruthy();
+    expect(screen.getByText('Throat & voice · Tummy')).toBeTruthy();
+    alert.mockRestore();
+  });
+
+  it('gives the last symptom no minus, and says why', async () => {
+    createSymptomLog(mockDb, { items: [{ key: 'cough' }], tags: ['stress'] });
+    await render(<HistoryScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: /^Symptoms: Chest/ }));
+
+    expect(screen.queryByRole('button', { name: /^Remove/ })).toBeNull();
+    expect(screen.getByText(/only symptom, so it can.t be removed/)).toBeTruthy();
+  });
+});
 
 describe('History: symptom entry', () => {
   it('summarises the entry in the list by body area, with a count instead of a cut-off list', async () => {

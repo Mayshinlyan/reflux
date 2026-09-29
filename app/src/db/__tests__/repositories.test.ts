@@ -24,6 +24,7 @@ import {
   deleteSymptomLog,
   getSymptomLog,
   listSymptomLogs,
+  removeSymptomFromLog,
   updateSymptomLog,
 } from '../repositories/symptoms';
 import { medicationLogs, medications, symptomLogItems, symptomLogTags } from '../schema';
@@ -122,6 +123,51 @@ describe('symptom logs', () => {
     expect(getSymptomLog(db, id)).toBeUndefined();
     expect(db.select({ n: count() }).from(symptomLogItems).get()?.n).toBe(0);
     expect(db.select({ n: count() }).from(symptomLogTags).get()?.n).toBe(0);
+  });
+
+  describe('removeSymptomFromLog', () => {
+    it('takes one symptom off and keeps everything else', () => {
+      const { db } = createTestDb();
+      const id = createSymptomLog(db, {
+        items: [{ key: 'heartburn' }, { key: 'hoarseness' }, { key: 'feeling_full' }],
+        tags: ['stress'],
+        notes: 'keep me',
+        loggedAt: '2026-09-28T20:20:00.000Z',
+      });
+
+      removeSymptomFromLog(db, id, 'heartburn');
+
+      expect(getSymptomLog(db, id)).toMatchObject({
+        items: [
+          { key: 'hoarseness', score: 1 },
+          { key: 'feeling_full', score: 1 },
+        ],
+        tags: ['stress'],
+        notes: 'keep me',
+        loggedAt: '2026-09-28T20:20:00.000Z',
+      });
+    });
+
+    it('refuses to remove the last symptom, leaving the entry intact', () => {
+      const { db } = createTestDb();
+      const id = createSymptomLog(db, { items: [{ key: 'cough' }], notes: 'still here' });
+
+      expect(() => removeSymptomFromLog(db, id, 'cough')).toThrow(/at least one symptom/);
+
+      expect(getSymptomLog(db, id)).toMatchObject({ items: [{ key: 'cough' }], notes: 'still here' });
+    });
+
+    it('refuses a symptom that is not on the entry, and only touches that entry', () => {
+      const { db } = createTestDb();
+      const a = createSymptomLog(db, { items: [{ key: 'cough' }, { key: 'lump' }] });
+      const b = createSymptomLog(db, { items: [{ key: 'cough' }, { key: 'lump' }] });
+
+      expect(() => removeSymptomFromLog(db, a, 'heartburn')).toThrow(/not on this entry/);
+      removeSymptomFromLog(db, a, 'cough');
+
+      expect(getSymptomLog(db, a)?.items.map((item) => item.key)).toEqual(['lump']);
+      expect(getSymptomLog(db, b)?.items.map((item) => item.key)).toEqual(['cough', 'lump']);
+    });
   });
 
   it('rejects empty logs, unknown keys and duplicates', () => {

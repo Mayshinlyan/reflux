@@ -15,10 +15,11 @@ import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
 import { TimelineItem } from '@/components/TimelineItem';
 import { useToast } from '@/components/Toast';
+import type { SymptomKey } from '@/constants/symptomItems';
 import { useDb } from '@/db/DatabaseProvider';
 import { deleteFoodLog, listDiaryFoodLogs } from '@/db/repositories/food';
 import { deleteMedicationLog, listMedicationLogs } from '@/db/repositories/medications';
-import { deleteSymptomLog, listSymptomLogs } from '@/db/repositories/symptoms';
+import { deleteSymptomLog, listSymptomLogs, removeSymptomFromLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 import { friendlyMessages } from '@/lib/errors';
 import { dayLabel, localDayKey } from '@/lib/localDay';
@@ -63,6 +64,8 @@ function loadSections(db: AppDb, filter: TimelineFilter): TimelineSection[] {
   );
 }
 
+type SymptomEntry = Extract<TimelineEntry, { kind: 'symptom' }>;
+
 export default function HistoryScreen() {
   const db = useDb();
   const toast = useToast();
@@ -75,7 +78,16 @@ export default function HistoryScreen() {
 
   const reload = useCallback(() => {
     try {
-      setSections(loadSections(db, filter));
+      const fresh = loadSections(db, filter);
+      setSections(fresh);
+      // Keep an open entry sheet in step with the data (e.g. after removing a symptom from it).
+      setSelected((current) =>
+        current
+          ? (fresh
+              .flatMap((section) => section.entries)
+              .find((entry) => entry.kind === current.kind && entry.id === current.id) ?? null)
+          : null,
+      );
       setLoadFailed(false);
     } catch (error) {
       logger.error('loadHistory', error);
@@ -107,6 +119,27 @@ export default function HistoryScreen() {
           pendingEdit.current = null;
           setSelected(null);
           toast('Entry deleted');
+          reload();
+        },
+      },
+    ]);
+  };
+
+  const confirmRemoveSymptom = (entry: SymptomEntry, key: SymptomKey) => {
+    Alert.alert(`Remove ${symptomLabel(key)}?`, 'It will be taken off this entry.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          try {
+            removeSymptomFromLog(db, entry.id, key);
+          } catch (error) {
+            logger.error('removeSymptom', error);
+            Alert.alert("Couldn't remove", friendlyMessages.INTERNAL);
+            return;
+          }
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
           reload();
         },
       },
@@ -181,7 +214,14 @@ export default function HistoryScreen() {
       />
 
       <BottomSheet visible={selected !== null} onClose={closeSheet} onDismissed={openPendingEdit}>
-        {selected && <EntryDetail entry={selected} onEdit={edit} onDelete={confirmDelete} />}
+        {selected && (
+          <EntryDetail
+            entry={selected}
+            onEdit={edit}
+            onDelete={confirmDelete}
+            onRemoveSymptom={confirmRemoveSymptom}
+          />
+        )}
       </BottomSheet>
     </Screen>
   );
@@ -191,10 +231,12 @@ function EntryDetail({
   entry,
   onEdit,
   onDelete,
+  onRemoveSymptom,
 }: {
   entry: TimelineEntry;
   onEdit: (entry: TimelineEntry) => void;
   onDelete: (entry: TimelineEntry) => void;
+  onRemoveSymptom: (entry: SymptomEntry, key: SymptomKey) => void;
 }) {
   const colors = useColors();
   const when = `${dayLabel(localDayKey(entry.at, entry.tz))} · ${entry.time}`;
@@ -212,11 +254,23 @@ function EntryDetail({
             <DetailSection key={group.zone} title={`${group.label} · ${group.keys.length}`}>
               <View style={styles.chips}>
                 {group.keys.map((key) => (
-                  <SymptomChip key={key} label={symptomLabel(key)} selected readOnly />
+                  <SymptomChip
+                    key={key}
+                    label={symptomLabel(key)}
+                    selected
+                    readOnly
+                    // An entry needs at least one symptom, so the only one has no minus.
+                    onRemove={entry.log.items.length > 1 ? () => onRemoveSymptom(entry, key) : undefined}
+                  />
                 ))}
               </View>
             </DetailSection>
           ))}
+          {entry.log.items.length === 1 && (
+            <AppText variant="caption" color="inkSoft" style={styles.onlyHint}>
+              This is the only symptom, so it can&apos;t be removed. Delete the entry instead.
+            </AppText>
+          )}
           {entry.log.tags.length > 0 && (
             <DetailSection title="Anything else going on">
               <View style={styles.chips}>
@@ -287,6 +341,7 @@ const styles = StyleSheet.create({
   emptyTitle: { marginBottom: space.s1 },
   emptyBody: { textAlign: 'center' },
   when: { marginTop: 4, marginBottom: 14 },
+  onlyHint: { marginTop: space.s1 },
   section: { marginTop: space.s2 },
   sectionTitle: { marginBottom: space.s1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },

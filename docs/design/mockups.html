@@ -109,6 +109,15 @@
   .step-title{font-size:17px;font-weight:800;margin-bottom:6px}
   .step-sub{color:var(--ink-soft);font-size:14px;line-height:1.5;margin-bottom:18px}
   .step-footer{margin-top:auto;position:sticky;bottom:0;background:var(--bg);padding:14px 0 20px}
+  .chip.removable{padding-right:6px;gap:4px}
+  .chip-minus{width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.7);color:inherit;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
+  .chip-minus svg{width:16px;height:16px}
+  .only-hint{font-size:12.5px;color:var(--ink-soft);margin-top:8px;line-height:1.4}
+  .dialog-backdrop{position:absolute;inset:0;background:rgba(30,26,22,.42);z-index:60;display:flex;align-items:center;justify-content:center;padding:28px}
+  .dialog{background:var(--surface);border-radius:var(--r-lg);padding:20px;width:100%}
+  .dialog h2{font-size:17px;margin-bottom:6px}
+  .dialog p{font-size:14px;color:var(--ink-soft);line-height:1.5;margin-bottom:16px}
+  .dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .note-card{background:var(--surface-2);border-radius:var(--r-md);padding:12px 14px;font-size:15px;line-height:1.5}
   .btn-quiet{background:none;color:var(--red-ink)}
   .detail-title{font-size:13px;font-weight:700;color:var(--ink-soft);margin:16px 0 8px}
@@ -562,6 +571,18 @@
         </div>
       </div>
 
+      <!-- REMOVE-SYMPTOM CONFIRM -->
+      <div class="dialog-backdrop" id="confirmDialog" hidden>
+        <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+          <h2 id="confirmTitle"></h2>
+          <p>It will be taken off this entry.</p>
+          <div class="dialog-actions">
+            <button class="btn btn-secondary" id="confirmCancel">Cancel</button>
+            <button class="btn btn-danger" id="confirmRemove">Remove</button>
+          </div>
+        </div>
+      </div>
+
       <!-- DELETE CONFIRM SHEET -->
       <div class="sheet-backdrop" id="deleteSheet" hidden>
         <div class="sheet">
@@ -907,8 +928,12 @@
       html = '<h2 style="margin-bottom:4px">Symptom entry</h2><p style="font-size:13px;color:var(--ink-soft);margin-bottom:6px">'+e.time+'</p>'+
         groupSymptoms(e.items).map(function(g){
           return '<div class="detail-title">'+g.label+' · '+g.keys.length+'</div><div class="chip-grid">'+
-            g.keys.map(function(k){ return '<span class="chip selected">'+symptomLabel(k)+'</span>'; }).join('')+'</div>';
+            g.keys.map(function(k){
+              var removable = e.items.length > 1;
+              return '<span class="chip selected'+(removable?' removable':'')+'">'+symptomLabel(k)+(removable ? minusButton(e.id, k, symptomLabel(k)) : '')+'</span>';
+            }).join('')+'</div>';
         }).join('')+
+        (e.items.length === 1 ? '<p class="only-hint">This is the only symptom, so it can\'t be removed. Delete the entry instead.</p>' : '')+
         (e.tags.length ? '<div class="detail-title">Anything else going on</div><div class="chip-grid">'+e.tags.map(function(t){return '<span class="tag selected">'+t+'</span>';}).join('')+'</div>' : '')+
         (e.notes ? '<div class="detail-title">Your note</div><div class="note-card">'+escapeHtml(e.notes)+'</div>' : '')+
         '<div style="display:grid;gap:8px;margin-top:22px">'+
@@ -1124,6 +1149,11 @@
     toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 1700);
   }
 
+  function minusButton(entryId, key, label){
+    return '<button class="chip-minus" data-remove-symptom-from-entry="'+entryId+'" data-key="'+escapeHtml(key)+'" aria-label="Remove '+escapeHtml(label)+'">'+
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 12h12"/></svg></button>';
+  }
+
   // ---------- Event delegation ----------
   function bindDelegated(){ /* using a single root listener instead, see init() */ }
 
@@ -1186,6 +1216,24 @@
         return;
       }
 
+      var minus = t.closest('[data-remove-symptom-from-entry]');
+      if(minus){
+        state.pendingRemove = { entryId: minus.dataset.removeSymptomFromEntry, key: minus.dataset.key };
+        $('confirmTitle').textContent = 'Remove '+symptomLabel(minus.dataset.key)+'?';
+        $('confirmDialog').hidden = false;
+        return;
+      }
+      if(t === $('confirmDialog') || t.closest('#confirmCancel')){ $('confirmDialog').hidden = true; state.pendingRemove = null; return; }
+      if(t.closest('#confirmRemove')){
+        var pr = state.pendingRemove;
+        var target = pr && state.symptomLogs.filter(function(l){ return l.id === pr.entryId; })[0];
+        if(target && target.items.length > 1){
+          target.items = target.items.filter(function(it){ return it.key !== pr.key; });
+          openDetail('symptom', pr.entryId); renderHistory();
+        }
+        state.pendingRemove = null; $('confirmDialog').hidden = true;
+        return;
+      }
       var stepBtn = t.closest('#symptomStepBtn');
       if(stepBtn && !stepBtn.disabled){ state.symptomStep++; renderSymptomStep(); $('screen-logSymptoms').scrollTop = 0; return; }
       var editBtn = t.closest('[data-edit-entry]');
