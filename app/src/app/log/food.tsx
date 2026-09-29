@@ -136,10 +136,6 @@ export default function LogFoodScreen() {
               <AppText variant="caption" color="inkSoft" style={styles.disclaimer}>
                 For tracking only, not medical advice. Food results are AI-generated.
               </AppText>
-              <View style={styles.actions}>
-                <Button label="Save to diary" onPress={save} />
-                <Button label="Try something else" variant="secondary" onPress={tryAnother} />
-              </View>
             </>
           ) : (
             <>
@@ -195,6 +191,13 @@ export default function LogFoodScreen() {
             </>
           )}
         </ScrollView>
+        {/* Outside the scroll area so Save is always on screen, however long the result is. */}
+        {state.status === 'done' && (
+          <View style={styles.footer}>
+            <Button label="Save to diary" onPress={save} />
+            <Button label="Try something else" variant="secondary" onPress={tryAnother} />
+          </View>
+        )}
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -207,6 +210,7 @@ const styles = StyleSheet.create({
   or: { textAlign: 'center', marginVertical: space.s2 },
   disclaimer: { textAlign: 'center', marginVertical: space.s1 },
   actions: { gap: space.s1 },
+  footer: { gap: space.s1, paddingTop: space.s1 },
   photo: { width: '100%', height: 200, borderRadius: radius.lg, marginBottom: space.s1 },
   error: { borderRadius: radius.md, padding: space.s2, marginBottom: space.s2 },
   loading: {

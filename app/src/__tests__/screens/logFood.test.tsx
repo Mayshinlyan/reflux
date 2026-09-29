@@ -120,6 +120,21 @@ describe('Log food screen (text)', () => {
     });
   });
 
+  it('keeps Save on screen outside the scrolling result, however long the meal is', async () => {
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+    await type('dim sum');
+    await press('Check it');
+    await screen.findByText('Mint is a common trigger.');
+
+    const insideScroll = (element: { parent: unknown; type: unknown } | null): boolean =>
+      element !== null && (element.type === 'RCTScrollView' || insideScroll(element.parent as never));
+    const save = screen.getByRole('button', { name: 'Save to diary' });
+    expect(insideScroll(save)).toBe(false);
+    // The card itself does scroll, so the check above is meaningful.
+    expect(insideScroll(screen.getByText('Mint is a common trigger.'))).toBe(true);
+  });
+
   it('does not save twice on a double tap', async () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
