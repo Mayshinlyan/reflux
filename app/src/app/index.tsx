@@ -1,5 +1,5 @@
 import { type Href, Redirect, router } from 'expo-router';
-import { Activity, Camera, Pill, Plus, UserRound } from 'lucide-react-native';
+import { Activity, Camera, Carrot, Pill, Plus, UserRound } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -59,7 +59,7 @@ export default function TodayScreen() {
                 <CircleActionButton
                   variant="menu"
                   label="Food"
-                  icon={Camera}
+                  icon={Carrot}
                   onPress={() => go('/log/food')}
                 />
               </View>
