@@ -211,6 +211,82 @@ describe('Log symptoms screen: editing', () => {
     expect(getSymptomLog(mockDb, id)?.items.map((item) => item.key)).toEqual(['cough', 'heartburn', 'sleep']);
   });
 
+  describe('saving from wherever you are', () => {
+    const seed = () => {
+      const id = createSymptomLog(mockDb, { items: [{ key: 'cough' }], tags: ['stress'], notes: 'keep me' });
+      mockParams = { id: String(id) };
+      return id;
+    };
+
+    it('saves a change made on the first step straight away, without visiting the others', async () => {
+      const id = seed();
+      await render(<LogSymptomsScreen />);
+
+      await chooseIn('Tummy', ['Feeling full']);
+      await press('button', 'Save changes'); // still on step 1
+
+      expect(getSymptomLog(mockDb, id)).toMatchObject({
+        items: [
+          { key: 'cough', score: 1 },
+          { key: 'feeling_full', score: 1 },
+        ],
+        tags: ['stress'],
+        notes: 'keep me', // steps 2 and 3 were never opened, and nothing was lost
+      });
+      expect(mockToast).toHaveBeenCalledWith('Entry updated');
+      expect(mockBack).toHaveBeenCalledTimes(1);
+    });
+
+    it('saves from the second step too', async () => {
+      const id = seed();
+      await render(<LogSymptomsScreen />);
+
+      await press('button', 'Next');
+      await press('checkbox', 'Large meal');
+      await press('button', 'Save changes'); // on step 2
+
+      expect(getSymptomLog(mockDb, id)).toMatchObject({ tags: ['stress', 'large_meal'], notes: 'keep me' });
+    });
+
+    it('still offers Next to look at the other steps, until the last one', async () => {
+      seed();
+      await render(<LogSymptomsScreen />);
+
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Next' })).toBeTruthy();
+      await press('button', 'Next');
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Next' })).toBeTruthy();
+      await press('button', 'Next');
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    });
+
+    it('will not save an edit that leaves nothing chosen', async () => {
+      seed();
+      await render(<LogSymptomsScreen />);
+
+      await chooseIn('Chest, 1 selected', ['Nagging cough']); // deselect the only symptom
+
+      expect(screen.getByRole('button', { name: 'Save changes' }).props.accessibilityState).toMatchObject({
+        disabled: true,
+      });
+    });
+
+    it('keeps the guided flow for a new entry: no early save', async () => {
+      await render(<LogSymptomsScreen />);
+      await chooseIn('Chest', ['Heartburn']);
+
+      expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Save entry' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Next' })).toBeTruthy();
+      await press('button', 'Next');
+      expect(screen.queryByRole('button', { name: 'Save entry' })).toBeNull();
+      await press('button', 'Next');
+      expect(screen.getByRole('button', { name: 'Save entry' })).toBeTruthy();
+    });
+  });
+
   it('says so when the entry no longer exists', async () => {
     mockParams = { id: '999' };
     await render(<LogSymptomsScreen />);

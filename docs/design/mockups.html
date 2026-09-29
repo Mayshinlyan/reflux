@@ -459,6 +459,7 @@
             </div>
             <div class="step-footer">
               <button class="btn btn-primary full" id="symptomNextBtn" disabled>Next</button>
+              <button class="btn btn-secondary full" id="symptomStepBtn" hidden style="margin-top:8px">Next</button>
               <div class="stepper" id="symptomStepper" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1" aria-label="Step 1 of 3"></div>
               <div class="step-caption" id="symptomStepCaption"></div>
             </div>
@@ -1044,8 +1045,14 @@
     $('symptomStepper').setAttribute('aria-label', 'Step '+step+' of 3');
     $('symptomStepCaption').textContent = 'Step '+step+' of 3 · '+STEP_CAPTIONS[step-1];
     var btn = $('symptomNextBtn');
-    btn.textContent = step < 3 ? 'Next' : (state.editingId ? 'Save changes' : 'Save entry');
-    btn.disabled = (step === 1 && Object.keys(state.selectedSymptoms).length === 0);
+    var none = Object.keys(state.selectedSymptoms).length === 0;
+    var editing = !!state.editingId;
+    // Editing: Save changes is always the main button; Next stays available as a smaller one.
+    btn.textContent = editing ? 'Save changes' : (step < 3 ? 'Next' : 'Save entry');
+    btn.disabled = editing ? none : (step === 1 && none);
+    var stepBtn = $('symptomStepBtn');
+    stepBtn.hidden = !(editing && step < 3);
+    stepBtn.disabled = (step === 1 && none);
   }
   function renderLogSymptoms(){
     var editing = state.editRequested ? state.symptomLogs.filter(function(l){ return l.id === state.editingId; })[0] : null;
@@ -1179,6 +1186,8 @@
         return;
       }
 
+      var stepBtn = t.closest('#symptomStepBtn');
+      if(stepBtn && !stepBtn.disabled){ state.symptomStep++; renderSymptomStep(); $('screen-logSymptoms').scrollTop = 0; return; }
       var editBtn = t.closest('[data-edit-entry]');
       if(editBtn){ state.editingId = editBtn.dataset.editEntry; state.editRequested = true; $('detailSheet').hidden = true; openOverlay('logSymptoms'); return; }
       var deleteBtn = t.closest('[data-delete-entry]');
@@ -1198,7 +1207,7 @@
         return;
       }
       if(t.closest('#symptomNextBtn') && !t.closest('#symptomNextBtn').disabled){
-        if(state.symptomStep < 3){ state.symptomStep++; renderSymptomStep(); $('screen-logSymptoms').scrollTop = 0; return; }
+        if(state.symptomStep < 3 && !state.editingId){ state.symptomStep++; renderSymptomStep(); $('screen-logSymptoms').scrollTop = 0; return; }
         var items = Object.keys(state.selectedSymptoms).map(function(k){ return {key:k}; });
         var tags = Object.keys(state.selectedTags);
         var now = new Date();

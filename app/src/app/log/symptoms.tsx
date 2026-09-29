@@ -240,14 +240,37 @@ export default function LogSymptomsScreen() {
             <Button label="Done" onPress={() => setZone(null)} />
           ) : (
             <>
-              <Button
-                label={step < TOTAL_STEPS ? 'Next' : editingId !== undefined ? 'Save changes' : 'Save entry'}
-                onPress={next}
-                disabled={step === 1 && selected.size === 0}
-                accessibilityHint={
-                  step === 1 && selected.size === 0 ? 'Choose at least one symptom first' : undefined
-                }
-              />
+              {editingId !== undefined ? (
+                // Editing: change one thing and save from wherever you are. Next is still there
+                // if you want to look at the other steps.
+                <>
+                  <Button
+                    label="Save changes"
+                    onPress={save}
+                    disabled={selected.size === 0}
+                    accessibilityHint={selected.size === 0 ? 'Choose at least one symptom first' : undefined}
+                  />
+                  {step < TOTAL_STEPS && (
+                    <View style={styles.secondary}>
+                      <Button
+                        label="Next"
+                        variant="secondary"
+                        onPress={() => setStep(step + 1)}
+                        disabled={step === 1 && selected.size === 0}
+                      />
+                    </View>
+                  )}
+                </>
+              ) : (
+                <Button
+                  label={step < TOTAL_STEPS ? 'Next' : 'Save entry'}
+                  onPress={next}
+                  disabled={step === 1 && selected.size === 0}
+                  accessibilityHint={
+                    step === 1 && selected.size === 0 ? 'Choose at least one symptom first' : undefined
+                  }
+                />
+              )}
               <StepTracker
                 step={step}
                 total={TOTAL_STEPS}
@@ -280,4 +303,5 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   footer: { paddingTop: space.s1, paddingBottom: space.s2 },
+  secondary: { marginTop: space.s1 },
 });
