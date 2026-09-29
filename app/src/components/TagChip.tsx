@@ -9,8 +9,11 @@ type Props = {
   label: string;
   selected: boolean;
   onPress?: () => void;
-  /** 'toggle' = a multi-select tag (checkbox); 'filter' = one of a set of filters (tab); 'button' = opens something. */
-  role?: 'toggle' | 'filter' | 'button';
+  /**
+   * 'toggle' = a multi-select tag (checkbox); 'radio' = one choice out of several; 'filter' = one of a
+   * set of filters (tab); 'button' = opens something.
+   */
+  role?: 'toggle' | 'radio' | 'filter' | 'button';
   readOnly?: boolean;
   /** Shows a minus button on the chip that calls this (used to remove a tag from a saved entry). */
   onRemove?: () => void;
@@ -46,7 +49,9 @@ export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, o
     <Pressable
       disabled={readOnly}
       onPress={onPress}
-      accessibilityRole={role === 'filter' ? 'tab' : role === 'button' ? 'button' : 'checkbox'}
+      accessibilityRole={
+        role === 'filter' ? 'tab' : role === 'button' ? 'button' : role === 'radio' ? 'radio' : 'checkbox'
+      }
       accessibilityLabel={label}
       accessibilityState={
         role === 'filter' ? { selected } : role === 'button' ? undefined : { checked: selected }

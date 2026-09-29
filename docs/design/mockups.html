@@ -118,6 +118,9 @@
   .dialog h2{font-size:17px;margin-bottom:6px}
   .dialog p{font-size:14px;color:var(--ink-soft);line-height:1.5;margin-bottom:16px}
   .dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .bt-option{display:flex;justify-content:space-between;align-items:center;width:100%;padding:14px 4px;background:none;border:none;border-bottom:1px solid var(--hairline);font-family:inherit;font-size:16px;color:var(--ink);cursor:pointer;text-align:left}
+  .bt-option svg{width:18px;height:18px}
+  .bt-option.selected{font-weight:800;color:var(--clay-ink)}
   .note-card{background:var(--surface-2);border-radius:var(--r-md);padding:12px 14px;font-size:15px;line-height:1.5}
   .btn-quiet{background:none;color:var(--red-ink)}
   .detail-title{font-size:13px;font-weight:700;color:var(--ink-soft);margin:16px 0 8px}
@@ -526,6 +529,12 @@
             </div>
 
             <div class="section-title">Reflux</div>
+            <div class="settings-row" id="petRow">
+              <span class="label">My pet</span>
+              <span class="value"><span id="petRowValue">Buddy</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+              </span>
+            </div>
             <div class="settings-row" id="bedtimeRow">
               <span class="label">Bedtime</span>
               <span class="value"><span id="bedtimeValue">10:30 PM</span>
@@ -622,7 +631,14 @@
   ];
   var TAGS = ['Stress','Lay down after eating','Large meal','Alcohol','Exercise','Poor sleep'];
   var MED_TYPES = ['PPI','H2 blocker','Antacid','Alginate','Other'];
-  var BEDTIME_OPTIONS = ['9:30 PM','10:00 PM','10:30 PM','11:00 PM'];
+  var BEDTIME_OPTIONS = (function(){
+    var out = [];
+    for(var m = 20*60; m <= 26*60; m += 30){
+      var h24 = Math.floor(m/60) % 24, min = m % 60, h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+      out.push(h12+':'+(min<10?'0':'')+min+' '+(h24 >= 12 ? 'PM' : 'AM'));
+    }
+    return out;
+  })();
 
   var ICON = {
     ok: '<circle cx="12" cy="12" r="9.25"/><path d="M6.5 14.5c1.6-1.3 3.2-1.3 4.8 0s3.2 1.3 4.8 0"/>',
@@ -714,7 +730,7 @@
   var state = null;
   function seedState(){
     return {
-      bedtimeIndex: 2,
+      bedtimeIndex: 5,
       pet: { name:'Buddy', stage:0, progress:35, mood:'happy' },
       symptomLogs: [
         {id:'s1', day:'today', time:'8:20 PM', items:[{key:'heartburn'},{key:'hoarseness'}], tags:['Large meal','Lay down after eating'], notes:'Lost voice after dinner'},
@@ -1137,6 +1153,7 @@
   // ---------- Settings ----------
   function renderSettings(){
     $('bedtimeValue').textContent = bedtime();
+    $('petRowValue').textContent = state.pet.name;
   }
 
   // ---------- Toast ----------
@@ -1204,8 +1221,37 @@
       }
 
       if(t.closest('#bedtimeRow')){
-        state.bedtimeIndex = (state.bedtimeIndex+1) % BEDTIME_OPTIONS.length;
+        $('detailBody').innerHTML = '<h2 style="margin-bottom:4px">Bedtime</h2>'+
+          '<p style="font-size:13.5px;color:var(--ink-soft);margin-bottom:8px;line-height:1.5">Meals within 3 hours of bedtime are flagged as late.</p>'+
+          BEDTIME_OPTIONS.map(function(o, i){
+            var sel = i === state.bedtimeIndex;
+            return '<button class="bt-option'+(sel?' selected':'')+'" data-bedtime-idx="'+i+'"><span>'+o+'</span>'+(sel ? svg('check') : '')+'</button>';
+          }).join('');
+        $('detailSheet').hidden = false;
+        return;
+      }
+      var bedtimeOpt = t.closest('[data-bedtime-idx]');
+      if(bedtimeOpt){
+        state.bedtimeIndex = parseInt(bedtimeOpt.dataset.bedtimeIdx, 10);
+        $('detailSheet').hidden = true;
         renderSettings();
+        return;
+      }
+      if(t.closest('#petRow')){
+        $('detailBody').innerHTML = '<h2 style="margin-bottom:4px">My pet</h2>'+
+          '<p style="font-size:13.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.5">What would you like to call your companion?</p>'+
+          '<input type="text" id="petNameInput" maxlength="24" value="'+escapeHtml(state.pet.name)+'" style="margin-bottom:16px">'+
+          '<button class="btn btn-primary full" data-save-pet-name>Save</button>';
+        $('detailSheet').hidden = false;
+        return;
+      }
+      if(t.closest('[data-save-pet-name]')){
+        var newName = $('petNameInput').value.trim();
+        if(newName.length < 1 || newName.length > 24) return;
+        state.pet.name = newName;
+        $('detailSheet').hidden = true;
+        renderSettings();
+        showToast('Name saved', 'check');
         return;
       }
 

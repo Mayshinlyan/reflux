@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { space, useColors } from '@/theme';
@@ -43,7 +43,7 @@ export function BottomSheet({ visible, onClose, onDismissed, children }: Props) 
       onRequestClose={onClose}
       onDismiss={onDismissed}
       statusBarTranslucent>
-      <View style={styles.root}>
+      <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable
           style={styles.scrim}
           onPress={onClose}
@@ -57,9 +57,11 @@ export function BottomSheet({ visible, onClose, onDismissed, children }: Props) 
           ]}
           accessibilityViewIsModal>
           <View style={[styles.handle, { backgroundColor: colors.hairline }]} />
-          <ScrollView bounces={false}>{children}</ScrollView>
+          <ScrollView bounces={false} keyboardShouldPersistTaps="handled">
+            {children}
+          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

@@ -1,0 +1,159 @@
+import { fireEvent, render, screen } from '@testing-library/react-native';
+
+import SettingsScreen from '@/app/settings';
+import { createTestDb } from '@/db/__tests__/testDb';
+import { getAllSettings, getSetting, setSetting } from '@/db/repositories/settings';
+import type { AppDb } from '@/db/types';
+
+let mockDb: AppDb;
+let closeDb: () => void;
+const mockPush = jest.fn();
+const mockToast = jest.fn();
+
+// A small stand-in for the real provider's settings hook, backed by the real repository.
+jest.mock('@/db/DatabaseProvider', () => ({
+  useDb: () => mockDb,
+  useSettings: () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { useState } = require('react');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const repo = require('@/db/repositories/settings');
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const [settings, setSettings] = useState(() => repo.getAllSettings(mockDb));
+    return {
+      settings,
+      update: (key: string, value: unknown) => {
+        repo.setSetting(mockDb, key, value);
+        setSettings(repo.getAllSettings(mockDb));
+      },
+    };
+  },
+}));
+// Sentry's SDK starts a cleanup timer on import; not needed here.
+jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
+jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+jest.mock('expo-router', () => ({
+  router: {
+    push: (href: string) => mockPush(href),
+    back: jest.fn(),
+    canGoBack: () => true,
+    replace: jest.fn(),
+  },
+}));
+jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn(() => Promise.resolve()) }));
+
+beforeEach(() => {
+  const { db, sqlite } = createTestDb();
+  mockDb = db;
+  closeDb = () => sqlite.close();
+  mockPush.mockClear();
+  mockToast.mockClear();
+});
+afterEach(() => closeDb());
+
+const press = async (role: 'button' | 'radio', name: string) =>
+  fireEvent.press(screen.getByRole(role, { name }));
+
+describe('Settings', () => {
+  it('shows the current pet name and bedtime, with the defaults on a fresh install', async () => {
+    await render(<SettingsScreen />);
+
+    expect(screen.getByRole('button', { name: 'My pet, Buddy' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Bedtime, 10:30 PM' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'My medications' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'History' })).toBeTruthy();
+  });
+
+  it('opens History and My medications', async () => {
+    await render(<SettingsScreen />);
+
+    await press('button', 'History');
+    await press('button', 'My medications');
+
+    expect(mockPush.mock.calls).toEqual([['/history'], ['/log/medication']]);
+  });
+});
+
+describe('Settings: bedtime', () => {
+  it('offers 8:00 PM to 2:00 AM with the current bedtime marked', async () => {
+    await render(<SettingsScreen />);
+    await press('button', 'Bedtime, 10:30 PM');
+
+    const options = screen.getAllByRole('radio');
+    expect(options).toHaveLength(13);
+    expect(options[0]?.props.accessibilityLabel).toBe('8:00 PM');
+    expect(options.at(-1)?.props.accessibilityLabel).toBe('2:00 AM');
+    expect(
+      options.filter((o) => o.props.accessibilityState?.checked).map((o) => o.props.accessibilityLabel),
+    ).toEqual(['10:30 PM']);
+  });
+
+  it('saves the chosen bedtime, shows it, and closes the list', async () => {
+    await render(<SettingsScreen />);
+    await press('button', 'Bedtime, 10:30 PM');
+
+    await press('radio', '11:00 PM');
+
+    expect(getSetting(mockDb, 'bedtime')).toBe('23:00');
+    expect(screen.getByRole('button', { name: 'Bedtime, 11:00 PM' })).toBeTruthy();
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+  });
+
+  it('can be set after midnight', async () => {
+    await render(<SettingsScreen />);
+    await press('button', 'Bedtime, 10:30 PM');
+
+    await press('radio', '12:30 AM');
+
+    expect(getSetting(mockDb, 'bedtime')).toBe('00:30');
+    expect(screen.getByRole('button', { name: 'Bedtime, 12:30 AM' })).toBeTruthy();
+  });
+
+  it('starts from a bedtime saved earlier', async () => {
+    setSetting(mockDb, 'bedtime', '21:30');
+    await render(<SettingsScreen />);
+
+    expect(screen.getByRole('button', { name: 'Bedtime, 9:30 PM' })).toBeTruthy();
+  });
+});
+
+describe('Settings: my pet', () => {
+  it('opens with the current name and saves a new one, trimmed', async () => {
+    await render(<SettingsScreen />);
+    await press('button', 'My pet, Buddy');
+
+    expect(screen.getByLabelText('Name').props.value).toBe('Buddy');
+    await fireEvent.changeText(screen.getByLabelText('Name'), '  Biscuit ');
+    await press('button', 'Save');
+
+    expect(getAllSettings(mockDb).petName).toBe('Biscuit');
+    expect(screen.getByRole('button', { name: 'My pet, Biscuit' })).toBeTruthy();
+    expect(mockToast).toHaveBeenCalledWith('Name saved');
+  });
+
+  it('will not save a blank name', async () => {
+    await render(<SettingsScreen />);
+    await press('button', 'My pet, Buddy');
+    await fireEvent.changeText(screen.getByLabelText('Name'), '   ');
+
+    expect(screen.getByRole('button', { name: 'Save' }).props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+    expect(getAllSettings(mockDb).petName).toBe('Buddy');
+  });
+
+  it('always starts from the saved name, not a half-typed one from last time', async () => {
+    await render(<SettingsScreen />);
+    await press('button', 'My pet, Buddy');
+    await fireEvent.changeText(screen.getByLabelText('Name'), 'Halfway');
+    await fireEvent.press(screen.getByRole('button', { name: 'Close' })); // dismiss without saving
+
+    await press('button', 'My pet, Buddy');
+
+    expect(screen.getByLabelText('Name').props.value).toBe('Buddy');
+  });
+});
