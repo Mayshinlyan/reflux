@@ -16,7 +16,7 @@ Requires Node 22.
 npm install              # root: installs the pre-commit hook (husky + lint-staged)
 
 cd api && npm install
-npm run dev              # relay on http://localhost:8080, try /healthz
+npm run dev              # relay on http://localhost:8080, try /health
 npm test
 
 cd ../app && npm install

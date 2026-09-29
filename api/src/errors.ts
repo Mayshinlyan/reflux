@@ -39,6 +39,8 @@ export class HttpError extends Error {
   constructor(
     readonly code: ErrorCode,
     message: string = DEFAULT_MESSAGES[code],
+    /** Content-free diagnostics for the server log only; never sent to the client. */
+    readonly logContext?: Record<string, string | number | null>,
   ) {
     super(message);
     this.name = 'HttpError';

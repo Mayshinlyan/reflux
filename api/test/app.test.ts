@@ -3,18 +3,25 @@ import { describe, expect, it } from 'vitest';
 
 import { testApp } from './helpers.js';
 
-describe('GET /healthz', () => {
+describe('GET /health', () => {
   it('returns 200 ok', async () => {
     const { app } = testApp();
-    const res = await request(app).get('/healthz');
+    const res = await request(app).get('/health');
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ status: 'ok' });
   });
 
-  it('sets security headers and hides the framework', async () => {
+  it('keeps /healthz working for local use', async () => {
     const { app } = testApp();
     const res = await request(app).get('/healthz');
+
+    expect(res.status).toBe(200);
+  });
+
+  it('sets security headers and hides the framework', async () => {
+    const { app } = testApp();
+    const res = await request(app).get('/health');
 
     expect(res.headers['x-powered-by']).toBeUndefined();
     expect(res.headers['x-content-type-options']).toBe('nosniff');
@@ -25,28 +32,28 @@ describe('GET /healthz', () => {
 describe('request ID', () => {
   it('echoes a well-formed client X-Request-Id', async () => {
     const { app } = testApp();
-    const res = await request(app).get('/healthz').set('X-Request-Id', 'client-req-12345');
+    const res = await request(app).get('/health').set('X-Request-Id', 'client-req-12345');
 
     expect(res.headers['x-request-id']).toBe('client-req-12345');
   });
 
   it('replaces a malformed X-Request-Id with a generated one', async () => {
     const { app } = testApp();
-    const res = await request(app).get('/healthz').set('X-Request-Id', 'bad id <script>');
+    const res = await request(app).get('/health').set('X-Request-Id', 'bad id <script>');
 
     expect(res.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it('puts the request ID on every log line for the request', async () => {
     const { app, logs } = testApp();
-    await request(app).get('/healthz').set('X-Request-Id', 'client-req-12345');
+    await request(app).get('/health').set('X-Request-Id', 'client-req-12345');
 
     const requestLines = logs.parsed().filter((line) => line.message === 'request completed');
     expect(requestLines).toHaveLength(1);
     expect(requestLines[0]).toMatchObject({
       requestId: 'client-req-12345',
       method: 'GET',
-      path: '/healthz',
+      path: '/health',
       status: 200,
       severity: 'INFO',
     });

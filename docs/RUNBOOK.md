@@ -46,7 +46,7 @@ gcloud run services update-traffic reflux-relay --region <region> \
   --to-revisions <previous-revision-name>=100
 ```
 
-`deploy-api.yml` does this automatically on a failed `/healthz` smoke test; use this manually if a bad revision passed the smoke test but misbehaves under real use.
+`deploy-api.yml` does this automatically on a failed `/health` smoke test; use this manually if a bad revision passed the smoke test but misbehaves under real use.
 
 ## Step 5 setup checklist for the owner
 
@@ -67,7 +67,7 @@ The relay code for `POST /v1/analyze-food` is built and tested with Claude and F
 
 ## Running the MVP pilot (Expo Go)
 
-1. Confirm the relay is deployed and healthy: `curl https://<relay-url>/healthz`.
+1. Confirm the relay is deployed and healthy: `curl https://<relay-url>/health`.
 2. Confirm the Anthropic spend limit and GCP budget alert are both set before onboarding any tester.
 3. Start the dev server in tunnel mode so it's reachable outside your Wi-Fi: `npx expo start --tunnel` from `app/`.
 4. Share the QR code / Expo Go link with testers. Tell them explicitly: **the dev server must stay running for the app to work, and deleting Expo Go deletes their local data** (no cloud backup in the MVP).

@@ -67,6 +67,13 @@ describe('FirestoreRateLimitStore', () => {
     expect(await store.increment('user_abc', DAY_2)).toBe(1);
   });
 
+  it('url-encodes the key so a uid with a slash cannot change the document path', async () => {
+    const { db, docs } = fakeFirestore();
+    await new FirestoreRateLimitStore(db).increment('user_a/b', DAY_1);
+
+    expect([...docs.keys()]).toEqual(['rate_limits/user_a%2Fb_2026-09-29']);
+  });
+
   it('stores only a count and a 48 h expiry for the TTL policy', async () => {
     const { db, docs } = fakeFirestore();
     await new FirestoreRateLimitStore(db).increment('user_abc', DAY_1);

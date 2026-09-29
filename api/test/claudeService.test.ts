@@ -28,7 +28,7 @@ function message(overrides: Record<string, unknown> = {}) {
 
 function serviceWith(create: ReturnType<typeof vi.fn>, model?: string) {
   const client = { messages: { create } } as unknown as Anthropic;
-  return createClaudeService({ apiKey: 'test-key', model, client });
+  return createClaudeService({ apiKey: 'test-key', model, client, retryDelayMs: 0 });
 }
 
 describe('claudeService request', () => {

@@ -355,4 +355,12 @@ describe('privacy: logs stay content-free on this route', () => {
     expect(output).not.toContain('secret pizza recipe');
     expect(output).not.toContain('not-a-real-token');
   });
+
+  it('logs a content-free reason when auth fails', async () => {
+    const { app, logs } = testApp();
+    await request(app).post('/v1/analyze-food').send({ text: 'x' });
+
+    const line = logs.parsed().find((entry) => entry.message === 'request rejected');
+    expect(line).toMatchObject({ code: 'AUTH_FAILED', reason: 'missing-bearer' });
+  });
 });

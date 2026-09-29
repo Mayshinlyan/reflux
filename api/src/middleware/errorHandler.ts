@@ -11,9 +11,9 @@ export function notFoundHandler(_req: Request, _res: Response, next: NextFunctio
 export function errorHandler(error: unknown, _req: Request, res: Response, _next: NextFunction) {
   const httpError = toHttpError(error);
   if (httpError.status >= 500) {
-    res.locals.log.error({ err: error, code: httpError.code }, 'request failed');
+    res.locals.log.error({ err: error, code: httpError.code, ...httpError.logContext }, 'request failed');
   } else {
-    res.locals.log.warn({ code: httpError.code }, 'request rejected');
+    res.locals.log.warn({ code: httpError.code, ...httpError.logContext }, 'request rejected');
   }
   res.status(httpError.status).json(errorBody(httpError, res.locals.requestId));
 }
