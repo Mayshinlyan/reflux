@@ -133,30 +133,85 @@ describe('Medications: one-tap logging', () => {
 });
 
 describe('Medications: adding', () => {
-  it('saves a new medication with its type and optional dose, then lists it', async () => {
+  const openPicker = async () => {
+    await press('button', '+ Add a medication');
+    await press('button', 'Medication');
+  };
+
+  it('picks a common medication, fills in its type, and offers its usual doses', async () => {
+    await render(<MedicationScreen />);
+    await openPicker();
+
+    await press('radio', 'Famotidine (Pepcid)');
+    expect(screen.getByText('Type: H2 blocker')).toBeTruthy();
+    expect(screen.getAllByRole('radio').map((chip) => chip.props.accessibilityLabel)).toEqual([
+      '10mg',
+      '20mg',
+      '40mg',
+      'Other dose',
+    ]);
+    await press('radio', '20mg');
+    await press('button', 'Add medication');
+
+    expect(listMedications(mockDb)).toEqual([
+      expect.objectContaining({
+        name: 'Famotidine (Pepcid)',
+        type: 'h2_blocker',
+        defaultDose: '20mg',
+        active: true,
+      }),
+    ]);
+    expect(mockToast).toHaveBeenCalledWith('Famotidine (Pepcid) added');
+    expect(screen.getByRole('button', { name: 'Log Famotidine (Pepcid) 20mg' })).toBeTruthy();
+  });
+
+  it('cannot add until a medication is chosen', async () => {
     await render(<MedicationScreen />);
     await press('button', '+ Add a medication');
 
     expect(screen.getByRole('button', { name: 'Add medication' }).props.accessibilityState).toMatchObject({
       disabled: true,
     });
-    await fireEvent.changeText(screen.getByLabelText('Name'), '  Pepcid ');
-    await press('radio', 'H2 blocker');
-    await fireEvent.changeText(screen.getByLabelText('Dose'), '20mg');
+    expect(screen.queryByLabelText('Name')).toBeNull();
+  });
+
+  it('lets the dose be left out, changed, or typed in', async () => {
+    await render(<MedicationScreen />);
+    await openPicker();
+    await press('radio', 'Tums');
+
+    await press('radio', '2 tablets');
+    await press('radio', '2 tablets'); // tapping again clears it
+    await press('radio', 'Other dose');
+    await fireEvent.changeText(screen.getByLabelText('Dose'), '4 tablets');
+    await press('button', 'Add medication');
+
+    expect(listMedications(mockDb)[0]).toMatchObject({ name: 'Tums', type: 'antacid', defaultDose: '4 tablets' });
+  });
+
+  it('saves a medication that is not on the list with its own name, type and dose', async () => {
+    await render(<MedicationScreen />);
+    await openPicker();
+    await press('radio', 'Not listed? Enter your own');
+
+    expect(screen.getByRole('button', { name: 'Add medication' }).props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+    await fireEvent.changeText(screen.getByLabelText('Name'), '  Zegerid ');
+    await press('radio', 'PPI');
+    await fireEvent.changeText(screen.getByLabelText('Dose'), '40mg');
     await press('button', 'Add medication');
 
     expect(listMedications(mockDb)).toEqual([
-      expect.objectContaining({ name: 'Pepcid', type: 'h2_blocker', defaultDose: '20mg', active: true }),
+      expect.objectContaining({ name: 'Zegerid', type: 'ppi', defaultDose: '40mg', active: true }),
     ]);
-    expect(mockToast).toHaveBeenCalledWith('Pepcid added');
-    // Back on the list.
-    expect(screen.getByRole('button', { name: 'Log Pepcid 20mg' })).toBeTruthy();
-    expect(screen.getByText('H2 blocker')).toBeTruthy();
+    expect(screen.getByText('PPI')).toBeTruthy();
   });
 
-  it('will not add a medication without a name', async () => {
+  it('will not add a not-listed medication without a name', async () => {
     await render(<MedicationScreen />);
-    await press('button', '+ Add a medication');
+    await openPicker();
+    await press('radio', 'Not listed? Enter your own');
     await fireEvent.changeText(screen.getByLabelText('Name'), '   ');
 
     expect(screen.getByRole('button', { name: 'Add medication' }).props.accessibilityState).toMatchObject({
@@ -164,9 +219,10 @@ describe('Medications: adding', () => {
     });
   });
 
-  it('offers exactly one type at a time', async () => {
+  it('offers exactly one type at a time for a not-listed medication', async () => {
     await render(<MedicationScreen />);
-    await press('button', '+ Add a medication');
+    await openPicker();
+    await press('radio', 'Not listed? Enter your own');
 
     const checked = () =>
       screen

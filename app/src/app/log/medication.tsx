@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useNavigation } from 'expo-router';
-import { Pill } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Pill } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -20,6 +20,7 @@ import { Screen } from '@/components/Screen';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
+import { COMMON_MEDICATIONS, findCommonMedication } from '@/constants/commonMedications';
 import { MEDICATION_TYPES, type MedicationType } from '@/constants/medicationTypes';
 import { useDb } from '@/db/DatabaseProvider';
 import {
@@ -44,6 +45,9 @@ const MAX_DOSE = 40;
 /** How long a row says "Logged ✓" (and ignores taps) after a one-tap log, so a double-tap can't log twice. */
 const LOGGED_FLASH_MS = 2500;
 const DAY_MS = 86_400_000;
+
+/** Dropdown choice for a medication that isn't in the common list. */
+const NOT_LISTED = 'not_listed';
 
 type Form = { mode: 'add' } | { mode: 'edit'; id: number };
 
@@ -91,6 +95,11 @@ export default function MedicationScreen() {
   const [name, setName] = useState('');
   const [type, setType] = useState<MedicationType>('ppi');
   const [dose, setDose] = useState('');
+  /** A common medication's name, NOT_LISTED, or null while nothing is chosen yet. */
+  const [pick, setPick] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  /** True while the dose is typed in rather than chosen from the common doses. */
+  const [customDose, setCustomDose] = useState(false);
 
   const reload = useCallback(() => {
     try {
@@ -129,14 +138,37 @@ export default function MedicationScreen() {
     setName('');
     setType('ppi');
     setDose('');
+    setPick(null);
+    setPickerOpen(false);
+    setCustomDose(false);
     setForm({ mode: 'add' });
   };
   const openEdit = (med: Medication) => {
+    const common = findCommonMedication(med.name);
     setName(med.name);
-    setType(med.type);
+    setType(common?.type ?? med.type);
     setDose(med.defaultDose ?? '');
+    setPick(common ? common.name : NOT_LISTED);
+    setPickerOpen(false);
+    setCustomDose(Boolean(med.defaultDose) && !common?.doses.includes(med.defaultDose ?? ''));
     setForm({ mode: 'edit', id: med.id });
   };
+
+  const choose = (choice: string) => {
+    const common = findCommonMedication(choice);
+    setPick(choice);
+    setPickerOpen(false);
+    setDose('');
+    setCustomDose(false);
+    if (common) {
+      setName(common.name);
+      setType(common.type);
+    } else {
+      setName('');
+    }
+  };
+  const chosen = pick === null || pick === NOT_LISTED ? undefined : findCommonMedication(pick);
+  const pickerLabel = pick === null ? 'Choose a medication' : chosen ? chosen.name : 'Not listed';
 
   const logOnce = (med: Medication) => {
     // `disabled` only applies after a re-render, so two taps in the same instant must be caught here.
@@ -218,43 +250,143 @@ export default function MedicationScreen() {
         <BackHeader title={form.mode === 'add' ? 'Add medication' : 'Edit medication'} onBack={closeForm} />
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-            <TextField
-              label="Name"
-              value={name}
-              onChangeText={setName}
-              placeholder="e.g. Pepcid"
-              maxLength={MAX_NAME}
-              autoCapitalize="words"
-            />
             <AppText variant="label" color="inkSoft" style={styles.fieldLabel}>
-              Type
+              Medication
             </AppText>
-            <View accessibilityRole="radiogroup" style={styles.types}>
-              {MEDICATION_TYPES.map((option) => (
-                <TagChip
-                  key={option.key}
-                  role="radio"
-                  label={option.label}
-                  selected={type === option.key}
-                  onPress={() => setType(option.key)}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Medication"
+              accessibilityValue={{ text: pickerLabel }}
+              accessibilityState={{ expanded: pickerOpen }}
+              onPress={() => setPickerOpen((open) => !open)}
+              style={[styles.picker, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+              <AppText color={pick === null ? 'inkSoft' : 'ink'} style={styles.pickerText} numberOfLines={1}>
+                {pickerLabel}
+              </AppText>
+              {pickerOpen ? (
+                <ChevronUp size={20} color={colors.inkSoft} />
+              ) : (
+                <ChevronDown size={20} color={colors.inkSoft} />
+              )}
+            </Pressable>
+            {pickerOpen && (
+              <View
+                accessibilityRole="radiogroup"
+                style={[styles.options, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                {MEDICATION_TYPES.filter((group) => COMMON_MEDICATIONS.some((med) => med.type === group.key)).map(
+                  (group) => (
+                    <View key={group.key}>
+                      <AppText variant="caption" color="inkSoft" style={styles.groupLabel}>
+                        {group.label}
+                      </AppText>
+                      {COMMON_MEDICATIONS.filter((med) => med.type === group.key).map((med) => (
+                        <Pressable
+                          key={med.name}
+                          accessibilityRole="radio"
+                          accessibilityLabel={med.name}
+                          accessibilityState={{ checked: pick === med.name }}
+                          onPress={() => choose(med.name)}
+                          style={styles.option}>
+                          <AppText style={styles.optionText}>{med.name}</AppText>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ),
+                )}
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityLabel="Not listed? Enter your own"
+                  accessibilityState={{ checked: pick === NOT_LISTED }}
+                  onPress={() => choose(NOT_LISTED)}
+                  style={[styles.option, styles.notListed, { borderColor: colors.hairline }]}>
+                  <AppText style={[styles.optionText, { color: colors.clayInk }]}>
+                    Not listed? Enter your own
+                  </AppText>
+                </Pressable>
+              </View>
+            )}
+            <View style={styles.spacer} />
+
+            {pick === NOT_LISTED && (
+              <>
+                <TextField
+                  label="Name"
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="e.g. Zegerid"
+                  maxLength={MAX_NAME}
+                  autoCapitalize="words"
                 />
-              ))}
-            </View>
-            <TextField
-              label="Dose"
-              hint="(optional)"
-              value={dose}
-              onChangeText={setDose}
-              placeholder="e.g. 20mg"
-              maxLength={MAX_DOSE}
-            />
+                <AppText variant="label" color="inkSoft" style={styles.fieldLabel}>
+                  Type
+                </AppText>
+                <View accessibilityRole="radiogroup" style={styles.types}>
+                  {MEDICATION_TYPES.map((option) => (
+                    <TagChip
+                      key={option.key}
+                      role="radio"
+                      label={option.label}
+                      selected={type === option.key}
+                      onPress={() => setType(option.key)}
+                    />
+                  ))}
+                </View>
+              </>
+            )}
+
+            {chosen && (
+              <>
+                <AppText variant="caption" color="inkSoft" style={styles.typeNote}>
+                  {`Type: ${medicationTypeLabel(chosen.type)}`}
+                </AppText>
+                <AppText variant="label" color="inkSoft" style={styles.fieldLabel}>
+                  Dose (optional)
+                </AppText>
+                <View accessibilityRole="radiogroup" style={styles.types}>
+                  {chosen.doses.map((option) => (
+                    <TagChip
+                      key={option}
+                      role="radio"
+                      label={option}
+                      selected={!customDose && dose === option}
+                      onPress={() => {
+                        // Tapping the chosen dose again clears it.
+                        setDose(dose === option && !customDose ? '' : option);
+                        setCustomDose(false);
+                      }}
+                    />
+                  ))}
+                  <TagChip
+                    role="radio"
+                    label="Other dose"
+                    selected={customDose}
+                    onPress={() => {
+                      setCustomDose(true);
+                      setDose('');
+                    }}
+                  />
+                </View>
+              </>
+            )}
+            {(pick === NOT_LISTED || customDose) && (
+              <TextField
+                label="Dose"
+                hint="(optional)"
+                value={dose}
+                onChangeText={setDose}
+                placeholder="e.g. 20mg"
+                maxLength={MAX_DOSE}
+              />
+            )}
           </ScrollView>
           <View style={styles.footer}>
             <Button
               label={form.mode === 'add' ? 'Add medication' : 'Save changes'}
               onPress={save}
               disabled={trimmedName.length === 0}
-              accessibilityHint={trimmedName.length === 0 ? 'Enter a name first' : undefined}
+              accessibilityHint={
+                trimmedName.length === 0 ? 'Choose a medication or enter a name first' : undefined
+              }
             />
             {form.mode === 'edit' && (
               <View style={styles.secondary}>
@@ -372,6 +504,24 @@ const styles = StyleSheet.create({
   add: { minHeight: minTouchTarget, justifyContent: 'center', paddingVertical: space.s1 },
   addText: { ...typography.bodyEm, fontSize: 15, fontFamily: 'Nunito_700Bold' },
   fieldLabel: { marginBottom: space.s1 },
+  picker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.s1,
+    minHeight: 52,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingHorizontal: 16,
+  },
+  pickerText: { flex: 1, fontSize: 16 },
+  options: { borderWidth: 1, borderRadius: radius.lg, marginTop: 6, paddingBottom: 4, overflow: 'hidden' },
+  groupLabel: { paddingHorizontal: 16, paddingTop: space.s1, paddingBottom: 2 },
+  option: { minHeight: minTouchTarget, justifyContent: 'center', paddingHorizontal: 16 },
+  optionText: { fontSize: 15, fontFamily: 'Nunito_700Bold' },
+  notListed: { borderTopWidth: 1, marginTop: 6 },
+  spacer: { height: space.s2 },
+  typeNote: { marginBottom: space.s2 },
   types: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1, marginBottom: space.s2 },
   footer: { paddingTop: space.s1, paddingBottom: space.s2 },
   secondary: { marginTop: space.s1 },
