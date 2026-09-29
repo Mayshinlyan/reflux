@@ -273,26 +273,26 @@ export default function MedicationScreen() {
               <View
                 accessibilityRole="radiogroup"
                 style={[styles.options, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                {MEDICATION_TYPES.filter((group) => COMMON_MEDICATIONS.some((med) => med.type === group.key)).map(
-                  (group) => (
-                    <View key={group.key}>
-                      <AppText variant="caption" color="inkSoft" style={styles.groupLabel}>
-                        {group.label}
-                      </AppText>
-                      {COMMON_MEDICATIONS.filter((med) => med.type === group.key).map((med) => (
-                        <Pressable
-                          key={med.name}
-                          accessibilityRole="radio"
-                          accessibilityLabel={med.name}
-                          accessibilityState={{ checked: pick === med.name }}
-                          onPress={() => choose(med.name)}
-                          style={styles.option}>
-                          <AppText style={styles.optionText}>{med.name}</AppText>
-                        </Pressable>
-                      ))}
-                    </View>
-                  ),
-                )}
+                {MEDICATION_TYPES.filter((group) =>
+                  COMMON_MEDICATIONS.some((med) => med.type === group.key),
+                ).map((group) => (
+                  <View key={group.key}>
+                    <AppText variant="caption" color="inkSoft" style={styles.groupLabel}>
+                      {group.label}
+                    </AppText>
+                    {COMMON_MEDICATIONS.filter((med) => med.type === group.key).map((med) => (
+                      <Pressable
+                        key={med.name}
+                        accessibilityRole="radio"
+                        accessibilityLabel={med.name}
+                        accessibilityState={{ checked: pick === med.name }}
+                        onPress={() => choose(med.name)}
+                        style={styles.option}>
+                        <AppText style={styles.optionText}>{med.name}</AppText>
+                      </Pressable>
+                    ))}
+                  </View>
+                ))}
                 <Pressable
                   accessibilityRole="radio"
                   accessibilityLabel="Not listed? Enter your own"
