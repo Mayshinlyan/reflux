@@ -39,7 +39,9 @@ describe('claudeService request', () => {
     expect(create).toHaveBeenCalledTimes(1);
     const request = create.mock.calls[0]?.[0];
     expect(request.model).toBe('claude-sonnet-5-5');
-    expect(request.max_tokens).toBeLessThanOrEqual(1500);
+    // Room for big multi-item dishes (dim sum ran past 1000 tokens), but still bounded.
+    expect(request.max_tokens).toBeGreaterThanOrEqual(2500);
+    expect(request.max_tokens).toBeLessThanOrEqual(4000);
     expect(request.system).toEqual([
       { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
     ]);
@@ -152,6 +154,18 @@ describe('claudeService telemetry and errors', () => {
     const create = vi.fn().mockResolvedValue(response);
     await expect(serviceWith(create).analyze({ kind: 'text', text: 'tea' })).rejects.toMatchObject({
       code: 'AI_INVALID_OUTPUT',
+    });
+  });
+
+  it('logs why an answer was rejected, without content', async () => {
+    const create = vi.fn().mockResolvedValue(message({ stop_reason: 'max_tokens' }));
+    const error = await serviceWith(create)
+      .analyze({ kind: 'text', text: 'dim sum' })
+      .catch((e: unknown) => e);
+
+    expect(error).toMatchObject({
+      code: 'AI_INVALID_OUTPUT',
+      logContext: { stopReason: 'max_tokens', outputTokens: 300, anthropicRequestId: 'req_abc' },
     });
   });
 
