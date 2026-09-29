@@ -576,6 +576,8 @@
     {key:'lump', label:'Lump in throat'},
     {key:'heartburn', label:'Heartburn'},
     {key:'constipation', label:'Constipation'},
+    {key:'stomach_pain', label:'Stomach pain'},
+    {key:'feeling_full', label:'Feeling full'},
     {key:'sleep', label:'Trouble sleeping'}
   ];
   var TAGS = ['Stress','Lay down after eating','Large meal','Alcohol','Exercise','Poor sleep'];
@@ -968,11 +970,11 @@
   }
 
   // ---------- Log symptoms ----------
-  // Body areas -> the symptoms shown after tapping them (a few at a time, never all 11).
+  // Body areas -> the symptoms shown after tapping them (a few at a time, never all 13).
   var ZONES = {
     throat: {label:'Throat & voice', keys:['hoarseness','throat_clearing','mucus','swallowing','lump']},
     chest:  {label:'Chest', keys:['heartburn','breathing','cough_after_eating','cough']},
-    tummy:  {label:'Tummy', keys:['constipation']},
+    tummy:  {label:'Tummy', keys:['stomach_pain','feeling_full','constipation']},
     other:  {label:'Something else', keys:['sleep']}
   };
   function zoneCount(zone){ return ZONES[zone].keys.filter(function(k){ return state.selectedSymptoms[k]; }).length; }
