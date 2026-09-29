@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { type Href, router } from 'expo-router';
 import { Activity, Camera, Pill, Plus, UserRound } from 'lucide-react-native';
 import { useState } from 'react';
@@ -6,18 +5,18 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { CircleActionButton } from '@/components/CircleActionButton';
+import { Pet } from '@/components/Pet';
 import { Screen } from '@/components/Screen';
 import { fontFamily, radius, space, useColors } from '@/theme';
 
 const PET_SIZE = 200;
-const DOG_IMAGE = require('@/assets/images/pet/dog.png');
-/** dog.png is 276×298; keep its aspect ratio. */
-const PET_HEIGHT = Math.round((PET_SIZE * 298) / 276);
+/** Matches Pet's own layout: image height (276×298 aspect) plus its ground-shadow gap. */
+const PET_HEIGHT = Math.round((PET_SIZE * 298) / 276) + space.s2;
 
 /**
  * Today — the pet-hero home screen, laid out as in docs/design/mockups.html.
- * "Log" opens a floating menu over the pet; "Scan" opens Check. The pet is a static
- * image until Step 6 adds stages, moods and animation; Step 2 adds the redirect to
+ * "Log" opens a floating menu above the pet; "Scan" opens Check. Tapping the pet plays
+ * with it (see Pet). Step 6 adds stages and moods; Step 2 adds the redirect to
  * /welcome on first launch.
  */
 export default function TodayScreen() {
@@ -43,12 +42,7 @@ export default function TodayScreen() {
 
       <View style={styles.hero}>
         <View style={styles.stageWrap}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Buddy. Add an entry"
-            onPress={() => setMenuOpen((open) => !open)}>
-            <Image source={DOG_IMAGE} style={styles.pet} contentFit="contain" accessible={false} />
-          </Pressable>
+          <Pet name="Buddy" width={PET_SIZE} />
           {menuOpen && (
             <View style={styles.menu}>
               <CircleActionButton
@@ -111,7 +105,6 @@ const styles = StyleSheet.create({
   },
   hero: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
   stageWrap: { alignItems: 'center', justifyContent: 'center' },
-  pet: { width: PET_SIZE, height: PET_HEIGHT },
   menu: {
     position: 'absolute',
     // Opens above the pet's head so it never covers the face.
