@@ -17,7 +17,7 @@ export const ERROR_CODES = [
 ] as const;
 
 /** Client-only codes (never returned by the relay). */
-export const CLIENT_ERROR_CODES = ['OFFLINE', 'NETWORK'] as const;
+export const CLIENT_ERROR_CODES = ['OFFLINE', 'NETWORK', 'DB_MIGRATION_FAILED'] as const;
 
 export type RelayErrorCode = (typeof ERROR_CODES)[number];
 export type ErrorCode = RelayErrorCode | (typeof CLIENT_ERROR_CODES)[number];
@@ -36,6 +36,8 @@ export const friendlyMessages: Record<ErrorCode, string> = {
   INTERNAL: 'Something went wrong. Please try again.',
   OFFLINE: 'Checking food needs an internet connection. Your logs still save offline.',
   NETWORK: "We couldn't reach the server. Please check your connection and try again.",
+  DB_MIGRATION_FAILED:
+    "We couldn't finish updating the app's storage. Your logs are safe. Please close the app and open it again.",
 };
 
 export class AppError extends Error {

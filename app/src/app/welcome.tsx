@@ -6,13 +6,24 @@ import Svg, { Path } from 'react-native-svg';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import { useSettings } from '@/db/DatabaseProvider';
+import { logger } from '@/lib/logger';
 import { radius, space, useColors } from '@/theme';
 
 export default function WelcomeScreen() {
   const colors = useColors();
+  const { update } = useSettings();
 
-  // Step 2 persists "onboarding done"; Step 5 creates the anonymous session here.
-  const getStarted = () => router.replace('/');
+  // Step 5 also creates the anonymous relay session here.
+  const getStarted = () => {
+    try {
+      update('onboardingDone', true);
+    } catch (error) {
+      // Still let them in; Welcome will simply show again next launch.
+      logger.error('completeOnboarding', error);
+    }
+    router.replace('/');
+  };
 
   return (
     <Screen style={styles.container}>

@@ -14,6 +14,8 @@ import { StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import { DatabaseProvider } from '@/db/DatabaseProvider';
+import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { initSentry, wrapRoot } from '@/lib/sentry';
 import { lightColors, space } from '@/theme';
@@ -32,23 +34,47 @@ function RootLayout() {
 
   useEffect(() => {
     if (fontError) logger.error('loadFonts', fontError);
-    if (ready) SplashScreen.hideAsync();
-  }, [ready, fontError]);
+  }, [fontError]);
 
   if (!ready) return null;
 
+  // The splash stays up until the database is open and migrated.
   return (
     <>
       <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: lightColors.bg },
-        }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
-      </Stack>
+      <DatabaseProvider fallback={null} errorView={<DatabaseErrorScreen />}>
+        <HideSplash />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: lightColors.bg },
+          }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
+        </Stack>
+      </DatabaseProvider>
     </>
+  );
+}
+
+function HideSplash() {
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
+  return null;
+}
+
+function DatabaseErrorScreen() {
+  return (
+    <Screen>
+      <HideSplash />
+      <View style={styles.center}>
+        <AppText variant="title" style={styles.gap}>
+          Something went wrong
+        </AppText>
+        <AppText color="inkSoft">{friendlyMessages.DB_MIGRATION_FAILED}</AppText>
+      </View>
+    </Screen>
   );
 }
 

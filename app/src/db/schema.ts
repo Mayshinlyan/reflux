@@ -1,0 +1,147 @@
+import { sql } from 'drizzle-orm';
+import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+
+/**
+ * On-device schema. All health data lives only here, on the phone.
+ *
+ * Conventions:
+ * - Times are ISO-8601 UTC strings (`logged_at`), with the IANA zone they were logged in
+ *   (`tz`) so "which local day" can be recomputed correctly after travel or DST.
+ * - Enum-like columns store stable keys (see src/constants), guarded by CHECK constraints.
+ * - Migrations are additive only: never drop or rename a column that holds user data.
+ */
+
+const timestamps = {
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),
+};
+
+export const symptomLogs = sqliteTable(
+  'symptom_logs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** `quick` = tap-chips log; `checkin` = full RSI check-in (Milestone 2). */
+    kind: text('kind', { enum: ['quick', 'checkin'] })
+      .notNull()
+      .default('quick'),
+    loggedAt: text('logged_at').notNull(),
+    tz: text('tz').notNull(),
+    notes: text('notes'),
+    ...timestamps,
+  },
+  (t) => [
+    index('symptom_logs_logged_at_idx').on(t.loggedAt),
+    check('symptom_logs_kind_check', sql`${t.kind} in ('quick', 'checkin')`),
+  ],
+);
+
+export const symptomLogItems = sqliteTable(
+  'symptom_log_items',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    symptomLogId: integer('symptom_log_id')
+      .notNull()
+      .references(() => symptomLogs.id, { onDelete: 'cascade' }),
+    itemKey: text('item_key').notNull(),
+    score: integer('score').notNull(),
+  },
+  (t) => [
+    uniqueIndex('symptom_log_items_log_item_uq').on(t.symptomLogId, t.itemKey),
+    check('symptom_log_items_score_check', sql`${t.score} between 0 and 5`),
+  ],
+);
+
+export const symptomLogTags = sqliteTable(
+  'symptom_log_tags',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    symptomLogId: integer('symptom_log_id')
+      .notNull()
+      .references(() => symptomLogs.id, { onDelete: 'cascade' }),
+    tagKey: text('tag_key').notNull(),
+  },
+  (t) => [uniqueIndex('symptom_log_tags_log_tag_uq').on(t.symptomLogId, t.tagKey)],
+);
+
+/** One row per meal. `diary` = eaten and logged; `check` = a one-off "should I eat this?". */
+export const foodLogs = sqliteTable(
+  'food_logs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    entryType: text('entry_type', { enum: ['diary', 'check'] }).notNull(),
+    source: text('source', { enum: ['photo', 'text'] }).notNull(),
+    inputText: text('input_text'),
+    /** Local file URI of the (EXIF-stripped) photo in app storage. */
+    photoUri: text('photo_uri'),
+    mealName: text('meal_name').notNull(),
+    overallVerdict: text('overall_verdict', { enum: ['ok', 'caution', 'trigger'] }).notNull(),
+    /** JSON: items, ingredients, verdicts, reasoning, matched triggers, overall. */
+    analysis: text('analysis', { mode: 'json' }).notNull(),
+    /** JSON: { model, promptVersion, rulesetVersion } — which AI produced this result. */
+    analysisMeta: text('analysis_meta', { mode: 'json' }).notNull(),
+    loggedAt: text('logged_at').notNull(),
+    tz: text('tz').notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index('food_logs_diary_logged_at_idx')
+      .on(t.loggedAt)
+      .where(sql`${t.entryType} = 'diary'`),
+    check('food_logs_entry_type_check', sql`${t.entryType} in ('diary', 'check')`),
+    check('food_logs_source_check', sql`${t.source} in ('photo', 'text')`),
+    check('food_logs_verdict_check', sql`${t.overallVerdict} in ('ok', 'caution', 'trigger')`),
+  ],
+);
+
+const MEDICATION_TYPE_SQL = sql`('ppi', 'h2_blocker', 'antacid', 'alginate', 'other')`;
+
+export const medications = sqliteTable(
+  'medications',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    type: text('type', { enum: ['ppi', 'h2_blocker', 'antacid', 'alginate', 'other'] }).notNull(),
+    defaultDose: text('default_dose'),
+    /** Archived meds are hidden from "my meds" but keep their history. */
+    active: integer('active', { mode: 'boolean' }).notNull().default(true),
+    ...timestamps,
+  },
+  (t) => [check('medications_type_check', sql`${t.type} in ${MEDICATION_TYPE_SQL}`)],
+);
+
+export const medicationLogs = sqliteTable(
+  'medication_logs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** Nullable so history survives deleting a saved medication. */
+    medicationId: integer('medication_id').references(() => medications.id, { onDelete: 'set null' }),
+    /** Snapshots, so renaming a saved med doesn't rewrite history. */
+    name: text('name').notNull(),
+    type: text('type', { enum: ['ppi', 'h2_blocker', 'antacid', 'alginate', 'other'] }).notNull(),
+    doseText: text('dose_text'),
+    takenAt: text('taken_at').notNull(),
+    tz: text('tz').notNull(),
+    notes: text('notes'),
+    ...timestamps,
+  },
+  (t) => [
+    index('medication_logs_taken_at_idx').on(t.takenAt),
+    check('medication_logs_type_check', sql`${t.type} in ${MEDICATION_TYPE_SQL}`),
+  ],
+);
+
+/** Key/value settings. Values are JSON-encoded; see repositories/settings.ts for keys and defaults. */
+export const appSettings = sqliteTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: timestamps.updatedAt,
+});
+
+export type SymptomLog = typeof symptomLogs.$inferSelect;
+export type FoodLog = typeof foodLogs.$inferSelect;
+export type Medication = typeof medications.$inferSelect;
+export type MedicationLog = typeof medicationLogs.$inferSelect;

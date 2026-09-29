@@ -1,4 +1,4 @@
-import { type Href, router } from 'expo-router';
+import { type Href, Redirect, router } from 'expo-router';
 import { Activity, Camera, Pill, Plus, UserRound } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -7,6 +7,7 @@ import { AppText } from '@/components/AppText';
 import { CircleActionButton } from '@/components/CircleActionButton';
 import { Pet } from '@/components/Pet';
 import { Screen } from '@/components/Screen';
+import { useSettings } from '@/db/DatabaseProvider';
 import { fontFamily, radius, space, useColors } from '@/theme';
 
 const PET_SIZE = 200;
@@ -16,17 +17,20 @@ const PET_HEIGHT = Math.round((PET_SIZE * 298) / 276) + space.s2;
 /**
  * Today — the pet-hero home screen, laid out as in docs/design/mockups.html.
  * "Log" opens a floating menu above the pet; "Scan" opens Check. Tapping the pet plays
- * with it (see Pet). Step 6 adds stages and moods; Step 2 adds the redirect to
- * /welcome on first launch.
+ * with it (see Pet). Step 6 adds stages and moods. First launch redirects to Welcome.
  */
 export default function TodayScreen() {
   const colors = useColors();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { settings } = useSettings();
+  const petName = settings.petName;
 
   const go = (href: Href) => {
     setMenuOpen(false);
     router.push(href);
   };
+
+  if (!settings.onboardingDone) return <Redirect href="/welcome" />;
 
   return (
     <Screen style={styles.container}>
@@ -42,7 +46,7 @@ export default function TodayScreen() {
 
       <View style={styles.hero}>
         <View style={styles.stageWrap}>
-          <Pet name="Buddy" width={PET_SIZE} />
+          <Pet name={petName} width={PET_SIZE} />
           {menuOpen && (
             <View style={styles.menu}>
               <CircleActionButton
@@ -68,9 +72,9 @@ export default function TodayScreen() {
             </View>
           )}
         </View>
-        <AppText style={styles.petName}>Buddy</AppText>
+        <AppText style={styles.petName}>{petName}</AppText>
         <AppText variant="label" color="sageInk">
-          Buddy is happy to see you!
+          {petName} is happy to see you!
         </AppText>
       </View>
 
