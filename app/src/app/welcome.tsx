@@ -8,14 +8,16 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { useSettings } from '@/db/DatabaseProvider';
 import { logger } from '@/lib/logger';
+import { ensureAnonymousSession } from '@/services/firebase';
 import { radius, space, useColors } from '@/theme';
 
 export default function WelcomeScreen() {
   const colors = useColors();
   const { update } = useSettings();
 
-  // Step 5 also creates the anonymous relay session here.
   const getStarted = () => {
+    // Fire and forget: onboarding never waits on the network, and getIdToken() retries lazily.
+    ensureAnonymousSession().catch((error) => logger.error('anonymousSignIn', error));
     try {
       update('onboardingDone', true);
     } catch (error) {
