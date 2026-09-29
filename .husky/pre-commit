@@ -1,1 +1,12 @@
 npx lint-staged
+
+# Block secrets (API keys, tokens, private keys) before they reach a commit.
+# Install: brew install gitleaks. CI enforces the same scan if this is skipped.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --redact --no-banner || {
+    echo "gitleaks found a possible secret in the staged changes. Remove it (see output above) before committing."
+    exit 1
+  }
+else
+  echo "warning: gitleaks is not installed, skipping the local secret scan (brew install gitleaks)"
+fi
