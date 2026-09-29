@@ -24,7 +24,7 @@ npm start                # scan the QR code with Expo Go
 npm test
 ```
 
-Each package has `lint`, `typecheck`, `test` and `format` scripts; CI runs all of them on every push.
+Each package has `lint`, `typecheck`, `test` and `format` scripts; CI runs all of them on pull requests and on pushes to `main`.
 
 ### Environment
 

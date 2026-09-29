@@ -30,7 +30,11 @@ export const COMMON_MEDICATIONS: readonly CommonMedication[] = [
   { name: 'Gaviscon', type: 'alginate', doses: ['1 tablet', '2 tablets', '10ml', '20ml'] },
   { name: 'Gaviscon Advance', type: 'alginate', doses: ['5ml', '10ml'] },
   { name: 'Gaviscon Double Action', type: 'alginate', doses: ['1 tablet', '2 tablets', '10ml', '20ml'] },
-  { name: 'Gaviscon Extra Strength', type: 'alginate', doses: ['2 tablets', '3 tablets', '4 tablets', '2 teaspoons', '4 teaspoons'] },
+  {
+    name: 'Gaviscon Extra Strength',
+    type: 'alginate',
+    doses: ['2 tablets', '3 tablets', '4 tablets', '2 teaspoons', '4 teaspoons'],
+  },
   { name: 'Peptac', type: 'alginate', doses: ['10ml', '20ml'] },
 ];
 

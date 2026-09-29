@@ -186,7 +186,11 @@ describe('Medications: adding', () => {
     await fireEvent.changeText(screen.getByLabelText('Dose'), '4 tablets');
     await press('button', 'Add medication');
 
-    expect(listMedications(mockDb)[0]).toMatchObject({ name: 'Tums', type: 'antacid', defaultDose: '4 tablets' });
+    expect(listMedications(mockDb)[0]).toMatchObject({
+      name: 'Tums',
+      type: 'antacid',
+      defaultDose: '4 tablets',
+    });
   });
 
   it('saves a medication that is not on the list with its own name, type and dose', async () => {
