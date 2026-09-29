@@ -8,6 +8,7 @@ import {
   createUnavailableClaudeService,
   modelParams,
 } from '../src/services/claudeService.js';
+import { mealAnalysisSchema } from '../src/schemas.js';
 import { goodAnalysis } from './helpers.js';
 
 function message(overrides: Record<string, unknown> = {}) {
@@ -215,5 +216,21 @@ describe('modelParams', () => {
 
   it('exposes the prompt version used in meta', () => {
     expect(PROMPT_VERSION).toMatch(/^food-analysis-v\d+$/);
+  });
+
+  it('asks for main ingredients only, keeping every trigger ingredient', () => {
+    // v2 changed the prompt text, so the version must have moved past v1 (results record it).
+    expect(PROMPT_VERSION).not.toBe('food-analysis-v1');
+    expect(SYSTEM_PROMPT).toContain('main ingredients only');
+    expect(SYSTEM_PROMPT).toContain('at most 8 per item');
+    expect(SYSTEM_PROMPT).toContain('every ingredient that matches a category');
+    expect(SYSTEM_PROMPT).not.toContain('20 ingredients');
+  });
+
+  it('keeps the schema tolerant of long lists so a chatty answer is not rejected', () => {
+    // The prompt asks for at most 8; the schema stays at 20 so an over-long list is not a 502.
+    const ingredients = Array.from({ length: 12 }, (_, i) => ({ name: `item ${i}`, matchedCategories: [] }));
+    const analysis = { ...goodAnalysis, items: [{ ...goodAnalysis.items[0], ingredients }] };
+    expect(mealAnalysisSchema.safeParse(analysis).success).toBe(true);
   });
 });
