@@ -2,6 +2,7 @@
  * Pure helpers for the pet's tap response, kept separate from Reanimated so they can
  * be unit-tested. Taps are play only: nothing here touches pet progress, mood or stage.
  */
+import { type PetAnimal, PETS } from './pets';
 
 /** Maximum tilt when the finger lands on the very edge of the pet. */
 export const MAX_TILT_Y_DEG = 22;
@@ -24,15 +25,15 @@ export function tiltFromTouch(x: number, y: number, width: number, height: numbe
   return { rotateY: dx * MAX_TILT_Y_DEG, rotateX: -dy * MAX_TILT_X_DEG };
 }
 
-/** Friendly lines shown in the speech bubble; each tap picks the next one. */
-export const HAPPY_LINES = [
-  'Hi!',
-  'Thanks for checking in',
-  'Wheee!',
-  'You’re doing great',
-  'Woof!',
-] as const;
+/** Friendly lines every pet can say; each pet adds its own (see pets.ts). */
+export const SHARED_LINES = ['Hi!', 'Thanks for checking in', 'Wheee!', 'You’re doing great'] as const;
 
-export function lineForTap(tapCount: number): string {
-  return HAPPY_LINES[tapCount % HAPPY_LINES.length] ?? 'Hi!';
+export function happyLines(animal: PetAnimal): readonly string[] {
+  return [...SHARED_LINES, ...PETS[animal].tapLines];
+}
+
+/** The speech-bubble line for a tap; each tap picks the next one. */
+export function lineForTap(tapCount: number, animal: PetAnimal): string {
+  const lines = happyLines(animal);
+  return lines[tapCount % lines.length] ?? 'Hi!';
 }

@@ -1,4 +1,5 @@
 import { isLateMeal } from './mealTiming';
+import { type PetAnimal, PETS } from './pets';
 
 /**
  * The pet's growth, derived from the log history every time it is read (nothing about
@@ -12,10 +13,9 @@ export type PetStage = 0 | 1 | 2;
 export type PetMood = 'happy' | 'unwell';
 export type PetState = { stage: PetStage; progress: number; mood: PetMood };
 
-export const STAGE_NAMES = ['Puppy', 'Young dog', 'Grown dog'] as const;
 /**
  * How large each stage is drawn, as a fraction of the full-size pet. Kept close together so
- * even a Puppy fills most of the screen; growth also shows in the stage name, the progress
+ * even the youngest stage fills most of the screen; growth also shows in the stage name, the progress
  * bar and the celebration.
  */
 export const STAGE_SCALE = [0.9, 0.95, 1] as const;
@@ -87,7 +87,7 @@ export function hasStageUp(stage: PetStage, seenStage: number): boolean {
 }
 
 /** Warm, never-blaming status lines. Mood is always shown as words, not colour alone. */
-export function statusLine(name: string, mood: PetMood, hasLogs: boolean): string {
-  if (mood === 'unwell') return `${name}'s feeling a little ruff today.`;
+export function statusLine(name: string, mood: PetMood, hasLogs: boolean, animal: PetAnimal): string {
+  if (mood === 'unwell') return PETS[animal].unwellLine(name);
   return hasLogs ? `${name} is thriving!` : `${name} is happy to see you!`;
 }

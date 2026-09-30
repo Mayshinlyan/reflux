@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 
+import { type PetAnimal, PETS } from '@/lib/pets';
 import { nowIso } from '@/lib/time';
 
 import { appSettings } from '../schema';
@@ -17,7 +18,7 @@ export type Settings = {
   lateMealWindowMinutes: number;
   onboardingDone: boolean;
   petName: string;
-  petAnimal: 'dog';
+  petAnimal: PetAnimal;
   /** The highest pet stage (0-2) the user has seen on Today; a higher derived stage plays the celebration once. */
   petSeenStage: number;
 };
@@ -26,8 +27,8 @@ export const DEFAULT_SETTINGS: Settings = {
   bedtime: '22:30',
   lateMealWindowMinutes: 180,
   onboardingDone: false,
-  petName: 'Buddy',
-  petAnimal: 'dog',
+  petName: PETS.mochi.defaultName,
+  petAnimal: 'mochi',
   petSeenStage: 0,
 };
 

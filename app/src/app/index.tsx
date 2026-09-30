@@ -12,7 +12,8 @@ import { Screen } from '@/components/Screen';
 import { useSettings } from '@/db/DatabaseProvider';
 import { usePetState } from '@/hooks/usePetState';
 import { PET_ASPECT } from '@/lib/petClips';
-import { STAGE_NAMES, STAGE_SCALE, statusLine } from '@/lib/petProgress';
+import { STAGE_SCALE, statusLine } from '@/lib/petProgress';
+import { PETS } from '@/lib/pets';
 import { fontFamily, radius, space, useColors } from '@/theme';
 
 /**
@@ -53,6 +54,7 @@ export default function TodayScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { settings } = useSettings();
   const petName = settings.petName;
+  const animal = settings.petAnimal;
   const pet = usePetState();
   const petSize = usePetSize();
 
@@ -100,6 +102,7 @@ export default function TodayScreen() {
               <View style={[styles.petBox, petSize]}>
                 <Pet
                   name={petName}
+                  animal={animal}
                   width={Math.round(petSize.width * STAGE_SCALE[pet.stage])}
                   mood={pet.mood}
                   celebrating={pet.stageUp}
@@ -114,18 +117,18 @@ export default function TodayScreen() {
               importantForAccessibility={menuOpen ? 'no-hide-descendants' : 'auto'}>
               <AppText style={styles.petName}>{petName}</AppText>
               <AppText variant="label" color={pet.mood === 'happy' ? 'sageInk' : 'clayInk'}>
-                {statusLine(petName, pet.mood, pet.hasLogs)}
+                {statusLine(petName, pet.mood, pet.hasLogs, animal)}
               </AppText>
               <View
                 style={[styles.track, { backgroundColor: colors.surface2 }]}
                 accessible
                 accessibilityRole="progressbar"
-                accessibilityLabel={`${STAGE_NAMES[pet.stage]}, growth progress`}
+                accessibilityLabel={`${PETS[animal].stageNames[pet.stage]}, growth progress`}
                 accessibilityValue={{ min: 0, max: 100, now: pet.progress }}>
                 <View style={[styles.fill, { width: `${pet.progress}%`, backgroundColor: colors.sage }]} />
               </View>
               <AppText variant="caption" color="inkSoft">
-                {STAGE_NAMES[pet.stage]}
+                {PETS[animal].stageNames[pet.stage]}
               </AppText>
             </View>
             {menuOpen && (
