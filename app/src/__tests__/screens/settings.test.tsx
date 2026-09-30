@@ -77,6 +77,17 @@ describe('Settings', () => {
     expect(screen.getByRole('button', { name: 'History' })).toBeTruthy();
   });
 
+  it('groups bedtime, pet, foods and medications under Personalize, bedtime first', async () => {
+    await render(<SettingsScreen />);
+
+    expect(screen.getByRole('header', { name: 'Personalize' })).toBeTruthy();
+    const rows = screen
+      .getAllByRole('button')
+      .map((button) => button.props.accessibilityLabel)
+      .filter((label) => /^(Bedtime|My pet|My foods|My medications)/.test(label ?? ''));
+    expect(rows).toEqual(['Bedtime, 10:30 PM', 'My pet, Buddy', 'My foods', 'My medications']);
+  });
+
   it('opens History and My medications', async () => {
     await render(<SettingsScreen />);
 
