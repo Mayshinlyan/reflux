@@ -3,12 +3,14 @@ import { count } from 'drizzle-orm';
 
 import type { MealAnalysis } from '@/types/analysis';
 
+import { deleteAllData } from '../repositories/data';
 import {
   createFoodLog,
   deleteFoodLog,
   getFoodLog,
   listDiaryFoodLogs,
   promoteCheckToDiary,
+  updateFoodCheck,
 } from '../repositories/food';
 import {
   archiveMedication,
@@ -28,7 +30,15 @@ import {
   removeTagFromLog,
   updateSymptomLog,
 } from '../repositories/symptoms';
-import { medicationLogs, medications, symptomLogItems, symptomLogTags } from '../schema';
+import {
+  appSettings,
+  foodLogs,
+  medicationLogs,
+  medications,
+  symptomLogItems,
+  symptomLogs,
+  symptomLogTags,
+} from '../schema';
 import { createTestDb } from './testDb';
 
 const DAY = { from: '2026-09-28T00:00:00.000Z', to: '2026-09-29T00:00:00.000Z' };
@@ -280,7 +290,7 @@ describe('food logs', () => {
     expect(() => promoteCheckToDiary(db, id)).toThrow(); // already in the diary
   });
 
-  it('promotes a check with a corrected analysis in the same update', () => {
+  it("updates a check's verdict, but never a diary meal's", () => {
     const { db } = createTestDb();
     const id = createFoodLog(db, { entryType: 'check', source: 'text', analysis: mintTea, meta });
     const chamomile: MealAnalysis = {
@@ -290,15 +300,19 @@ describe('food logs', () => {
     };
     const newMeta = { ...meta, promptVersion: 'p2' };
 
-    promoteCheckToDiary(db, id, '2026-09-28T12:00:00.000Z', { analysis: chamomile, meta: newMeta });
+    updateFoodCheck(db, id, { analysis: chamomile, meta: newMeta });
 
     expect(getFoodLog(db, id)).toMatchObject({
-      entryType: 'diary',
+      entryType: 'check',
       mealName: 'Chamomile tea',
       overallVerdict: 'ok',
       analysis: chamomile,
       analysisMeta: newMeta,
     });
+
+    promoteCheckToDiary(db, id);
+    expect(() => updateFoodCheck(db, id, { analysis: mintTea, meta })).toThrow();
+    expect(getFoodLog(db, id)?.mealName).toBe('Chamomile tea');
   });
 
   it('refuses to save non-food results and deletes meals', () => {
@@ -357,5 +371,62 @@ describe('medications', () => {
     // @ts-expect-error unknown type
     expect(() => createMedication(db, { name: 'X', type: 'vitamin' })).toThrow();
     expect(() => createMedication(db, { name: '  ', type: 'other' })).toThrow();
+  });
+});
+
+describe('delete all data', () => {
+  const seed = (db: ReturnType<typeof createTestDb>['db']) => {
+    createSymptomLog(db, {
+      items: [{ key: 'heartburn' }],
+      tags: ['large_meal'],
+      loggedAt: '2026-09-28T20:20:00.000Z',
+      tz: 'Europe/London',
+    });
+    createFoodLog(db, { entryType: 'diary', source: 'text', inputText: 'mint tea', analysis: mintTea, meta });
+    createFoodLog(db, {
+      entryType: 'check',
+      source: 'photo',
+      photoUri: 'file:///p.jpg',
+      analysis: mintTea,
+      meta,
+    });
+    const medId = createMedication(db, { name: 'Omeprazole', type: 'ppi' });
+    logMedication(db, medId, { takenAt: '2026-09-28T07:00:00.000Z', tz: 'Europe/London' });
+    setSetting(db, 'onboardingDone', true);
+    setSetting(db, 'petName', 'Biscuit');
+    setSetting(db, 'bedtime', '23:30');
+    setSetting(db, 'petSeenStage', 2);
+  };
+  const rows = (db: ReturnType<typeof createTestDb>['db']) =>
+    [symptomLogs, symptomLogItems, symptomLogTags, foodLogs, medications, medicationLogs].map(
+      (table) => db.select({ n: count() }).from(table).get()?.n,
+    );
+
+  it('removes every log, check, medication and its history', () => {
+    const { db } = createTestDb();
+    seed(db);
+    expect(rows(db).every((n) => (n ?? 0) > 0)).toBe(true);
+
+    deleteAllData(db);
+
+    expect(rows(db)).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+
+  it('resets the pet and bedtime but keeps onboarding done', () => {
+    const { db } = createTestDb();
+    seed(db);
+
+    deleteAllData(db);
+
+    expect(getAllSettings(db)).toEqual({ ...DEFAULT_SETTINGS, onboardingDone: true });
+    expect(db.select({ n: count() }).from(appSettings).get()?.n).toBe(1);
+  });
+
+  it('is safe on an empty database and lets new data be logged afterwards', () => {
+    const { db } = createTestDb();
+    expect(() => deleteAllData(db)).not.toThrow();
+
+    createSymptomLog(db, { items: [{ key: 'heartburn' }], loggedAt: DAY.from, tz: 'UTC' });
+    expect(listSymptomLogs(db, DAY)).toHaveLength(1);
   });
 });

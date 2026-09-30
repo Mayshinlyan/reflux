@@ -17,3 +17,9 @@ export function deletePhoto(uri: string): void {
   const file = new File(uri);
   if (file.exists) file.delete();
 }
+
+/** Removes every stored photo (the whole folder). A missing folder is fine. */
+export function deleteAllPhotos(): void {
+  const dir = photosDir();
+  if (dir.exists) dir.delete();
+}

@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { Check } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
@@ -13,21 +13,24 @@ import { SectionTitle } from '@/components/SectionTitle';
 import { SettingsRow } from '@/components/SettingsRow';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
-import { useSettings } from '@/db/DatabaseProvider';
+import { useDb, useSettings } from '@/db/DatabaseProvider';
+import { deleteAllData } from '@/db/repositories/data';
 import { BEDTIME_OPTIONS, formatClock } from '@/lib/clock';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { deleteAllPhotos } from '@/services/photoStore';
 import { minTouchTarget, space, useColors } from '@/theme';
 
 const MAX_PET_NAME = 24;
 
 type Sheet = 'bedtime' | 'pet' | null;
 
-/** Settings ("Profile" in the mockup). Privacy, feedback and delete-all arrive in Step 8. */
+/** Settings ("Profile" in the mockup). */
 export default function SettingsScreen() {
   const colors = useColors();
   const toast = useToast();
-  const { settings, update } = useSettings();
+  const db = useDb();
+  const { settings, update, reload } = useSettings();
   const [sheet, setSheet] = useState<Sheet>(null);
   const [petName, setPetName] = useState(settings.petName);
   const [saveFailed, setSaveFailed] = useState(false);
@@ -62,6 +65,38 @@ export default function SettingsScreen() {
     toast('Name saved');
   };
 
+  const confirmDeleteAll = () => {
+    Alert.alert(
+      'Delete all your data?',
+      "This permanently removes every symptom, meal, medication and photo from this phone, and resets your pet. It can't be undone.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete everything',
+          style: 'destructive',
+          onPress: () => {
+            try {
+              deleteAllData(db);
+            } catch (error) {
+              logger.error('deleteAllData', error);
+              Alert.alert("Couldn't delete", friendlyMessages.INTERNAL);
+              return;
+            }
+            try {
+              deleteAllPhotos();
+            } catch (error) {
+              // Rows are already gone; a leftover file is the lesser problem, so still report success.
+              logger.error('deleteAllPhotos', error);
+            }
+            reload();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            toast('All your data was deleted');
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
@@ -85,9 +120,12 @@ export default function SettingsScreen() {
         />
         <SettingsRow label="My medications" onPress={() => router.push('/log/medication')} />
 
+        <SectionTitle>Your data</SectionTitle>
         <AppText variant="caption" color="inkSoft" style={styles.note}>
-          Privacy, feedback and deleting your data are coming next.
+          Everything you log stays on this phone. Food descriptions and photos are sent to be analyzed, and
+          are not kept by Reflux.
         </AppText>
+        <Button label="Delete all my data" variant="quietDanger" onPress={confirmDeleteAll} />
       </ScrollView>
 
       <BottomSheet visible={sheet === 'bedtime'} onClose={closeSheet}>

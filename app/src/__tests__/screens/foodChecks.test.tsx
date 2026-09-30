@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
-import CheckScreen from '@/app/check';
+import LogFoodScreen from '@/app/log/food';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
 import { foodLogs } from '@/db/schema';
@@ -13,6 +13,7 @@ let mockDb: AppDb;
 let closeDb: () => void;
 const mockBack = jest.fn();
 const mockToast = jest.fn();
+let mockParams: { camera?: string } = {};
 
 jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
@@ -28,6 +29,7 @@ jest.mock('@/components/FoodLoading', () => {
 });
 jest.mock('expo-router', () => ({
   router: { back: () => mockBack(), canGoBack: () => true, replace: jest.fn() },
+  useLocalSearchParams: () => mockParams,
 }));
 jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(() => Promise.resolve()),
@@ -62,8 +64,7 @@ const chamomile = {
 
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 const allRows = () => mockDb.select().from(foodLogs).all();
-const type = async (value: string) =>
-  fireEvent.changeText(screen.getByLabelText('What are you thinking of eating?'), value);
+const type = async (value: string) => fireEvent.changeText(screen.getByLabelText("What's the food?"), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
 
 beforeEach(() => {
@@ -72,6 +73,7 @@ beforeEach(() => {
   closeDb = () => sqlite.close();
   mockBack.mockClear();
   mockToast.mockClear();
+  mockParams = {};
   analyze.mockReset();
   pick.mockReset();
   store.mockReset().mockReturnValue('file:///doc/photos/meal.jpg');
@@ -79,14 +81,14 @@ beforeEach(() => {
 
 afterEach(() => closeDb());
 
-describe('Check screen', () => {
+describe('Food screen: checks and "I ate this"', () => {
   it('"mint tea" → Caution citing mint → "I ate this" puts it in the diary with no second relay call', async () => {
     analyze.mockResolvedValue(mintTea);
-    await render(<CheckScreen />);
-    expect(screen.getByText('Check a food')).toBeTruthy();
+    await render(<LogFoodScreen />);
+    expect(screen.getByText('Food')).toBeTruthy();
 
     await type('mint tea');
-    await press('Check it');
+    await press('Analyze meal');
 
     expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
     expect(screen.getAllByText('Caution').length).toBeGreaterThan(0);
@@ -108,40 +110,54 @@ describe('Check screen', () => {
     });
     expect(diary[0].analysis.items[0].matchedTriggers[0].category).toBe('mint');
     expect(allRows()).toHaveLength(1); // the check itself was promoted, not copied
-    expect(mockToast).toHaveBeenCalledWith('Saved to your food diary');
+    expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps a check out of the diary when the user tries something else', async () => {
-    analyze.mockResolvedValueOnce(mintTea).mockResolvedValueOnce(chamomile);
-    await render(<CheckScreen />);
+  it('keeps the check, outside the diary, after "Not now"', async () => {
+    analyze.mockResolvedValue(mintTea);
+    await render(<LogFoodScreen />);
     await type('mint tea');
-    await press('Check it');
+    await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
 
-    await press('Try something else');
-    await type('chamomile tea');
-    await press('Check it');
-    await screen.findByText('Chamomile is usually gentle.');
-    await press('I ate this');
+    await press('Not now');
 
-    expect(allRows().map((row) => [row.mealName, row.entryType])).toEqual([
-      ['Mint tea', 'check'],
-      ['Chamomile tea', 'diary'],
-    ]);
+    expect(allRows()).toMatchObject([{ mealName: 'Mint tea', entryType: 'check' }]);
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('re-checks with a comment and saves the corrected verdict into the promoted check', async () => {
+  it('opens the camera straight away when reached from Scan, once', async () => {
+    mockParams = { camera: '1' };
+    pick.mockResolvedValue({ status: 'canceled' });
+    await render(<LogFoodScreen />);
+
+    await waitFor(() => expect(pick).toHaveBeenCalledWith('camera', expect.any(Function)));
+    // Cancelling leaves the full screen to choose from, without re-opening the camera.
+    expect(await screen.findByRole('button', { name: 'Choose a photo' })).toBeTruthy();
+    expect(pick).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not open the camera when reached from the + menu', async () => {
+    await render(<LogFoodScreen />);
+    expect(pick).not.toHaveBeenCalled();
+  });
+
+  it('updates the stored check with a comment, then promotes that same check', async () => {
     analyze.mockResolvedValueOnce(mintTea).mockResolvedValueOnce(chamomile);
-    await render(<CheckScreen />);
+    await render(<LogFoodScreen />);
     await type('herbal tea');
-    await press('Check it');
+    await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
 
     await fireEvent.changeText(screen.getByLabelText('Is this right? Tell us more'), 'it was chamomile');
-    await press('I ate this');
-    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    await press('Update verdict');
+    await screen.findByText('Chamomile is usually gentle.');
+    expect(allRows()).toMatchObject([{ entryType: 'check', mealName: 'Chamomile tea' }]);
 
+    await press('I ate this');
+
+    expect(analyze).toHaveBeenCalledTimes(2);
     expect(analyze).toHaveBeenLastCalledWith({ text: 'herbal tea', details: 'it was chamomile' });
     expect(allRows()).toMatchObject([
       { entryType: 'diary', mealName: 'Chamomile tea', overallVerdict: 'ok', inputText: 'herbal tea' },
@@ -151,11 +167,11 @@ describe('Check screen', () => {
   it('stores a checked photo once and reuses it on "I ate this"', async () => {
     pick.mockResolvedValue({ status: 'ok', photo: { uri: 'file:///cache/prepared.jpg' } });
     analyze.mockResolvedValue(mintTea);
-    await render(<CheckScreen />);
+    await render(<LogFoodScreen />);
 
     await press('Take a photo');
     await screen.findByLabelText('Anything we should know?');
-    await press('Check it');
+    await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
     await press('I ate this');
 
@@ -171,11 +187,11 @@ describe('Check screen', () => {
       throw new Error('disk full');
     });
     analyze.mockResolvedValue(mintTea);
-    await render(<CheckScreen />);
+    await render(<LogFoodScreen />);
 
     await press('Choose a photo');
     await screen.findByLabelText('Anything we should know?');
-    await press('Check it');
+    await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
     expect(allRows()).toHaveLength(0);
 

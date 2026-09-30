@@ -66,35 +66,36 @@ export function listDiaryFoodLogs(db: AppDb, range: { from: string; to: string }
     .map(toStored);
 }
 
-/**
- * "I ate this": moves a food check into the diary, reusing its stored analysis so the
- * relay is never called twice for the same meal. `corrected` replaces the stored analysis in the
- * same update, for when the user re-checked the verdict with a comment first.
- */
-export function promoteCheckToDiary(
+/** Replaces a check's analysis after the user updated its verdict with a comment. Diary meals are left alone. */
+export function updateFoodCheck(
   db: AppDb,
   id: number,
-  eatenAt: string = nowIso(),
-  corrected?: { analysis: MealAnalysis; meta: AnalysisMeta },
+  { analysis, meta }: { analysis: MealAnalysis; meta: AnalysisMeta },
 ): void {
-  if (corrected && !corrected.analysis.isFood) throw new Error('Only food analyses can be saved');
-  const analysisFields = corrected
-    ? {
-        mealName: corrected.analysis.mealName,
-        overallVerdict: corrected.analysis.overall.verdict,
-        analysis: corrected.analysis,
-        analysisMeta: corrected.meta,
-      }
-    : {};
+  if (!analysis.isFood) throw new Error('Only food analyses can be saved');
   const updated = db
     .update(foodLogs)
     .set({
-      entryType: 'diary',
-      loggedAt: eatenAt,
-      tz: currentTimeZone(),
+      mealName: analysis.mealName,
+      overallVerdict: analysis.overall.verdict,
+      analysis,
+      analysisMeta: meta,
       updatedAt: nowIso(),
-      ...analysisFields,
     })
+    .where(and(eq(foodLogs.id, id), eq(foodLogs.entryType, 'check')))
+    .returning({ id: foodLogs.id })
+    .all();
+  if (updated.length === 0) throw new Error(`Food check ${id} not found`);
+}
+
+/**
+ * "I ate this": moves a food check into the diary, reusing its stored analysis so the
+ * relay is never called twice for the same meal.
+ */
+export function promoteCheckToDiary(db: AppDb, id: number, eatenAt: string = nowIso()): void {
+  const updated = db
+    .update(foodLogs)
+    .set({ entryType: 'diary', loggedAt: eatenAt, tz: currentTimeZone(), updatedAt: nowIso() })
     .where(and(eq(foodLogs.id, id), eq(foodLogs.entryType, 'check')))
     .returning({ id: foodLogs.id })
     .all();
