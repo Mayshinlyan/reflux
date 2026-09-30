@@ -12,6 +12,7 @@ import { Button } from '@/components/Button';
 import { CircleActionButton } from '@/components/CircleActionButton';
 import { FoodLoading } from '@/components/FoodLoading';
 import { MealResultCard } from '@/components/MealResultCard';
+import { MealTimePicker } from '@/components/MealTimePicker';
 import { Screen } from '@/components/Screen';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
@@ -54,7 +55,7 @@ const copy = {
   savedUnchecked: 'Saved without a verdict',
   saved: 'Added to your food diary',
   quickLogTitle: 'Quick Log',
-  quickLogHint: 'Tap a food to log it now, with the verdict it was saved with.',
+  quickLogHint: 'Tap a food to log it, with the verdict it was saved with.',
   orDescribe: 'or describe it',
 } as const;
 
@@ -84,6 +85,8 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
   // A verdict updated from the user's comment; it replaces the first result on screen.
   const [updated, setUpdated] = useState<AnalysisResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // When the meal was eaten, for back-logging. Null = now, worked out at the moment of saving.
+  const [eatenAt, setEatenAt] = useState<Date | null>(null);
   const saving = useRef(false);
   const alive = useRef(true);
   useEffect(
@@ -137,6 +140,8 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
   const showResult = shown !== null && !correcting;
   const hasComment = correction.trim() !== '';
   const trimmed = text.trim();
+  /** The chosen time as the ISO instant the diary stores; undefined lets the repository stamp "now". */
+  const eatenIso = () => eatenAt?.toISOString();
 
   const run = (target: Analyzed, notes: string) => {
     setNotice(null);
@@ -202,7 +207,7 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
     let storedPhoto: string | null = null;
     try {
       if (checkId.current !== null) {
-        promoteCheckToDiary(db, checkId.current);
+        promoteCheckToDiary(db, checkId.current, eatenIso());
       } else {
         if (analyzed.source === 'photo') storedPhoto = savePhoto(analyzed.uri);
         createFoodLog(db, {
@@ -212,6 +217,7 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
           photoUri: storedPhoto,
           analysis,
           meta,
+          loggedAt: eatenIso(),
         });
       }
     } catch {
@@ -240,6 +246,7 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
         source: target.source,
         inputText: target.source === 'text' ? target.text : null,
         photoUri: storedPhoto,
+        loggedAt: eatenIso(),
       });
     } catch {
       saving.current = false;
@@ -254,12 +261,12 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
     router.back();
   };
 
-  /** One tap on "My foods": logs the saved meal as eaten now, with its saved verdict and no relay call. */
+  /** One tap on "My foods": logs the saved meal as eaten at the chosen time (default now), with its saved verdict and no relay call. */
   const logMyFood = (food: StoredSavedFood) => {
     if (busy || saving.current) return;
     saving.current = true;
     try {
-      logSavedFood(db, food.id);
+      logSavedFood(db, food.id, eatenIso());
     } catch {
       saving.current = false;
       // Code only: a raw error could echo the food text or a file path.
@@ -338,6 +345,8 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
   return (
     <Screen>
       <BackHeader title={copy.title} />
+      {/* Hidden while analyzing; the chosen time is kept across steps and used by every way of saving. */}
+      {!busy && <MealTimePicker value={eatenAt} onChange={setEatenAt} />}
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           {showResult ? (
