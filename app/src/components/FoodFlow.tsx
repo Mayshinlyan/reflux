@@ -12,6 +12,7 @@ import { FoodLoading } from '@/components/FoodLoading';
 import { MealResultCard } from '@/components/MealResultCard';
 import { MealTimePicker } from '@/components/MealTimePicker';
 import { Screen } from '@/components/Screen';
+import { SwipeNav } from '@/components/SwipeNav';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
@@ -26,6 +27,7 @@ import { createSavedFood, saveCheckedFood, saveFoodFromLog } from '@/db/reposito
 import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { foodSwipe } from '@/lib/logSwipe';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
@@ -253,7 +255,7 @@ export function FoodFlow({
         saveFoodFromLog(db, diaryId);
         savedMessage = copy.savedAndKept;
       } catch {
-        // Code only. Not fatal: the meal is in the diary, and can be saved from History later.
+        // Code only. Not fatal: the meal is in the diary, and can be saved from Your Logs later.
         logger.error('saveFoodFromLog', new AppError('INTERNAL'));
       }
     }
@@ -388,158 +390,166 @@ export function FoodFlow({
     </View>
   ) : null;
 
+  // The plain Food screen (nothing saved yet) joins the swipe between log screens, but only while it
+  // is empty, so a stray drag can't drop a typed description or a photo.
+  const swipeable = !myFood && !fromList && !openCamera && !analyzed && !text && !draft && !busy;
+
   return (
-    <Screen>
-      {/* The chosen time is kept across steps and used by every way of saving. A My foods check isn't eaten, so it has none. */}
-      <BackHeader
-        title={myFood ? (myFood.id === undefined ? 'Add a food' : 'Get a verdict') : copy.title}
-        right={myFood ? undefined : <MealTimePicker value={eatenAt} onChange={setEatenAt} disabled={busy} />}
-      />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-          {showResult ? (
-            <>
-              {analyzed?.source === 'photo' && (
+    <SwipeNav {...foodSwipe} enabled={swipeable}>
+      <Screen>
+        {/* The chosen time is kept across steps and used by every way of saving. A My foods check isn't eaten, so it has none. */}
+        <BackHeader
+          title={myFood ? (myFood.id === undefined ? 'Add a food' : 'Get a verdict') : copy.title}
+          right={
+            myFood ? undefined : <MealTimePicker value={eatenAt} onChange={setEatenAt} disabled={busy} />
+          }
+        />
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+            {showResult ? (
+              <>
+                {analyzed?.source === 'photo' && (
+                  <Image
+                    source={{ uri: analyzed.uri }}
+                    style={styles.photo}
+                    contentFit="cover"
+                    accessibilityLabel="Your meal photo"
+                  />
+                )}
+                {shown && <MealResultCard analysis={shown} />}
+                <View style={styles.correction}>
+                  <TextField
+                    label="Is this right? Tell us more"
+                    hint="(optional)"
+                    value={correction}
+                    onChangeText={setCorrection}
+                    placeholder="e.g. it's pumpkin soup, no cream"
+                    maxLength={MAX_TEXT}
+                    returnKeyType="done"
+                  />
+                  <AppText variant="caption" color="inkSoft">
+                    {copy.correctionNote}
+                  </AppText>
+                </View>
+                {!myFood && (
+                  <View style={styles.keep}>
+                    <TagChip label={copy.keepLabel} selected={keep} onPress={() => setKeep((on) => !on)} />
+                  </View>
+                )}
+                <AppText variant="caption" color="inkSoft" style={styles.disclaimer}>
+                  For tracking only, not medical advice. Food results are AI-generated.
+                </AppText>
+              </>
+            ) : busy ? (
+              <FoodLoading
+                source={correcting ? 'correction' : preparing ? 'photo' : (analyzed?.source ?? 'text')}
+                photoUri={!preparing && analyzed?.source === 'photo' ? analyzed.uri : undefined}
+              />
+            ) : reviewingPhoto && analyzed?.source === 'photo' ? (
+              <>
                 <Image
                   source={{ uri: analyzed.uri }}
                   style={styles.photo}
                   contentFit="cover"
                   accessibilityLabel="Your meal photo"
                 />
-              )}
-              {shown && <MealResultCard analysis={shown} />}
-              <View style={styles.correction}>
                 <TextField
-                  label="Is this right? Tell us more"
+                  label="Anything we should know?"
                   hint="(optional)"
-                  value={correction}
-                  onChangeText={setCorrection}
-                  placeholder="e.g. it's pumpkin soup, no cream"
+                  value={draft}
+                  onChangeText={setDraft}
+                  placeholder="e.g. homemade, no chili, oat milk"
                   maxLength={MAX_TEXT}
                   returnKeyType="done"
+                  onSubmitEditing={checkPhotoWithDetails}
                 />
-                <AppText variant="caption" color="inkSoft">
-                  {copy.correctionNote}
-                </AppText>
-              </View>
-              {!myFood && (
-                <View style={styles.keep}>
-                  <TagChip label={copy.keepLabel} selected={keep} onPress={() => setKeep((on) => !on)} />
-                </View>
-              )}
-              <AppText variant="caption" color="inkSoft" style={styles.disclaimer}>
-                For tracking only, not medical advice. Food results are AI-generated.
-              </AppText>
-            </>
-          ) : busy ? (
-            <FoodLoading
-              source={correcting ? 'correction' : preparing ? 'photo' : (analyzed?.source ?? 'text')}
-              photoUri={!preparing && analyzed?.source === 'photo' ? analyzed.uri : undefined}
-            />
-          ) : reviewingPhoto && analyzed?.source === 'photo' ? (
-            <>
-              <Image
-                source={{ uri: analyzed.uri }}
-                style={styles.photo}
-                contentFit="cover"
-                accessibilityLabel="Your meal photo"
-              />
-              <TextField
-                label="Anything we should know?"
-                hint="(optional)"
-                value={draft}
-                onChangeText={setDraft}
-                placeholder="e.g. homemade, no chili, oat milk"
-                maxLength={MAX_TEXT}
-                returnKeyType="done"
-                onSubmitEditing={checkPhotoWithDetails}
-              />
-              {errorBanner}
-              <View style={styles.actions}>
-                <Button
-                  label={state.status === 'error' ? 'Try again' : copy.analyzeLabel}
-                  onPress={checkPhotoWithDetails}
-                />
-                {!addsToList && (
-                  <Button label={copy.saveUncheckedLabel} variant="secondary" onPress={saveUnchecked} />
-                )}
-                <Button label="Choose a different photo" variant="secondary" onPress={tryAnother} />
-              </View>
-            </>
-          ) : (
-            <>
-              <TextField
-                label={addsToList ? copy.myFoodTextLabel : copy.textLabel}
-                hideLabel
-                accessory={
-                  <>
-                    <IconButton
-                      label="Take a photo"
-                      icon={Camera}
-                      onPress={() => void checkPhoto('camera')}
-                    />
-                    <IconButton
-                      label="Choose a photo"
-                      icon={Images}
-                      onPress={() => void checkPhoto('library')}
-                    />
-                  </>
-                }
-                value={text}
-                onChangeText={(value) => {
-                  setText(value);
-                  setDetails(''); // a correction belongs to the text it was made for
-                }}
-                placeholder={addsToList ? copy.myFoodTextLabel : copy.textPlaceholder}
-                maxLength={MAX_TEXT}
-                returnKeyType="done"
-                onSubmitEditing={checkText}
-              />
-              {errorBanner}
-              {/* Only once something is typed, so an empty screen has one clear place to start. */}
-              {trimmed !== '' && (
+                {errorBanner}
                 <View style={styles.actions}>
                   <Button
-                    label={
-                      state.status === 'error' && analyzed?.source === 'text'
-                        ? 'Try again'
-                        : copy.analyzeLabel
-                    }
-                    onPress={checkText}
+                    label={state.status === 'error' ? 'Try again' : copy.analyzeLabel}
+                    onPress={checkPhotoWithDetails}
                   />
-                  {/* A quiet link: it's the fallback (offline, or no verdict wanted), not the main action. */}
-                  {canSaveUnchecked && (
-                    <Pressable accessibilityRole="button" onPress={saveUnchecked} style={styles.link}>
-                      <AppText style={[styles.linkText, { color: colors.clayInk }]}>
-                        {copy.saveUncheckedLabel}
-                      </AppText>
-                    </Pressable>
+                  {!addsToList && (
+                    <Button label={copy.saveUncheckedLabel} variant="secondary" onPress={saveUnchecked} />
                   )}
+                  <Button label="Choose a different photo" variant="secondary" onPress={tryAnother} />
                 </View>
+              </>
+            ) : (
+              <>
+                <TextField
+                  label={addsToList ? copy.myFoodTextLabel : copy.textLabel}
+                  hideLabel
+                  accessory={
+                    <>
+                      <IconButton
+                        label="Take a photo"
+                        icon={Camera}
+                        onPress={() => void checkPhoto('camera')}
+                      />
+                      <IconButton
+                        label="Choose a photo"
+                        icon={Images}
+                        onPress={() => void checkPhoto('library')}
+                      />
+                    </>
+                  }
+                  value={text}
+                  onChangeText={(value) => {
+                    setText(value);
+                    setDetails(''); // a correction belongs to the text it was made for
+                  }}
+                  placeholder={addsToList ? copy.myFoodTextLabel : copy.textPlaceholder}
+                  maxLength={MAX_TEXT}
+                  returnKeyType="done"
+                  onSubmitEditing={checkText}
+                />
+                {errorBanner}
+                {/* Only once something is typed, so an empty screen has one clear place to start. */}
+                {trimmed !== '' && (
+                  <View style={styles.actions}>
+                    <Button
+                      label={
+                        state.status === 'error' && analyzed?.source === 'text'
+                          ? 'Try again'
+                          : copy.analyzeLabel
+                      }
+                      onPress={checkText}
+                    />
+                    {/* A quiet link: it's the fallback (offline, or no verdict wanted), not the main action. */}
+                    {canSaveUnchecked && (
+                      <Pressable accessibilityRole="button" onPress={saveUnchecked} style={styles.link}>
+                        <AppText style={[styles.linkText, { color: colors.clayInk }]}>
+                          {copy.saveUncheckedLabel}
+                        </AppText>
+                      </Pressable>
+                    )}
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
+          {/* Outside the scroll area so Save is always on screen, however long the result is. */}
+          {showResult && (
+            <View style={styles.footer}>
+              {/* A comment turns the main button into "Update verdict", so what gets saved is always what's shown. */}
+              {hasComment ? (
+                <Button label={copy.updateLabel} onPress={() => void updateVerdict()} />
+              ) : (
+                <Button label={myFood ? 'Save to My foods' : copy.saveLabel} onPress={save} />
               )}
-            </>
-          )}
-        </ScrollView>
-        {/* Outside the scroll area so Save is always on screen, however long the result is. */}
-        {showResult && (
-          <View style={styles.footer}>
-            {/* A comment turns the main button into "Update verdict", so what gets saved is always what's shown. */}
-            {hasComment ? (
-              <Button label={copy.updateLabel} onPress={() => void updateVerdict()} />
-            ) : (
-              <Button label={myFood ? 'Save to My foods' : copy.saveLabel} onPress={save} />
-            )}
-            {/* The check stays stored, outside the diary (a My foods check saves nothing). "Save to My foods
+              {/* The check stays stored, outside the diary (a My foods check saves nothing). "Save to My foods
                 only" waits for a comment's update, for the same reason as the main button. */}
-            {fromList && !hasComment ? (
-              <Button label={copy.keepOnlyLabel} variant="secondary" onPress={saveOnly} />
-            ) : (
-              <Button label={copy.skipLabel} variant="secondary" onPress={() => router.back()} />
-            )}
-          </View>
-        )}
-      </KeyboardAvoidingView>
-    </Screen>
+              {fromList && !hasComment ? (
+                <Button label={copy.keepOnlyLabel} variant="secondary" onPress={saveOnly} />
+              ) : (
+                <Button label={copy.skipLabel} variant="secondary" onPress={() => router.back()} />
+              )}
+            </View>
+          )}
+        </KeyboardAvoidingView>
+      </Screen>
+    </SwipeNav>
   );
 }
 
