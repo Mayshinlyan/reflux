@@ -41,9 +41,7 @@ jest.mock('@/components/FoodFlow', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Text } = require('react-native');
   return {
-    FoodFlow: ({ openCamera, initialEatenAt }: { openCamera: boolean; initialEatenAt: Date | null }) => (
-      <Text>{`check flow camera=${openCamera} at=${initialEatenAt?.toISOString() ?? 'now'}`}</Text>
-    ),
+    FoodFlow: ({ openCamera }: { openCamera: boolean }) => <Text>{`check flow camera=${openCamera}`}</Text>,
   };
 });
 // The native wheel can't render here: the stand-in keeps its latest props so a test can "turn" it.
@@ -68,10 +66,11 @@ const yesterdayBreakfast = () => {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 8, 15);
 };
-const chooseBreakfast = async () => {
-  await fireEvent.press(screen.getByRole('button', { name: /^When did you eat this\?/ }));
+/** Tap Log, turn the wheel to yesterday's breakfast, and confirm. */
+const logAtBreakfast = async (name: string) => {
+  await press(`Log ${name}`);
   await act(() => mockWheel?.onValueChange({}, yesterdayBreakfast()));
-  await press('Set time');
+  await press('Log it');
 };
 
 beforeEach(() => {
@@ -91,7 +90,7 @@ afterEach(() => {
 describe('Food screen: which view', () => {
   it('goes straight to the check when nothing is saved yet', async () => {
     await render(<LogFoodScreen />);
-    expect(screen.getByText('check flow camera=false at=now')).toBeTruthy();
+    expect(screen.getByText('check flow camera=false')).toBeTruthy();
   });
 
   it('shows My foods when some are saved', async () => {
@@ -101,35 +100,38 @@ describe('Food screen: which view', () => {
     expect(screen.queryByText(/check flow/)).toBeNull();
   });
 
-  it('opens the check for "Add a food", keeping the chosen time', async () => {
+  it('opens the check for "Log a new food"', async () => {
     createSavedFood(mockDb, 'Oatmeal');
-    const at = yesterdayBreakfast().toISOString();
-    mockParams = { check: '1', at };
+    mockParams = { check: '1' };
     await render(<LogFoodScreen />);
-    expect(screen.getByText(`check flow camera=false at=${at}`)).toBeTruthy();
+    expect(screen.getByText('check flow camera=false')).toBeTruthy();
   });
 
   it('opens the camera for Scan on Today, even with foods saved', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     mockParams = { camera: '1' };
     await render(<LogFoodScreen />);
-    expect(screen.getByText('check flow camera=true at=now')).toBeTruthy();
-  });
-
-  it('ignores a time that is not a date', async () => {
-    mockParams = { check: '1', at: 'soon' };
-    await render(<LogFoodScreen />);
-    expect(screen.getByText('check flow camera=false at=now')).toBeTruthy();
+    expect(screen.getByText('check flow camera=true')).toBeTruthy();
   });
 });
 
 describe('Food screen: My foods', () => {
-  it('logs a saved food in one tap, confirms on the row, and ignores a double-tap', async () => {
+  it('has a "Log food" title and a "Quick Log" heading', async () => {
+    createSavedFood(mockDb, 'Oatmeal');
+    await render(<FoodList />);
+    expect(screen.getByText('Log food')).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Quick Log' })).toBeTruthy();
+  });
+
+  it('asks when it was eaten before logging, and logs right now when the time is left alone', async () => {
     jest.useFakeTimers();
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
 
     await press('Log Oatmeal');
+    expect(screen.getByText('When did you eat this?')).toBeTruthy();
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    await press('Log it');
     await press('Oatmeal logged');
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
@@ -146,9 +148,8 @@ describe('Food screen: My foods', () => {
   it('logs a food at the chosen time, which does not count as eaten today', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
-    await chooseBreakfast();
 
-    await press('Log Oatmeal');
+    await logAtBreakfast('Oatmeal');
 
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(meal.loggedAt).toBe(yesterdayBreakfast().toISOString());
@@ -156,18 +157,23 @@ describe('Food screen: My foods', () => {
     expect(screen.queryByText(/Eaten today/)).toBeNull();
   });
 
-  it('"Add a food" opens the check, passing on the chosen time', async () => {
+  it('never logs a time that has not happened yet', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
-    await press('+ Add a food');
-    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/log/food', params: { check: '1' } });
 
-    await chooseBreakfast();
-    await press('+ Add a food');
-    expect(mockPush).toHaveBeenLastCalledWith({
-      pathname: '/log/food',
-      params: { check: '1', at: yesterdayBreakfast().toISOString() },
-    });
+    await press('Log Oatmeal');
+    await act(() => mockWheel?.onValueChange({}, new Date(Date.now() + 60 * 60 * 1000)));
+    await press('Log it');
+
+    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
+    expect(new Date(meal.loggedAt).getTime()).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('"Log a new food" opens the check', async () => {
+    createSavedFood(mockDb, 'Oatmeal');
+    await render(<FoodList />);
+    await press('+ Log a new food');
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/log/food', params: { check: '1' } });
   });
 
   it('opens the food screen to get a verdict for a saved food', async () => {
@@ -239,6 +245,7 @@ describe('Food screen: My foods', () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
     await press('Log Oatmeal');
+    await press('Log it');
 
     await press('Edit Oatmeal');
     await press('Remove from my list');

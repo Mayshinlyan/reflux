@@ -8,25 +8,17 @@ import { getSavedFood, listSavedFoods } from '@/db/repositories/savedFoods';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
-/** A time passed from the Food list ("Add a food"), or null when absent or not a valid date. */
-function parseAt(at: string | undefined): Date | null {
-  if (!at) return null;
-  const date = new Date(at);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
 /**
  * The Food screen: "My foods" with one-tap Log, like Medications. With nothing saved yet it is the
- * photo/text check instead, as it is for `?check=1` ("Add a food" on the list, which can also save the
+ * photo/text check instead, as it is for `?check=1` ("Log a new food" on the list, which can also save the
  * result to My foods) and `?camera=1` (Scan on Today, straight to the camera). `?myFood=1&food=<id>`
  * re-checks a saved food ("Get a verdict" / "Check again"), saving the verdict to it and not the diary.
  */
 export default function LogFoodScreen() {
   const db = useDb();
-  const { camera, check, at, myFood, food } = useLocalSearchParams<{
+  const { camera, check, myFood, food } = useLocalSearchParams<{
     camera?: string;
     check?: string;
-    at?: string;
     myFood?: string;
     food?: string;
   }>();
@@ -54,14 +46,7 @@ export default function LogFoodScreen() {
   });
 
   if (target || camera === '1' || check === '1' || !hasFoods) {
-    return (
-      <FoodFlow
-        openCamera={camera === '1'}
-        initialEatenAt={parseAt(at)}
-        myFood={target}
-        fromList={check === '1'}
-      />
-    );
+    return <FoodFlow openCamera={camera === '1'} myFood={target} fromList={check === '1'} />;
   }
   return <FoodList />;
 }

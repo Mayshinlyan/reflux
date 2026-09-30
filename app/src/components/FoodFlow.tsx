@@ -38,7 +38,7 @@ const CAMERA_DENIED =
   'Camera access is off. You can turn it on in Settings, choose a photo instead, or type it in.';
 
 const copy = {
-  title: 'Food',
+  title: 'Log food',
   textLabel: 'What did you eat?',
   textPlaceholder: 'What did you eat?',
   // A food saved to My foods may not have been eaten yet.
@@ -68,18 +68,15 @@ export type MyFoodTarget = { id?: number; name?: string };
  * it); "I ate this" promotes that check, reusing its analysis instead of calling the relay again.
  * `openCamera` (the Scan shortcut on Today) opens the camera as soon as the screen appears.
  * With `myFood`, the verdict is saved to "My foods" instead, and nothing goes into the diary.
- * `fromList` ("Add a food" on the Food list) also offers saving the result to My foods only, and saves a
+ * `fromList` ("Log a new food" on the Food list) also offers saving the result to My foods only, and saves a
  * food typed without a verdict to My foods by name.
  */
 export function FoodFlow({
   openCamera = false,
-  initialEatenAt = null,
   myFood,
   fromList = false,
 }: {
   openCamera?: boolean;
-  /** A time already chosen on the Food list, so "Add a food" keeps it. */
-  initialEatenAt?: Date | null;
   myFood?: MyFoodTarget;
   fromList?: boolean;
 }) {
@@ -100,7 +97,7 @@ export function FoodFlow({
   const [updated, setUpdated] = useState<AnalysisResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   // When the meal was eaten, for back-logging. Null = now, worked out at the moment of saving.
-  const [eatenAt, setEatenAt] = useState<Date | null>(initialEatenAt);
+  const [eatenAt, setEatenAt] = useState<Date | null>(null);
   // "Save to My foods" on the result: also keep the meal for one-tap logging from the Food list.
   const [keep, setKeep] = useState(false);
   const saving = useRef(false);
@@ -140,7 +137,7 @@ export function FoodFlow({
     }
   }, [state, analyzed, db, myFood]);
 
-  // "Add a food" and My foods checks add to the list; an unchecked save then means "by name", not the diary.
+  // "Log a new food" and My foods checks add to the list; an unchecked save then means "by name", not the diary.
   const addsToList = Boolean(myFood) || fromList;
   const busy = preparing || correcting || state.status === 'loading';
   const shown = state.status === 'done' ? (updated ?? state.result) : null;

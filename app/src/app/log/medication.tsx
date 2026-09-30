@@ -16,7 +16,7 @@ import {
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { Button } from '@/components/Button';
-import { MealTimePicker } from '@/components/MealTimePicker';
+import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
@@ -79,7 +79,7 @@ const doseLabel = (med: Pick<Medication, 'name' | 'defaultDose'>) =>
 
 /**
  * "My medications": one tap logs a saved medication; tap a medication to edit or remove it;
- * "Add a medication" saves a new one. Reached from Log → Medication and from Settings.
+ * "Log a new medication" saves a new one. Reached from Log → Medication and from Settings.
  */
 export default function MedicationScreen() {
   const colors = useColors();
@@ -91,8 +91,8 @@ export default function MedicationScreen() {
   const [taken, setTaken] = useState<TakenToday>(new Map());
   const [loadFailed, setLoadFailed] = useState(false);
   const [justLogged, setJustLogged] = useState<ReadonlySet<number>>(new Set());
-  // When the dose was taken, for logging one after the fact. Null = now, worked out at the moment of logging.
-  const [takenAt, setTakenAt] = useState<Date | null>(null);
+  // The medication whose Log was tapped, while the "When did you take this?" sheet is open (iPhone).
+  const [logging, setLogging] = useState<Medication | null>(null);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
   const [form, setForm] = useState<Form | null>(null);
@@ -174,11 +174,18 @@ export default function MedicationScreen() {
   const chosen = pick === null || pick === NOT_LISTED ? undefined : findCommonMedication(pick);
   const pickerLabel = pick === null ? 'Choose a medication' : chosen ? chosen.name : 'Not listed';
 
-  const logOnce = (med: Medication) => {
+  /** Log was tapped: ask when it was taken first. */
+  const askWhen = (med: Medication) => {
+    if (Platform.OS === 'android') pickTimeAndroid(new Date(), (at) => logOnce(med, at));
+    else setLogging(med);
+  };
+
+  /** Logs the dose at `at`, or right now when `at` is null. */
+  const logOnce = (med: Medication, at: Date | null) => {
     // `disabled` only applies after a re-render, so two taps in the same instant must be caught here.
     if (timers.current.has(med.id)) return;
     try {
-      logMedication(db, med.id, takenAt ? { takenAt: takenAt.toISOString() } : {});
+      logMedication(db, med.id, at ? { takenAt: at.toISOString() } : {});
     } catch (error) {
       logger.error('logMedication', error);
       Alert.alert("Couldn't log", friendlyMessages.INTERNAL);
@@ -186,7 +193,7 @@ export default function MedicationScreen() {
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     // An earlier dose doesn't show under "Taken today", so the toast says when it was logged for.
-    toast(takenAt ? `${med.name} logged for ${formatMealTime(takenAt, new Date())}` : `${med.name} logged`);
+    toast(at ? `${med.name} logged for ${formatMealTime(at, new Date())}` : `${med.name} logged`);
     setJustLogged((current) => new Set(current).add(med.id));
     clearTimeout(timers.current.get(med.id));
     timers.current.set(
@@ -407,15 +414,7 @@ export default function MedicationScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Only shown with something to log; kept until changed, so several doses can share one time. */}
-        <BackHeader
-          title="Medications"
-          right={
-            meds.length > 0 ? (
-              <MealTimePicker value={takenAt} onChange={setTakenAt} question="When did you take this?" />
-            ) : undefined
-          }
-        />
+        <BackHeader title="Log medication" />
         {loadFailed && meds.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
             {`${friendlyMessages.INTERNAL} Your medications are still on this phone.`}
@@ -425,55 +424,75 @@ export default function MedicationScreen() {
             Add the medications you take, then log each one with a single tap.
           </AppText>
         ) : (
-          meds.map((med) => {
-            const today = taken.get(med.id);
-            const done = justLogged.has(med.id);
-            return (
-              <View
-                key={med.id}
-                style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Edit ${doseLabel(med)}`}
-                  onPress={() => openEdit(med)}
-                  style={styles.info}>
-                  <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                    <Pill size={18} color={colors.clayInk} strokeWidth={2.2} />
-                  </View>
-                  <View style={styles.text}>
-                    <AppText style={styles.medName} numberOfLines={2}>
-                      {doseLabel(med)}
+          <>
+            <AppText variant="label" color="inkSoft" accessibilityRole="header" style={styles.heading}>
+              Quick Log
+            </AppText>
+            {meds.map((med) => {
+              const today = taken.get(med.id);
+              const done = justLogged.has(med.id);
+              return (
+                <View
+                  key={med.id}
+                  style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit ${doseLabel(med)}`}
+                    onPress={() => openEdit(med)}
+                    style={styles.info}>
+                    <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
+                      <Pill size={18} color={colors.clayInk} strokeWidth={2.2} />
+                    </View>
+                    <View style={styles.text}>
+                      <AppText style={styles.medName} numberOfLines={2}>
+                        {doseLabel(med)}
+                      </AppText>
+                      <AppText variant="caption" color="inkSoft">
+                        {medicationTypeLabel(med.type)}
+                        {today
+                          ? ` · Taken today ${formatTime(today.lastAt, today.tz)}${today.count > 1 ? ` (${today.count}×)` : ''}`
+                          : ''}
+                      </AppText>
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
+                    accessibilityState={{ disabled: done }}
+                    disabled={done}
+                    onPress={() => askWhen(med)}
+                    style={({ pressed }) => [
+                      styles.logButton,
+                      {
+                        backgroundColor: done ? colors.sageInk : colors.sageTint,
+                        opacity: pressed ? 0.8 : 1,
+                      },
+                    ]}>
+                    <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
+                      {done ? 'Logged ✓' : 'Log'}
                     </AppText>
-                    <AppText variant="caption" color="inkSoft">
-                      {medicationTypeLabel(med.type)}
-                      {today
-                        ? ` · Taken today ${formatTime(today.lastAt, today.tz)}${today.count > 1 ? ` (${today.count}×)` : ''}`
-                        : ''}
-                    </AppText>
-                  </View>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
-                  accessibilityState={{ disabled: done }}
-                  disabled={done}
-                  onPress={() => logOnce(med)}
-                  style={({ pressed }) => [
-                    styles.logButton,
-                    { backgroundColor: done ? colors.sageInk : colors.sageTint, opacity: pressed ? 0.8 : 1 },
-                  ]}>
-                  <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
-                    {done ? 'Logged ✓' : 'Log'}
-                  </AppText>
-                </Pressable>
-              </View>
-            );
-          })
+                  </Pressable>
+                </View>
+              );
+            })}
+          </>
         )}
         <Pressable accessibilityRole="button" onPress={openAdd} style={styles.add}>
-          <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Add a medication</AppText>
+          <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Log a new medication</AppText>
         </Pressable>
       </ScrollView>
+
+      <MealTimeSheet
+        visible={logging !== null}
+        question="When did you take this?"
+        confirmLabel="Log it"
+        onConfirm={(at) => {
+          const med = logging;
+          setLogging(null);
+          if (med) logOnce(med, at);
+        }}
+        onClose={() => setLogging(null)}
+      />
     </Screen>
   );
 }
@@ -483,6 +502,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingBottom: space.s4 },
   empty: { marginBottom: space.s2, lineHeight: 24 },
+  heading: { marginBottom: space.s1 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
