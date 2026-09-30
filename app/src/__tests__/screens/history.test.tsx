@@ -445,24 +445,13 @@ describe('History: log a meal again', () => {
     expect(screen.getAllByRole('button', { name: /^Meal: Steamed dim sum/ })).toHaveLength(2);
   });
 
-  it('logs the meal again from the swipe-right action', async () => {
+  it('does not offer Log again on the row itself, so swiping right stays free', async () => {
     seedMeal();
     await render(<HistoryScreen />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Log Steamed dim sum again' }));
-
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(2);
-  });
-
-  it('offers Log again to screen readers as an action on the row', async () => {
-    seedMeal();
-    await render(<HistoryScreen />);
-
-    await fireEvent(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }), 'accessibilityAction', {
-      nativeEvent: { actionName: 'relog' },
-    });
-
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Log Steamed dim sum again' })).toBeNull();
+    const row = screen.getByRole('button', { name: /^Meal: Steamed dim sum/ });
+    expect(row.props.accessibilityActions).toEqual([{ name: 'delete', label: 'Delete' }]);
   });
 
   it('does not offer Log again on symptom entries', async () => {
@@ -520,16 +509,6 @@ describe('History: log a medication again', () => {
     const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
     logMedication(mockDb, id);
   };
-
-  it('logs the dose again from the swipe-right action', async () => {
-    seedDose();
-    await render(<HistoryScreen />);
-    expect(screen.getAllByRole('button', { name: /^Medication: Omeprazole 20 mg/ })).toHaveLength(1);
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Log Omeprazole 20 mg again' }));
-
-    expect(screen.getAllByRole('button', { name: /^Medication: Omeprazole 20 mg/ })).toHaveLength(2);
-  });
 
   it('logs the dose again from its detail sheet', async () => {
     seedDose();
