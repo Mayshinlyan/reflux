@@ -258,7 +258,6 @@ export default function HistoryScreen() {
             }
             onPress={() => setSelected(item)}
             onDelete={() => confirmDelete(item)}
-            onRelog={item.kind !== 'symptom' ? () => relog(item) : undefined}
           />
         )}
         stickySectionHeadersEnabled={false}

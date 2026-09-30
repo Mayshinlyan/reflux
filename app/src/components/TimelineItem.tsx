@@ -1,4 +1,4 @@
-import { Activity, Carrot, type LucideIcon, Pill, RotateCw, Trash2 } from 'lucide-react-native';
+import { Activity, Carrot, type LucideIcon, Pill, Trash2 } from 'lucide-react-native';
 import { type ReactNode, useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -23,20 +23,14 @@ type Props = {
   side?: ReactNode;
   /** When set, swiping the row left reveals a Delete button that calls this. */
   onDelete?: () => void;
-  /** When set, swiping the row right reveals a "Log again" button that calls this. */
-  onRelog?: () => void;
 };
 
 /** One row in the History timeline (the mockup's `.row-item`). */
-export function TimelineItem({ kind, title, time, onPress, side, onDelete, onRelog }: Props) {
+export function TimelineItem({ kind, title, time, onPress, side, onDelete }: Props) {
   const colors = useColors();
   const { icon: Icon, bg, fg, noun } = KIND_STYLE[kind];
   const swipeable = useRef<SwipeableMethods>(null);
-  const canSwipe = Boolean(onDelete || onRelog);
-  const actions = [
-    ...(onRelog ? [{ name: 'relog', label: 'Log again' }] : []),
-    ...(onDelete ? [{ name: 'delete', label: 'Delete' }] : []),
-  ];
+  const canSwipe = Boolean(onDelete);
   const row = (
     <Pressable
       onPress={onPress}
@@ -44,10 +38,9 @@ export function TimelineItem({ kind, title, time, onPress, side, onDelete, onRel
       accessibilityLabel={`${noun}: ${title}, ${time}`}
       accessibilityHint="Shows details"
       // Swiping isn't possible with a screen reader, so offer the same action from its actions menu.
-      accessibilityActions={canSwipe ? actions : undefined}
+      accessibilityActions={canSwipe ? [{ name: 'delete', label: 'Delete' }] : undefined}
       onAccessibilityAction={(event) => {
         if (event.nativeEvent.actionName === 'delete') onDelete?.();
-        if (event.nativeEvent.actionName === 'relog') onRelog?.();
       }}
       style={({ pressed }) => [
         styles.row,
@@ -74,28 +67,10 @@ export function TimelineItem({ kind, title, time, onPress, side, onDelete, onRel
     <ReanimatedSwipeable
       ref={swipeable}
       friction={2}
-      overshootLeft={false}
       overshootRight={false}
-      leftThreshold={40}
       rightThreshold={40}
       containerStyle={styles.gap}
-      renderLeftActions={
-        onRelog
-          ? () => (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Log ${title} again`}
-                onPress={() => {
-                  swipeable.current?.close();
-                  onRelog();
-                }}
-                style={[styles.relogAction, { backgroundColor: colors.surface2 }]}>
-                <RotateCw size={20} color={colors.ink} strokeWidth={2.2} />
-                <AppText style={styles.actionText}>Log again</AppText>
-              </Pressable>
-            )
-          : undefined
-      }
+      // Only left swipes are handled here, so a swipe right is free to go back to Today.
       renderRightActions={
         onDelete
           ? () => (
@@ -123,15 +98,6 @@ const styles = StyleSheet.create({
     width: 88,
     minHeight: minTouchTarget,
     marginLeft: space.s1,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  relogAction: {
-    width: 88,
-    minHeight: minTouchTarget,
-    marginRight: space.s1,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
