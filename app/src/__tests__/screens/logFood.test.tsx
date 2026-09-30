@@ -89,10 +89,10 @@ beforeEach(() => {
 
 afterEach(() => closeDb());
 
-describe('Log food screen: My foods', () => {
+describe('Log food screen: Quick Log', () => {
   it('shows nothing when no foods are saved', async () => {
     await render(<LogFoodScreen />);
-    expect(screen.queryByText('My foods')).toBeNull();
+    expect(screen.queryByText('Quick Log')).toBeNull();
   });
 
   it('logs a saved food in one tap with its saved verdict, without calling the relay', async () => {
@@ -106,8 +106,8 @@ describe('Log food screen: My foods', () => {
     saveFoodFromLog(mockDb, id);
     await render(<LogFoodScreen />);
 
-    await press('My foods, 1');
-    await press('Log Mint tea');
+    expect(screen.getByRole('header', { name: 'Quick Log' })).toBeTruthy();
+    await press('Mint tea');
 
     const logs = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(logs).toHaveLength(2);
@@ -117,16 +117,21 @@ describe('Log food screen: My foods', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('lists every saved food in the sheet, with its verdict', async () => {
+  it('shows the first six as chips, and "See all" opens the full list', async () => {
     for (const name of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) createSavedFood(mockDb, name);
     await render(<LogFoodScreen />);
-    expect(screen.queryByRole('button', { name: 'Log G' })).toBeNull();
 
-    await press('My foods, 7');
+    expect(screen.getByRole('button', { name: 'F' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'G' })).toBeNull();
 
-    expect(screen.getByRole('button', { name: 'Log A' })).toBeTruthy();
+    await press('See all');
+
     expect(screen.getByRole('button', { name: 'Log G' })).toBeTruthy();
     expect(screen.getAllByText('No verdict')).toHaveLength(7);
+
+    await press('Log G');
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([{ mealName: 'G' }]);
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 });
 

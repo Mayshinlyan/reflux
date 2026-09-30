@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Camera, ChevronRight, Images } from 'lucide-react-native';
+import { Camera, Images } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -13,6 +13,7 @@ import { CircleActionButton } from '@/components/CircleActionButton';
 import { FoodLoading } from '@/components/FoodLoading';
 import { MealResultCard } from '@/components/MealResultCard';
 import { Screen } from '@/components/Screen';
+import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { VERDICT_LABELS } from '@/components/VerdictBadge';
@@ -33,6 +34,8 @@ import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
 
 const MAX_TEXT = 200;
+/** How many Quick Log chips show; "See all" opens the rest in a sheet. */
+const QUICK_LOG_SIZE = 6;
 /** The relay's cap on `details`; the newest words win when earlier notes and a correction overflow it. */
 const MAX_DETAILS = 300;
 const CAMERA_DENIED =
@@ -50,8 +53,8 @@ const copy = {
   saveUncheckedLabel: 'Save without a verdict',
   savedUnchecked: 'Saved without a verdict',
   saved: 'Added to your food diary',
-  myFoodsTitle: 'My foods',
-  myFoodsHint: 'Tap a food to log it now, with the verdict it was saved with.',
+  quickLogTitle: 'Quick Log',
+  quickLogHint: 'Tap a food to log it now, with the verdict it was saved with.',
   orDescribe: 'or describe it',
 } as const;
 
@@ -90,7 +93,7 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
     [],
   );
 
-  // "My foods": saved foods that log in one tap, from a sheet. Loaded once; a failure just hides the row.
+  // Quick Log: the user's saved foods ("My foods"), logged in one tap. Loaded once; a failure just hides it.
   const [myFoodsOpen, setMyFoodsOpen] = useState(false);
   const [myFoods] = useState<StoredSavedFood[]>(() => {
     try {
@@ -401,6 +404,27 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
             </>
           ) : (
             <>
+              {myFoods.length > 0 && (
+                <View style={styles.quickLog}>
+                  <AppText variant="label" color="inkSoft" accessibilityRole="header">
+                    {copy.quickLogTitle}
+                  </AppText>
+                  <View style={styles.chips}>
+                    {myFoods.slice(0, QUICK_LOG_SIZE).map((food) => (
+                      <TagChip
+                        key={food.id}
+                        role="button"
+                        label={food.mealName}
+                        selected={false}
+                        onPress={() => logMyFood(food)}
+                      />
+                    ))}
+                    {myFoods.length > QUICK_LOG_SIZE && (
+                      <TagChip role="button" label="See all" selected onPress={() => setMyFoodsOpen(true)} />
+                    )}
+                  </View>
+                </View>
+              )}
               <View style={styles.capture}>
                 <CircleActionButton
                   large
@@ -457,22 +481,6 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
                   </AppText>
                 </Pressable>
               </View>
-              {myFoods.length > 0 && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`${copy.myFoodsTitle}, ${myFoods.length}`}
-                  onPress={() => setMyFoodsOpen(true)}
-                  style={({ pressed }) => [
-                    styles.myFoodsRow,
-                    { borderTopColor: colors.hairline, opacity: pressed ? 0.7 : 1 },
-                  ]}>
-                  <AppText style={styles.myFoodsLabel}>{copy.myFoodsTitle}</AppText>
-                  <AppText variant="caption" color="inkSoft">
-                    {myFoods.length}
-                  </AppText>
-                  <ChevronRight size={18} color={colors.inkSoft} strokeWidth={2} />
-                </Pressable>
-              )}
             </>
           )}
         </ScrollView>
@@ -493,10 +501,10 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
 
       <BottomSheet visible={myFoodsOpen} onClose={() => setMyFoodsOpen(false)}>
         <AppText variant="title" accessibilityRole="header">
-          {copy.myFoodsTitle}
+          {copy.quickLogTitle}
         </AppText>
         <AppText color="inkSoft" style={styles.sheetSub}>
-          {copy.myFoodsHint}
+          {copy.quickLogHint}
         </AppText>
         {myFoods.map((food) => (
           <Pressable
@@ -540,16 +548,8 @@ const styles = StyleSheet.create({
   link: { minHeight: minTouchTarget, alignItems: 'center', justifyContent: 'center' },
   linkDisabled: { opacity: 0.4 },
   linkText: { ...typography.bodyEm, fontSize: 15, fontFamily: 'Nunito_700Bold' },
-  myFoodsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.s1,
-    minHeight: minTouchTarget,
-    marginTop: space.s3,
-    paddingTop: space.s2,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  myFoodsLabel: { ...typography.bodyEm, flex: 1, fontSize: 16, fontFamily: 'Nunito_700Bold' },
+  quickLog: { gap: space.s1 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
   sheetSub: { marginTop: 4, marginBottom: space.s1, fontSize: 15, lineHeight: 21 },
   foodRow: {
     minHeight: Math.max(minTouchTarget, 56),
