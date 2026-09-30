@@ -5,8 +5,9 @@ import LogFoodScreen from '@/app/log/food';
 import { FoodList } from '@/components/FoodList';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
-import { createSavedFood, listSavedFoods } from '@/db/repositories/savedFoods';
+import { createSavedFood, listSavedFoods, saveCheckedFood } from '@/db/repositories/savedFoods';
 import type { AppDb } from '@/db/types';
+import type { MealAnalysis } from '@/types/analysis';
 
 let mockDb: AppDb;
 let closeDb: () => void;
@@ -17,6 +18,7 @@ let mockParams: Record<string, string> = {};
 jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
+jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
@@ -99,7 +101,7 @@ describe('Food screen: which view', () => {
     expect(screen.queryByText(/check flow/)).toBeNull();
   });
 
-  it('opens the check for "Check a new food", keeping the chosen time', async () => {
+  it('opens the check for "Add a food", keeping the chosen time', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     const at = yesterdayBreakfast().toISOString();
     mockParams = { check: '1', at };
@@ -154,18 +156,63 @@ describe('Food screen: My foods', () => {
     expect(screen.queryByText(/Eaten today/)).toBeNull();
   });
 
-  it('"Check a new food" opens the check, passing on the chosen time', async () => {
+  it('"Add a food" opens the check, passing on the chosen time', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
-    await press('+ Check a new food');
+    await press('+ Add a food');
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/log/food', params: { check: '1' } });
 
     await chooseBreakfast();
-    await press('+ Check a new food');
+    await press('+ Add a food');
     expect(mockPush).toHaveBeenLastCalledWith({
       pathname: '/log/food',
       params: { check: '1', at: yesterdayBreakfast().toISOString() },
     });
+  });
+
+  it('opens the food screen to get a verdict for a saved food', async () => {
+    const id = createSavedFood(mockDb, 'Oatmeal');
+    await render(<FoodList />);
+
+    await press('Edit Oatmeal');
+    await press('Get a verdict');
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/log/food',
+      params: { myFood: '1', food: String(id) },
+    });
+  });
+
+  it("shows a food's verdict when it is tapped", async () => {
+    const analysis: MealAnalysis = {
+      isFood: true,
+      mealName: 'Mint tea',
+      items: [
+        {
+          name: 'Mint tea',
+          ingredients: [{ name: 'Peppermint', matchedCategories: ['mint'] }],
+          verdict: 'caution',
+          reasoning: 'Peppermint relaxes the valve.',
+          matchedTriggers: [{ category: 'mint', evidence: 'peppermint' }],
+        },
+      ],
+      overall: { verdict: 'caution', confidence: 'high', reasoning: 'Mint is a common trigger.' },
+    };
+    saveCheckedFood(mockDb, {
+      source: 'text',
+      inputText: 'mint tea',
+      analysis,
+      meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
+    });
+    createSavedFood(mockDb, 'Oatmeal');
+    await render(<FoodList />);
+
+    await press('Edit Mint tea');
+    expect(screen.getByText('Mint is a common trigger.')).toBeTruthy();
+    expect(screen.getByText('Peppermint relaxes the valve.')).toBeTruthy();
+
+    await press('Edit Oatmeal');
+    expect(screen.getByText('No verdict yet.')).toBeTruthy();
   });
 
   it('renames a food', async () => {
@@ -247,6 +294,6 @@ describe('Food screen: My foods', () => {
 
   it('explains what to do once the last food is removed', async () => {
     await render(<FoodList />);
-    expect(screen.getByText(/Check a food, then save it/)).toBeTruthy();
+    expect(screen.getByText(/Add the foods you eat often/)).toBeTruthy();
   });
 });

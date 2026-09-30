@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { Utensils } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -8,6 +9,7 @@ import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
+import { MealResultCard } from '@/components/MealResultCard';
 import { MealTimePicker } from '@/components/MealTimePicker';
 import { Screen } from '@/components/Screen';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
@@ -59,8 +61,9 @@ function loadEatenToday(db: AppDb): EatenToday {
 
 /**
  * The Food screen when there are saved foods: "My foods" as cards, each logged with one tap (with the
- * verdict it was saved with, no new analysis) at the time in the header. Tap a food to rename or remove it,
- * swipe it left to delete; "Check a new food" opens the photo/text check, which can save to this list.
+ * verdict it was saved with, no new analysis) at the time in the header. Tap a food to rename, re-check or
+ * remove it, or swipe it left to delete. "Add a food" checks a new one from a photo or a description; the
+ * result can be logged as eaten, saved to this list, or both.
  */
 export function FoodList() {
   const colors = useColors();
@@ -75,7 +78,9 @@ export function FoodList() {
   // When the meal was eaten, for logging after the fact. Null = now, worked out at the moment of logging.
   const [eatenAt, setEatenAt] = useState<Date | null>(null);
 
-  const [editing, setEditing] = useState<number | null>(null);
+  const [editing, setEditing] = useState<StoredSavedFood | null>(null);
+  // What the sheet shows. Not cleared on close, so the sheet keeps its content while it slides away.
+  const [sheetFood, setSheetFood] = useState<StoredSavedFood | null>(null);
   const [name, setName] = useState('');
 
   const reload = useCallback(() => {
@@ -96,16 +101,34 @@ export function FoodList() {
   }, []);
 
   const trimmedName = name.trim();
+  const closeForm = () => setEditing(null);
   const openEdit = (food: StoredSavedFood) => {
     setName(food.mealName);
-    setEditing(food.id);
+    setEditing(food);
+    setSheetFood(food);
   };
 
-  const checkNew = () =>
+  /** "Add a food": the photo/text check, which keeps the time chosen here. */
+  const addFood = () =>
     router.push({
       pathname: '/log/food',
       params: eatenAt ? { check: '1', at: eatenAt.toISOString() } : { check: '1' },
     });
+
+  const checkFood = () => {
+    if (!editing) return;
+    const id = editing.id;
+    // Keep a rename typed before tapping here; the checked food keeps that name.
+    if (trimmedName && trimmedName !== editing.mealName) {
+      try {
+        renameSavedFood(db, id, trimmedName);
+      } catch (error) {
+        logger.error('renameSavedFood', error);
+      }
+    }
+    setEditing(null);
+    router.push({ pathname: '/log/food', params: { myFood: '1', food: String(id) } });
+  };
 
   const logOnce = (food: StoredSavedFood) => {
     // `disabled` only applies after a re-render, so two taps in the same instant must be caught here.
@@ -139,10 +162,10 @@ export function FoodList() {
     reload();
   };
 
-  const saveName = () => {
-    if (editing === null || !trimmedName) return;
+  const save = () => {
+    if (!editing || !trimmedName) return;
     try {
-      renameSavedFood(db, editing, trimmedName);
+      renameSavedFood(db, editing.id, trimmedName);
     } catch (error) {
       logger.error('renameSavedFood', error);
       Alert.alert("Couldn't save", friendlyMessages.INTERNAL);
@@ -179,7 +202,7 @@ export function FoodList() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <BackHeader title="Food" right={<MealTimePicker value={eatenAt} onChange={setEatenAt} />} />
         {loadFailed && foods.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
@@ -187,7 +210,7 @@ export function FoodList() {
           </AppText>
         ) : foods.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
-            Check a food, then save it to log it again with a single tap.
+            Add the foods you eat often, or save a meal from History, then log each one with a single tap.
           </AppText>
         ) : (
           foods.map((food) => {
@@ -211,9 +234,13 @@ export function FoodList() {
                     }}
                     onPress={() => openEdit(food)}
                     style={styles.info}>
-                    <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                      <Utensils size={18} color={colors.clayInk} strokeWidth={2.2} />
-                    </View>
+                    {food.photoUri ? (
+                      <Image source={{ uri: food.photoUri }} style={styles.icon} contentFit="cover" />
+                    ) : (
+                      <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
+                        <Utensils size={18} color={colors.clayInk} strokeWidth={2.2} />
+                      </View>
+                    )}
                     <View style={styles.text}>
                       <AppText style={styles.foodName} numberOfLines={2}>
                         {food.mealName}
@@ -248,15 +275,29 @@ export function FoodList() {
             );
           })
         )}
-        <Pressable accessibilityRole="button" onPress={checkNew} style={styles.add}>
-          <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Check a new food</AppText>
+        <Pressable accessibilityRole="button" onPress={addFood} style={styles.add}>
+          <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Add a food</AppText>
         </Pressable>
       </ScrollView>
 
-      <BottomSheet visible={editing !== null} onClose={() => setEditing(null)}>
-        <AppText variant="title" accessibilityRole="header">
-          Edit food
+      <BottomSheet visible={editing !== null} onClose={closeForm}>
+        {/* The saved verdict first, like a meal in History; editing sits below it. */}
+        <AppText variant="title" accessibilityRole="header" style={styles.sheetTitle}>
+          {sheetFood?.mealName}
         </AppText>
+        {sheetFood?.photoUri ? (
+          <Image
+            source={{ uri: sheetFood.photoUri }}
+            style={styles.sheetPhoto}
+            contentFit="cover"
+            accessibilityLabel="Your food photo"
+          />
+        ) : null}
+        {sheetFood?.analysis ? (
+          <MealResultCard analysis={sheetFood.analysis} showTitle={false} />
+        ) : (
+          <AppText color="inkSoft">No verdict yet.</AppText>
+        )}
         <View style={styles.sheetField}>
           <TextField
             label="Name"
@@ -265,15 +306,21 @@ export function FoodList() {
             placeholder="e.g. oatmeal with banana"
             maxLength={MAX_SAVED_FOOD_NAME}
             returnKeyType="done"
-            onSubmitEditing={saveName}
+            onSubmitEditing={save}
           />
         </View>
-        <Button label="Save" onPress={saveName} disabled={!trimmedName} />
+        <Button label="Save" onPress={save} disabled={!trimmedName} />
         <View style={styles.secondary}>
+          {/* A photo or a description goes through the verdict flow; the food keeps its name. */}
+          <Button
+            label={sheetFood?.overallVerdict ? 'Check again' : 'Get a verdict'}
+            variant="secondary"
+            onPress={checkFood}
+          />
           <Button
             label="Remove from my list"
             variant="quietDanger"
-            onPress={() => editing !== null && confirmRemove(editing, trimmedName)}
+            onPress={() => editing && confirmRemove(editing.id, trimmedName)}
           />
         </View>
       </BottomSheet>
@@ -318,6 +365,8 @@ const styles = StyleSheet.create({
   logText: { ...typography.label, fontSize: 14, fontFamily: 'Nunito_800ExtraBold' },
   add: { minHeight: minTouchTarget, justifyContent: 'center', paddingVertical: space.s1 },
   addText: { ...typography.bodyEm, fontSize: 15, fontFamily: 'Nunito_700Bold' },
+  sheetTitle: { marginBottom: space.s1 },
+  sheetPhoto: { width: '100%', height: 180, borderRadius: radius.lg, marginBottom: space.s1 },
   sheetField: { marginTop: space.s2, marginBottom: space.s1 },
-  secondary: { marginTop: space.s1 },
+  secondary: { marginTop: space.s1, gap: space.s1 },
 });

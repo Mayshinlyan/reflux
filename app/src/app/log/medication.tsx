@@ -16,6 +16,7 @@ import {
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { Button } from '@/components/Button';
+import { MealTimePicker } from '@/components/MealTimePicker';
 import { Screen } from '@/components/Screen';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
@@ -36,6 +37,7 @@ import type { AppDb } from '@/db/types';
 import { friendlyMessages } from '@/lib/errors';
 import { formatTime, localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
+import { formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { medicationTypeLabel } from '@/lib/timeline';
 import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
@@ -89,6 +91,8 @@ export default function MedicationScreen() {
   const [taken, setTaken] = useState<TakenToday>(new Map());
   const [loadFailed, setLoadFailed] = useState(false);
   const [justLogged, setJustLogged] = useState<ReadonlySet<number>>(new Set());
+  // When the dose was taken, for logging one after the fact. Null = now, worked out at the moment of logging.
+  const [takenAt, setTakenAt] = useState<Date | null>(null);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
   const [form, setForm] = useState<Form | null>(null);
@@ -174,14 +178,15 @@ export default function MedicationScreen() {
     // `disabled` only applies after a re-render, so two taps in the same instant must be caught here.
     if (timers.current.has(med.id)) return;
     try {
-      logMedication(db, med.id);
+      logMedication(db, med.id, takenAt ? { takenAt: takenAt.toISOString() } : {});
     } catch (error) {
       logger.error('logMedication', error);
       Alert.alert("Couldn't log", friendlyMessages.INTERNAL);
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    toast(`${med.name} logged`);
+    // An earlier dose doesn't show under "Taken today", so the toast says when it was logged for.
+    toast(takenAt ? `${med.name} logged for ${formatMealTime(takenAt, new Date())}` : `${med.name} logged`);
     setJustLogged((current) => new Set(current).add(med.id));
     clearTimeout(timers.current.get(med.id));
     timers.current.set(
@@ -402,7 +407,15 @@ export default function MedicationScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <BackHeader title="Medications" />
+        {/* Only shown with something to log; kept until changed, so several doses can share one time. */}
+        <BackHeader
+          title="Medications"
+          right={
+            meds.length > 0 ? (
+              <MealTimePicker value={takenAt} onChange={setTakenAt} question="When did you take this?" />
+            ) : undefined
+          }
+        />
         {loadFailed && meds.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
             {`${friendlyMessages.INTERNAL} Your medications are still on this phone.`}

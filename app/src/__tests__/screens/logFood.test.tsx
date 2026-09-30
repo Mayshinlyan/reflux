@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import LogFoodScreen from '@/app/log/food';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
-import { listSavedFoods } from '@/db/repositories/savedFoods';
+import { createSavedFood, listSavedFoods } from '@/db/repositories/savedFoods';
 import { foodLogs } from '@/db/schema';
 import type { AppDb } from '@/db/types';
 import { AppError, friendlyMessages } from '@/lib/errors';
@@ -15,7 +15,7 @@ let mockDb: AppDb;
 let closeDb: () => void;
 const mockBack = jest.fn();
 const mockToast = jest.fn();
-let mockParams: { camera?: string } = {};
+let mockParams: { camera?: string; myFood?: string; food?: string; check?: string } = {};
 
 jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
@@ -130,6 +130,57 @@ describe('Log food screen: Save to My foods', () => {
 
     expect(listSavedFoods(mockDb)).toHaveLength(0);
     expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
+  });
+});
+
+describe('Log food screen: "Add a food" from the Food list', () => {
+  // The food may not have been eaten yet, so the field asks "What's the food?".
+  const typeFood = async (value: string) =>
+    fireEvent.changeText(screen.getByLabelText("What's the food?"), value);
+
+  beforeEach(() => {
+    mockParams = { check: '1' };
+  });
+
+  it('saves the verdict to My foods only, without adding a meal to the diary', async () => {
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+    await typeFood('mint tea');
+    await press('Analyze meal');
+    await screen.findByText('Mint is a common trigger.');
+
+    await press('Save to My foods only');
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(listSavedFoods(mockDb)).toMatchObject([{ mealName: 'Mint tea', overallVerdict: 'caution' }]);
+    expect(mockToast).toHaveBeenCalledWith('Mint tea added to My foods');
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('can still log it as eaten, and keep it too', async () => {
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+    await typeFood('mint tea');
+    await press('Analyze meal');
+    await screen.findByText('Mint is a common trigger.');
+
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Save to My foods' }));
+    await press('I ate this');
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
+    expect(listSavedFoods(mockDb)).toHaveLength(1);
+  });
+
+  it('saves a typed food to My foods by name when skipping the verdict', async () => {
+    await render(<LogFoodScreen />);
+    await typeFood('Banana bread');
+
+    await press('Save without a verdict');
+
+    expect(analyze).not.toHaveBeenCalled();
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Banana bread']);
+    expect(mockToast).toHaveBeenCalledWith('Banana bread added to My foods');
   });
 });
 
@@ -537,6 +588,73 @@ describe('Food screen (updating the verdict with a comment)', () => {
     expect(mockBack).not.toHaveBeenCalled();
     expect(screen.getByText('Mint is a common trigger.')).toBeTruthy();
     expect(correctionField().props.value).toBe('pumpkin');
+  });
+});
+
+describe('Food screen for My foods', () => {
+  const photo = { uri: 'file:///cache/prepared.jpg', width: 1024, height: 768 };
+
+  it('checks a photo and saves it with its verdict to My foods, not the diary', async () => {
+    mockParams = { myFood: '1' };
+    pick.mockResolvedValue({ status: 'ok', photo });
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+
+    expect(screen.getByRole('header', { name: 'Add a food' })).toBeTruthy();
+    await press('Take a photo');
+    await screen.findByLabelText('Anything we should know?');
+    expect(screen.queryByRole('button', { name: 'Save without a verdict' })).toBeNull();
+    await press('Analyze meal');
+    await screen.findByText('Mint is a common trigger.');
+    await press('Save to My foods');
+
+    expect(listSavedFoods(mockDb)).toMatchObject([
+      {
+        mealName: 'Mint tea',
+        source: 'photo',
+        photoUri: 'file:///doc/photos/meal.jpg',
+        overallVerdict: 'caution',
+      },
+    ]);
+    // Neither a diary meal nor a stored check.
+    expect(mockDb.select().from(foodLogs).all()).toHaveLength(0);
+    expect(mockToast).toHaveBeenCalledWith('Mint tea added to My foods');
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('can still add a typed food by name without a verdict', async () => {
+    mockParams = { myFood: '1' };
+    createSavedFood(mockDb, 'Oatmeal');
+    await render(<LogFoodScreen />);
+
+    expect(screen.queryByRole('header', { name: 'My foods' })).toBeNull();
+    // A saved food isn't eaten, so there is no meal time to pick.
+    expect(screen.queryByRole('button', { name: /^When did you eat this\?/ })).toBeNull();
+    expect(screen.queryByLabelText('What did you eat?')).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText("What's the food?"), '  Banana bread ');
+    await press('Save without a verdict');
+
+    expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Banana bread', 'Oatmeal']);
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(analyze).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith('Banana bread added to My foods');
+  });
+
+  it('gives a saved food a verdict, starting from its name and keeping it', async () => {
+    const id = createSavedFood(mockDb, 'My tea');
+    mockParams = { myFood: '1', food: String(id) };
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+
+    expect(screen.getByRole('header', { name: 'Get a verdict' })).toBeTruthy();
+    expect(screen.getByLabelText("What's the food?").props.value).toBe('My tea');
+    expect(screen.queryByRole('button', { name: 'Save without a verdict' })).toBeNull();
+    await press('Analyze meal');
+    await screen.findByText('Mint is a common trigger.');
+    await press('Save to My foods');
+
+    expect(listSavedFoods(mockDb)).toMatchObject([{ id, mealName: 'My tea', overallVerdict: 'caution' }]);
+    expect(mockToast).toHaveBeenCalledWith('Updated My tea in My foods');
   });
 });
 
