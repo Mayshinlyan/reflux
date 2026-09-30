@@ -7,7 +7,8 @@ import type { AppDb } from '../types';
 
 /**
  * Typed app settings. Pet stage, progress and mood are deliberately absent: they are
- * derived from the logs (lib/petProgress.ts), so only the pet's identity is stored.
+ * derived from the logs (lib/petProgress.ts), so only the pet's identity is stored, plus
+ * the last stage the user saw (so a stage-up is celebrated once).
  */
 export type Settings = {
   /** Local bedtime, "HH:MM" 24h. */
@@ -17,6 +18,8 @@ export type Settings = {
   onboardingDone: boolean;
   petName: string;
   petAnimal: 'dog';
+  /** The highest pet stage (0-2) the user has seen on Today; a higher derived stage plays the celebration once. */
+  petSeenStage: number;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -25,6 +28,7 @@ export const DEFAULT_SETTINGS: Settings = {
   onboardingDone: false,
   petName: 'Buddy',
   petAnimal: 'dog',
+  petSeenStage: 0,
 };
 
 export type SettingKey = keyof Settings;
@@ -38,6 +42,10 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
   if (key === 'petName') {
     const name = (value as string).trim();
     if (name.length < 1 || name.length > 24) throw new Error('petName must be 1–24 characters');
+  }
+  if (key === 'petSeenStage') {
+    const stage = value as number;
+    if (!Number.isInteger(stage) || stage < 0 || stage > 2) throw new Error('petSeenStage must be 0–2');
   }
   if (key === 'lateMealWindowMinutes') {
     const minutes = value as number;

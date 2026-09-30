@@ -14,6 +14,8 @@ type DatabaseContextValue = {
   db: AppDb;
   settings: Settings;
   updateSetting: <K extends SettingKey>(key: K, value: Settings[K]) => void;
+  /** Re-reads settings from the database (after data is deleted underneath them). */
+  reloadSettings: () => void;
 };
 
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
@@ -67,7 +69,12 @@ function ReadyProvider({ db, children }: { db: AppDb; children: ReactNode }) {
     [db],
   );
 
-  const value = useMemo(() => ({ db, settings, updateSetting }), [db, settings, updateSetting]);
+  const reloadSettings = useCallback(() => setSettings(getAllSettings(db)), [db]);
+
+  const value = useMemo(
+    () => ({ db, settings, updateSetting, reloadSettings }),
+    [db, settings, updateSetting, reloadSettings],
+  );
   return <DatabaseContext.Provider value={value}>{children}</DatabaseContext.Provider>;
 }
 
@@ -83,6 +90,6 @@ export function useDb(): AppDb {
 
 /** Current settings (shared across screens) plus a setter that saves them. Throws on invalid values. */
 export function useSettings() {
-  const { settings, updateSetting } = useDatabaseContext();
-  return { settings, update: updateSetting };
+  const { settings, updateSetting, reloadSettings } = useDatabaseContext();
+  return { settings, update: updateSetting, reload: reloadSettings };
 }

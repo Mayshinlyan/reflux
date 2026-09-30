@@ -1,5 +1,5 @@
 /**
- * Pure helpers for the pet's tap animation, kept separate from Reanimated so they can
+ * Pure helpers for the pet's tap response, kept separate from Reanimated so they can
  * be unit-tested. Taps are play only: nothing here touches pet progress, mood or stage.
  */
 
@@ -9,15 +9,6 @@ export const MAX_TILT_X_DEG = 14;
 
 /** Minimum gap between tap reactions, so button-mashing cycles instead of stacking. */
 export const TAP_COOLDOWN_MS = 600;
-
-export type PetReaction = 'hop' | 'spin' | 'wiggle';
-
-/** Reactions cycle in this order on successive taps. */
-export const REACTIONS: readonly PetReaction[] = ['hop', 'spin', 'wiggle'];
-
-export function nextReaction(tapCount: number): PetReaction {
-  return REACTIONS[tapCount % REACTIONS.length] ?? 'hop';
-}
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 

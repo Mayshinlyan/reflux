@@ -38,7 +38,7 @@ export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, o
           accessibilityRole="button"
           accessibilityLabel={`Remove ${label}`}
           onPress={onRemove}
-          hitSlop={6}
+          hitSlop={8}
           style={({ pressed }) => [styles.minus, { opacity: pressed ? 0.6 : 1 }]}>
           <Minus size={16} color={colors.clayInk} strokeWidth={2.8} />
         </Pressable>

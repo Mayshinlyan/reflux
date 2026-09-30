@@ -3,12 +3,16 @@ import { count } from 'drizzle-orm';
 
 import type { MealAnalysis } from '@/types/analysis';
 
+import { deleteAllData } from '../repositories/data';
 import {
   createFoodLog,
+  createUncheckedMeal,
   deleteFoodLog,
   getFoodLog,
   listDiaryFoodLogs,
   promoteCheckToDiary,
+  relogFood,
+  updateFoodCheck,
 } from '../repositories/food';
 import {
   archiveMedication,
@@ -16,8 +20,17 @@ import {
   listMedicationLogs,
   listMedications,
   logMedication,
+  relogMedication,
   updateMedication,
 } from '../repositories/medications';
+import {
+  createSavedFood,
+  listSavedFoods,
+  logSavedFood,
+  removeSavedFood,
+  renameSavedFood,
+  saveFoodFromLog,
+} from '../repositories/savedFoods';
 import { DEFAULT_SETTINGS, getAllSettings, getSetting, setSetting } from '../repositories/settings';
 import {
   createSymptomLog,
@@ -28,7 +41,16 @@ import {
   removeTagFromLog,
   updateSymptomLog,
 } from '../repositories/symptoms';
-import { medicationLogs, medications, symptomLogItems, symptomLogTags } from '../schema';
+import {
+  appSettings,
+  foodLogs,
+  medicationLogs,
+  medications,
+  savedFoods,
+  symptomLogItems,
+  symptomLogs,
+  symptomLogTags,
+} from '../schema';
 import { createTestDb } from './testDb';
 
 const DAY = { from: '2026-09-28T00:00:00.000Z', to: '2026-09-29T00:00:00.000Z' };
@@ -71,6 +93,15 @@ describe('settings', () => {
     const { db } = createTestDb();
     expect(() => setSetting(db, 'bedtime', '25:00')).toThrow();
     expect(() => setSetting(db, 'petName', '   ')).toThrow();
+    expect(() => setSetting(db, 'petSeenStage', 3)).toThrow();
+    expect(() => setSetting(db, 'petSeenStage', -1)).toThrow();
+  });
+
+  it('remembers the last pet stage the user saw, starting at 0', () => {
+    const { db } = createTestDb();
+    expect(getSetting(db, 'petSeenStage')).toBe(0);
+    setSetting(db, 'petSeenStage', 2);
+    expect(getSetting(db, 'petSeenStage')).toBe(2);
   });
 });
 
@@ -253,7 +284,7 @@ describe('food logs', () => {
     const diary = listDiaryFoodLogs(db, DAY);
     expect(diary).toHaveLength(1);
     expect(diary[0]).toMatchObject({ id: diaryId, mealName: 'Mint tea', overallVerdict: 'caution' });
-    expect(diary[0]?.analysis.items[0]?.matchedTriggers[0]?.category).toBe('mint');
+    expect(diary[0]?.analysis?.items[0]?.matchedTriggers[0]?.category).toBe('mint');
     expect(diary[0]?.analysisMeta).toEqual(meta);
   });
 
@@ -271,6 +302,31 @@ describe('food logs', () => {
     expect(() => promoteCheckToDiary(db, id)).toThrow(); // already in the diary
   });
 
+  it("updates a check's verdict, but never a diary meal's", () => {
+    const { db } = createTestDb();
+    const id = createFoodLog(db, { entryType: 'check', source: 'text', analysis: mintTea, meta });
+    const chamomile: MealAnalysis = {
+      ...mintTea,
+      mealName: 'Chamomile tea',
+      overall: { ...mintTea.overall, verdict: 'ok' },
+    };
+    const newMeta = { ...meta, promptVersion: 'p2' };
+
+    updateFoodCheck(db, id, { analysis: chamomile, meta: newMeta });
+
+    expect(getFoodLog(db, id)).toMatchObject({
+      entryType: 'check',
+      mealName: 'Chamomile tea',
+      overallVerdict: 'ok',
+      analysis: chamomile,
+      analysisMeta: newMeta,
+    });
+
+    promoteCheckToDiary(db, id);
+    expect(() => updateFoodCheck(db, id, { analysis: mintTea, meta })).toThrow();
+    expect(getFoodLog(db, id)?.mealName).toBe('Chamomile tea');
+  });
+
   it('refuses to save non-food results and deletes meals', () => {
     const { db } = createTestDb();
     expect(() =>
@@ -284,6 +340,89 @@ describe('food logs', () => {
     const id = createFoodLog(db, { entryType: 'diary', source: 'text', analysis: mintTea, meta });
     deleteFoodLog(db, id);
     expect(getFoodLog(db, id)).toBeUndefined();
+  });
+});
+
+describe('unchecked meals', () => {
+  it('saves a typed meal to the diary with no verdict, analysis or meta', () => {
+    const { db } = createTestDb();
+    const id = createUncheckedMeal(db, { source: 'text', inputText: '  toast and eggs ' });
+
+    expect(getFoodLog(db, id)).toMatchObject({
+      entryType: 'diary',
+      source: 'text',
+      inputText: 'toast and eggs',
+      mealName: 'toast and eggs',
+      overallVerdict: null,
+      analysis: null,
+      analysisMeta: null,
+    });
+    expect(listDiaryFoodLogs(db, { from: '2000-01-01', to: '2100-01-01' })).toHaveLength(1);
+  });
+
+  it('names a photo meal "Meal" and keeps its photo', () => {
+    const { db } = createTestDb();
+    const id = createUncheckedMeal(db, { source: 'photo', photoUri: 'file:///p.jpg' });
+
+    expect(getFoodLog(db, id)).toMatchObject({
+      mealName: 'Meal',
+      photoUri: 'file:///p.jpg',
+      inputText: null,
+    });
+  });
+});
+
+describe('relogFood', () => {
+  it('copies a checked meal as a new diary entry eaten now, keeping its verdict and photo', () => {
+    const { db } = createTestDb();
+    const id = createFoodLog(db, {
+      entryType: 'diary',
+      source: 'photo',
+      photoUri: 'file:///p.jpg',
+      analysis: mintTea,
+      meta,
+      loggedAt: '2020-01-01T08:00:00.000Z',
+      tz: 'Asia/Tokyo',
+    });
+
+    const newId = relogFood(db, id);
+
+    expect(newId).not.toBe(id);
+    const copy = getFoodLog(db, newId);
+    expect(copy).toMatchObject({
+      entryType: 'diary',
+      source: 'photo',
+      photoUri: 'file:///p.jpg',
+      mealName: 'Mint tea',
+      overallVerdict: 'caution',
+      analysis: mintTea,
+    });
+    expect(copy!.loggedAt > '2020-01-01T08:00:00.000Z').toBe(true);
+    expect(getFoodLog(db, id)?.loggedAt).toBe('2020-01-01T08:00:00.000Z');
+  });
+
+  it('copies a meal saved without a verdict', () => {
+    const { db } = createTestDb();
+    const id = createUncheckedMeal(db, { source: 'text', inputText: 'toast' });
+
+    const copy = getFoodLog(db, relogFood(db, id));
+
+    expect(copy).toMatchObject({ mealName: 'toast', overallVerdict: null, analysis: null });
+  });
+
+  it('keeps the copy when the original is deleted', () => {
+    const { db } = createTestDb();
+    const id = createUncheckedMeal(db, { source: 'text', inputText: 'toast' });
+    const newId = relogFood(db, id);
+
+    deleteFoodLog(db, id);
+
+    expect(getFoodLog(db, newId)).toBeDefined();
+  });
+
+  it('throws for a meal that does not exist', () => {
+    const { db } = createTestDb();
+    expect(() => relogFood(db, 999)).toThrow('not found');
   });
 });
 
@@ -322,10 +461,203 @@ describe('medications', () => {
     expect(logs).toEqual([expect.objectContaining({ medicationId: null, name: 'Gaviscon' })]);
   });
 
+  it('logs a past dose again as taken now, from the log rather than the saved medication', () => {
+    const { db } = createTestDb();
+    const medId = createMedication(db, { name: 'Omeprazole', type: 'ppi', defaultDose: '20mg' });
+    const logId = logMedication(db, medId, { takenAt: '2020-01-01T08:00:00.000Z', notes: 'with food' });
+    updateMedication(db, medId, { name: 'Changed', type: 'ppi', defaultDose: '40mg' });
+
+    const newId = relogMedication(db, logId);
+
+    const copy = db
+      .select()
+      .from(medicationLogs)
+      .all()
+      .find((log) => log.id === newId);
+    expect(copy).toMatchObject({
+      medicationId: medId,
+      name: 'Omeprazole',
+      type: 'ppi',
+      doseText: '20mg',
+      notes: null,
+    });
+    expect(copy!.takenAt > '2020-01-01T08:00:00.000Z').toBe(true);
+  });
+
+  it('logs a dose again after its saved medication was deleted', () => {
+    const { db } = createTestDb();
+    const medId = createMedication(db, { name: 'Gaviscon', type: 'alginate' });
+    const logId = logMedication(db, medId);
+    db.delete(medications).run();
+
+    expect(() => relogMedication(db, logId)).not.toThrow();
+    expect(db.select().from(medicationLogs).all()).toHaveLength(2);
+  });
+
+  it('throws for a log that does not exist', () => {
+    const { db } = createTestDb();
+    expect(() => relogMedication(db, 999)).toThrow('not found');
+  });
+
   it('rejects unknown types and blank names', () => {
     const { db } = createTestDb();
     // @ts-expect-error unknown type
     expect(() => createMedication(db, { name: 'X', type: 'vitamin' })).toThrow();
     expect(() => createMedication(db, { name: '  ', type: 'other' })).toThrow();
+  });
+});
+
+describe('saved foods (My foods)', () => {
+  it('saves a logged meal with its verdict and photo, and logs it again without a relay call', () => {
+    const { db } = createTestDb();
+    const logId = createFoodLog(db, {
+      entryType: 'diary',
+      source: 'photo',
+      photoUri: 'file:///p.jpg',
+      analysis: mintTea,
+      meta,
+      loggedAt: '2020-01-01T08:00:00.000Z',
+    });
+
+    const saved = saveFoodFromLog(db, logId);
+    expect(saved.created).toBe(true);
+    expect(listSavedFoods(db)).toEqual([
+      expect.objectContaining({
+        id: saved.id,
+        source: 'photo',
+        photoUri: 'file:///p.jpg',
+        mealName: 'Mint tea',
+        overallVerdict: 'caution',
+        analysis: mintTea,
+      }),
+    ]);
+
+    const copy = getFoodLog(db, logSavedFood(db, saved.id));
+    expect(copy).toMatchObject({
+      entryType: 'diary',
+      photoUri: 'file:///p.jpg',
+      mealName: 'Mint tea',
+      overallVerdict: 'caution',
+      analysis: mintTea,
+    });
+    expect(copy!.loggedAt > '2020-01-01T08:00:00.000Z').toBe(true);
+  });
+
+  it("doesn't save the same meal twice, ignoring case", () => {
+    const { db } = createTestDb();
+    const first = createFoodLog(db, { entryType: 'diary', source: 'text', analysis: mintTea, meta });
+    const second = createFoodLog(db, {
+      entryType: 'diary',
+      source: 'text',
+      analysis: { ...mintTea, mealName: 'MINT TEA' },
+      meta,
+    });
+
+    const one = saveFoodFromLog(db, first);
+    const two = saveFoodFromLog(db, second);
+
+    expect(two).toEqual({ id: one.id, created: false });
+    expect(listSavedFoods(db)).toHaveLength(1);
+  });
+
+  it('adds a food by name; logging it saves a meal without a verdict', () => {
+    const { db } = createTestDb();
+    const id = createSavedFood(db, '  Oatmeal ');
+
+    expect(listSavedFoods(db)[0]).toMatchObject({
+      mealName: 'Oatmeal',
+      overallVerdict: null,
+      analysis: null,
+    });
+    expect(getFoodLog(db, logSavedFood(db, id))).toMatchObject({
+      entryType: 'diary',
+      source: 'text',
+      inputText: 'Oatmeal',
+      mealName: 'Oatmeal',
+      overallVerdict: null,
+      analysis: null,
+    });
+    expect(() => createSavedFood(db, '   ')).toThrow();
+  });
+
+  it('lists A to Z ignoring case, renames, and removes without touching History', () => {
+    const { db } = createTestDb();
+    const banana = createSavedFood(db, 'banana');
+    createSavedFood(db, 'Apple');
+    const logId = logSavedFood(db, banana);
+
+    expect(listSavedFoods(db).map((f) => f.mealName)).toEqual(['Apple', 'banana']);
+    renameSavedFood(db, banana, 'Banana bread');
+    expect(listSavedFoods(db).map((f) => f.mealName)).toEqual(['Apple', 'Banana bread']);
+    expect(() => renameSavedFood(db, banana, ' ')).toThrow();
+    expect(() => renameSavedFood(db, 999, 'X')).toThrow();
+
+    removeSavedFood(db, banana);
+    expect(listSavedFoods(db).map((f) => f.mealName)).toEqual(['Apple']);
+    expect(getFoodLog(db, logId)).toMatchObject({ mealName: 'banana' });
+  });
+
+  it('throws for a missing meal or saved food', () => {
+    const { db } = createTestDb();
+    expect(() => saveFoodFromLog(db, 999)).toThrow();
+    expect(() => logSavedFood(db, 999)).toThrow();
+  });
+});
+
+describe('delete all data', () => {
+  const seed = (db: ReturnType<typeof createTestDb>['db']) => {
+    createSymptomLog(db, {
+      items: [{ key: 'heartburn' }],
+      tags: ['large_meal'],
+      loggedAt: '2026-09-28T20:20:00.000Z',
+      tz: 'Europe/London',
+    });
+    createFoodLog(db, { entryType: 'diary', source: 'text', inputText: 'mint tea', analysis: mintTea, meta });
+    createFoodLog(db, {
+      entryType: 'check',
+      source: 'photo',
+      photoUri: 'file:///p.jpg',
+      analysis: mintTea,
+      meta,
+    });
+    const medId = createMedication(db, { name: 'Omeprazole', type: 'ppi' });
+    logMedication(db, medId, { takenAt: '2026-09-28T07:00:00.000Z', tz: 'Europe/London' });
+    createSavedFood(db, 'Oatmeal');
+    setSetting(db, 'onboardingDone', true);
+    setSetting(db, 'petName', 'Biscuit');
+    setSetting(db, 'bedtime', '23:30');
+    setSetting(db, 'petSeenStage', 2);
+  };
+  const rows = (db: ReturnType<typeof createTestDb>['db']) =>
+    [symptomLogs, symptomLogItems, symptomLogTags, foodLogs, medications, medicationLogs, savedFoods].map(
+      (table) => db.select({ n: count() }).from(table).get()?.n,
+    );
+
+  it('removes every log, check, medication and its history', () => {
+    const { db } = createTestDb();
+    seed(db);
+    expect(rows(db).every((n) => (n ?? 0) > 0)).toBe(true);
+
+    deleteAllData(db);
+
+    expect(rows(db)).toEqual([0, 0, 0, 0, 0, 0, 0]);
+  });
+
+  it('resets the pet and bedtime but keeps onboarding done', () => {
+    const { db } = createTestDb();
+    seed(db);
+
+    deleteAllData(db);
+
+    expect(getAllSettings(db)).toEqual({ ...DEFAULT_SETTINGS, onboardingDone: true });
+    expect(db.select({ n: count() }).from(appSettings).get()?.n).toBe(1);
+  });
+
+  it('is safe on an empty database and lets new data be logged afterwards', () => {
+    const { db } = createTestDb();
+    expect(() => deleteAllData(db)).not.toThrow();
+
+    createSymptomLog(db, { items: [{ key: 'heartburn' }], loggedAt: DAY.from, tz: 'UTC' });
+    expect(listSymptomLogs(db, DAY)).toHaveLength(1);
   });
 });

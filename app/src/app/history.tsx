@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
-import { Pencil } from 'lucide-react-native';
+import { BookmarkPlus, Pencil, RotateCw } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
 import { Alert, ScrollView, SectionList, StyleSheet, View } from 'react-native';
 
@@ -22,8 +22,9 @@ import { VerdictBadge } from '@/components/VerdictBadge';
 import type { LifestyleTagKey } from '@/constants/lifestyleTags';
 import type { SymptomKey } from '@/constants/symptomItems';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
-import { deleteFoodLog, listDiaryFoodLogs } from '@/db/repositories/food';
-import { deleteMedicationLog, listMedicationLogs } from '@/db/repositories/medications';
+import { deleteFoodLog, listDiaryFoodLogs, relogFood } from '@/db/repositories/food';
+import { saveFoodFromLog } from '@/db/repositories/savedFoods';
+import { deleteMedicationLog, listMedicationLogs, relogMedication } from '@/db/repositories/medications';
 import {
   deleteSymptomLog,
   listSymptomLogs,
@@ -140,6 +141,41 @@ export default function HistoryScreen() {
     ]);
   };
 
+  /** Saves a meal or medication again as happening now (no relay call) and closes the detail if it was open. */
+  const relog = (entry: TimelineEntry) => {
+    if (entry.kind === 'symptom') return;
+    try {
+      if (entry.kind === 'food') relogFood(db, entry.id);
+      else relogMedication(db, entry.id);
+    } catch (error) {
+      logger.error('relog', error);
+      Alert.alert("Couldn't log it again", friendlyMessages.INTERNAL);
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    pendingEdit.current = null;
+    setSelected(null);
+    toast('Logged again');
+    reload();
+  };
+
+  /** Saves a meal to "My foods" for one-tap logging and closes the sheet so the toast is visible (it sits under a modal). Saving it twice is a no-op. */
+  const saveFood = (entry: TimelineEntry) => {
+    if (entry.kind !== 'food') return;
+    let created: boolean;
+    try {
+      ({ created } = saveFoodFromLog(db, entry.id));
+    } catch (error) {
+      logger.error('saveFood', error);
+      Alert.alert("Couldn't save", friendlyMessages.INTERNAL);
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    pendingEdit.current = null;
+    setSelected(null);
+    toast(created ? 'Saved to My foods' : 'Already in My foods');
+  };
+
   /** Asks "Remove X?" and, if confirmed, runs `remove` and refreshes the list and the open sheet. */
   const confirmRemove = (label: string, operation: string, remove: () => void) => {
     Alert.alert(`Remove ${label}?`, 'It will be taken off this entry.', [
@@ -215,12 +251,14 @@ export default function HistoryScreen() {
             side={
               item.kind === 'food' ? (
                 <View style={styles.badges}>
-                  <VerdictBadge verdict={item.log.overallVerdict} />
+                  {item.log.overallVerdict && <VerdictBadge verdict={item.log.overallVerdict} />}
                   {isLate(item) && <LateMealBadge />}
                 </View>
               ) : undefined
             }
             onPress={() => setSelected(item)}
+            onDelete={() => confirmDelete(item)}
+            onRelog={item.kind !== 'symptom' ? () => relog(item) : undefined}
           />
         )}
         stickySectionHeadersEnabled={false}
@@ -247,6 +285,8 @@ export default function HistoryScreen() {
             entry={selected}
             late={isLate(selected)}
             onEdit={edit}
+            onRelog={relog}
+            onSaveFood={saveFood}
             onDelete={confirmDelete}
             onRemoveSymptom={confirmRemoveSymptom}
             onRemoveTag={confirmRemoveTag}
@@ -261,6 +301,8 @@ function EntryDetail({
   entry,
   late,
   onEdit,
+  onRelog,
+  onSaveFood,
   onDelete,
   onRemoveSymptom,
   onRemoveTag,
@@ -268,6 +310,8 @@ function EntryDetail({
   entry: TimelineEntry;
   late: boolean;
   onEdit: (entry: TimelineEntry) => void;
+  onRelog: (entry: TimelineEntry) => void;
+  onSaveFood: (entry: TimelineEntry) => void;
   onDelete: (entry: TimelineEntry) => void;
   onRemoveSymptom: (entry: SymptomEntry, key: SymptomKey) => void;
   onRemoveTag: (entry: SymptomEntry, tag: LifestyleTagKey) => void;
@@ -350,7 +394,11 @@ function EntryDetail({
               accessibilityLabel="Your meal photo"
             />
           )}
-          <MealResultCard analysis={entry.log.analysis} showTitle={false} />
+          {entry.log.analysis ? (
+            <MealResultCard analysis={entry.log.analysis} showTitle={false} />
+          ) : (
+            <AppText color="inkSoft">Saved without a verdict.</AppText>
+          )}
         </>
       )}
       {entry.kind === 'medication' && (
@@ -367,6 +415,17 @@ function EntryDetail({
       <View style={styles.actions}>
         {entry.kind === 'symptom' && (
           <Button label="Edit entry" icon={Pencil} onPress={() => onEdit(entry)} />
+        )}
+        {entry.kind !== 'symptom' && (
+          <Button label="Log again" icon={RotateCw} onPress={() => onRelog(entry)} />
+        )}
+        {entry.kind === 'food' && (
+          <Button
+            label="Save to My foods"
+            variant="secondary"
+            icon={BookmarkPlus}
+            onPress={() => onSaveFood(entry)}
+          />
         )}
         <Button label="Delete" variant="quietDanger" onPress={() => onDelete(entry)} />
       </View>

@@ -1,7 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { Alert, type AlertButton } from 'react-native';
 
 import SettingsScreen from '@/app/settings';
 import { createTestDb } from '@/db/__tests__/testDb';
+import { createMedication, listMedications } from '@/db/repositories/medications';
 import { getAllSettings, getSetting, setSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';
 
@@ -21,6 +23,7 @@ jest.mock('@/db/DatabaseProvider', () => ({
     const [settings, setSettings] = useState(() => repo.getAllSettings(mockDb));
     return {
       settings,
+      reload: () => setSettings(repo.getAllSettings(mockDb)),
       update: (key: string, value: unknown) => {
         repo.setSetting(mockDb, key, value);
         setSettings(repo.getAllSettings(mockDb));
@@ -43,7 +46,13 @@ jest.mock('expo-router', () => ({
     replace: jest.fn(),
   },
 }));
-jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn(() => Promise.resolve()) }));
+jest.mock('expo-haptics', () => ({
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  NotificationFeedbackType: { Success: 'success' },
+}));
+const mockDeleteAllPhotos = jest.fn();
+jest.mock('@/services/photoStore', () => ({ deleteAllPhotos: () => mockDeleteAllPhotos() }));
 
 beforeEach(() => {
   const { db, sqlite } = createTestDb();
@@ -51,6 +60,7 @@ beforeEach(() => {
   closeDb = () => sqlite.close();
   mockPush.mockClear();
   mockToast.mockClear();
+  mockDeleteAllPhotos.mockReset();
 });
 afterEach(() => closeDb());
 
@@ -65,6 +75,17 @@ describe('Settings', () => {
     expect(screen.getByRole('button', { name: 'Bedtime, 10:30 PM' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'My medications' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'History' })).toBeTruthy();
+  });
+
+  it('groups bedtime, pet, foods and medications under Personalize, bedtime first', async () => {
+    await render(<SettingsScreen />);
+
+    expect(screen.getByRole('header', { name: 'Personalize' })).toBeTruthy();
+    const rows = screen
+      .getAllByRole('button')
+      .map((button) => button.props.accessibilityLabel)
+      .filter((label) => /^(Bedtime|My pet|My foods|My medications)/.test(label ?? ''));
+    expect(rows).toEqual(['Bedtime, 10:30 PM', 'My pet, Buddy', 'My foods', 'My medications']);
   });
 
   it('opens History and My medications', async () => {
@@ -154,5 +175,58 @@ describe('Settings: my pet', () => {
     await press('button', 'My pet, Buddy');
 
     expect(screen.getByLabelText('Name').props.value).toBe('Buddy');
+  });
+});
+
+describe('Settings: delete all my data', () => {
+  const pressAlertButton = (spy: jest.SpyInstance, text: string) => {
+    const buttons = spy.mock.calls.at(-1)?.[2] as AlertButton[];
+    buttons.find((button) => button.text === text)?.onPress?.();
+  };
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('asks first, and Cancel leaves everything alone', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    createMedication(mockDb, { name: 'Omeprazole', type: 'ppi' });
+    await render(<SettingsScreen />);
+
+    await press('button', 'Delete all my data');
+    expect(alert.mock.calls.at(-1)?.[0]).toBe('Delete all your data?');
+    pressAlertButton(alert, 'Cancel');
+
+    expect(listMedications(mockDb)).toHaveLength(1);
+    expect(mockDeleteAllPhotos).not.toHaveBeenCalled();
+  });
+
+  it('deletes the data and photos, resets the pet, and confirms', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    createMedication(mockDb, { name: 'Omeprazole', type: 'ppi' });
+    setSetting(mockDb, 'onboardingDone', true);
+    setSetting(mockDb, 'petName', 'Biscuit');
+    await render(<SettingsScreen />);
+    expect(screen.getByRole('button', { name: 'My pet, Biscuit' })).toBeTruthy();
+
+    await press('button', 'Delete all my data');
+    await act(async () => pressAlertButton(alert, 'Delete everything'));
+
+    expect(listMedications(mockDb)).toHaveLength(0);
+    expect(mockDeleteAllPhotos).toHaveBeenCalledTimes(1);
+    expect(getSetting(mockDb, 'onboardingDone')).toBe(true);
+    expect(screen.getByRole('button', { name: 'My pet, Buddy' })).toBeTruthy();
+    expect(mockToast).toHaveBeenCalledWith('All your data was deleted');
+  });
+
+  it('still reports success if a leftover photo file cannot be removed', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockDeleteAllPhotos.mockImplementation(() => {
+      throw new Error('EACCES /private/photos');
+    });
+    await render(<SettingsScreen />);
+
+    await press('button', 'Delete all my data');
+    await act(async () => pressAlertButton(alert, 'Delete everything'));
+
+    expect(mockToast).toHaveBeenCalledWith('All your data was deleted');
   });
 });

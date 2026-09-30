@@ -33,12 +33,14 @@ Quick log: tap the spot on a simple body map (Throat & voice, Chest or Tummy), t
 **User story:** "As someone with LPR, I want to log that my throat hurts and I felt hoarse right now, in under 10 seconds, so I actually keep doing it."
 
 ### 5.2 Food logging
+Food logging and the food checker (5.3) are one screen, reached from "+ → Food" or from the Scan button on Today (which opens the camera straight away). Every result ends with "I ate this" (adds it to the diary) or "Not now" (keeps it out of the diary).
+
 Take a photo or type what was eaten. The app identifies the meal, breaks it into items and ingredients, and saves it to a personal food diary alongside an AI reflux-friendliness assessment for the record — the user doesn't have to type ingredients by hand.
 
 **User story:** "As someone tracking triggers, I want to snap a photo of my lunch and have the ingredients and a reflux read-out appear automatically."
 
 ### 5.3 Food checker
-Same underlying capability as food logging, used before eating: photo or text in, a per-item and overall verdict out (Likely OK / Caution / Likely trigger) with plain-language reasoning citing specific trigger categories (acidity, caffeine, mint, alcohol, carbonation, high-fat/fried, spicy, chocolate, raw garlic/onion, large portion). "I ate this" promotes the check into the diary with no re-analysis.
+Same underlying capability as food logging, used before eating: photo or text in, a per-item and overall verdict out (Likely OK / Caution / Likely trigger) with plain-language reasoning citing specific trigger categories (acidity, caffeine, mint, alcohol, carbonation, high-fat/fried, spicy, chocolate, raw garlic/onion, large portion). "I ate this" promotes the check into the diary with no re-analysis. Each result is kept on the device as a check, outside the diary, so it never affects the pet until the user taps "I ate this". An optional "Is this right?" comment turns the main button into "Update verdict": the AI re-checks the food with it and the new verdict is shown (comments build on each other). "I ate this" then saves exactly the verdict on screen, so nothing is re-judged after the user commits.
 
 **User story:** "As someone deciding what to order, I want to check a dish before I eat it and see why it might be risky."
 

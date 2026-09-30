@@ -1,10 +1,12 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, type AlertButton } from 'react-native';
 
 import HistoryScreen from '@/app/history';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { createFoodLog } from '@/db/repositories/food';
+import { createFoodLog, createUncheckedMeal, listDiaryFoodLogs } from '@/db/repositories/food';
+import { createMedication, logMedication } from '@/db/repositories/medications';
+import { listSavedFoods } from '@/db/repositories/savedFoods';
 import { createSymptomLog, getSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 import { lightColors } from '@/theme';
@@ -21,7 +23,8 @@ jest.mock('@/db/DatabaseProvider', () => ({
 }));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
-jest.mock('@/components/Toast', () => ({ useToast: () => jest.fn() }));
+const mockToast = jest.fn();
+jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -362,5 +365,189 @@ describe('History: saved meals', () => {
     await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
 
     expect(screen.queryByLabelText('Your meal photo')).toBeNull();
+  });
+});
+
+const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
+
+describe('History: swipe to delete an entry', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('asks first, and Cancel keeps the meal', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete Steamed dim sum' }));
+    expect(alert.mock.calls.at(-1)?.[0]).toBe('Delete this entry?');
+    pressAlertButton(alert, 'Cancel');
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
+  });
+
+  it('removes the meal from the list once confirmed', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete Steamed dim sum' }));
+    await act(async () => pressAlertButton(alert, 'Delete'));
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: /^Meal: Steamed dim sum/ })).toBeNull();
+  });
+
+  it('offers Delete to screen readers as an action on the row', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }), 'accessibilityAction', {
+      nativeEvent: { actionName: 'delete' },
+    });
+
+    expect(alert.mock.calls.at(-1)?.[0]).toBe('Delete this entry?');
+  });
+
+  it('deletes a symptom entry the same way', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    seedFullEntry();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Delete Throat & voice/ }));
+    await act(async () => pressAlertButton(alert, 'Delete'));
+
+    expect(screen.queryByRole('button', { name: /^Symptoms: Throat & voice/ })).toBeNull();
+  });
+
+  it('deletes a medication entry the same way', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    logMedication(mockDb, id);
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete Omeprazole 20 mg' }));
+    await act(async () => pressAlertButton(alert, 'Delete'));
+
+    expect(screen.queryByText('Omeprazole 20 mg')).toBeNull();
+  });
+});
+
+describe('History: log a meal again', () => {
+  it('logs the meal again from its detail sheet', async () => {
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Log again' }));
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^Meal: Steamed dim sum/ })).toHaveLength(2);
+  });
+
+  it('logs the meal again from the swipe-right action', async () => {
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Log Steamed dim sum again' }));
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(2);
+  });
+
+  it('offers Log again to screen readers as an action on the row', async () => {
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }), 'accessibilityAction', {
+      nativeEvent: { actionName: 'relog' },
+    });
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(2);
+  });
+
+  it('does not offer Log again on symptom entries', async () => {
+    seedFullEntry();
+    await render(<HistoryScreen />);
+
+    expect(screen.queryByRole('button', { name: /again$/ })).toBeNull();
+  });
+});
+
+describe('History: save a meal to My foods', () => {
+  it('saves the meal from its detail sheet, and saving it twice adds nothing', async () => {
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save to My foods' }));
+
+    // The sheet closes so the toast isn't hidden behind it.
+    expect(screen.queryByRole('button', { name: 'Save to My foods' })).toBeNull();
+    expect(mockToast).toHaveBeenLastCalledWith('Saved to My foods');
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save to My foods' }));
+
+    expect(mockToast).toHaveBeenLastCalledWith('Already in My foods');
+    expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Steamed dim sum']);
+  });
+
+  it('is not offered on medication entries', async () => {
+    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    logMedication(mockDb, id);
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Medication: Omeprazole/ }));
+
+    expect(screen.queryByRole('button', { name: 'Save to My foods' })).toBeNull();
+  });
+});
+
+describe('History: meals saved without a verdict', () => {
+  it('lists the meal with no verdict badge and says so in the detail', async () => {
+    createUncheckedMeal(mockDb, { source: 'text', inputText: 'grilled fish' });
+    await render(<HistoryScreen />);
+
+    expect(screen.queryByText('Caution')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: grilled fish/ }));
+
+    expect(screen.getByText('Saved without a verdict.')).toBeTruthy();
+  });
+});
+
+describe('History: log a medication again', () => {
+  const seedDose = () => {
+    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    logMedication(mockDb, id);
+  };
+
+  it('logs the dose again from the swipe-right action', async () => {
+    seedDose();
+    await render(<HistoryScreen />);
+    expect(screen.getAllByRole('button', { name: /^Medication: Omeprazole 20 mg/ })).toHaveLength(1);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Log Omeprazole 20 mg again' }));
+
+    expect(screen.getAllByRole('button', { name: /^Medication: Omeprazole 20 mg/ })).toHaveLength(2);
+  });
+
+  it('logs the dose again from its detail sheet', async () => {
+    seedDose();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Medication: Omeprazole 20 mg/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Log again' }));
+
+    expect(screen.getAllByRole('button', { name: /^Medication: Omeprazole 20 mg/ })).toHaveLength(2);
+  });
+});
+
+describe('History: medications', () => {
+  it('lists a logged medication', async () => {
+    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    logMedication(mockDb, id);
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('Omeprazole 20 mg')).toBeTruthy();
   });
 });

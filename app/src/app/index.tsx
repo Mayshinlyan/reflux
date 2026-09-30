@@ -1,7 +1,9 @@
 import { type Href, Redirect, router } from 'expo-router';
 import { Activity, Camera, Carrot, Pill, Plus, UserRound } from 'lucide-react-native';
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { CircleActionButton } from '@/components/CircleActionButton';
@@ -9,18 +11,42 @@ import { Pet } from '@/components/Pet';
 import { Screen } from '@/components/Screen';
 import { useSettings } from '@/db/DatabaseProvider';
 import { usePetState } from '@/hooks/usePetState';
+import { PET_ASPECT } from '@/lib/petClips';
 import { STAGE_NAMES, STAGE_SCALE, statusLine } from '@/lib/petProgress';
 import { fontFamily, radius, space, useColors } from '@/theme';
 
-const PET_SIZE = 200;
-/** Matches Pet's own layout: image height (276×298 aspect) plus its ground-shadow gap. */
-const PET_HEIGHT = Math.round((PET_SIZE * 298) / 276) + space.s2;
+/**
+ * Everything on Today that isn't the pet, stacked vertically: screen padding, the header,
+ * the name/status/progress block and the Log/Scan row. The pet gets the rest.
+ */
+const RESERVED_HEIGHT = 330;
+
+/** A left swipe on Today opens History once it travels this far (pt) or is flicked this fast (pt/s). */
+const SWIPE_DISTANCE = 60;
+const SWIPE_VELOCITY = 500;
+
+/** The pet takes this share of the room it could fill; the full width felt too big on device. */
+const PET_FILL = 0.7;
+
+/**
+ * The full-size (Grown dog) pet: PET_FILL of what the screen allows, and short enough that
+ * the whole screen fits on small phones too. Younger stages draw at STAGE_SCALE of it.
+ */
+function usePetSize() {
+  const window = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const byWidth = window.width - 2 * space.s3;
+  const byHeight = (window.height - insets.top - insets.bottom - RESERVED_HEIGHT) / PET_ASPECT;
+  const width = Math.floor(Math.max(160, PET_FILL * Math.min(byWidth, byHeight)));
+  // Pet's own layout: clip height plus its ground-shadow gap.
+  return { width, height: Math.round(width * PET_ASPECT) + space.s2 };
+}
 
 /**
  * Today — the pet-hero home screen, laid out as in docs/design/mockups.html.
  * "Log" opens a floating menu above the pet; "Scan" opens Check. Tapping the pet plays
  * with it (see Pet). The pet's stage, progress and mood are derived from the logs
- * (lib/petProgress). First launch redirects to Welcome.
+ * (lib/petProgress). Swiping left opens History. First launch redirects to Welcome.
  */
 export default function TodayScreen() {
   const colors = useColors();
@@ -28,93 +54,129 @@ export default function TodayScreen() {
   const { settings } = useSettings();
   const petName = settings.petName;
   const pet = usePetState();
+  const petSize = usePetSize();
 
   const go = (href: Href) => {
     setMenuOpen(false);
     router.push(href);
   };
 
+  // Only a clear leftward drag starts it, so taps on the pet and buttons and vertical drags still work.
+  const swipeToHistory = useMemo(
+    () =>
+      Gesture.Pan()
+        .runOnJS(true)
+        .activeOffsetX(-20)
+        .failOffsetY([-20, 20])
+        .onEnd((event, success) => {
+          if (!success) return;
+          if (event.translationX > -SWIPE_DISTANCE && event.velocityX > -SWIPE_VELOCITY) return;
+          setMenuOpen(false);
+          router.push('/history');
+        })
+        .withTestId('swipe-to-history'),
+    [],
+  );
+
   if (!settings.onboardingDone) return <Redirect href="/welcome" />;
 
   return (
-    <Screen style={styles.container}>
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Settings"
-          onPress={() => go('/settings')}
-          style={[styles.iconButton, { backgroundColor: colors.surface2 }]}>
-          <UserRound size={19} color={colors.ink} strokeWidth={2} />
-        </Pressable>
-      </View>
-
-      <View style={styles.hero}>
-        <View style={styles.stageWrap}>
-          <View style={styles.petBox}>
-            <Pet name={petName} width={Math.round(PET_SIZE * STAGE_SCALE[pet.stage])} />
+    <GestureDetector gesture={swipeToHistory}>
+      {/* A plain native view: the detector can't attach to Screen, which forwards no ref. */}
+      <View style={styles.swipeArea} collapsable={false}>
+        <Screen style={styles.container}>
+          <View style={styles.header}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+              onPress={() => go('/settings')}
+              style={[styles.iconButton, { backgroundColor: colors.surface2 }]}>
+              <UserRound size={19} color={colors.ink} strokeWidth={2} />
+            </Pressable>
           </View>
-          {menuOpen && (
-            <View style={styles.menu}>
-              <CircleActionButton
-                variant="menu"
-                label="Symptoms"
-                icon={Activity}
-                onPress={() => go('/log/symptoms')}
-              />
-              <View style={styles.menuRaised}>
-                <CircleActionButton
-                  variant="menu"
-                  label="Food"
-                  icon={Carrot}
-                  onPress={() => go('/log/food')}
+
+          <View style={styles.hero}>
+            <View style={styles.stageWrap}>
+              <View style={[styles.petBox, petSize]}>
+                <Pet
+                  name={petName}
+                  width={Math.round(petSize.width * STAGE_SCALE[pet.stage])}
+                  mood={pet.mood}
+                  celebrating={pet.stageUp}
+                  onCelebrationEnd={pet.markStageSeen}
                 />
               </View>
-              <CircleActionButton
-                variant="menu"
-                label="Medication"
-                icon={Pill}
-                onPress={() => go('/log/medication')}
-              />
             </View>
-          )}
-        </View>
-        <AppText style={styles.petName}>{petName}</AppText>
-        <AppText variant="label" color={pet.mood === 'happy' ? 'sageInk' : 'clayInk'}>
-          {statusLine(petName, pet.mood, pet.hasLogs)}
-        </AppText>
-        <View
-          style={[styles.track, { backgroundColor: colors.surface2 }]}
-          accessible
-          accessibilityRole="progressbar"
-          accessibilityLabel={`${STAGE_NAMES[pet.stage]}, growth progress`}
-          accessibilityValue={{ min: 0, max: 100, now: pet.progress }}>
-          <View style={[styles.fill, { width: `${pet.progress}%`, backgroundColor: colors.sage }]} />
-        </View>
-        <AppText variant="caption" color="inkSoft">
-          {STAGE_NAMES[pet.stage]}
-        </AppText>
-      </View>
+            {/* While the Log menu is open it sits over this block, so the block steps aside. */}
+            <View
+              style={[styles.info, menuOpen && styles.hidden]}
+              accessibilityElementsHidden={menuOpen}
+              importantForAccessibility={menuOpen ? 'no-hide-descendants' : 'auto'}>
+              <AppText style={styles.petName}>{petName}</AppText>
+              <AppText variant="label" color={pet.mood === 'happy' ? 'sageInk' : 'clayInk'}>
+                {statusLine(petName, pet.mood, pet.hasLogs)}
+              </AppText>
+              <View
+                style={[styles.track, { backgroundColor: colors.surface2 }]}
+                accessible
+                accessibilityRole="progressbar"
+                accessibilityLabel={`${STAGE_NAMES[pet.stage]}, growth progress`}
+                accessibilityValue={{ min: 0, max: 100, now: pet.progress }}>
+                <View style={[styles.fill, { width: `${pet.progress}%`, backgroundColor: colors.sage }]} />
+              </View>
+              <AppText variant="caption" color="inkSoft">
+                {STAGE_NAMES[pet.stage]}
+              </AppText>
+            </View>
+            {menuOpen && (
+              <View style={styles.menu}>
+                <CircleActionButton
+                  variant="menu"
+                  label="Symptoms"
+                  icon={Activity}
+                  onPress={() => go('/log/symptoms')}
+                />
+                <View style={styles.menuRaised}>
+                  <CircleActionButton
+                    variant="menu"
+                    label="Food"
+                    icon={Carrot}
+                    onPress={() => go('/log/food')}
+                  />
+                </View>
+                <CircleActionButton
+                  variant="menu"
+                  label="Medication"
+                  icon={Pill}
+                  onPress={() => go('/log/medication')}
+                />
+              </View>
+            )}
+          </View>
 
-      <View style={styles.actions}>
-        <CircleActionButton
-          variant="primary"
-          label="Log"
-          icon={Plus}
-          accessibilityHint="Choose symptoms, food or medication"
-          onPress={() => setMenuOpen((open) => !open)}
-        />
-        <CircleActionButton
-          label="Scan"
-          icon={Camera}
-          accessibilityHint="Check a food before you eat it"
-          onPress={() => go('/check')}
-        />
+          <View style={styles.actions}>
+            <CircleActionButton
+              variant="primary"
+              label="Log"
+              icon={Plus}
+              accessibilityHint="Choose symptoms, food or medication"
+              onPress={() => setMenuOpen((open) => !open)}
+            />
+            <CircleActionButton
+              label="Scan"
+              icon={Camera}
+              accessibilityHint="Opens the camera to check a food"
+              onPress={() => go({ pathname: '/log/food', params: { camera: '1' } })}
+            />
+          </View>
+        </Screen>
       </View>
-    </Screen>
+    </GestureDetector>
   );
 }
 
 const styles = StyleSheet.create({
+  swipeArea: { flex: 1 },
   container: { alignItems: 'center', paddingBottom: space.s4 },
   header: { width: '100%', flexDirection: 'row', justifyContent: 'flex-end' },
   iconButton: {
@@ -125,14 +187,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   hero: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-  petBox: { width: PET_SIZE, height: PET_HEIGHT, alignItems: 'center', justifyContent: 'flex-end' },
+  petBox: { alignItems: 'center', justifyContent: 'flex-end' },
+  info: { alignItems: 'center' },
+  hidden: { opacity: 0 },
   track: { width: 200, height: 8, borderRadius: radius.pill, marginTop: space.s1, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: radius.pill },
   stageWrap: { alignItems: 'center', justifyContent: 'center' },
   menu: {
     position: 'absolute',
-    // Opens above the pet's head so it never covers the face.
-    bottom: PET_HEIGHT + space.s2,
+    // Opens just above the Log button, over the name and progress, so the pet (which fills
+    // most of the screen) keeps its face uncovered.
+    bottom: 0,
     width: 260,
     flexDirection: 'row',
     alignItems: 'flex-end',

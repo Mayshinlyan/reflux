@@ -78,11 +78,12 @@ export const foodLogs = sqliteTable(
     /** Local file URI of the (EXIF-stripped) photo in app storage. */
     photoUri: text('photo_uri'),
     mealName: text('meal_name').notNull(),
-    overallVerdict: text('overall_verdict', { enum: ['ok', 'caution', 'trigger'] }).notNull(),
+    /** Null for a meal saved without a check (e.g. offline): it has no verdict, analysis or meta. */
+    overallVerdict: text('overall_verdict', { enum: ['ok', 'caution', 'trigger'] }),
     /** JSON: items, ingredients, verdicts, reasoning, matched triggers, overall. */
-    analysis: text('analysis', { mode: 'json' }).notNull(),
+    analysis: text('analysis', { mode: 'json' }),
     /** JSON: { model, promptVersion, rulesetVersion } — which AI produced this result. */
-    analysisMeta: text('analysis_meta', { mode: 'json' }).notNull(),
+    analysisMeta: text('analysis_meta', { mode: 'json' }),
     loggedAt: text('logged_at').notNull(),
     tz: text('tz').notNull(),
     ...timestamps,
@@ -134,6 +135,32 @@ export const medicationLogs = sqliteTable(
   ],
 );
 
+/**
+ * "My foods": meals the user eats often, saved for one-tap logging. Each row is a snapshot of a meal
+ * (like a food log, minus the time), so logging it reuses the stored verdict and never calls the relay.
+ * Logged meals are copies, so removing a saved food never touches History.
+ */
+export const savedFoods = sqliteTable(
+  'saved_foods',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    source: text('source', { enum: ['photo', 'text'] }).notNull(),
+    inputText: text('input_text'),
+    /** Local file URI of the photo in app storage; shared with the food log it was saved from. */
+    photoUri: text('photo_uri'),
+    mealName: text('meal_name').notNull(),
+    /** Null for a food added by name only: it has no verdict or analysis. */
+    overallVerdict: text('overall_verdict', { enum: ['ok', 'caution', 'trigger'] }),
+    analysis: text('analysis', { mode: 'json' }),
+    analysisMeta: text('analysis_meta', { mode: 'json' }),
+    ...timestamps,
+  },
+  (t) => [
+    check('saved_foods_source_check', sql`${t.source} in ('photo', 'text')`),
+    check('saved_foods_verdict_check', sql`${t.overallVerdict} in ('ok', 'caution', 'trigger')`),
+  ],
+);
+
 /** Key/value settings. Values are JSON-encoded; see repositories/settings.ts for keys and defaults. */
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
@@ -144,4 +171,5 @@ export const appSettings = sqliteTable('app_settings', {
 export type SymptomLog = typeof symptomLogs.$inferSelect;
 export type FoodLog = typeof foodLogs.$inferSelect;
 export type Medication = typeof medications.$inferSelect;
+export type SavedFood = typeof savedFoods.$inferSelect;
 export type MedicationLog = typeof medicationLogs.$inferSelect;
