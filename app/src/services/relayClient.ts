@@ -1,4 +1,5 @@
 import { File } from 'expo-file-system';
+import { getNetworkStateAsync } from 'expo-network';
 
 import { relayBaseUrl } from '@/lib/config';
 import { AppError, isRelayErrorCode } from '@/lib/errors';
@@ -20,6 +21,16 @@ function requestId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** True only when the phone reports no connection; if the check itself fails, assume online. */
+async function isOffline(): Promise<boolean> {
+  try {
+    const state = await getNetworkStateAsync();
+    return state.isConnected === false || state.isInternetReachable === false;
+  } catch {
+    return false;
+  }
+}
+
 /** Turns a non-2xx relay response into an AppError via the shared code mapping. */
 async function toAppError(response: Response, fallbackRequestId: string): Promise<AppError> {
   try {
@@ -35,7 +46,14 @@ async function toAppError(response: Response, fallbackRequestId: string): Promis
 
 export async function analyzeFood(input: AnalyzeInput, signal?: AbortSignal): Promise<AnalysisResult> {
   const id = requestId();
-  const token = await getIdToken();
+  let token: string;
+  try {
+    token = await getIdToken();
+  } catch (error) {
+    // Signing in needs internet too, so a first-run offline check is "offline", not "sign-in failed".
+    if (await isOffline()) throw new AppError('OFFLINE', id);
+    throw error;
+  }
 
   const headers: Record<string, string> = { Authorization: `Bearer ${token}`, 'X-Request-Id': id };
   let body: string | FormData;
@@ -63,6 +81,7 @@ export async function analyzeFood(input: AnalyzeInput, signal?: AbortSignal): Pr
     });
   } catch (error) {
     if (signal?.aborted) throw error;
+    if (!timeout.aborted && (await isOffline())) throw new AppError('OFFLINE', id);
     throw new AppError(timeout.aborted ? 'AI_TIMEOUT' : 'NETWORK', id);
   }
 
