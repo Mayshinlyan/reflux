@@ -40,7 +40,8 @@
           "cameraPermission": "Reflux uses the camera to photograph meals so it can check them for reflux triggers. Photos stay on your phone.",
           "photosPermission": "Reflux reads a meal photo you choose so it can check it for reflux triggers."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

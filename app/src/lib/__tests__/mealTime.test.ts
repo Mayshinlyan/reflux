@@ -1,10 +1,10 @@
 import {
-  clockFromDate,
-  composeMealTime,
   dayChoiceLabel,
+  earliestMealTime,
   formatClockTime,
   formatMealTime,
-  MEAL_DAY_CHOICES,
+  MEAL_DAYS_BACK,
+  withTimeOf,
 } from '../mealTime';
 
 // A Wednesday, local time (the helpers are all local-clock, so the tests build local dates too).
@@ -15,7 +15,7 @@ describe('dayChoiceLabel', () => {
     expect(dayChoiceLabel(0, now)).toBe('Today');
     expect(dayChoiceLabel(1, now)).toBe('Yesterday');
     expect(dayChoiceLabel(2, now)).toBe('Mon 28 Sep');
-    expect(dayChoiceLabel(MEAL_DAY_CHOICES - 1, now)).toBe('Thu 24 Sep');
+    expect(dayChoiceLabel(MEAL_DAYS_BACK, now)).toBe('Thu 24 Sep');
   });
 
   it('crosses a month boundary', () => {
@@ -23,32 +23,17 @@ describe('dayChoiceLabel', () => {
   });
 });
 
-describe('composeMealTime', () => {
-  it('builds a local time on the chosen day', () => {
-    const at = composeMealTime(now, { dayOffset: 1, hour12: 8, minute: 15, pm: false });
-    expect(at).toEqual(new Date(2026, 8, 29, 8, 15));
-  });
-
-  it('maps 12 AM to midnight and 12 PM to noon', () => {
-    expect(composeMealTime(now, { dayOffset: 0, hour12: 12, minute: 0, pm: false }).getHours()).toBe(0);
-    expect(composeMealTime(now, { dayOffset: 0, hour12: 12, minute: 0, pm: true }).getHours()).toBe(12);
-    expect(composeMealTime(now, { dayOffset: 0, hour12: 11, minute: 55, pm: true }).getHours()).toBe(23);
+describe('earliestMealTime', () => {
+  it('is midnight six days ago', () => {
+    expect(earliestMealTime(now)).toEqual(new Date(2026, 8, 24, 0, 0));
   });
 });
 
-describe('clockFromDate', () => {
-  it('reads a Date back into picker fields, rounding the minute down', () => {
-    expect(clockFromDate(new Date(2026, 8, 29, 20, 47), now)).toEqual({
-      dayOffset: 1,
-      hour12: 8,
-      minute: 45,
-      pm: true,
-    });
-  });
-
-  it('keeps midnight and noon as 12', () => {
-    expect(clockFromDate(new Date(2026, 8, 30, 0, 0), now)).toMatchObject({ hour12: 12, pm: false });
-    expect(clockFromDate(new Date(2026, 8, 30, 12, 5), now)).toMatchObject({ hour12: 12, pm: true });
+describe('withTimeOf', () => {
+  it('keeps the day and takes the hour and minute', () => {
+    expect(withTimeOf(new Date(2026, 8, 29, 23, 59), new Date(2026, 0, 1, 8, 15))).toEqual(
+      new Date(2026, 8, 29, 8, 15),
+    );
   });
 });
 

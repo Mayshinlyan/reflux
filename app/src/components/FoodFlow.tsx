@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Camera, Images } from 'lucide-react-native';
+import { Camera, Images, type LucideIcon } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -9,7 +9,6 @@ import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
-import { CircleActionButton } from '@/components/CircleActionButton';
 import { FoodLoading } from '@/components/FoodLoading';
 import { MealResultCard } from '@/components/MealResultCard';
 import { MealTimePicker } from '@/components/MealTimePicker';
@@ -44,8 +43,8 @@ const CAMERA_DENIED =
 
 const copy = {
   title: 'Food',
-  textLabel: "What's the food?",
-  textPlaceholder: 'e.g. spicy chicken tacos',
+  textLabel: 'What did you eat?',
+  textPlaceholder: 'What did you eat?',
   analyzeLabel: 'Analyze meal',
   correctionNote: 'Tap Update verdict to re-check it with this.',
   saveLabel: 'I ate this',
@@ -54,9 +53,8 @@ const copy = {
   saveUncheckedLabel: 'Save without a verdict',
   savedUnchecked: 'Saved without a verdict',
   saved: 'Added to your food diary',
-  quickLogTitle: 'Quick Log',
+  quickLogTitle: 'My foods',
   quickLogHint: 'Tap a food to log it, with the verdict it was saved with.',
-  orDescribe: 'or describe it',
 } as const;
 
 /** What was actually sent, so an edit while loading can't mismatch the saved entry. */
@@ -344,9 +342,11 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
 
   return (
     <Screen>
-      <BackHeader title={copy.title} />
-      {/* Hidden while analyzing; the chosen time is kept across steps and used by every way of saving. */}
-      {!busy && <MealTimePicker value={eatenAt} onChange={setEatenAt} />}
+      {/* The chosen time is kept across steps and used by every way of saving. */}
+      <BackHeader
+        title={copy.title}
+        right={<MealTimePicker value={eatenAt} onChange={setEatenAt} disabled={busy} />}
+      />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           {showResult ? (
@@ -413,6 +413,53 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
             </>
           ) : (
             <>
+              <TextField
+                label={copy.textLabel}
+                hideLabel
+                accessory={
+                  <>
+                    <IconButton
+                      label="Take a photo"
+                      icon={Camera}
+                      onPress={() => void checkPhoto('camera')}
+                    />
+                    <IconButton
+                      label="Choose a photo"
+                      icon={Images}
+                      onPress={() => void checkPhoto('library')}
+                    />
+                  </>
+                }
+                value={text}
+                onChangeText={(value) => {
+                  setText(value);
+                  setDetails(''); // a correction belongs to the text it was made for
+                }}
+                placeholder={copy.textPlaceholder}
+                maxLength={MAX_TEXT}
+                returnKeyType="done"
+                onSubmitEditing={checkText}
+              />
+              {errorBanner}
+              {/* Only once something is typed, so an empty screen has one clear place to start. */}
+              {trimmed !== '' && (
+                <View style={styles.actions}>
+                  <Button
+                    label={
+                      state.status === 'error' && analyzed?.source === 'text'
+                        ? 'Try again'
+                        : copy.analyzeLabel
+                    }
+                    onPress={checkText}
+                  />
+                  {/* A quiet link: it's the fallback (offline, or no verdict wanted), not the main action. */}
+                  <Pressable accessibilityRole="button" onPress={saveUnchecked} style={styles.link}>
+                    <AppText style={[styles.linkText, { color: colors.clayInk }]}>
+                      {copy.saveUncheckedLabel}
+                    </AppText>
+                  </Pressable>
+                </View>
+              )}
               {myFoods.length > 0 && (
                 <View style={styles.quickLog}>
                   <AppText variant="label" color="inkSoft" accessibilityRole="header">
@@ -434,62 +481,6 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
                   </View>
                 </View>
               )}
-              <View style={styles.capture}>
-                <CircleActionButton
-                  large
-                  variant="primary"
-                  label="Take a photo"
-                  icon={Camera}
-                  onPress={() => void checkPhoto('camera')}
-                />
-                <CircleActionButton
-                  large
-                  label="Choose a photo"
-                  icon={Images}
-                  onPress={() => void checkPhoto('library')}
-                />
-              </View>
-              <View style={styles.divider}>
-                <View style={[styles.rule, { backgroundColor: colors.hairline }]} />
-                <AppText variant="caption" color="inkSoft">
-                  {copy.orDescribe}
-                </AppText>
-                <View style={[styles.rule, { backgroundColor: colors.hairline }]} />
-              </View>
-              <TextField
-                label={copy.textLabel}
-                value={text}
-                onChangeText={(value) => {
-                  setText(value);
-                  setDetails(''); // a correction belongs to the text it was made for
-                }}
-                placeholder={copy.textPlaceholder}
-                maxLength={MAX_TEXT}
-                returnKeyType="done"
-                onSubmitEditing={checkText}
-              />
-              {errorBanner}
-              <View style={styles.actions}>
-                <Button
-                  label={
-                    state.status === 'error' && analyzed?.source === 'text' ? 'Try again' : copy.analyzeLabel
-                  }
-                  onPress={checkText}
-                  disabled={!trimmed}
-                />
-                {/* A quiet link: it's the fallback (offline, or no verdict wanted), not the main action. */}
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={copy.saveUncheckedLabel}
-                  accessibilityState={{ disabled: !trimmed }}
-                  disabled={!trimmed}
-                  onPress={saveUnchecked}
-                  style={[styles.link, !trimmed && styles.linkDisabled]}>
-                  <AppText style={[styles.linkText, { color: colors.clayInk }]}>
-                    {copy.saveUncheckedLabel}
-                  </AppText>
-                </Pressable>
-              </View>
             </>
           )}
         </ScrollView>
@@ -538,26 +529,44 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
   );
 }
 
+/** A photo action inside the food input: just the icon, with the full name for screen readers. */
+function IconButton({
+  label,
+  icon: Icon,
+  onPress,
+}: {
+  label: string;
+  icon: LucideIcon;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}>
+      <Icon size={22} color={colors.clayInk} strokeWidth={2.2} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingBottom: space.s3 },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.s1,
-    marginTop: space.s3,
-    marginBottom: space.s2,
-  },
-  rule: { flex: 1, height: StyleSheet.hairlineWidth },
   disclaimer: { textAlign: 'center', marginVertical: space.s1 },
-  capture: { flexDirection: 'row', justifyContent: 'center', gap: space.s4, marginTop: space.s3 },
+  iconButton: {
+    width: minTouchTarget,
+    height: minTouchTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   actions: { gap: space.s1 },
   footer: { gap: space.s1, paddingTop: space.s1 },
   correction: { marginTop: space.s2 },
   link: { minHeight: minTouchTarget, alignItems: 'center', justifyContent: 'center' },
-  linkDisabled: { opacity: 0.4 },
   linkText: { ...typography.bodyEm, fontSize: 15, fontFamily: 'Nunito_700Bold' },
-  quickLog: { gap: space.s1 },
+  quickLog: { gap: space.s1, marginTop: space.s3 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
   sheetSub: { marginTop: 4, marginBottom: space.s1, fontSize: 15, lineHeight: 21 },
   foodRow: {
