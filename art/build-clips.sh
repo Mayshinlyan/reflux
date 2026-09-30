@@ -19,9 +19,16 @@ OUT=app/assets/images/pet
 # One shared crop (in the 1280x720 originals) so every clip lines up. It fits the dog
 # in every frame; the celebrate sparkles spread wider and are trimmed at the edges.
 CROP="crop=600:700:380:0"
-W=540 H=630 FPS=12 Q=60
+FPS=12
+# The still is on screen most of the time, so it (and each tap clip's first and last frame,
+# which are the still) is encoded near-losslessly. Frames in motion use a lighter setting,
+# where compression is much harder to see.
+STILL_Q="-q 90 -alpha_q 100"
+MOTION_Q="-q 80 -alpha_q 60 -alpha_filter best"
 mkdir -p "$OUT"
-KEY="chromakey=0x4DB932:0.13:0.06,despill=type=green"
+# Full source resolution (no downscale), keyed, then lightly sharpened: the source video is
+# a little soft, and the pet is drawn larger than this on 3x screens.
+KEY="chromakey=0x4DB932:0.13:0.06,despill=type=green,unsharp=5:5:0.7:5:5:0"
 DELAY=$((1000 / FPS))
 
 work=$(mktemp -d)
@@ -30,7 +37,7 @@ trap 'rm -rf "$work"' EXIT
 keyed_frames() { # name original.mp4 [extra filters]
   mkdir -p "$work/$1"
   ffmpeg -v error -y -i "art/originals/$2" \
-    -vf "fps=$FPS,$CROP,$KEY,scale=$W:$H:flags=lanczos,format=rgba${3:+,$3}" "$work/$1/f_%03d.png"
+    -vf "fps=$FPS,$CROP,$KEY,format=rgba${3:+,$3}" "$work/$1/f_%03d.png"
 }
 
 # Fades the picture out over the last EDGE px at the left and right, so sparkles that spread
@@ -53,13 +60,17 @@ boomerang() { # name first count: plays count frames forward from first, then ba
   done
 }
 
-webp() { # dir out.webp: plays once; every frame is a whole picture that replaces the last
-  local frames=()
-  for png in "$work/$1"/f_*.png; do
-    # Lossy alpha (quality 30) is about half the size of lossless and looks the same on fur.
-    cwebp -quiet -q "$Q" -alpha_q 30 -alpha_filter best "$png" -o "${png%.png}.webp"
+webp() { # dir out.webp [still-ends]: plays once; every frame is a whole picture replacing the last
+  local frames=() pngs=("$work/$1"/f_*.png) i last q
+  last=$((${#pngs[@]} - 1))
+  for i in "${!pngs[@]}"; do
+    q=$MOTION_Q
+    # A tap clip starts and ends on the still, so those frames get the still's quality.
+    if [[ "${3:-}" == still-ends && ($i -eq 0 || $i -eq $last) ]]; then q=$STILL_Q; fi
+    # shellcheck disable=SC2086 # $q is a list of cwebp flags
+    cwebp -quiet $q "${pngs[$i]}" -o "${pngs[$i]%.png}.webp"
     # +duration+x+y+dispose(0 = keep)-b (no blend): no partial frames to composite.
-    frames+=(-frame "${png%.png}.webp" "+$DELAY+0+0+0-b")
+    frames+=(-frame "${pngs[$i]%.png}.webp" "+$DELAY+0+0+0-b")
   done
   webpmux "${frames[@]}" -loop 1 -bgcolor 0,0,0,0 -o "$OUT/$2"
 }
@@ -73,8 +84,8 @@ keyed_frames celebrate dog_celebrate.mp4 "$EDGE_FADE"
 boomerang happy 1 21
 boomerang sad 20 21
 
-webp boom_happy react_happy.webp
-webp boom_sad react_unwell.webp
+webp boom_happy react_happy.webp still-ends
+webp boom_sad react_unwell.webp still-ends
 webp celebrate celebrate.webp
 
 # The still pet is the clip's own first frame, pixel for pixel, so starting and ending a

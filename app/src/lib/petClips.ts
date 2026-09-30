@@ -10,8 +10,8 @@ export type PetClip = 'react_happy' | 'react_unwell' | 'celebrate';
 export type PetPoster = 'poster_happy' | 'poster_unwell';
 export type PetView = { kind: 'still'; poster: PetPoster } | { kind: 'clip'; clip: PetClip };
 
-/** Clip and poster canvas is 540x630; the pet is laid out with this height-to-width ratio. */
-export const PET_ASPECT = 630 / 540;
+/** Clip and poster canvas is 600x700; the pet is laid out with this height-to-width ratio. */
+export const PET_ASPECT = 700 / 600;
 
 /**
  * How long each clip runs: frames x 83 ms (12 fps). Must match the frame counts that

@@ -20,16 +20,19 @@ import { fontFamily, radius, space, useColors } from '@/theme';
  */
 const RESERVED_HEIGHT = 330;
 
+/** The pet takes this share of the room it could fill; the full width felt too big on device. */
+const PET_FILL = 0.7;
+
 /**
- * The full-size (Grown dog) pet: as wide as the screen allows, but short enough that the
- * whole screen fits on small phones too. Younger stages draw at STAGE_SCALE of it.
+ * The full-size (Grown dog) pet: PET_FILL of what the screen allows, and short enough that
+ * the whole screen fits on small phones too. Younger stages draw at STAGE_SCALE of it.
  */
 function usePetSize() {
   const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const byWidth = window.width - 2 * space.s3;
   const byHeight = (window.height - insets.top - insets.bottom - RESERVED_HEIGHT) / PET_ASPECT;
-  const width = Math.floor(Math.max(160, Math.min(byWidth, byHeight)));
+  const width = Math.floor(Math.max(160, PET_FILL * Math.min(byWidth, byHeight)));
   // Pet's own layout: clip height plus its ground-shadow gap.
   return { width, height: Math.round(width * PET_ASPECT) + space.s2 };
 }
