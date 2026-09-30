@@ -537,3 +537,94 @@ describe('Food screen (updating the verdict with a comment)', () => {
     expect(correctionField().props.value).toBe('pumpkin');
   });
 });
+
+describe('Log food screen: back-logging a meal', () => {
+  const radio = async (name: string) => fireEvent.press(screen.getByRole('radio', { name }));
+  const pressTime = async () =>
+    fireEvent.press(screen.getByRole('button', { name: /^When did you eat this\?/ }));
+  /** Yesterday at 8:15 AM, local time: always in the past whenever the test runs. */
+  const yesterdayBreakfast = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 8, 15);
+  };
+  const chooseBreakfast = async () => {
+    await pressTime();
+    await radio('Yesterday');
+    await radio('8');
+    await radio(':15');
+    await radio('AM');
+    await press('Set time');
+  };
+
+  it('shows "Now" until a time is chosen', async () => {
+    await render(<LogFoodScreen />);
+    expect(screen.getByLabelText('When did you eat this? Now')).toBeTruthy();
+  });
+
+  it('saves "I ate this" at the chosen time', async () => {
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+    await chooseBreakfast();
+    expect(screen.getByLabelText('When did you eat this? Yesterday, 8:15 AM')).toBeTruthy();
+    await type('mint tea');
+    await press('Analyze meal');
+    await screen.findByText('Mint is a common trigger.');
+
+    await press('I ate this');
+
+    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
+    expect(meal.loggedAt).toBe(yesterdayBreakfast().toISOString());
+  });
+
+  it('saves "Save without a verdict" at the chosen time', async () => {
+    await render(<LogFoodScreen />);
+    await chooseBreakfast();
+    await type('toast and eggs');
+
+    await press('Save without a verdict');
+
+    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
+    expect(meal.mealName).toBe('toast and eggs');
+    expect(meal.loggedAt).toBe(yesterdayBreakfast().toISOString());
+  });
+
+  it('logs a Quick Log food at the chosen time', async () => {
+    const { meta, ...analysis } = result;
+    saveFoodFromLog(
+      mockDb,
+      createFoodLog(mockDb, { entryType: 'diary', source: 'text', analysis: analysis as MealAnalysis, meta }),
+    );
+    await render(<LogFoodScreen />);
+    await chooseBreakfast();
+
+    await press('Mint tea');
+
+    const logged = listDiaryFoodLogs(mockDb, ALL_TIME).filter(
+      (meal) => meal.loggedAt === yesterdayBreakfast().toISOString(),
+    );
+    expect(logged).toHaveLength(1);
+  });
+
+  it('refuses a time that has not happened yet', async () => {
+    // Today at 11:55 PM is in the future for all but the last five minutes of the day.
+    const now = new Date();
+    if (now.getHours() === 23 && now.getMinutes() >= 55) return;
+    await render(<LogFoodScreen />);
+    await pressTime();
+    await radio('Today');
+    await radio('11');
+    await radio(':55');
+    await radio('PM');
+
+    expect(screen.getByText("That time hasn't happened yet. Pick an earlier one.")).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Set time' }).props.accessibilityState?.disabled).toBe(true);
+  });
+
+  it('"Use now" goes back to logging the current time', async () => {
+    await render(<LogFoodScreen />);
+    await chooseBreakfast();
+    await pressTime();
+    await press('Use now');
+    expect(screen.getByLabelText('When did you eat this? Now')).toBeTruthy();
+  });
+});

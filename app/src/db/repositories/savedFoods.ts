@@ -84,8 +84,8 @@ export function removeSavedFood(db: AppDb, id: number): void {
   db.delete(savedFoods).where(eq(savedFoods.id, id)).run();
 }
 
-/** One-tap log: saves the food as a diary meal eaten now, reusing its stored verdict and photo (no relay call). */
-export function logSavedFood(db: AppDb, id: number): number {
+/** One-tap log: saves the food as a diary meal eaten at `eatenAt` (default now), reusing its stored verdict and photo (no relay call). */
+export function logSavedFood(db: AppDb, id: number, eatenAt: string = nowIso()): number {
   const saved = db.select().from(savedFoods).where(eq(savedFoods.id, id)).get();
   if (!saved) throw new Error(`Saved food ${id} not found`);
   return db
@@ -99,7 +99,7 @@ export function logSavedFood(db: AppDb, id: number): number {
       overallVerdict: saved.overallVerdict,
       analysis: saved.analysis,
       analysisMeta: saved.analysisMeta,
-      loggedAt: nowIso(),
+      loggedAt: eatenAt,
       tz: currentTimeZone(),
     })
     .returning({ id: foodLogs.id })
