@@ -14,9 +14,18 @@ export function sanitizeFoodText(raw: string): string {
   );
 }
 
+export const MAX_DETAILS_CHARS = 300;
+
+/** Optional extra context from the user (what the food is, how it was made). Blank becomes undefined. */
+export const detailsSchema = z
+  .string()
+  .max(MAX_DETAILS_CHARS)
+  .transform((value) => sanitizeFoodText(value) || undefined);
+
 /** JSON body for text analysis. Unknown fields are rejected. */
 export const analyzeTextBodySchema = z.strictObject({
   text: z.string().max(200).transform(sanitizeFoodText).pipe(z.string().min(1)),
+  details: detailsSchema.optional(),
 });
 
 // The output schema mirrors app/src/types/analysis.ts. Keep the two in sync.

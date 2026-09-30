@@ -67,6 +67,22 @@ describe('claudeService request', () => {
     expect(text?.type).toBe('text');
   });
 
+  it('wraps user details in delimiters for text and photo, and omits the block when absent', async () => {
+    const create = vi.fn().mockResolvedValue(message());
+    const service = serviceWith(create);
+    await service.analyze({ kind: 'text', text: 'soup', details: 'pumpkin, no cream' });
+    await service.analyze({ kind: 'photo', jpeg: Buffer.from('j'), details: 'homemade' });
+    await service.analyze({ kind: 'photo', jpeg: Buffer.from('j') });
+
+    const texts = create.mock.calls.map((call) => {
+      const content = call[0].messages[0].content as { type: string; text: string }[];
+      return content.find((block) => block.type === 'text')!.text;
+    });
+    expect(texts[0]).toContain('<user_details>\npumpkin, no cream\n</user_details>');
+    expect(texts[1]).toContain('<user_details>\nhomemade\n</user_details>');
+    expect(texts[2]).not.toContain('user_details');
+  });
+
   it('keeps the system prompt free of per-request data so the cache prefix is stable', async () => {
     expect(SYSTEM_PROMPT).not.toMatch(/\d{4}-\d{2}-\d{2}T/); // no timestamps
     expect(SYSTEM_PROMPT).toContain(ruleset.version);
@@ -76,6 +92,7 @@ describe('claudeService request', () => {
   it('tells the model to ignore instructions in the food description and never give medication advice', () => {
     expect(SYSTEM_PROMPT).toMatch(/untrusted DATA/);
     expect(SYSTEM_PROMPT).toMatch(/<food_description>/);
+    expect(SYSTEM_PROMPT).toMatch(/<user_details>/);
     expect(SYSTEM_PROMPT).toMatch(/Never give medication/);
   });
 
