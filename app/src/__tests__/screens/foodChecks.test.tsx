@@ -143,7 +143,7 @@ describe('Food screen: checks and "I ate this"', () => {
     expect(pick).not.toHaveBeenCalled();
   });
 
-  it('re-checks with a comment and saves the corrected verdict into the promoted check', async () => {
+  it('updates the stored check with a comment, then promotes that same check', async () => {
     analyze.mockResolvedValueOnce(mintTea).mockResolvedValueOnce(chamomile);
     await render(<LogFoodScreen />);
     await type('herbal tea');
@@ -151,9 +151,13 @@ describe('Food screen: checks and "I ate this"', () => {
     await screen.findByText('Mint is a common trigger.');
 
     await fireEvent.changeText(screen.getByLabelText('Is this right? Tell us more'), 'it was chamomile');
-    await press('I ate this');
-    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    await press('Update verdict');
+    await screen.findByText('Chamomile is usually gentle.');
+    expect(allRows()).toMatchObject([{ entryType: 'check', mealName: 'Chamomile tea' }]);
 
+    await press('I ate this');
+
+    expect(analyze).toHaveBeenCalledTimes(2);
     expect(analyze).toHaveBeenLastCalledWith({ text: 'herbal tea', details: 'it was chamomile' });
     expect(allRows()).toMatchObject([
       { entryType: 'diary', mealName: 'Chamomile tea', overallVerdict: 'ok', inputText: 'herbal tea' },

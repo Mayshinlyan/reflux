@@ -9,6 +9,7 @@ import {
   getFoodLog,
   listDiaryFoodLogs,
   promoteCheckToDiary,
+  updateFoodCheck,
 } from '../repositories/food';
 import {
   archiveMedication,
@@ -280,7 +281,7 @@ describe('food logs', () => {
     expect(() => promoteCheckToDiary(db, id)).toThrow(); // already in the diary
   });
 
-  it('promotes a check with a corrected analysis in the same update', () => {
+  it("updates a check's verdict, but never a diary meal's", () => {
     const { db } = createTestDb();
     const id = createFoodLog(db, { entryType: 'check', source: 'text', analysis: mintTea, meta });
     const chamomile: MealAnalysis = {
@@ -290,15 +291,19 @@ describe('food logs', () => {
     };
     const newMeta = { ...meta, promptVersion: 'p2' };
 
-    promoteCheckToDiary(db, id, '2026-09-28T12:00:00.000Z', { analysis: chamomile, meta: newMeta });
+    updateFoodCheck(db, id, { analysis: chamomile, meta: newMeta });
 
     expect(getFoodLog(db, id)).toMatchObject({
-      entryType: 'diary',
+      entryType: 'check',
       mealName: 'Chamomile tea',
       overallVerdict: 'ok',
       analysis: chamomile,
       analysisMeta: newMeta,
     });
+
+    promoteCheckToDiary(db, id);
+    expect(() => updateFoodCheck(db, id, { analysis: mintTea, meta })).toThrow();
+    expect(getFoodLog(db, id)?.mealName).toBe('Chamomile tea');
   });
 
   it('refuses to save non-food results and deletes meals', () => {
