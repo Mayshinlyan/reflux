@@ -10,6 +10,7 @@ import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { VERDICT_LABELS } from '@/components/VerdictBadge';
@@ -31,9 +32,9 @@ const LOGGED_FLASH_MS = 2500;
 
 /**
  * "My foods": meals saved for one-tap logging. Tap Log to add one to the diary as eaten now (with the
- * verdict it was saved with, no new analysis); tap a food to rename, re-check or remove it; "Add a food"
- * checks a new one from a photo or a description (or saves it by name). Foods are also saved from
- * History, with "Save to My foods".
+ * verdict it was saved with, no new analysis); tap a food to rename, re-check or remove it, or swipe it
+ * left to delete; "Add a food" checks a new one from a photo or a description (or saves it by name).
+ * Foods are also saved from History, with "Save to My foods".
  */
 export default function MyFoodsScreen() {
   const colors = useColors();
@@ -126,32 +127,27 @@ export default function MyFoodsScreen() {
     reload();
   };
 
-  const confirmRemove = () => {
-    if (!editing) return;
-    const id = editing.id;
-    Alert.alert(
-      `Remove ${trimmedName || 'this food'}?`,
-      'It leaves your list, but past meals stay in History.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            try {
-              removeSavedFood(db, id);
-            } catch (error) {
-              logger.error('removeSavedFood', error);
-              Alert.alert("Couldn't remove", friendlyMessages.INTERNAL);
-              return;
-            }
-            toast('Removed from your list');
-            setEditing(null);
-            reload();
-          },
+  /** From the edit sheet or a left swipe on a row: asks first, then takes the food off the list. */
+  const confirmRemove = (id: number, label: string) => {
+    Alert.alert(`Remove ${label || 'this food'}?`, 'It leaves your list, but past meals stay in History.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          try {
+            removeSavedFood(db, id);
+          } catch (error) {
+            logger.error('removeSavedFood', error);
+            Alert.alert("Couldn't remove", friendlyMessages.INTERNAL);
+            return;
+          }
+          toast('Removed from your list');
+          setEditing(null);
+          reload();
         },
-      ],
-    );
+      },
+    ]);
   };
 
   return (
@@ -170,45 +166,58 @@ export default function MyFoodsScreen() {
           foods.map((food) => {
             const done = justLogged.has(food.id);
             return (
-              <View
+              <SwipeToDelete
                 key={food.id}
-                style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Edit ${food.mealName}`}
-                  onPress={() => openEdit(food)}
-                  style={styles.info}>
-                  {food.photoUri ? (
-                    <Image source={{ uri: food.photoUri }} style={styles.icon} contentFit="cover" />
-                  ) : (
-                    <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                      <Utensils size={18} color={colors.clayInk} strokeWidth={2.2} />
+                label={food.mealName}
+                style={styles.row}
+                onDelete={() => confirmRemove(food.id, food.mealName)}>
+                <View
+                  style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit ${food.mealName}`}
+                    // Swiping isn't possible with a screen reader, so offer Delete from its actions menu.
+                    accessibilityActions={[{ name: 'delete', label: 'Delete' }]}
+                    onAccessibilityAction={(event) => {
+                      if (event.nativeEvent.actionName === 'delete') confirmRemove(food.id, food.mealName);
+                    }}
+                    onPress={() => openEdit(food)}
+                    style={styles.info}>
+                    {food.photoUri ? (
+                      <Image source={{ uri: food.photoUri }} style={styles.icon} contentFit="cover" />
+                    ) : (
+                      <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
+                        <Utensils size={18} color={colors.clayInk} strokeWidth={2.2} />
+                      </View>
+                    )}
+                    <View style={styles.text}>
+                      <AppText style={styles.foodName} numberOfLines={2}>
+                        {food.mealName}
+                      </AppText>
+                      <AppText variant="caption" color="inkSoft">
+                        {food.overallVerdict ? VERDICT_LABELS[food.overallVerdict] : 'No verdict'}
+                      </AppText>
                     </View>
-                  )}
-                  <View style={styles.text}>
-                    <AppText style={styles.foodName} numberOfLines={2}>
-                      {food.mealName}
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={done ? `${food.mealName} logged` : `Log ${food.mealName}`}
+                    accessibilityState={{ disabled: done }}
+                    disabled={done}
+                    onPress={() => logOnce(food)}
+                    style={({ pressed }) => [
+                      styles.logButton,
+                      {
+                        backgroundColor: done ? colors.sageInk : colors.sageTint,
+                        opacity: pressed ? 0.8 : 1,
+                      },
+                    ]}>
+                    <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
+                      {done ? 'Logged ✓' : 'Log'}
                     </AppText>
-                    <AppText variant="caption" color="inkSoft">
-                      {food.overallVerdict ? VERDICT_LABELS[food.overallVerdict] : 'No verdict'}
-                    </AppText>
-                  </View>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={done ? `${food.mealName} logged` : `Log ${food.mealName}`}
-                  accessibilityState={{ disabled: done }}
-                  disabled={done}
-                  onPress={() => logOnce(food)}
-                  style={({ pressed }) => [
-                    styles.logButton,
-                    { backgroundColor: done ? colors.sageInk : colors.sageTint, opacity: pressed ? 0.8 : 1 },
-                  ]}>
-                  <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
-                    {done ? 'Logged ✓' : 'Log'}
-                  </AppText>
-                </Pressable>
-              </View>
+                  </Pressable>
+                </View>
+              </SwipeToDelete>
             );
           })
         )}
@@ -243,7 +252,11 @@ export default function MyFoodsScreen() {
             variant="secondary"
             onPress={checkFood}
           />
-          <Button label="Remove from my list" variant="quietDanger" onPress={confirmRemove} />
+          <Button
+            label="Remove from my list"
+            variant="quietDanger"
+            onPress={() => editing && confirmRemove(editing.id, trimmedName)}
+          />
         </View>
       </BottomSheet>
     </Screen>
@@ -262,8 +275,9 @@ const styles = StyleSheet.create({
     paddingVertical: space.s1,
     paddingLeft: space.s1,
     paddingRight: space.s1,
-    marginBottom: space.s1,
   },
+  // On the swipe container, not the card, so the revealed Delete button is exactly the card's height.
+  row: { marginBottom: space.s1 },
   info: {
     flex: 1,
     flexDirection: 'row',

@@ -134,4 +134,46 @@ describe('My foods', () => {
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
     alert.mockRestore();
   });
+
+  // The swipeable stub always renders the revealed action, which is what a left swipe shows.
+  it('deletes a food from a left swipe, after confirming', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    createSavedFood(mockDb, 'Oatmeal');
+    createSavedFood(mockDb, 'Mint tea');
+    await render(<MyFoodsScreen />);
+
+    await press('Delete Oatmeal');
+    expect(alert).toHaveBeenLastCalledWith('Remove Oatmeal?', expect.any(String), expect.any(Array));
+    await act(async () => pressAlertButton(alert, 'Remove'));
+
+    expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Mint tea']);
+    expect(screen.queryByText('Oatmeal')).toBeNull();
+    alert.mockRestore();
+  });
+
+  it('keeps the food when the swipe delete is cancelled', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    createSavedFood(mockDb, 'Oatmeal');
+    await render(<MyFoodsScreen />);
+
+    await press('Delete Oatmeal');
+    await act(async () => pressAlertButton(alert, 'Cancel'));
+
+    expect(listSavedFoods(mockDb)).toHaveLength(1);
+    alert.mockRestore();
+  });
+
+  it('offers Delete to screen readers, which cannot swipe', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    createSavedFood(mockDb, 'Oatmeal');
+    await render(<MyFoodsScreen />);
+
+    await fireEvent(screen.getByRole('button', { name: 'Edit Oatmeal' }), 'accessibilityAction', {
+      nativeEvent: { actionName: 'delete' },
+    });
+    await act(async () => pressAlertButton(alert, 'Remove'));
+
+    expect(listSavedFoods(mockDb)).toHaveLength(0);
+    alert.mockRestore();
+  });
 });
