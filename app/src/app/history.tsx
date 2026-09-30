@@ -221,7 +221,7 @@ export default function HistoryScreen() {
               ) : undefined
             }
             onPress={() => setSelected(item)}
-            onDelete={item.kind === 'food' ? () => confirmDelete(item) : undefined}
+            onDelete={() => confirmDelete(item)}
           />
         )}
         stickySectionHeadersEnabled={false}

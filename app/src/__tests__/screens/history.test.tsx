@@ -368,7 +368,7 @@ describe('History: saved meals', () => {
 
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 
-describe('History: swipe to delete a meal', () => {
+describe('History: swipe to delete an entry', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('asks first, and Cancel keeps the meal', async () => {
@@ -407,11 +407,27 @@ describe('History: swipe to delete a meal', () => {
     expect(alert.mock.calls.at(-1)?.[0]).toBe('Delete this entry?');
   });
 
-  it('does not add a swipe delete to symptom entries', async () => {
+  it('deletes a symptom entry the same way', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     seedFullEntry();
     await render(<HistoryScreen />);
 
-    expect(screen.queryByRole('button', { name: /^Delete / })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: /^Delete Throat & voice/ }));
+    await act(async () => pressAlertButton(alert, 'Delete'));
+
+    expect(screen.queryByRole('button', { name: /^Symptoms: Throat & voice/ })).toBeNull();
+  });
+
+  it('deletes a medication entry the same way', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    logMedication(mockDb, id);
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete Omeprazole 20 mg' }));
+    await act(async () => pressAlertButton(alert, 'Delete'));
+
+    expect(screen.queryByText('Omeprazole 20 mg')).toBeNull();
   });
 });
 
