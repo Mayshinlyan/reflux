@@ -11,6 +11,8 @@ type Props = {
   onPress: () => void;
   /** 'primary' = the terracotta Log button; 'default' = white Scan button; 'menu' = small pet-menu item. */
   variant?: 'primary' | 'default' | 'menu';
+  /** Bigger circle (76) for screens where the buttons are the main choice. */
+  large?: boolean;
   accessibilityHint?: string;
 };
 
@@ -20,12 +22,13 @@ export function CircleActionButton({
   icon: Icon,
   onPress,
   variant = 'default',
+  large = false,
   accessibilityHint,
 }: Props) {
   const colors = useColors();
   const primary = variant === 'primary';
   const menu = variant === 'menu';
-  const size = menu ? 50 : 58;
+  const size = menu ? 50 : large ? 76 : 58;
 
   return (
     <Pressable
@@ -36,6 +39,7 @@ export function CircleActionButton({
       hitSlop={menu ? 6 : 0}
       style={({ pressed }) => [styles.button, { transform: [{ scale: pressed ? 0.94 : 1 }] }]}>
       <View
+        testID="action-circle"
         style={[
           styles.circle,
           {
@@ -48,7 +52,11 @@ export function CircleActionButton({
             shadowOpacity: menu ? 0.28 : primary ? 0.45 : 0.18,
           },
         ]}>
-        <Icon size={menu ? 21 : 22} color={primary ? colors.ctaInk : colors.ink} strokeWidth={2.2} />
+        <Icon
+          size={menu ? 21 : large ? 30 : 22}
+          color={primary ? colors.ctaInk : colors.ink}
+          strokeWidth={2.2}
+        />
       </View>
       <AppText
         style={[

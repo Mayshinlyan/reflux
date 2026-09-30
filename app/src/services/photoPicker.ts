@@ -9,9 +9,10 @@ export type PickResult =
 /**
  * Opens the system camera or photo library and returns a photo already shrunk and re-encoded
  * for the relay. Camera permission is requested on the first camera tap, not up front. EXIF is
- * not requested from the picker, so location never enters the app.
+ * not requested from the picker, so location never enters the app. `onPicked` fires once a photo
+ * has been chosen, before it is prepared, so the screen doesn't show a loader behind the picker.
  */
-export async function pickFoodPhoto(source: PhotoSource): Promise<PickResult> {
+export async function pickFoodPhoto(source: PhotoSource, onPicked?: () => void): Promise<PickResult> {
   if (source === 'camera') {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) return { status: 'denied' };
@@ -23,5 +24,7 @@ export async function pickFoodPhoto(source: PhotoSource): Promise<PickResult> {
       : await ImagePicker.launchImageLibraryAsync(options);
   const asset = result.canceled ? undefined : result.assets[0];
   if (!asset) return { status: 'canceled' };
+  // The system picker has closed and the slower work starts: the caller can show its loader now.
+  onPicked?.();
   return { status: 'ok', photo: await prepareFoodPhoto(asset.uri, asset.width, asset.height) };
 }

@@ -3,18 +3,13 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { Camera, Images } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { Button } from '@/components/Button';
+import { CircleActionButton } from '@/components/CircleActionButton';
+import { FoodLoading } from '@/components/FoodLoading';
 import { MealResultCard } from '@/components/MealResultCard';
 import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
@@ -67,9 +62,10 @@ export default function LogFoodScreen() {
   const checkPhoto = async (source: PhotoSource) => {
     if (busy) return;
     setNotice(null);
-    setPreparing(true);
     try {
-      const picked = await pickFoodPhoto(source);
+      const picked = await pickFoodPhoto(source, () => {
+        if (alive.current) setPreparing(true);
+      });
       if (!alive.current) return;
       if (picked.status === 'denied') setNotice(CAMERA_DENIED);
       if (picked.status !== 'ok') return;
@@ -137,24 +133,29 @@ export default function LogFoodScreen() {
                 For tracking only, not medical advice. Food results are AI-generated.
               </AppText>
             </>
+          ) : busy ? (
+            <FoodLoading
+              source={preparing ? 'photo' : (analyzed?.source ?? 'text')}
+              photoUri={!preparing && analyzed?.source === 'photo' ? analyzed.uri : undefined}
+            />
           ) : (
             <>
               <AppText color="inkSoft" style={styles.subtitle}>
                 What did you eat? We&apos;ll work out the ingredients.
               </AppText>
-              <View style={styles.actions}>
-                <Button
+              <View style={styles.capture}>
+                <CircleActionButton
+                  large
+                  variant="primary"
                   label="Take a photo"
                   icon={Camera}
                   onPress={() => void checkPhoto('camera')}
-                  disabled={busy}
                 />
-                <Button
+                <CircleActionButton
+                  large
                   label="Choose a photo"
                   icon={Images}
-                  variant="secondary"
                   onPress={() => void checkPhoto('library')}
-                  disabled={busy}
                 />
               </View>
               <AppText variant="caption" color="inkSoft" style={styles.or}>
@@ -176,18 +177,11 @@ export default function LogFoodScreen() {
                   </AppText>
                 </View>
               )}
-              {busy ? (
-                <View style={styles.loading} accessibilityLiveRegion="polite">
-                  <ActivityIndicator color={colors.cta} />
-                  <AppText color="inkSoft">Looking at your food…</AppText>
-                </View>
-              ) : (
-                <Button
-                  label={state.status === 'error' && analyzed?.source === 'text' ? 'Try again' : 'Check it'}
-                  onPress={checkText}
-                  disabled={!trimmed}
-                />
-              )}
+              <Button
+                label={state.status === 'error' && analyzed?.source === 'text' ? 'Try again' : 'Check it'}
+                onPress={checkText}
+                disabled={!trimmed}
+              />
             </>
           )}
         </ScrollView>
@@ -209,15 +203,8 @@ const styles = StyleSheet.create({
   subtitle: { marginBottom: space.s2 },
   or: { textAlign: 'center', marginVertical: space.s2 },
   disclaimer: { textAlign: 'center', marginVertical: space.s1 },
-  actions: { gap: space.s1 },
+  capture: { flexDirection: 'row', justifyContent: 'center', gap: space.s4, marginVertical: space.s2 },
   footer: { gap: space.s1, paddingTop: space.s1 },
   photo: { width: '100%', height: 200, borderRadius: radius.lg, marginBottom: space.s1 },
   error: { borderRadius: radius.md, padding: space.s2, marginBottom: space.s2 },
-  loading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space.s1,
-    minHeight: 52,
-  },
 });

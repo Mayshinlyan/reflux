@@ -13,4 +13,16 @@ describe('CircleActionButton', () => {
 
     expect(onPress).toHaveBeenCalledTimes(1);
   });
+
+  it('has a large version for screens where the buttons are the main choice', async () => {
+    const onPress = jest.fn();
+    await render(
+      <CircleActionButton large variant="primary" label="Take a photo" icon={Plus} onPress={onPress} />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Take a photo' }));
+
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('action-circle')).toHaveStyle({ width: 76, height: 76 });
+  });
 });
