@@ -70,5 +70,8 @@
     "db:check": "drizzle-kit check"
   },
   "private": true,
-  "main": "expo-router/entry"
+  "main": "expo-router/entry",
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.5"
+  }
 }
