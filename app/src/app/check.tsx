@@ -1,10 +1,6 @@
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { FoodFlow } from '@/components/FoodFlow';
 
+/** Check a food before eating it; "I ate this" moves the check into the diary. */
 export default function CheckScreen() {
-  return (
-    <PlaceholderScreen
-      title="Check a food"
-      body="See if it's likely to bother your reflux before you eat it. Coming in Step 7."
-    />
-  );
+  return <FoodFlow mode="check" />;
 }

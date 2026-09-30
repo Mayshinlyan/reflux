@@ -280,6 +280,27 @@ describe('food logs', () => {
     expect(() => promoteCheckToDiary(db, id)).toThrow(); // already in the diary
   });
 
+  it('promotes a check with a corrected analysis in the same update', () => {
+    const { db } = createTestDb();
+    const id = createFoodLog(db, { entryType: 'check', source: 'text', analysis: mintTea, meta });
+    const chamomile: MealAnalysis = {
+      ...mintTea,
+      mealName: 'Chamomile tea',
+      overall: { ...mintTea.overall, verdict: 'ok' },
+    };
+    const newMeta = { ...meta, promptVersion: 'p2' };
+
+    promoteCheckToDiary(db, id, '2026-09-28T12:00:00.000Z', { analysis: chamomile, meta: newMeta });
+
+    expect(getFoodLog(db, id)).toMatchObject({
+      entryType: 'diary',
+      mealName: 'Chamomile tea',
+      overallVerdict: 'ok',
+      analysis: chamomile,
+      analysisMeta: newMeta,
+    });
+  });
+
   it('refuses to save non-food results and deletes meals', () => {
     const { db } = createTestDb();
     expect(() =>

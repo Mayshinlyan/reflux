@@ -38,7 +38,7 @@ Take a photo or type what was eaten. The app identifies the meal, breaks it into
 **User story:** "As someone tracking triggers, I want to snap a photo of my lunch and have the ingredients and a reflux read-out appear automatically."
 
 ### 5.3 Food checker
-Same underlying capability as food logging, used before eating: photo or text in, a per-item and overall verdict out (Likely OK / Caution / Likely trigger) with plain-language reasoning citing specific trigger categories (acidity, caffeine, mint, alcohol, carbonation, high-fat/fried, spicy, chocolate, raw garlic/onion, large portion). "I ate this" promotes the check into the diary with no re-analysis.
+Same underlying capability as food logging, used before eating: photo or text in, a per-item and overall verdict out (Likely OK / Caution / Likely trigger) with plain-language reasoning citing specific trigger categories (acidity, caffeine, mint, alcohol, carbonation, high-fat/fried, spicy, chocolate, raw garlic/onion, large portion). "I ate this" promotes the check into the diary with no re-analysis. Each result is kept on the device as a check, outside the diary, so it never affects the pet until the user taps "I ate this". As in food logging, an optional "Is this right?" comment re-checks the verdict before it goes into the diary, and that corrected verdict is what is saved.
 
 **User story:** "As someone deciding what to order, I want to check a dish before I eat it and see why it might be risky."
 
