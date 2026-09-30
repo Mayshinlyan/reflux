@@ -24,6 +24,7 @@ const EXPECTED_TABLES = [
   'food_logs',
   'medication_logs',
   'medications',
+  'saved_foods',
   'symptom_log_items',
   'symptom_log_tags',
   'symptom_logs',

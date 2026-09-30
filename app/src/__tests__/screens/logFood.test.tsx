@@ -2,10 +2,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 import LogFoodScreen from '@/app/log/food';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { listDiaryFoodLogs } from '@/db/repositories/food';
+import { createFoodLog, listDiaryFoodLogs } from '@/db/repositories/food';
+import { createSavedFood, saveFoodFromLog } from '@/db/repositories/savedFoods';
 import { foodLogs } from '@/db/schema';
 import type { AppDb } from '@/db/types';
 import { AppError, friendlyMessages } from '@/lib/errors';
+import type { MealAnalysis } from '@/types/analysis';
 import { pickFoodPhoto } from '@/services/photoPicker';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { analyzeFood } from '@/services/relayClient';
@@ -23,6 +25,10 @@ jest.mock('@/services/relayClient', () => ({ analyzeFood: jest.fn() }));
 jest.mock('@/services/photoPicker', () => ({ pickFoodPhoto: jest.fn() }));
 jest.mock('@/services/photoStore', () => ({ savePhoto: jest.fn(), deletePhoto: jest.fn() }));
 jest.mock('expo-image', () => ({ Image: () => null }));
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 // The real loader animates with Reanimated, which needs a native runtime; its own test covers it.
 jest.mock('@/components/FoodLoading', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -82,6 +88,52 @@ beforeEach(() => {
 });
 
 afterEach(() => closeDb());
+
+describe('Log food screen: Quick Log', () => {
+  it('shows nothing when no foods are saved', async () => {
+    await render(<LogFoodScreen />);
+    expect(screen.queryByText('Quick Log')).toBeNull();
+  });
+
+  it('logs a saved food in one tap with its saved verdict, without calling the relay', async () => {
+    const { meta, ...analysis } = result;
+    const id = createFoodLog(mockDb, {
+      entryType: 'diary',
+      source: 'text',
+      analysis: analysis as MealAnalysis,
+      meta,
+    });
+    saveFoodFromLog(mockDb, id);
+    await render(<LogFoodScreen />);
+
+    expect(screen.getByRole('header', { name: 'Quick Log' })).toBeTruthy();
+    await press('Mint tea');
+
+    const logs = listDiaryFoodLogs(mockDb, ALL_TIME);
+    expect(logs).toHaveLength(2);
+    expect(logs[1]).toMatchObject({ mealName: 'Mint tea', overallVerdict: 'caution' });
+    expect(analyze).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the first six as chips, and "See all" opens the full list', async () => {
+    for (const name of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) createSavedFood(mockDb, name);
+    await render(<LogFoodScreen />);
+
+    expect(screen.getByRole('button', { name: 'F' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'G' })).toBeNull();
+
+    await press('See all');
+
+    expect(screen.getByRole('button', { name: 'Log G' })).toBeTruthy();
+    expect(screen.getAllByText('No verdict')).toHaveLength(7);
+
+    await press('Log G');
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([{ mealName: 'G' }]);
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('Log food screen (text)', () => {
   it('keeps "Check it" disabled until something is typed', async () => {

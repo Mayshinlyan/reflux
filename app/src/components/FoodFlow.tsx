@@ -3,17 +3,20 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { Camera, Images } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
+import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { CircleActionButton } from '@/components/CircleActionButton';
 import { FoodLoading } from '@/components/FoodLoading';
 import { MealResultCard } from '@/components/MealResultCard';
 import { Screen } from '@/components/Screen';
+import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
+import { VERDICT_LABELS } from '@/components/VerdictBadge';
 import { useDb } from '@/db/DatabaseProvider';
 import {
   createFoodLog,
@@ -21,15 +24,18 @@ import {
   promoteCheckToDiary,
   updateFoodCheck,
 } from '@/db/repositories/food';
+import { listSavedFoods, logSavedFood, type StoredSavedFood } from '@/db/repositories/savedFoods';
 import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
-import { radius, space, useColors } from '@/theme';
+import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
 
 const MAX_TEXT = 200;
+/** How many Quick Log chips show; "See all" opens the rest in a sheet. */
+const QUICK_LOG_SIZE = 6;
 /** The relay's cap on `details`; the newest words win when earlier notes and a correction overflow it. */
 const MAX_DETAILS = 300;
 const CAMERA_DENIED =
@@ -37,7 +43,6 @@ const CAMERA_DENIED =
 
 const copy = {
   title: 'Food',
-  intro: 'Snap or type a food to see how it might sit with your reflux.',
   textLabel: "What's the food?",
   textPlaceholder: 'e.g. spicy chicken tacos',
   analyzeLabel: 'Analyze meal',
@@ -48,6 +53,9 @@ const copy = {
   saveUncheckedLabel: 'Save without a verdict',
   savedUnchecked: 'Saved without a verdict',
   saved: 'Added to your food diary',
+  quickLogTitle: 'Quick Log',
+  quickLogHint: 'Tap a food to log it now, with the verdict it was saved with.',
+  orDescribe: 'or describe it',
 } as const;
 
 /** What was actually sent, so an edit while loading can't mismatch the saved entry. */
@@ -84,6 +92,18 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
     },
     [],
   );
+
+  // Quick Log: the user's saved foods ("My foods"), logged in one tap. Loaded once; a failure just hides it.
+  const [myFoodsOpen, setMyFoodsOpen] = useState(false);
+  const [myFoods] = useState<StoredSavedFood[]>(() => {
+    try {
+      return listSavedFoods(db);
+    } catch {
+      // Code only: the shelf is optional, so the screen works without it.
+      logger.error('loadSavedFoods', new AppError('INTERNAL'));
+      return [];
+    }
+  });
 
   // The stored check for the result on screen, and which result it was stored for.
   const checkId = useRef<number | null>(null);
@@ -234,6 +254,26 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
     router.back();
   };
 
+  /** One tap on "My foods": logs the saved meal as eaten now, with its saved verdict and no relay call. */
+  const logMyFood = (food: StoredSavedFood) => {
+    if (busy || saving.current) return;
+    saving.current = true;
+    try {
+      logSavedFood(db, food.id);
+    } catch {
+      saving.current = false;
+      // Code only: a raw error could echo the food text or a file path.
+      logger.error('logSavedFood', new AppError('INTERNAL'));
+      toast("We couldn't save that. Please try again.");
+      return;
+    }
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    toast(copy.saved);
+    // Leaving the screen unmounts the sheet with it, so there is no closing modal to wait for.
+    setMyFoodsOpen(false);
+    router.back();
+  };
+
   /**
    * "Update verdict": the AI re-checks the food with the user's comment and the new verdict is shown
    * (and stored on the check) before anything goes into the diary. Comments build on each other.
@@ -364,9 +404,27 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
             </>
           ) : (
             <>
-              <AppText color="inkSoft" style={styles.subtitle}>
-                {copy.intro}
-              </AppText>
+              {myFoods.length > 0 && (
+                <View style={styles.quickLog}>
+                  <AppText variant="label" color="inkSoft" accessibilityRole="header">
+                    {copy.quickLogTitle}
+                  </AppText>
+                  <View style={styles.chips}>
+                    {myFoods.slice(0, QUICK_LOG_SIZE).map((food) => (
+                      <TagChip
+                        key={food.id}
+                        role="button"
+                        label={food.mealName}
+                        selected={false}
+                        onPress={() => logMyFood(food)}
+                      />
+                    ))}
+                    {myFoods.length > QUICK_LOG_SIZE && (
+                      <TagChip role="button" label="See all" selected onPress={() => setMyFoodsOpen(true)} />
+                    )}
+                  </View>
+                </View>
+              )}
               <View style={styles.capture}>
                 <CircleActionButton
                   large
@@ -382,9 +440,13 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
                   onPress={() => void checkPhoto('library')}
                 />
               </View>
-              <AppText variant="caption" color="inkSoft" style={styles.or}>
-                or type it
-              </AppText>
+              <View style={styles.divider}>
+                <View style={[styles.rule, { backgroundColor: colors.hairline }]} />
+                <AppText variant="caption" color="inkSoft">
+                  {copy.orDescribe}
+                </AppText>
+                <View style={[styles.rule, { backgroundColor: colors.hairline }]} />
+              </View>
               <TextField
                 label={copy.textLabel}
                 value={text}
@@ -406,12 +468,18 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
                   onPress={checkText}
                   disabled={!trimmed}
                 />
-                <Button
-                  label={copy.saveUncheckedLabel}
-                  variant="secondary"
-                  onPress={saveUnchecked}
+                {/* A quiet link: it's the fallback (offline, or no verdict wanted), not the main action. */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.saveUncheckedLabel}
+                  accessibilityState={{ disabled: !trimmed }}
                   disabled={!trimmed}
-                />
+                  onPress={saveUnchecked}
+                  style={[styles.link, !trimmed && styles.linkDisabled]}>
+                  <AppText style={[styles.linkText, { color: colors.clayInk }]}>
+                    {copy.saveUncheckedLabel}
+                  </AppText>
+                </Pressable>
               </View>
             </>
           )}
@@ -430,6 +498,33 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <BottomSheet visible={myFoodsOpen} onClose={() => setMyFoodsOpen(false)}>
+        <AppText variant="title" accessibilityRole="header">
+          {copy.quickLogTitle}
+        </AppText>
+        <AppText color="inkSoft" style={styles.sheetSub}>
+          {copy.quickLogHint}
+        </AppText>
+        {myFoods.map((food) => (
+          <Pressable
+            key={food.id}
+            accessibilityRole="button"
+            accessibilityLabel={`Log ${food.mealName}`}
+            onPress={() => logMyFood(food)}
+            style={({ pressed }) => [
+              styles.foodRow,
+              { borderBottomColor: colors.hairline, opacity: pressed ? 0.7 : 1 },
+            ]}>
+            <AppText style={styles.foodName} numberOfLines={2}>
+              {food.mealName}
+            </AppText>
+            <AppText variant="caption" color="inkSoft">
+              {food.overallVerdict ? VERDICT_LABELS[food.overallVerdict] : 'No verdict'}
+            </AppText>
+          </Pressable>
+        ))}
+      </BottomSheet>
     </Screen>
   );
 }
@@ -437,13 +532,33 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingBottom: space.s3 },
-  subtitle: { marginBottom: space.s2 },
-  or: { textAlign: 'center', marginVertical: space.s2 },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.s1,
+    marginTop: space.s3,
+    marginBottom: space.s2,
+  },
+  rule: { flex: 1, height: StyleSheet.hairlineWidth },
   disclaimer: { textAlign: 'center', marginVertical: space.s1 },
-  capture: { flexDirection: 'row', justifyContent: 'center', gap: space.s4, marginVertical: space.s2 },
+  capture: { flexDirection: 'row', justifyContent: 'center', gap: space.s4, marginTop: space.s3 },
   actions: { gap: space.s1 },
   footer: { gap: space.s1, paddingTop: space.s1 },
   correction: { marginTop: space.s2 },
+  link: { minHeight: minTouchTarget, alignItems: 'center', justifyContent: 'center' },
+  linkDisabled: { opacity: 0.4 },
+  linkText: { ...typography.bodyEm, fontSize: 15, fontFamily: 'Nunito_700Bold' },
+  quickLog: { gap: space.s1 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
+  sheetSub: { marginTop: 4, marginBottom: space.s1, fontSize: 15, lineHeight: 21 },
+  foodRow: {
+    minHeight: Math.max(minTouchTarget, 56),
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  foodName: { ...typography.bodyEm, fontSize: 16, fontFamily: 'Nunito_700Bold' },
   photo: { width: '100%', height: 200, borderRadius: radius.lg, marginBottom: space.s1 },
   error: { borderRadius: radius.md, padding: space.s2, marginBottom: space.s2 },
 });

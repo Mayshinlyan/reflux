@@ -6,6 +6,7 @@ import HistoryScreen from '@/app/history';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createFoodLog, createUncheckedMeal, listDiaryFoodLogs } from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
+import { listSavedFoods } from '@/db/repositories/savedFoods';
 import { createSymptomLog, getSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 import { lightColors } from '@/theme';
@@ -22,7 +23,8 @@ jest.mock('@/db/DatabaseProvider', () => ({
 }));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
-jest.mock('@/components/Toast', () => ({ useToast: () => jest.fn() }));
+const mockToast = jest.fn();
+jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -468,6 +470,36 @@ describe('History: log a meal again', () => {
     await render(<HistoryScreen />);
 
     expect(screen.queryByRole('button', { name: /again$/ })).toBeNull();
+  });
+});
+
+describe('History: save a meal to My foods', () => {
+  it('saves the meal from its detail sheet, and saving it twice adds nothing', async () => {
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save to My foods' }));
+
+    // The sheet closes so the toast isn't hidden behind it.
+    expect(screen.queryByRole('button', { name: 'Save to My foods' })).toBeNull();
+    expect(mockToast).toHaveBeenLastCalledWith('Saved to My foods');
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save to My foods' }));
+
+    expect(mockToast).toHaveBeenLastCalledWith('Already in My foods');
+    expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Steamed dim sum']);
+  });
+
+  it('is not offered on medication entries', async () => {
+    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    logMedication(mockDb, id);
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Medication: Omeprazole/ }));
+
+    expect(screen.queryByRole('button', { name: 'Save to My foods' })).toBeNull();
   });
 });
 
