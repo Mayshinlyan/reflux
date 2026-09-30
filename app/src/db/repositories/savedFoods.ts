@@ -105,3 +105,62 @@ export function logSavedFood(db: AppDb, id: number, eatenAt: string = nowIso()):
     .returning({ id: foodLogs.id })
     .get().id;
 }
+
+/** One saved food, or null if it was removed. */
+export function getSavedFood(db: AppDb, id: number): StoredSavedFood | null {
+  const row = db.select().from(savedFoods).where(eq(savedFoods.id, id)).get();
+  return row ? toStored(row) : null;
+}
+
+export type CheckedFoodInput = {
+  /** The saved food being re-checked; it keeps its name. Omitted to add a new food. */
+  id?: number;
+  source: 'photo' | 'text';
+  inputText?: string | null;
+  photoUri?: string | null;
+  analysis: MealAnalysis;
+  meta: AnalysisMeta;
+};
+
+/**
+ * Saves a verdict to "My foods" without logging a meal. A new food is named by the analysis; if that
+ * name is already saved, that food takes the new verdict instead of being duplicated. A text check
+ * keeps the food's existing photo.
+ */
+export function saveCheckedFood(
+  db: AppDb,
+  input: CheckedFoodInput,
+): { id: number; created: boolean; mealName: string } {
+  if (!input.analysis.isFood) throw new Error('Only food analyses can be saved');
+  const mealName = input.analysis.mealName.trim().slice(0, MAX_SAVED_FOOD_NAME) || 'Meal';
+  const existing =
+    input.id !== undefined
+      ? db.select().from(savedFoods).where(eq(savedFoods.id, input.id)).get()
+      : db
+          .select()
+          .from(savedFoods)
+          .where(sql`lower(${savedFoods.mealName}) = lower(${mealName})`)
+          .get();
+  if (input.id !== undefined && !existing) throw new Error(`Saved food ${input.id} not found`);
+  const values = {
+    source: input.source,
+    inputText: input.inputText?.trim() || null,
+    photoUri: input.photoUri ?? existing?.photoUri ?? null,
+    overallVerdict: input.analysis.overall.verdict,
+    analysis: input.analysis,
+    analysisMeta: input.meta,
+  };
+  if (existing) {
+    db.update(savedFoods)
+      .set({ ...values, updatedAt: nowIso() })
+      .where(eq(savedFoods.id, existing.id))
+      .run();
+    return { id: existing.id, created: false, mealName: existing.mealName };
+  }
+  const id = db
+    .insert(savedFoods)
+    .values({ ...values, mealName })
+    .returning({ id: savedFoods.id })
+    .get().id;
+  return { id, created: true, mealName };
+}

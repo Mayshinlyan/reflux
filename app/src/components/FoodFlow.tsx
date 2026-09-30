@@ -24,7 +24,13 @@ import {
   promoteCheckToDiary,
   updateFoodCheck,
 } from '@/db/repositories/food';
-import { listSavedFoods, logSavedFood, type StoredSavedFood } from '@/db/repositories/savedFoods';
+import {
+  createSavedFood,
+  listSavedFoods,
+  logSavedFood,
+  saveCheckedFood,
+  type StoredSavedFood,
+} from '@/db/repositories/savedFoods';
 import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -45,6 +51,8 @@ const copy = {
   title: 'Food',
   textLabel: 'What did you eat?',
   textPlaceholder: 'What did you eat?',
+  // A food saved to My foods may not have been eaten yet.
+  myFoodTextLabel: "What's the food?",
   analyzeLabel: 'Analyze meal',
   correctionNote: 'Tap Update verdict to re-check it with this.',
   saveLabel: 'I ate this',
@@ -60,18 +68,22 @@ const copy = {
 /** What was actually sent, so an edit while loading can't mismatch the saved entry. */
 type Analyzed = { source: 'text'; text: string } | { source: 'photo'; uri: string };
 
+/** Checking a food for "My foods" instead of the diary: a new one, or (with `id`) one already saved. */
+export type MyFoodTarget = { id?: number; name?: string };
+
 /**
  * The one food screen, for a meal just eaten or one being considered: a photo or a typed description →
  * relay analysis → a result card. Each result is kept as a check (outside the diary, so the pet ignores
  * it); "I ate this" promotes that check, reusing its analysis instead of calling the relay again.
  * `openCamera` (the Scan shortcut on Today) opens the camera as soon as the screen appears.
+ * With `myFood`, the verdict is saved to "My foods" instead, and nothing goes into the diary.
  */
-export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
+export function FoodFlow({ openCamera = false, myFood }: { openCamera?: boolean; myFood?: MyFoodTarget }) {
   const colors = useColors();
   const db = useDb();
   const toast = useToast();
   const { state, analyze, reset } = useAnalyzeFood();
-  const [text, setText] = useState('');
+  const [text, setText] = useState(myFood?.name ?? '');
   const [analyzed, setAnalyzed] = useState<Analyzed | null>(null);
   // Notes for the AI: `draft` is the photo-review box, `details` what was last sent, `correction` the post-verdict box.
   const [draft, setDraft] = useState('');
@@ -97,6 +109,7 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
   // Quick Log: the user's saved foods ("My foods"), logged in one tap. Loaded once; a failure just hides it.
   const [myFoodsOpen, setMyFoodsOpen] = useState(false);
   const [myFoods] = useState<StoredSavedFood[]>(() => {
+    if (myFood) return [];
     try {
       return listSavedFoods(db);
     } catch {
@@ -110,7 +123,8 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
   const checkId = useRef<number | null>(null);
   const checkedResult = useRef<AnalysisResult | null>(null);
   useEffect(() => {
-    if (state.status !== 'done' || !analyzed) return;
+    // A My foods check isn't a meal being considered, so it isn't kept as a check.
+    if (state.status !== 'done' || !analyzed || myFood) return;
     if (checkedResult.current === state.result) return;
     checkedResult.current = state.result;
     checkId.current = null;
@@ -131,7 +145,7 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
       // Code only. Not fatal: "I ate this" then writes the diary entry straight from the result.
       logger.error('saveFoodCheck', new AppError('INTERNAL'));
     }
-  }, [state, analyzed, db]);
+  }, [state, analyzed, db, myFood]);
 
   const busy = preparing || correcting || state.status === 'loading';
   const shown = state.status === 'done' ? (updated ?? state.result) : null;
@@ -197,14 +211,28 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on arrival; checkPhoto's state is fresh then
   }, [openCamera]);
 
-  /** "I ate this": saves exactly the verdict on screen, with no further relay call. */
+  /** "I ate this" (or "Save to My foods"): saves exactly the verdict on screen, with no further relay call. */
   const save = () => {
     if (!shown || !analyzed || saving.current) return;
     saving.current = true;
     const { meta, ...analysis } = shown;
     let storedPhoto: string | null = null;
+    let savedMessage: string = copy.saved;
     try {
-      if (checkId.current !== null) {
+      if (myFood) {
+        if (analyzed.source === 'photo') storedPhoto = savePhoto(analyzed.uri);
+        const saved = saveCheckedFood(db, {
+          id: myFood.id,
+          source: analyzed.source,
+          inputText: analyzed.source === 'text' ? analyzed.text : null,
+          photoUri: storedPhoto,
+          analysis,
+          meta,
+        });
+        savedMessage = saved.created
+          ? `${saved.mealName} added to My foods`
+          : `Updated ${saved.mealName} in My foods`;
+      } else if (checkId.current !== null) {
         promoteCheckToDiary(db, checkId.current, eatenIso());
       } else {
         if (analyzed.source === 'photo') storedPhoto = savePhoto(analyzed.uri);
@@ -227,7 +255,7 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
       return;
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    toast(copy.saved);
+    toast(savedMessage);
     router.back();
   };
 
@@ -239,13 +267,18 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
     saving.current = true;
     let storedPhoto: string | null = null;
     try {
-      if (target.source === 'photo') storedPhoto = savePhoto(target.uri);
-      createUncheckedMeal(db, {
-        source: target.source,
-        inputText: target.source === 'text' ? target.text : null,
-        photoUri: storedPhoto,
-        loggedAt: eatenIso(),
-      });
+      if (myFood) {
+        // Only offered for a new food described in words: it is added by name, like before.
+        if (target.source === 'text') createSavedFood(db, target.text);
+      } else {
+        if (target.source === 'photo') storedPhoto = savePhoto(target.uri);
+        createUncheckedMeal(db, {
+          source: target.source,
+          inputText: target.source === 'text' ? target.text : null,
+          photoUri: storedPhoto,
+          loggedAt: eatenIso(),
+        });
+      }
     } catch {
       saving.current = false;
       if (storedPhoto) deletePhoto(storedPhoto);
@@ -255,7 +288,7 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
       return;
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    toast(copy.savedUnchecked);
+    toast(myFood && target.source === 'text' ? `${target.text} added to My foods` : copy.savedUnchecked);
     router.back();
   };
 
@@ -332,6 +365,8 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
     reset();
   };
 
+  // Unchecked saves go to the diary; for My foods only a new food typed by name can skip the verdict.
+  const canSaveUnchecked = !myFood || myFood.id === undefined;
   const reviewingPhoto = state.status !== 'done' && !busy && analyzed?.source === 'photo';
   const errorText = notice ?? (state.status === 'error' ? state.error.friendlyMessage : '');
   const errorBanner = errorText ? (
@@ -342,10 +377,10 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
 
   return (
     <Screen>
-      {/* The chosen time is kept across steps and used by every way of saving. */}
+      {/* The chosen time is kept across steps and used by every way of saving. A My foods check isn't eaten, so it has none. */}
       <BackHeader
-        title={copy.title}
-        right={<MealTimePicker value={eatenAt} onChange={setEatenAt} disabled={busy} />}
+        title={myFood ? (myFood.id === undefined ? 'Add a food' : 'Get a verdict') : copy.title}
+        right={myFood ? undefined : <MealTimePicker value={eatenAt} onChange={setEatenAt} disabled={busy} />}
       />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
@@ -407,14 +442,16 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
                   label={state.status === 'error' ? 'Try again' : copy.analyzeLabel}
                   onPress={checkPhotoWithDetails}
                 />
-                <Button label={copy.saveUncheckedLabel} variant="secondary" onPress={saveUnchecked} />
+                {!myFood && (
+                  <Button label={copy.saveUncheckedLabel} variant="secondary" onPress={saveUnchecked} />
+                )}
                 <Button label="Choose a different photo" variant="secondary" onPress={tryAnother} />
               </View>
             </>
           ) : (
             <>
               <TextField
-                label={copy.textLabel}
+                label={myFood ? copy.myFoodTextLabel : copy.textLabel}
                 hideLabel
                 accessory={
                   <>
@@ -435,7 +472,7 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
                   setText(value);
                   setDetails(''); // a correction belongs to the text it was made for
                 }}
-                placeholder={copy.textPlaceholder}
+                placeholder={myFood ? copy.myFoodTextLabel : copy.textPlaceholder}
                 maxLength={MAX_TEXT}
                 returnKeyType="done"
                 onSubmitEditing={checkText}
@@ -453,11 +490,13 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
                     onPress={checkText}
                   />
                   {/* A quiet link: it's the fallback (offline, or no verdict wanted), not the main action. */}
-                  <Pressable accessibilityRole="button" onPress={saveUnchecked} style={styles.link}>
-                    <AppText style={[styles.linkText, { color: colors.clayInk }]}>
-                      {copy.saveUncheckedLabel}
-                    </AppText>
-                  </Pressable>
+                  {canSaveUnchecked && (
+                    <Pressable accessibilityRole="button" onPress={saveUnchecked} style={styles.link}>
+                      <AppText style={[styles.linkText, { color: colors.clayInk }]}>
+                        {copy.saveUncheckedLabel}
+                      </AppText>
+                    </Pressable>
+                  )}
                 </View>
               )}
               {myFoods.length > 0 && (
@@ -491,9 +530,9 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
             {hasComment ? (
               <Button label={copy.updateLabel} onPress={() => void updateVerdict()} />
             ) : (
-              <Button label={copy.saveLabel} onPress={save} />
+              <Button label={myFood ? 'Save to My foods' : copy.saveLabel} onPress={save} />
             )}
-            {/* The check stays stored, outside the diary. */}
+            {/* The check stays stored, outside the diary (a My foods check saves nothing). */}
             <Button label={copy.skipLabel} variant="secondary" onPress={() => router.back()} />
           </View>
         )}

@@ -4,23 +4,31 @@ import { Alert, type AlertButton } from 'react-native';
 import MyFoodsScreen from '@/app/log/my-foods';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
-import { createSavedFood, listSavedFoods } from '@/db/repositories/savedFoods';
+import { createSavedFood, listSavedFoods, saveCheckedFood } from '@/db/repositories/savedFoods';
 import type { AppDb } from '@/db/types';
+import type { MealAnalysis } from '@/types/analysis';
 
 let mockDb: AppDb;
 let closeDb: () => void;
 const mockToast = jest.fn();
+const mockPush = jest.fn();
 
 jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
+jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), canGoBack: () => true, replace: jest.fn() },
+  router: {
+    back: jest.fn(),
+    canGoBack: () => true,
+    replace: jest.fn(),
+    push: (...args: unknown[]) => mockPush(...args),
+  },
   useFocusEffect: (effect: () => void | (() => void)) => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('react').useEffect(effect, [effect]);
@@ -43,6 +51,7 @@ beforeEach(() => {
   mockDb = db;
   closeDb = () => sqlite.close();
   mockToast.mockClear();
+  mockPush.mockClear();
 });
 afterEach(() => {
   jest.useRealTimers();
@@ -73,22 +82,63 @@ describe('My foods', () => {
     expect(screen.getByRole('button', { name: 'Log Oatmeal' })).toBeTruthy();
   });
 
-  it('adds a food by name', async () => {
+  it('opens the food screen to add a food with a photo or a description', async () => {
+    await render(<MyFoodsScreen />);
+    await press('+ Add a food');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/food', params: { myFood: '1' } });
+  });
+
+  it('opens the food screen to get a verdict for a saved food', async () => {
+    const id = createSavedFood(mockDb, 'Oatmeal');
     await render(<MyFoodsScreen />);
 
-    await press('+ Add a food');
-    await fireEvent.changeText(screen.getByLabelText('Name'), '  Banana bread ');
-    await press('Save');
+    await press('Edit Oatmeal');
+    await press('Get a verdict');
 
-    expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Banana bread']);
-    expect(screen.getByRole('button', { name: 'Log Banana bread' })).toBeTruthy();
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/log/food',
+      params: { myFood: '1', food: String(id) },
+    });
   });
 
   it("won't save a blank name", async () => {
+    createSavedFood(mockDb, 'Oatmeal');
     await render(<MyFoodsScreen />);
-    await press('+ Add a food');
+    await press('Edit Oatmeal');
     await fireEvent.changeText(screen.getByLabelText('Name'), '   ');
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
+  it("shows a food's verdict when it is tapped", async () => {
+    const analysis: MealAnalysis = {
+      isFood: true,
+      mealName: 'Mint tea',
+      items: [
+        {
+          name: 'Mint tea',
+          ingredients: [{ name: 'Peppermint', matchedCategories: ['mint'] }],
+          verdict: 'caution',
+          reasoning: 'Peppermint relaxes the valve.',
+          matchedTriggers: [{ category: 'mint', evidence: 'peppermint' }],
+        },
+      ],
+      overall: { verdict: 'caution', confidence: 'high', reasoning: 'Mint is a common trigger.' },
+    };
+    saveCheckedFood(mockDb, {
+      source: 'text',
+      inputText: 'mint tea',
+      analysis,
+      meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
+    });
+    createSavedFood(mockDb, 'Oatmeal');
+    await render(<MyFoodsScreen />);
+
+    await press('Edit Mint tea');
+    expect(screen.getByText('Mint is a common trigger.')).toBeTruthy();
+    expect(screen.getByText('Peppermint relaxes the valve.')).toBeTruthy();
+
+    await press('Edit Oatmeal');
+    expect(screen.getByText('No verdict yet.')).toBeTruthy();
   });
 
   it('renames a food', async () => {

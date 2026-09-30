@@ -25,10 +25,12 @@ import {
 } from '../repositories/medications';
 import {
   createSavedFood,
+  getSavedFood,
   listSavedFoods,
   logSavedFood,
   removeSavedFood,
   renameSavedFood,
+  saveCheckedFood,
   saveFoodFromLog,
 } from '../repositories/savedFoods';
 import { DEFAULT_SETTINGS, getAllSettings, getSetting, setSetting } from '../repositories/settings';
@@ -595,6 +597,52 @@ describe('saved foods (My foods)', () => {
     removeSavedFood(db, banana);
     expect(listSavedFoods(db).map((f) => f.mealName)).toEqual(['Apple']);
     expect(getFoodLog(db, logId)).toMatchObject({ mealName: 'banana' });
+  });
+
+  it('saves a checked food without logging it, and merges a same-name food', () => {
+    const { db } = createTestDb();
+    const added = saveCheckedFood(db, {
+      source: 'photo',
+      photoUri: 'file:///p.jpg',
+      analysis: mintTea,
+      meta,
+    });
+    expect(added.created).toBe(true);
+    expect(getSavedFood(db, added.id)).toMatchObject({
+      source: 'photo',
+      photoUri: 'file:///p.jpg',
+      mealName: 'Mint tea',
+      overallVerdict: 'caution',
+      analysis: mintTea,
+    });
+    expect(db.select().from(foodLogs).all()).toHaveLength(0);
+
+    const again = saveCheckedFood(db, {
+      source: 'text',
+      inputText: 'mint tea',
+      analysis: { ...mintTea, mealName: 'MINT TEA' },
+      meta,
+    });
+    expect(again).toEqual({ id: added.id, created: false, mealName: 'Mint tea' });
+    expect(listSavedFoods(db)).toHaveLength(1);
+    // A text check keeps the photo.
+    expect(getSavedFood(db, added.id)).toMatchObject({ mealName: 'Mint tea', photoUri: 'file:///p.jpg' });
+  });
+
+  it('gives a food added by name a verdict, keeping its name', () => {
+    const { db } = createTestDb();
+    const id = createSavedFood(db, 'My tea');
+
+    expect(saveCheckedFood(db, { id, source: 'text', inputText: 'My tea', analysis: mintTea, meta })).toEqual(
+      {
+        id,
+        created: false,
+        mealName: 'My tea',
+      },
+    );
+    expect(getSavedFood(db, id)).toMatchObject({ mealName: 'My tea', overallVerdict: 'caution' });
+    expect(() => saveCheckedFood(db, { id: 999, source: 'text', analysis: mintTea, meta })).toThrow();
+    expect(getSavedFood(db, 999)).toBeNull();
   });
 
   it('throws for a missing meal or saved food', () => {

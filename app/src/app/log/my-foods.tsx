@@ -1,5 +1,6 @@
 import * as Haptics from 'expo-haptics';
-import { useFocusEffect } from 'expo-router';
+import { Image } from 'expo-image';
+import { router, useFocusEffect } from 'expo-router';
 import { Utensils } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -8,6 +9,7 @@ import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
+import { MealResultCard } from '@/components/MealResultCard';
 import { Screen } from '@/components/Screen';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TextField } from '@/components/TextField';
@@ -15,7 +17,6 @@ import { useToast } from '@/components/Toast';
 import { VERDICT_LABELS } from '@/components/VerdictBadge';
 import { useDb } from '@/db/DatabaseProvider';
 import {
-  createSavedFood,
   listSavedFoods,
   logSavedFood,
   MAX_SAVED_FOOD_NAME,
@@ -30,12 +31,11 @@ import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
 /** How long a row says "Logged ✓" (and ignores taps) after a one-tap log, so a double-tap can't log twice. */
 const LOGGED_FLASH_MS = 2500;
 
-type Form = { mode: 'add' } | { mode: 'edit'; id: number };
-
 /**
  * "My foods": meals saved for one-tap logging. Tap Log to add one to the diary as eaten now (with the
- * verdict it was saved with, no new analysis); tap a food to rename or remove it, or swipe it left to delete;
- * "Add a food" saves a new one by name. Foods are also saved from History, with "Save to My foods".
+ * verdict it was saved with, no new analysis); tap a food to rename, re-check or remove it, or swipe it
+ * left to delete; "Add a food" checks a new one from a photo or a description (or saves it by name).
+ * Foods are also saved from History, with "Save to My foods".
  */
 export default function MyFoodsScreen() {
   const colors = useColors();
@@ -47,7 +47,9 @@ export default function MyFoodsScreen() {
   const [justLogged, setJustLogged] = useState<ReadonlySet<number>>(new Set());
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
-  const [form, setForm] = useState<Form | null>(null);
+  const [editing, setEditing] = useState<StoredSavedFood | null>(null);
+  // What the sheet shows. Not cleared on close, so the sheet keeps its content while it slides away.
+  const [sheetFood, setSheetFood] = useState<StoredSavedFood | null>(null);
   const [name, setName] = useState('');
 
   const reload = useCallback(() => {
@@ -67,14 +69,25 @@ export default function MyFoodsScreen() {
   }, []);
 
   const trimmedName = name.trim();
-  const closeForm = () => setForm(null);
-  const openAdd = () => {
-    setName('');
-    setForm({ mode: 'add' });
-  };
+  const closeForm = () => setEditing(null);
   const openEdit = (food: StoredSavedFood) => {
     setName(food.mealName);
-    setForm({ mode: 'edit', id: food.id });
+    setEditing(food);
+    setSheetFood(food);
+  };
+  const checkFood = () => {
+    if (!editing) return;
+    const id = editing.id;
+    // Keep a rename typed before tapping here; the checked food keeps that name.
+    if (trimmedName && trimmedName !== editing.mealName) {
+      try {
+        renameSavedFood(db, id, trimmedName);
+      } catch (error) {
+        logger.error('renameSavedFood', error);
+      }
+    }
+    setEditing(null);
+    router.push({ pathname: '/log/food', params: { myFood: '1', food: String(id) } });
   };
 
   const logOnce = (food: StoredSavedFood) => {
@@ -104,18 +117,17 @@ export default function MyFoodsScreen() {
   };
 
   const save = () => {
-    if (form === null || !trimmedName) return;
+    if (!editing || !trimmedName) return;
     try {
-      if (form.mode === 'add') createSavedFood(db, trimmedName);
-      else renameSavedFood(db, form.id, trimmedName);
+      renameSavedFood(db, editing.id, trimmedName);
     } catch (error) {
-      logger.error(form.mode === 'add' ? 'createSavedFood' : 'renameSavedFood', error);
+      logger.error('renameSavedFood', error);
       Alert.alert("Couldn't save", friendlyMessages.INTERNAL);
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    toast(form.mode === 'add' ? `${trimmedName} added` : 'Changes saved');
-    setForm(null);
+    toast('Changes saved');
+    setEditing(null);
     reload();
   };
 
@@ -135,7 +147,7 @@ export default function MyFoodsScreen() {
             return;
           }
           toast('Removed from your list');
-          setForm(null);
+          setEditing(null);
           reload();
         },
       },
@@ -175,9 +187,13 @@ export default function MyFoodsScreen() {
                     }}
                     onPress={() => openEdit(food)}
                     style={styles.info}>
-                    <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                      <Utensils size={18} color={colors.clayInk} strokeWidth={2.2} />
-                    </View>
+                    {food.photoUri ? (
+                      <Image source={{ uri: food.photoUri }} style={styles.icon} contentFit="cover" />
+                    ) : (
+                      <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
+                        <Utensils size={18} color={colors.clayInk} strokeWidth={2.2} />
+                      </View>
+                    )}
                     <View style={styles.text}>
                       <AppText style={styles.foodName} numberOfLines={2}>
                         {food.mealName}
@@ -209,15 +225,32 @@ export default function MyFoodsScreen() {
             );
           })
         )}
-        <Pressable accessibilityRole="button" onPress={openAdd} style={styles.add}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push({ pathname: '/log/food', params: { myFood: '1' } })}
+          style={styles.add}>
           <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Add a food</AppText>
         </Pressable>
       </ScrollView>
 
-      <BottomSheet visible={form !== null} onClose={closeForm}>
-        <AppText variant="title" accessibilityRole="header">
-          {form?.mode === 'edit' ? 'Edit food' : 'Add a food'}
+      <BottomSheet visible={editing !== null} onClose={closeForm}>
+        {/* The saved verdict first, like a meal in History; editing sits below it. */}
+        <AppText variant="title" accessibilityRole="header" style={styles.sheetTitle}>
+          {sheetFood?.mealName}
         </AppText>
+        {sheetFood?.photoUri ? (
+          <Image
+            source={{ uri: sheetFood.photoUri }}
+            style={styles.sheetPhoto}
+            contentFit="cover"
+            accessibilityLabel="Your food photo"
+          />
+        ) : null}
+        {sheetFood?.analysis ? (
+          <MealResultCard analysis={sheetFood.analysis} showTitle={false} />
+        ) : (
+          <AppText color="inkSoft">No verdict yet.</AppText>
+        )}
         <View style={styles.sheetField}>
           <TextField
             label="Name"
@@ -230,15 +263,19 @@ export default function MyFoodsScreen() {
           />
         </View>
         <Button label="Save" onPress={save} disabled={!trimmedName} />
-        {form?.mode === 'edit' && (
-          <View style={styles.secondary}>
-            <Button
-              label="Remove from my list"
-              variant="quietDanger"
-              onPress={() => form.mode === 'edit' && confirmRemove(form.id, trimmedName)}
-            />
-          </View>
-        )}
+        <View style={styles.secondary}>
+          {/* A photo or a description goes through the verdict flow; the food keeps its name. */}
+          <Button
+            label={sheetFood?.overallVerdict ? 'Check again' : 'Get a verdict'}
+            variant="secondary"
+            onPress={checkFood}
+          />
+          <Button
+            label="Remove from my list"
+            variant="quietDanger"
+            onPress={() => editing && confirmRemove(editing.id, trimmedName)}
+          />
+        </View>
       </BottomSheet>
     </Screen>
   );
@@ -281,6 +318,8 @@ const styles = StyleSheet.create({
   logText: { ...typography.label, fontSize: 14, fontFamily: 'Nunito_800ExtraBold' },
   add: { minHeight: minTouchTarget, justifyContent: 'center', paddingVertical: space.s1 },
   addText: { ...typography.bodyEm, fontSize: 15, fontFamily: 'Nunito_700Bold' },
+  sheetTitle: { marginBottom: space.s1 },
+  sheetPhoto: { width: '100%', height: 180, borderRadius: radius.lg, marginBottom: space.s1 },
   sheetField: { marginTop: space.s2, marginBottom: space.s1 },
-  secondary: { marginTop: space.s1 },
+  secondary: { marginTop: space.s1, gap: space.s1 },
 });
