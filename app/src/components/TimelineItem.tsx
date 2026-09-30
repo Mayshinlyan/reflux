@@ -1,12 +1,12 @@
-import { Activity, Carrot, type LucideIcon, Pill, Trash2 } from 'lucide-react-native';
-import { type ReactNode, useRef } from 'react';
+import { Activity, Carrot, type LucideIcon, Pill } from 'lucide-react-native';
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import type { TimelineKind } from '@/lib/timeline';
-import { type ColorToken, minTouchTarget, radius, space, typography, useColors } from '@/theme';
+import { type ColorToken, radius, space, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
+import { SwipeToDelete } from './SwipeToDelete';
 
 const KIND_STYLE: Record<TimelineKind, { icon: LucideIcon; bg: ColorToken; fg: ColorToken; noun: string }> = {
   symptom: { icon: Activity, bg: 'sageTint', fg: 'sageInk', noun: 'Symptoms' },
@@ -29,7 +29,6 @@ type Props = {
 export function TimelineItem({ kind, title, time, onPress, side, onDelete }: Props) {
   const colors = useColors();
   const { icon: Icon, bg, fg, noun } = KIND_STYLE[kind];
-  const swipeable = useRef<SwipeableMethods>(null);
   const canSwipe = Boolean(onDelete);
   const row = (
     <Pressable
@@ -61,49 +60,17 @@ export function TimelineItem({ kind, title, time, onPress, side, onDelete }: Pro
       {side}
     </Pressable>
   );
-  if (!canSwipe) return row;
+  if (!onDelete) return row;
 
+  // A swipe right stays free to go back to Today.
   return (
-    <ReanimatedSwipeable
-      ref={swipeable}
-      friction={2}
-      overshootRight={false}
-      rightThreshold={40}
-      containerStyle={styles.gap}
-      // Only left swipes are handled here, so a swipe right is free to go back to Today.
-      renderRightActions={
-        onDelete
-          ? () => (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Delete ${title}`}
-                onPress={() => {
-                  swipeable.current?.close();
-                  onDelete();
-                }}
-                style={[styles.deleteAction, { backgroundColor: colors.cta }]}>
-                <Trash2 size={20} color={colors.ctaInk} strokeWidth={2.2} />
-                <AppText style={[styles.actionText, { color: colors.ctaInk }]}>Delete</AppText>
-              </Pressable>
-            )
-          : undefined
-      }>
+    <SwipeToDelete label={title} onDelete={onDelete} style={styles.gap}>
       {row}
-    </ReanimatedSwipeable>
+    </SwipeToDelete>
   );
 }
 
 const styles = StyleSheet.create({
-  deleteAction: {
-    width: 88,
-    minHeight: minTouchTarget,
-    marginLeft: space.s1,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  actionText: { ...typography.label, fontSize: 13 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
