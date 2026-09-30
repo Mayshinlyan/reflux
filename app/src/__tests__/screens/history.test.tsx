@@ -483,6 +483,33 @@ describe('History: meals saved without a verdict', () => {
   });
 });
 
+describe('History: log a medication again', () => {
+  const seedDose = () => {
+    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    logMedication(mockDb, id);
+  };
+
+  it('logs the dose again from the swipe-right action', async () => {
+    seedDose();
+    await render(<HistoryScreen />);
+    expect(screen.getAllByRole('button', { name: /^Medication: Omeprazole 20 mg/ })).toHaveLength(1);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Log Omeprazole 20 mg again' }));
+
+    expect(screen.getAllByRole('button', { name: /^Medication: Omeprazole 20 mg/ })).toHaveLength(2);
+  });
+
+  it('logs the dose again from its detail sheet', async () => {
+    seedDose();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Medication: Omeprazole 20 mg/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Log again' }));
+
+    expect(screen.getAllByRole('button', { name: /^Medication: Omeprazole 20 mg/ })).toHaveLength(2);
+  });
+});
+
 describe('History: medications', () => {
   it('lists a logged medication', async () => {
     const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
