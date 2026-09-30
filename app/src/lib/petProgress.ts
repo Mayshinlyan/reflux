@@ -13,8 +13,12 @@ export type PetMood = 'happy' | 'unwell';
 export type PetState = { stage: PetStage; progress: number; mood: PetMood };
 
 export const STAGE_NAMES = ['Puppy', 'Young dog', 'Grown dog'] as const;
-/** How large each stage is drawn, as a fraction of the full-size pet. */
-export const STAGE_SCALE = [0.62, 0.82, 1] as const;
+/**
+ * How large each stage is drawn, as a fraction of the full-size pet. Kept close together so
+ * even a Puppy fills most of the screen; growth also shows in the stage name, the progress
+ * bar and the celebration.
+ */
+export const STAGE_SCALE = [0.9, 0.95, 1] as const;
 export const MAX_STAGE: PetStage = 2;
 
 /** Every tunable delta lives here. */
@@ -75,6 +79,11 @@ export function derivePetState(logs: PetLogs, bedtime: string, lateMealWindowMin
 
   const last = events[events.length - 1];
   return { stage, progress, mood: last && last.delta < 0 ? 'unwell' : 'happy' };
+}
+
+/** A stage-up worth celebrating: the pet is further along than the last stage the user saw. */
+export function hasStageUp(stage: PetStage, seenStage: number): boolean {
+  return stage > seenStage;
 }
 
 /** Warm, never-blaming status lines. Mood is always shown as words, not colour alone. */

@@ -1,4 +1,11 @@
-import { derivePetState, foodDelta, type PetLogs, statusLine, symptomDelta } from '../petProgress';
+import {
+  derivePetState,
+  foodDelta,
+  hasStageUp,
+  type PetLogs,
+  statusLine,
+  symptomDelta,
+} from '../petProgress';
 
 const BEDTIME = '22:30';
 const WINDOW = 180;
@@ -99,5 +106,18 @@ describe('statusLine', () => {
     expect(statusLine('Buddy', 'happy', true)).toBe('Buddy is thriving!');
     expect(statusLine('Buddy', 'happy', false)).toBe('Buddy is happy to see you!');
     expect(statusLine('Buddy', 'unwell', true)).toBe("Buddy's feeling a little ruff today.");
+  });
+});
+
+describe('hasStageUp', () => {
+  it('is true only when the pet is past the last stage the user saw', () => {
+    expect(hasStageUp(1, 0)).toBe(true);
+    expect(hasStageUp(2, 0)).toBe(true);
+    expect(hasStageUp(1, 1)).toBe(false);
+    expect(hasStageUp(0, 0)).toBe(false);
+  });
+
+  it('does not celebrate a pet that fell back below what was seen', () => {
+    expect(hasStageUp(0, 1)).toBe(false);
   });
 });

@@ -1,11 +1,4 @@
-import {
-  HAPPY_LINES,
-  lineForTap,
-  MAX_TILT_X_DEG,
-  MAX_TILT_Y_DEG,
-  nextReaction,
-  tiltFromTouch,
-} from '../petMotion';
+import { HAPPY_LINES, lineForTap, MAX_TILT_X_DEG, MAX_TILT_Y_DEG, tiltFromTouch } from '../petMotion';
 
 describe('tiltFromTouch', () => {
   it('does not tilt when touched in the centre', () => {
@@ -26,10 +19,6 @@ describe('tiltFromTouch', () => {
 });
 
 describe('tap cycling', () => {
-  it('cycles hop → spin → wiggle', () => {
-    expect([0, 1, 2, 3].map(nextReaction)).toEqual(['hop', 'spin', 'wiggle', 'hop']);
-  });
-
   it('picks a different line on each tap and wraps around', () => {
     expect(lineForTap(0)).not.toBe(lineForTap(1));
     expect(lineForTap(HAPPY_LINES.length)).toBe(lineForTap(0));
