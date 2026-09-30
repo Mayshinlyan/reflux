@@ -55,7 +55,70 @@ function migrationsWithExtra(sqlText: string, tag = '0001_future'): string {
   return dir;
 }
 
+/** A copy of the real migrations folder holding only the first `count` migrations. */
+function firstMigrations(count: number): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reflux-migrations-'));
+  fs.cpSync(MIGRATIONS_FOLDER, dir, { recursive: true });
+  const journalPath = path.join(dir, 'meta/_journal.json');
+  const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8'));
+  journal.entries = journal.entries.slice(0, count);
+  fs.writeFileSync(journalPath, JSON.stringify(journal));
+  return dir;
+}
+
 describe('migrations', () => {
+  it('0001 keeps existing meals and lets a meal be saved without a verdict', () => {
+    const sqlite = new Database(':memory:');
+    sqlite.pragma('foreign_keys = ON');
+    const db = drizzle(sqlite, { schema });
+    migrate(db, { migrationsFolder: firstMigrations(1) });
+    const analysis = JSON.stringify({ isFood: true, mealName: 'Mint tea' });
+    sqlite
+      .prepare(
+        `INSERT INTO food_logs (entry_type, source, input_text, meal_name, overall_verdict, analysis, analysis_meta, logged_at, tz)
+         VALUES (?, 'text', 'mint tea', 'Mint tea', 'caution', ?, '{"model":"m"}', '2026-09-28T19:45:00.000Z', 'UTC')`,
+      )
+      .run('diary', analysis);
+    sqlite
+      .prepare(
+        `INSERT INTO food_logs (entry_type, source, meal_name, overall_verdict, analysis, analysis_meta, logged_at, tz)
+         VALUES ('check', 'text', 'Tea', 'ok', ?, '{"model":"m"}', '2026-09-28T20:00:00.000Z', 'UTC')`,
+      )
+      .run(analysis);
+
+    migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+
+    const rows = sqlite
+      .prepare('SELECT id, entry_type, overall_verdict, analysis FROM food_logs ORDER BY id')
+      .all();
+    expect(rows).toEqual([
+      { id: 1, entry_type: 'diary', overall_verdict: 'caution', analysis },
+      { id: 2, entry_type: 'check', overall_verdict: 'ok', analysis },
+    ]);
+    expect(() =>
+      sqlite
+        .prepare(
+          `INSERT INTO food_logs (entry_type, source, meal_name, logged_at, tz)
+           VALUES ('diary', 'text', 'Toast', '2026-09-29T08:00:00.000Z', 'UTC')`,
+        )
+        .run(),
+    ).not.toThrow();
+    // The CHECK constraints and the diary index survive the table rebuild.
+    expect(() =>
+      sqlite
+        .prepare(
+          `INSERT INTO food_logs (entry_type, source, meal_name, overall_verdict, logged_at, tz)
+           VALUES ('diary', 'text', 'Bad', 'nope', '2026-09-29T08:00:00.000Z', 'UTC')`,
+        )
+        .run(),
+    ).toThrow();
+    const index = sqlite
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+      .get('food_logs_diary_logged_at_idx');
+    expect(index).toBeTruthy();
+    sqlite.close();
+  });
+
   it('creates every table on a fresh install', () => {
     const { sqlite } = createTestDb();
     expect(tables(sqlite)).toEqual(EXPECTED_TABLES);

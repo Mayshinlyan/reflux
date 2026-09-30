@@ -5,6 +5,7 @@ import { createTestDb } from '@/db/__tests__/testDb';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
 import { foodLogs } from '@/db/schema';
 import type { AppDb } from '@/db/types';
+import { AppError, friendlyMessages } from '@/lib/errors';
 import { pickFoodPhoto } from '@/services/photoPicker';
 import { savePhoto } from '@/services/photoStore';
 import { analyzeFood } from '@/services/relayClient';
@@ -108,7 +109,7 @@ describe('Food screen: checks and "I ate this"', () => {
       overallVerdict: 'caution',
       analysisMeta: mintTea.meta,
     });
-    expect(diary[0].analysis.items[0].matchedTriggers[0].category).toBe('mint');
+    expect(diary[0].analysis?.items[0].matchedTriggers[0]?.category).toBe('mint');
     expect(allRows()).toHaveLength(1); // the check itself was promoted, not copied
     expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
     expect(mockBack).toHaveBeenCalledTimes(1);
@@ -199,5 +200,62 @@ describe('Food screen: checks and "I ate this"', () => {
 
     expect(analyze).toHaveBeenCalledTimes(1);
     expect(allRows()).toMatchObject([{ entryType: 'diary', photoUri: 'file:///doc/photos/meal.jpg' }]);
+  });
+});
+
+describe('Food screen: saving without a verdict', () => {
+  it('saves a typed meal as a diary entry with no verdict and never calls the relay', async () => {
+    await render(<LogFoodScreen />);
+    expect(
+      screen.getByRole('button', { name: 'Save without a verdict' }).props.accessibilityState,
+    ).toMatchObject({
+      disabled: true,
+    });
+
+    await type('  grilled fish  ');
+    await press('Save without a verdict');
+
+    expect(analyze).not.toHaveBeenCalled();
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
+      {
+        entryType: 'diary',
+        source: 'text',
+        inputText: 'grilled fish',
+        mealName: 'grilled fish',
+        overallVerdict: null,
+        analysis: null,
+        analysisMeta: null,
+      },
+    ]);
+    expect(mockToast).toHaveBeenCalledWith('Saved without a verdict');
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves a picked photo without a verdict, named "Meal"', async () => {
+    pick.mockResolvedValue({ status: 'ok', photo: { uri: 'file:///cache/prepared.jpg' } });
+    await render(<LogFoodScreen />);
+    await press('Choose a photo');
+
+    await press('Save without a verdict');
+
+    expect(analyze).not.toHaveBeenCalled();
+    expect(store).toHaveBeenCalledWith('file:///cache/prepared.jpg');
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
+      { source: 'photo', mealName: 'Meal', photoUri: 'file:///doc/photos/meal.jpg', overallVerdict: null },
+    ]);
+  });
+
+  it('still offers it after an offline failure, and saves the typed text', async () => {
+    analyze.mockRejectedValue(new AppError('OFFLINE'));
+    await render(<LogFoodScreen />);
+    await type('rice and beans');
+    await press('Analyze meal');
+    expect(await screen.findByText(friendlyMessages.OFFLINE)).toBeTruthy();
+
+    await press('Save without a verdict');
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
+      { inputText: 'rice and beans', overallVerdict: null },
+    ]);
   });
 });

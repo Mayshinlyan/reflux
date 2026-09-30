@@ -6,6 +6,7 @@ import type { MealAnalysis } from '@/types/analysis';
 import { deleteAllData } from '../repositories/data';
 import {
   createFoodLog,
+  createUncheckedMeal,
   deleteFoodLog,
   getFoodLog,
   listDiaryFoodLogs,
@@ -272,7 +273,7 @@ describe('food logs', () => {
     const diary = listDiaryFoodLogs(db, DAY);
     expect(diary).toHaveLength(1);
     expect(diary[0]).toMatchObject({ id: diaryId, mealName: 'Mint tea', overallVerdict: 'caution' });
-    expect(diary[0]?.analysis.items[0]?.matchedTriggers[0]?.category).toBe('mint');
+    expect(diary[0]?.analysis?.items[0]?.matchedTriggers[0]?.category).toBe('mint');
     expect(diary[0]?.analysisMeta).toEqual(meta);
   });
 
@@ -328,6 +329,35 @@ describe('food logs', () => {
     const id = createFoodLog(db, { entryType: 'diary', source: 'text', analysis: mintTea, meta });
     deleteFoodLog(db, id);
     expect(getFoodLog(db, id)).toBeUndefined();
+  });
+});
+
+describe('unchecked meals', () => {
+  it('saves a typed meal to the diary with no verdict, analysis or meta', () => {
+    const { db } = createTestDb();
+    const id = createUncheckedMeal(db, { source: 'text', inputText: '  toast and eggs ' });
+
+    expect(getFoodLog(db, id)).toMatchObject({
+      entryType: 'diary',
+      source: 'text',
+      inputText: 'toast and eggs',
+      mealName: 'toast and eggs',
+      overallVerdict: null,
+      analysis: null,
+      analysisMeta: null,
+    });
+    expect(listDiaryFoodLogs(db, { from: '2000-01-01', to: '2100-01-01' })).toHaveLength(1);
+  });
+
+  it('names a photo meal "Meal" and keeps its photo', () => {
+    const { db } = createTestDb();
+    const id = createUncheckedMeal(db, { source: 'photo', photoUri: 'file:///p.jpg' });
+
+    expect(getFoodLog(db, id)).toMatchObject({
+      mealName: 'Meal',
+      photoUri: 'file:///p.jpg',
+      inputText: null,
+    });
   });
 });
 

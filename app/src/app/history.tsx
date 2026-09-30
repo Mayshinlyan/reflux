@@ -215,7 +215,7 @@ export default function HistoryScreen() {
             side={
               item.kind === 'food' ? (
                 <View style={styles.badges}>
-                  <VerdictBadge verdict={item.log.overallVerdict} />
+                  {item.log.overallVerdict && <VerdictBadge verdict={item.log.overallVerdict} />}
                   {isLate(item) && <LateMealBadge />}
                 </View>
               ) : undefined
@@ -350,7 +350,11 @@ function EntryDetail({
               accessibilityLabel="Your meal photo"
             />
           )}
-          <MealResultCard analysis={entry.log.analysis} showTitle={false} />
+          {entry.log.analysis ? (
+            <MealResultCard analysis={entry.log.analysis} showTitle={false} />
+          ) : (
+            <AppText color="inkSoft">Saved without a verdict.</AppText>
+          )}
         </>
       )}
       {entry.kind === 'medication' && (

@@ -17,9 +17,10 @@ export type FoodLogInput = {
   tz?: string;
 };
 
+/** `analysis`, `analysisMeta` and `overallVerdict` are null for a meal saved without a check. */
 export type StoredFoodLog = Omit<FoodLog, 'analysis' | 'analysisMeta'> & {
-  analysis: MealAnalysis;
-  analysisMeta: AnalysisMeta;
+  analysis: MealAnalysis | null;
+  analysisMeta: AnalysisMeta | null;
 };
 
 const toStored = (row: FoodLog) => row as StoredFoodLog;
@@ -37,6 +38,39 @@ export function createFoodLog(db: AppDb, input: FoodLogInput): number {
       overallVerdict: input.analysis.overall.verdict,
       analysis: input.analysis,
       analysisMeta: input.meta,
+      loggedAt: input.loggedAt ?? nowIso(),
+      tz: input.tz ?? currentTimeZone(),
+    })
+    .returning({ id: foodLogs.id })
+    .get().id;
+}
+
+export type UncheckedMealInput = {
+  source: 'photo' | 'text';
+  /** What the user typed. For a photo it is empty and the meal is named "Meal". */
+  inputText?: string | null;
+  photoUri?: string | null;
+  loggedAt?: string;
+  tz?: string;
+};
+
+/**
+ * A diary meal saved without a verdict, for when the food can't be checked (e.g. offline) or the
+ * user just wants it noted. It has no analysis, and the pet ignores it.
+ */
+export function createUncheckedMeal(db: AppDb, input: UncheckedMealInput): number {
+  const text = input.inputText?.trim() || null;
+  return db
+    .insert(foodLogs)
+    .values({
+      entryType: 'diary',
+      source: input.source,
+      inputText: text,
+      photoUri: input.photoUri ?? null,
+      mealName: text ?? 'Meal',
+      overallVerdict: null,
+      analysis: null,
+      analysisMeta: null,
       loggedAt: input.loggedAt ?? nowIso(),
       tz: input.tz ?? currentTimeZone(),
     })
