@@ -18,6 +18,15 @@ describe('loadingMessage', () => {
     expect(lines[5]).toBe('Almost there…');
   });
 
+  it("uses lines about the user's comment when re-checking a verdict", () => {
+    expect([0, 1, 2, 3].map((step) => loadingMessage(step, 'correction'))).toEqual([
+      'Reading your comment…',
+      'Taking your feedback into account…',
+      'Updating the verdict…',
+      'Almost there…',
+    ]);
+  });
+
   it('never goes out of range for a bad step', () => {
     expect(loadingMessage(-3, 'text')).toBe('Looking at your food…');
   });
