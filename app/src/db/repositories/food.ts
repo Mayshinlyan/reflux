@@ -68,12 +68,33 @@ export function listDiaryFoodLogs(db: AppDb, range: { from: string; to: string }
 
 /**
  * "I ate this": moves a food check into the diary, reusing its stored analysis so the
- * relay is never called twice for the same meal.
+ * relay is never called twice for the same meal. `corrected` replaces the stored analysis in the
+ * same update, for when the user re-checked the verdict with a comment first.
  */
-export function promoteCheckToDiary(db: AppDb, id: number, eatenAt: string = nowIso()): void {
+export function promoteCheckToDiary(
+  db: AppDb,
+  id: number,
+  eatenAt: string = nowIso(),
+  corrected?: { analysis: MealAnalysis; meta: AnalysisMeta },
+): void {
+  if (corrected && !corrected.analysis.isFood) throw new Error('Only food analyses can be saved');
+  const analysisFields = corrected
+    ? {
+        mealName: corrected.analysis.mealName,
+        overallVerdict: corrected.analysis.overall.verdict,
+        analysis: corrected.analysis,
+        analysisMeta: corrected.meta,
+      }
+    : {};
   const updated = db
     .update(foodLogs)
-    .set({ entryType: 'diary', loggedAt: eatenAt, tz: currentTimeZone(), updatedAt: nowIso() })
+    .set({
+      entryType: 'diary',
+      loggedAt: eatenAt,
+      tz: currentTimeZone(),
+      updatedAt: nowIso(),
+      ...analysisFields,
+    })
     .where(and(eq(foodLogs.id, id), eq(foodLogs.entryType, 'check')))
     .returning({ id: foodLogs.id })
     .all();
