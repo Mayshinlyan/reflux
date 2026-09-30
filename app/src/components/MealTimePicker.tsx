@@ -11,7 +11,7 @@ import {
   MEAL_DAY_CHOICES,
   MINUTE_STEP,
 } from '@/lib/mealTime';
-import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
+import { radius, space, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { BottomSheet } from './BottomSheet';
@@ -70,22 +70,20 @@ export function MealTimePicker({ value, onChange, disabled = false }: Props) {
         accessibilityLabel={`When did you eat this? ${formatMealTime(value, now)}`}
         accessibilityHint="Opens a picker to choose when you ate it"
         disabled={disabled}
+        accessibilityState={{ disabled }}
         onPress={openSheet}
+        hitSlop={6}
         style={({ pressed }) => [
-          styles.row,
+          styles.pill,
           {
-            backgroundColor: colors.surface,
-            borderColor: colors.hairline,
+            backgroundColor: value ? colors.clayTint : colors.surface,
+            borderColor: value ? colors.clay : colors.hairline,
             opacity: disabled || pressed ? 0.6 : 1,
           },
         ]}>
-        <Clock size={18} color={colors.clayInk} strokeWidth={2.4} />
-        <AppText variant="caption" color="inkSoft">
-          Eaten
-        </AppText>
-        <AppText style={[styles.rowValue, { color: colors.clayInk }]}>{formatMealTime(value, now)}</AppText>
-        <AppText variant="caption" color="inkSoft" style={styles.change}>
-          Change
+        <Clock size={15} color={colors.clayInk} strokeWidth={2.4} />
+        <AppText style={[styles.pillText, { color: colors.clayInk }]} numberOfLines={1}>
+          {formatMealTime(value, now)}
         </AppText>
       </Pressable>
 
@@ -170,18 +168,17 @@ export function MealTimePicker({ value, onChange, disabled = false }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: {
-    minHeight: minTouchTarget,
+  pill: {
+    minHeight: 36,
+    maxWidth: 200,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.s1,
-    paddingHorizontal: space.s2,
-    marginBottom: space.s2,
-    borderRadius: radius.md,
-    borderWidth: 1,
+    gap: 6,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
   },
-  rowValue: { ...typography.bodyEm, fontSize: 15, fontFamily: 'Nunito_700Bold', flex: 1 },
-  change: { textDecorationLine: 'underline' },
+  pillText: { ...typography.label, fontSize: 14, fontFamily: 'Nunito_700Bold', flexShrink: 1 },
   group: { marginTop: space.s2, marginBottom: space.s1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
   meridiem: { marginTop: space.s1 },

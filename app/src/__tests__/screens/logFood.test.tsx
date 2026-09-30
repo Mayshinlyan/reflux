@@ -66,7 +66,7 @@ const result = {
 };
 
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
-const type = async (value: string) => fireEvent.changeText(screen.getByLabelText("What's the food?"), value);
+const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('What did you eat?'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
 /** A photo now stops at a review step (with optional details) until "Analyze meal". */
 const reviewThenCheck = async () => {
@@ -92,7 +92,7 @@ afterEach(() => closeDb());
 describe('Log food screen: Quick Log', () => {
   it('shows nothing when no foods are saved', async () => {
     await render(<LogFoodScreen />);
-    expect(screen.queryByText('Quick Log')).toBeNull();
+    expect(screen.queryByText('My foods')).toBeNull();
   });
 
   it('logs a saved food in one tap with its saved verdict, without calling the relay', async () => {
@@ -106,7 +106,7 @@ describe('Log food screen: Quick Log', () => {
     saveFoodFromLog(mockDb, id);
     await render(<LogFoodScreen />);
 
-    expect(screen.getByRole('header', { name: 'Quick Log' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'My foods' })).toBeTruthy();
     await press('Mint tea');
 
     const logs = listDiaryFoodLogs(mockDb, ALL_TIME);
@@ -136,11 +136,15 @@ describe('Log food screen: Quick Log', () => {
 });
 
 describe('Log food screen (text)', () => {
-  it('keeps "Check it" disabled until something is typed', async () => {
+  it('shows the actions only once something is typed', async () => {
     await render(<LogFoodScreen />);
-    expect(screen.getByRole('button', { name: 'Analyze meal' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Analyze meal' })).toBeNull();
     await type('   ');
-    expect(screen.getByRole('button', { name: 'Analyze meal' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Analyze meal' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save without a verdict' })).toBeNull();
+    await type('toast');
+    expect(screen.getByRole('button', { name: 'Analyze meal' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save without a verdict' })).toBeTruthy();
   });
 
   it('analyzes the trimmed text, shows the result, and saves it to the diary', async () => {
@@ -178,7 +182,7 @@ describe('Log food screen (text)', () => {
     await press('Analyze meal');
 
     expect(screen.getByText('loading:text')).toBeTruthy();
-    expect(screen.queryByLabelText("What's the food?")).toBeNull();
+    expect(screen.queryByLabelText('What did you eat?')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Take a photo' })).toBeNull();
 
     await act(async () => resolve(result));
@@ -223,7 +227,7 @@ describe('Log food screen (text)', () => {
     await press('Analyze meal');
 
     expect(await screen.findByText(friendlyMessages.RATE_LIMITED)).toBeTruthy();
-    expect(screen.getByLabelText("What's the food?").props.value).toBe('toast');
+    expect(screen.getByLabelText('What did you eat?').props.value).toBe('toast');
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
 
     analyze.mockResolvedValue(result);
