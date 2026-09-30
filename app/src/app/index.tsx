@@ -13,7 +13,8 @@ import { PET_ASPECT } from '@/lib/petClips';
 import { STAGE_NAMES, STAGE_SCALE, statusLine } from '@/lib/petProgress';
 import { fontFamily, radius, space, useColors } from '@/theme';
 
-const PET_SIZE = 200;
+/** Full-size (Grown dog) pet width. Younger stages draw at STAGE_SCALE of this. */
+const PET_SIZE = 340;
 /** Matches Pet's own layout: clip height plus its ground-shadow gap. */
 const PET_HEIGHT = Math.round(PET_SIZE * PET_ASPECT) + space.s2;
 
