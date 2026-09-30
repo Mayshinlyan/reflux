@@ -104,7 +104,12 @@ export default function SettingsScreen() {
         <SectionTitle first>Activity</SectionTitle>
         <SettingsRow label="History" onPress={() => router.push('/history')} />
 
-        <SectionTitle>Reflux</SectionTitle>
+        <SectionTitle>Personalize</SectionTitle>
+        <SettingsRow
+          label="Bedtime"
+          value={formatClock(settings.bedtime)}
+          onPress={() => setSheet('bedtime')}
+        />
         <SettingsRow
           label="My pet"
           value={settings.petName}
@@ -112,11 +117,6 @@ export default function SettingsScreen() {
             setPetName(settings.petName);
             setSheet('pet');
           }}
-        />
-        <SettingsRow
-          label="Bedtime"
-          value={formatClock(settings.bedtime)}
-          onPress={() => setSheet('bedtime')}
         />
         <SettingsRow label="My foods" onPress={() => router.push('/log/my-foods')} />
         <SettingsRow label="My medications" onPress={() => router.push('/log/medication')} />
