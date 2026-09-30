@@ -431,6 +431,46 @@ describe('History: swipe to delete an entry', () => {
   });
 });
 
+describe('History: log a meal again', () => {
+  it('logs the meal again from its detail sheet', async () => {
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Log again' }));
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^Meal: Steamed dim sum/ })).toHaveLength(2);
+  });
+
+  it('logs the meal again from the swipe-right action', async () => {
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Log Steamed dim sum again' }));
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(2);
+  });
+
+  it('offers Log again to screen readers as an action on the row', async () => {
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }), 'accessibilityAction', {
+      nativeEvent: { actionName: 'relog' },
+    });
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(2);
+  });
+
+  it('does not offer Log again on symptom entries', async () => {
+    seedFullEntry();
+    await render(<HistoryScreen />);
+
+    expect(screen.queryByRole('button', { name: /again$/ })).toBeNull();
+  });
+});
+
 describe('History: meals saved without a verdict', () => {
   it('lists the meal with no verdict badge and says so in the detail', async () => {
     createUncheckedMeal(mockDb, { source: 'text', inputText: 'grilled fish' });
