@@ -82,6 +82,35 @@ describe('POST /v1/analyze-food: text', () => {
     expect(claudeCalls).toHaveLength(0);
   });
 
+  it('passes sanitized optional details to Claude', async () => {
+    const { app, claudeCalls } = testApp();
+    const res = await post(app).send({ text: 'soup', details: 'it is <b>pumpkin</b>\nsoup, no cream' });
+
+    expect(res.status).toBe(200);
+    expect(claudeCalls[0]).toEqual({
+      kind: 'text',
+      text: 'soup',
+      details: 'it is bpumpkin/b soup, no cream',
+    });
+  });
+
+  it('treats blank details as absent', async () => {
+    const { app, claudeCalls } = testApp();
+    await post(app).send({ text: 'soup', details: '  ' });
+    expect(claudeCalls[0]).toEqual({ kind: 'text', text: 'soup', details: undefined });
+  });
+
+  it.each([
+    ['over 300 characters', { text: 'soup', details: 'a'.repeat(301) }],
+    ['not a string', { text: 'soup', details: 5 }],
+  ])('rejects details %s', async (_name, body) => {
+    const { app, claudeCalls } = testApp();
+    const res = await post(app).send(body);
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('INPUT_REJECTED');
+    expect(claudeCalls).toHaveLength(0);
+  });
+
   it('accepts exactly 200 characters', async () => {
     const { app } = testApp();
     const res = await post(app).send({ text: 'a'.repeat(200) });
@@ -103,6 +132,27 @@ describe('POST /v1/analyze-food: photo', () => {
 
     expect(res.status).toBe(200);
     expect(claudeCalls[0]?.kind).toBe('photo');
+  });
+
+  it('passes sanitized optional details with the photo', async () => {
+    const { app, claudeCalls } = testApp();
+    const res = await post(app)
+      .field('details', 'homemade, no chili')
+      .attach('photo', jpeg, { filename: 'meal.jpg', contentType: 'image/jpeg' });
+
+    expect(res.status).toBe(200);
+    expect(claudeCalls[0]).toMatchObject({ kind: 'photo', details: 'homemade, no chili' });
+  });
+
+  it('rejects unknown multipart fields', async () => {
+    const { app, claudeCalls } = testApp();
+    const res = await post(app)
+      .field('note', 'x')
+      .attach('photo', jpeg, { filename: 'meal.jpg', contentType: 'image/jpeg' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('INPUT_REJECTED');
+    expect(claudeCalls).toHaveLength(0);
   });
 
   it('rejects a file that is not an image, whatever its declared type', async () => {

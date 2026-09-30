@@ -24,6 +24,8 @@ import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { radius, space, useColors } from '@/theme';
 
 const MAX_TEXT = 200;
+/** The relay's cap on `details`; the newest words win when earlier notes and a correction overflow it. */
+const MAX_DETAILS = 300;
 const CAMERA_DENIED =
   'Camera access is off. You can turn it on in Settings, choose a photo instead, or type it in.';
 
@@ -38,6 +40,10 @@ export default function LogFoodScreen() {
   const { state, analyze, reset } = useAnalyzeFood();
   const [text, setText] = useState('');
   const [analyzed, setAnalyzed] = useState<Analyzed | null>(null);
+  // Notes for the AI: `draft` is the photo-review box, `details` what was last sent, `correction` the post-verdict box.
+  const [draft, setDraft] = useState('');
+  const [details, setDetails] = useState('');
+  const [correction, setCorrection] = useState('');
   const [preparing, setPreparing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const saving = useRef(false);
@@ -52,11 +58,34 @@ export default function LogFoodScreen() {
   const busy = preparing || state.status === 'loading';
   const trimmed = text.trim();
 
+  const run = (target: Analyzed, notes: string) => {
+    setNotice(null);
+    setAnalyzed(target);
+    setDetails(notes);
+    const extra = notes ? { details: notes } : {};
+    void analyze(
+      target.source === 'text'
+        ? { text: target.text, ...extra }
+        : { photo: { uri: target.uri, mimeType: 'image/jpeg' }, ...extra },
+    );
+  };
+
   const checkText = () => {
     if (!trimmed || busy) return;
-    setNotice(null);
-    setAnalyzed({ source: 'text', text: trimmed });
-    void analyze({ text: trimmed });
+    run({ source: 'text', text: trimmed }, details);
+  };
+
+  const checkPhotoWithDetails = () => {
+    if (busy || analyzed?.source !== 'photo') return;
+    run(analyzed, draft.trim());
+  };
+
+  /** Re-runs the same food with the user's correction added, so the AI can be certain what it is. */
+  const recheck = () => {
+    const note = correction.trim();
+    if (!note || busy || !analyzed) return;
+    setCorrection('');
+    run(analyzed, [details, note].filter(Boolean).join('. ').slice(-MAX_DETAILS));
   };
 
   const checkPhoto = async (source: PhotoSource) => {
@@ -69,8 +98,11 @@ export default function LogFoodScreen() {
       if (!alive.current) return;
       if (picked.status === 'denied') setNotice(CAMERA_DENIED);
       if (picked.status !== 'ok') return;
+      // Not analyzed yet: the review step lets the user add optional details first.
       setAnalyzed({ source: 'photo', uri: picked.photo.uri });
-      void analyze({ photo: { uri: picked.photo.uri, mimeType: 'image/jpeg' } });
+      setDraft('');
+      setDetails('');
+      reset();
     } catch {
       // Code only: the picker or manipulator error could carry file paths.
       logger.error('preparePhoto', new AppError('INPUT_REJECTED'));
@@ -110,8 +142,19 @@ export default function LogFoodScreen() {
 
   const tryAnother = () => {
     setAnalyzed(null);
+    setDraft('');
+    setDetails('');
+    setCorrection('');
     reset();
   };
+
+  const reviewingPhoto = state.status !== 'done' && !busy && analyzed?.source === 'photo';
+  const errorText = notice ?? (state.status === 'error' ? state.error.friendlyMessage : '');
+  const errorBanner = errorText ? (
+    <View accessibilityRole="alert" style={[styles.error, { backgroundColor: colors.redTint }]}>
+      <AppText color="redInk">{errorText}</AppText>
+    </View>
+  ) : null;
 
   return (
     <Screen>
@@ -129,6 +172,24 @@ export default function LogFoodScreen() {
                 />
               )}
               <MealResultCard analysis={state.result} />
+              <View style={styles.correction}>
+                <TextField
+                  label="Is this right? Tell us more"
+                  hint="(optional)"
+                  value={correction}
+                  onChangeText={setCorrection}
+                  placeholder="e.g. it's pumpkin soup, no cream"
+                  maxLength={MAX_TEXT}
+                  returnKeyType="done"
+                  onSubmitEditing={recheck}
+                />
+                <Button
+                  label="Check again with this"
+                  variant="secondary"
+                  onPress={recheck}
+                  disabled={!correction.trim()}
+                />
+              </View>
               <AppText variant="caption" color="inkSoft" style={styles.disclaimer}>
                 For tracking only, not medical advice. Food results are AI-generated.
               </AppText>
@@ -138,6 +199,31 @@ export default function LogFoodScreen() {
               source={preparing ? 'photo' : (analyzed?.source ?? 'text')}
               photoUri={!preparing && analyzed?.source === 'photo' ? analyzed.uri : undefined}
             />
+          ) : reviewingPhoto && analyzed?.source === 'photo' ? (
+            <>
+              <Image
+                source={{ uri: analyzed.uri }}
+                style={styles.photo}
+                contentFit="cover"
+                accessibilityLabel="Your meal photo"
+              />
+              <TextField
+                label="Anything we should know?"
+                hint="(optional)"
+                value={draft}
+                onChangeText={setDraft}
+                placeholder="e.g. homemade, no chili, oat milk"
+                maxLength={MAX_TEXT}
+                returnKeyType="done"
+                onSubmitEditing={checkPhotoWithDetails}
+              />
+              {errorBanner}
+              <Button
+                label={state.status === 'error' ? 'Try again' : 'Check it'}
+                onPress={checkPhotoWithDetails}
+              />
+              <Button label="Choose a different photo" variant="secondary" onPress={tryAnother} />
+            </>
           ) : (
             <>
               <AppText color="inkSoft" style={styles.subtitle}>
@@ -164,19 +250,16 @@ export default function LogFoodScreen() {
               <TextField
                 label="What did you eat?"
                 value={text}
-                onChangeText={setText}
+                onChangeText={(value) => {
+                  setText(value);
+                  setDetails(''); // a correction belongs to the text it was made for
+                }}
                 placeholder="e.g. spicy chicken tacos"
                 maxLength={MAX_TEXT}
                 returnKeyType="done"
                 onSubmitEditing={checkText}
               />
-              {(notice || state.status === 'error') && (
-                <View accessibilityRole="alert" style={[styles.error, { backgroundColor: colors.redTint }]}>
-                  <AppText color="redInk">
-                    {notice ?? (state.status === 'error' ? state.error.friendlyMessage : '')}
-                  </AppText>
-                </View>
-              )}
+              {errorBanner}
               <Button
                 label={state.status === 'error' && analyzed?.source === 'text' ? 'Try again' : 'Check it'}
                 onPress={checkText}
@@ -205,6 +288,7 @@ const styles = StyleSheet.create({
   disclaimer: { textAlign: 'center', marginVertical: space.s1 },
   capture: { flexDirection: 'row', justifyContent: 'center', gap: space.s4, marginVertical: space.s2 },
   footer: { gap: space.s1, paddingTop: space.s1 },
+  correction: { marginTop: space.s2 },
   photo: { width: '100%', height: 200, borderRadius: radius.lg, marginBottom: space.s1 },
   error: { borderRadius: radius.md, padding: space.s2, marginBottom: space.s2 },
 });

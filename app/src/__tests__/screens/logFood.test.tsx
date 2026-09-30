@@ -59,6 +59,11 @@ const result = {
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('What did you eat?'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
+/** A photo now stops at a review step (with optional details) until "Check it". */
+const reviewThenCheck = async () => {
+  await screen.findByLabelText('Anything we should know?');
+  await press('Check it');
+};
 
 beforeEach(() => {
   const { db, sqlite } = createTestDb();
@@ -203,6 +208,8 @@ describe('Log food screen (photo)', () => {
     await render(<LogFoodScreen />);
 
     await press('Take a photo');
+    expect(analyze).not.toHaveBeenCalled(); // waits for the review step
+    await reviewThenCheck();
     expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
     expect(pick).toHaveBeenCalledWith('camera', expect.any(Function));
     expect(analyze).toHaveBeenCalledWith(
@@ -229,13 +236,14 @@ describe('Log food screen (photo)', () => {
     await render(<LogFoodScreen />);
 
     await press('Take a photo');
+    await reviewThenCheck();
 
     expect(await screen.findByText('loading:photo')).toBeTruthy();
     await act(async () => resolve(result));
     await screen.findByText('Mint is a common trigger.');
   });
 
-  it('keeps the form while the system picker is open and shows the loader once a photo is chosen', async () => {
+  it('keeps the form while the system picker is open and shows the review step once a photo is chosen', async () => {
     let choose!: (result: unknown) => void;
     let onPicked!: () => void;
     pick.mockImplementation((_source: string, callback: () => void) => {
@@ -251,9 +259,12 @@ describe('Log food screen (photo)', () => {
     expect(screen.getByRole('button', { name: 'Take a photo' })).toBeTruthy();
 
     await act(async () => onPicked());
-    expect(screen.getByText('loading:photo')).toBeTruthy();
+    expect(screen.getByText('loading:photo')).toBeTruthy(); // preparing the photo
 
     await act(async () => choose({ status: 'ok', photo }));
+    expect(await screen.findByLabelText('Anything we should know?')).toBeTruthy();
+    expect(screen.queryByText('loading:photo')).toBeNull();
+    await press('Check it');
     expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
   });
 
@@ -263,6 +274,7 @@ describe('Log food screen (photo)', () => {
     await render(<LogFoodScreen />);
 
     await press('Choose a photo');
+    await reviewThenCheck();
 
     await screen.findByText('Mint is a common trigger.');
     expect(pick).toHaveBeenCalledWith('library', expect.any(Function));
@@ -305,8 +317,12 @@ describe('Log food screen (photo)', () => {
     await render(<LogFoodScreen />);
 
     await press('Take a photo');
+    await reviewThenCheck();
 
     expect(await screen.findByText(friendlyMessages.NOT_FOOD)).toBeTruthy();
+    // The photo stays, so the user can retry or pick another.
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
+    await press('Choose a different photo');
     expect(screen.getByRole('button', { name: 'Take a photo' })).toBeEnabled();
   });
 
@@ -315,6 +331,7 @@ describe('Log food screen (photo)', () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
     await press('Take a photo');
+    await reviewThenCheck();
     await screen.findByText('Mint is a common trigger.');
 
     closeDb();
@@ -323,5 +340,95 @@ describe('Log food screen (photo)', () => {
     expect(removePhoto).toHaveBeenCalledWith('file:///doc/photos/meal.jpg');
     expect(mockToast).toHaveBeenCalledWith("We couldn't save that. Please try again.");
     expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('sends optional details typed on the review step along with the photo', async () => {
+    pick.mockResolvedValue({ status: 'ok', photo });
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+
+    await press('Take a photo');
+    await fireEvent.changeText(
+      await screen.findByLabelText('Anything we should know?'),
+      '  homemade, no chili ',
+    );
+    await press('Check it');
+
+    await screen.findByText('Mint is a common trigger.');
+    expect(analyze).toHaveBeenCalledWith(
+      { photo: { uri: photo.uri, mimeType: 'image/jpeg' }, details: 'homemade, no chili' },
+      expect.any(AbortSignal),
+    );
+  });
+});
+
+describe('Log food screen (correcting the verdict)', () => {
+  const photo = { uri: 'file:///cache/prepared.jpg', width: 1024, height: 768 };
+  const correctionField = () => screen.getByLabelText('Is this right? Tell us more');
+
+  it('keeps "Check again" disabled until a comment is typed', async () => {
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+    await type('soup');
+    await press('Check it');
+    await screen.findByText('Mint is a common trigger.');
+
+    expect(screen.getByRole('button', { name: 'Check again with this' })).toBeDisabled();
+  });
+
+  it('re-analyzes the same text with the comment as details', async () => {
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+    await type('soup');
+    await press('Check it');
+    await screen.findByText('Mint is a common trigger.');
+
+    await fireEvent.changeText(correctionField(), " it's pumpkin, no cream ");
+    await press('Check again with this');
+
+    await waitFor(() => expect(analyze).toHaveBeenCalledTimes(2));
+    expect(analyze).toHaveBeenLastCalledWith(
+      { text: 'soup', details: "it's pumpkin, no cream" },
+      expect.any(AbortSignal),
+    );
+    expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
+    expect(correctionField().props.value).toBe('');
+  });
+
+  it('re-analyzes a photo with the earlier details plus the new comment, and saves once', async () => {
+    pick.mockResolvedValue({ status: 'ok', photo });
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+    await press('Take a photo');
+    await fireEvent.changeText(await screen.findByLabelText('Anything we should know?'), 'homemade');
+    await press('Check it');
+    await screen.findByText('Mint is a common trigger.');
+
+    await fireEvent.changeText(correctionField(), 'it is peppermint tea');
+    await press('Check again with this');
+
+    await waitFor(() => expect(analyze).toHaveBeenCalledTimes(2));
+    expect(analyze).toHaveBeenLastCalledWith(
+      { photo: { uri: photo.uri, mimeType: 'image/jpeg' }, details: 'homemade. it is peppermint tea' },
+      expect.any(AbortSignal),
+    );
+    await screen.findByText('Mint is a common trigger.');
+    await press('Save to diary');
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
+  });
+
+  it('keeps the photo and shows the error if the re-check fails', async () => {
+    pick.mockResolvedValue({ status: 'ok', photo });
+    analyze.mockResolvedValueOnce(result).mockRejectedValueOnce(new AppError('RATE_LIMITED', 'req-2'));
+    await render(<LogFoodScreen />);
+    await press('Take a photo');
+    await reviewThenCheck();
+    await screen.findByText('Mint is a common trigger.');
+
+    await fireEvent.changeText(correctionField(), 'it is peppermint tea');
+    await press('Check again with this');
+
+    expect(await screen.findByText(friendlyMessages.RATE_LIMITED)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
   });
 });

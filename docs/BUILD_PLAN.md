@@ -233,7 +233,7 @@ Defined in `app/src/db/schema.ts`. Migrations are generated with `drizzle-kit ge
 GET  /health            # liveness check for Cloud Run probes, deploy smoke test
 POST /v1/analyze-food
   headers: Authorization (Firebase anon ID token), X-Request-Id
-  body: multipart { photo } OR JSON { text }
+  body: multipart { photo, details? } OR JSON { text, details? }   # details: optional user note, ≤300 chars
   200 → { isFood, mealName, items[], overall, meta }
   errors → { error: { code, message, requestId } }
 ```

@@ -2,14 +2,15 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import { HttpError } from '../errors.js';
 import {
-  PHOTO_USER_MESSAGE,
+  photoUserMessage,
   SYSTEM_PROMPT,
   TOOL_NAME,
   textUserMessage,
 } from '../prompts/foodAnalysisPrompt.js';
 import { mealAnalysisJsonSchema } from '../schemas.js';
 
-export type ClaudeInput = { kind: 'text'; text: string } | { kind: 'photo'; jpeg: Buffer };
+export type ClaudeInput =
+  { kind: 'text'; text: string; details?: string } | { kind: 'photo'; jpeg: Buffer; details?: string };
 
 /** Content-free numbers only; safe to log. */
 export type ClaudeTelemetry = {
@@ -82,13 +83,13 @@ export function createClaudeService(options: {
     async analyze(input) {
       const content: Anthropic.ContentBlockParam[] =
         input.kind === 'text'
-          ? [{ type: 'text', text: textUserMessage(input.text) }]
+          ? [{ type: 'text', text: textUserMessage(input.text, input.details) }]
           : [
               {
                 type: 'image',
                 source: { type: 'base64', media_type: 'image/jpeg', data: input.jpeg.toString('base64') },
               },
-              { type: 'text', text: PHOTO_USER_MESSAGE },
+              { type: 'text', text: photoUserMessage(input.details) },
             ];
 
       const request = {
