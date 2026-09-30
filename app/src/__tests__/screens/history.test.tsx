@@ -27,6 +27,13 @@ jest.mock('expo-router', () => ({
     require('react').useEffect(effect, [effect]);
   },
 }));
+jest.mock('expo-image', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { View } = require('react-native');
+  return {
+    Image: (props: { accessibilityLabel?: string }) => <View accessibilityLabel={props.accessibilityLabel} />,
+  };
+});
 jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(() => Promise.resolve()),
   NotificationFeedbackType: { Success: 'success' },
@@ -264,23 +271,71 @@ describe('History: symptom entry', () => {
   });
 });
 
-describe('History: saved meals', () => {
-  it('lists a meal saved from Log food', async () => {
-    createFoodLog(mockDb, {
-      entryType: 'diary',
-      source: 'text',
-      inputText: 'oatmeal with banana',
-      analysis: {
-        isFood: true,
-        mealName: 'Oatmeal with banana',
-        items: [],
-        overall: { verdict: 'ok', confidence: 'high', reasoning: 'Gentle breakfast.' },
-      },
-      meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
-    });
+const seedMeal = (overrides: { photoUri?: string | null } = {}) =>
+  createFoodLog(mockDb, {
+    entryType: 'diary',
+    source: overrides.photoUri ? 'photo' : 'text',
+    inputText: overrides.photoUri ? null : 'dim sum',
+    photoUri: overrides.photoUri ?? null,
+    analysis: {
+      isFood: true,
+      mealName: 'Steamed dim sum',
+      items: [
+        {
+          name: 'Shrimp dumpling',
+          ingredients: [
+            { name: 'shrimp', matchedCategories: [] },
+            { name: 'chili oil', matchedCategories: ['spicy'] },
+          ],
+          verdict: 'caution',
+          reasoning: 'Chili oil can be a trigger.',
+          matchedTriggers: [{ category: 'spicy', evidence: 'chili oil' }],
+        },
+      ],
+      overall: { verdict: 'caution', confidence: 'medium', reasoning: 'A few triggers here.' },
+    },
+    meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
+  });
 
+describe('History: saved meals', () => {
+  it('lists a meal saved from Log food with its verdict', async () => {
+    seedMeal();
     await render(<HistoryScreen />);
 
-    expect(screen.getByText('Oatmeal with banana')).toBeTruthy();
+    expect(screen.getByText('Steamed dim sum')).toBeTruthy();
+    expect(screen.getByLabelText('Caution')).toBeTruthy();
+  });
+
+  it('opens the full analysis: overall reasoning, items, ingredients and the note', async () => {
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
+
+    expect(screen.getByText('A few triggers here.')).toBeTruthy();
+    expect(screen.getByText('Shrimp dumpling')).toBeTruthy();
+    expect(screen.getByText(/shrimp, chili oil/)).toBeTruthy();
+    expect(screen.getByText('Chili oil can be a trigger.')).toBeTruthy();
+    // The meal name is the sheet heading only once (the card's own title is hidden there).
+    expect(screen.getAllByText('Steamed dim sum')).toHaveLength(2); // list row + sheet heading
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+  });
+
+  it('shows the meal photo for a photo entry', async () => {
+    seedMeal({ photoUri: 'file:///doc/photos/meal.jpg' });
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
+
+    expect(screen.getByLabelText('Your meal photo')).toBeTruthy();
+  });
+
+  it('shows no photo for a typed entry', async () => {
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
+
+    expect(screen.queryByLabelText('Your meal photo')).toBeNull();
   });
 });

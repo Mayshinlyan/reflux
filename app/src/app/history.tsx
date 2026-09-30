@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { Pencil } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
@@ -10,11 +11,13 @@ import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
+import { MealResultCard } from '@/components/MealResultCard';
 import { Screen } from '@/components/Screen';
 import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
 import { TimelineItem } from '@/components/TimelineItem';
 import { useToast } from '@/components/Toast';
+import { VerdictBadge } from '@/components/VerdictBadge';
 import type { LifestyleTagKey } from '@/constants/lifestyleTags';
 import type { SymptomKey } from '@/constants/symptomItems';
 import { useDb } from '@/db/DatabaseProvider';
@@ -203,6 +206,7 @@ export default function HistoryScreen() {
             kind={item.kind}
             title={item.title}
             time={item.meta}
+            side={item.kind === 'food' ? <VerdictBadge verdict={item.log.overallVerdict} /> : undefined}
             onPress={() => setSelected(item)}
           />
         )}
@@ -317,6 +321,15 @@ function EntryDetail({
           <AppText variant="caption" color="inkSoft" style={styles.when}>
             {when} · {entry.log.source === 'photo' ? 'photo' : 'typed'}
           </AppText>
+          {entry.log.photoUri && (
+            <Image
+              source={{ uri: entry.log.photoUri }}
+              style={styles.mealPhoto}
+              contentFit="cover"
+              accessibilityLabel="Your meal photo"
+            />
+          )}
+          <MealResultCard analysis={entry.log.analysis} showTitle={false} />
         </>
       )}
       {entry.kind === 'medication' && (
@@ -353,6 +366,7 @@ function DetailSection({ title, children }: { title: string; children: ReactNode
 }
 
 const styles = StyleSheet.create({
+  mealPhoto: { width: '100%', height: 180, borderRadius: radius.lg, marginBottom: space.s1 },
   screen: { paddingBottom: 0 },
   filters: { gap: space.s1, paddingBottom: space.s1 },
   list: { paddingBottom: space.s4, flexGrow: 1 },
