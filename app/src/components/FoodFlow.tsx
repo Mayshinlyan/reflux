@@ -39,6 +39,7 @@ const COPY = {
     intro: "What did you eat? We'll work out the ingredients.",
     textLabel: 'What did you eat?',
     textPlaceholder: 'e.g. spicy chicken tacos',
+    analyzeLabel: 'Analyze meal',
     correctionNote: "We'll re-check the verdict with this when you save.",
     saveLabel: 'Save to diary',
     saved: 'Meal logged',
@@ -48,6 +49,7 @@ const COPY = {
     intro: "See if it's likely to bother your reflux before you eat it.",
     textLabel: 'What are you thinking of eating?',
     textPlaceholder: 'e.g. mint tea',
+    analyzeLabel: 'Check it',
     correctionNote: "We'll re-check the verdict with this when you tap I ate this.",
     saveLabel: 'I ate this',
     saved: 'Saved to your food diary',
@@ -305,7 +307,7 @@ export function FoodFlow({ mode }: { mode: FoodFlowMode }) {
               />
               {errorBanner}
               <Button
-                label={state.status === 'error' ? 'Try again' : 'Check it'}
+                label={state.status === 'error' ? 'Try again' : copy.analyzeLabel}
                 onPress={checkPhotoWithDetails}
               />
               <Button label="Choose a different photo" variant="secondary" onPress={tryAnother} />
@@ -347,7 +349,9 @@ export function FoodFlow({ mode }: { mode: FoodFlowMode }) {
               />
               {errorBanner}
               <Button
-                label={state.status === 'error' && analyzed?.source === 'text' ? 'Try again' : 'Check it'}
+                label={
+                  state.status === 'error' && analyzed?.source === 'text' ? 'Try again' : copy.analyzeLabel
+                }
                 onPress={checkText}
                 disabled={!trimmed}
               />
