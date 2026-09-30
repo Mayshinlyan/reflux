@@ -13,8 +13,12 @@ import { PET_ASPECT } from '@/lib/petClips';
 import { STAGE_NAMES, STAGE_SCALE, statusLine } from '@/lib/petProgress';
 import { fontFamily, radius, space, useColors } from '@/theme';
 
-/** Full-size (Grown dog) pet width. Younger stages draw at STAGE_SCALE of this. */
-const PET_SIZE = 340;
+/**
+ * Full-size (Grown dog) pet width. Younger stages draw at STAGE_SCALE of this. The clips
+ * are cropped tight to the dog, so 268 draws it as large as the approved 340 did with the
+ * old, wider canvas.
+ */
+const PET_SIZE = 268;
 /** Matches Pet's own layout: clip height plus its ground-shadow gap. */
 const PET_HEIGHT = Math.round(PET_SIZE * PET_ASPECT) + space.s2;
 
@@ -57,7 +61,6 @@ export default function TodayScreen() {
               name={petName}
               width={Math.round(PET_SIZE * STAGE_SCALE[pet.stage])}
               mood={pet.mood}
-              hasLogs={pet.hasLogs}
               celebrating={pet.stageUp}
               onCelebrationEnd={pet.markStageSeen}
             />
