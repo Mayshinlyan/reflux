@@ -22,7 +22,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { CLIP_MS, PET_ASPECT, type PetClip, type PetPoster, viewFor } from '@/lib/petClips';
+import { CLIP_MS, PET_ASPECT, type PetClip, type PetPoster, posterFor, viewFor } from '@/lib/petClips';
 import type { PetMood } from '@/lib/petProgress';
 import { lineForTap, TAP_COOLDOWN_MS, tiltFromTouch } from '@/lib/petMotion';
 import { radius, space, typography, useColors } from '@/theme';
@@ -218,6 +218,9 @@ export function Pet({ name, width, mood, celebrating, onCelebrationEnd }: Props)
               picture until the next one is ready, so switching never flashes blank. */}
           <Image
             source={view.kind === 'clip' ? CLIPS[view.clip] : POSTERS[view.poster]}
+            // While a clip loads, show its still: the clip's first frame, so it can't blink.
+            placeholder={POSTERS[posterFor(mood)]}
+            placeholderContentFit="contain"
             style={{ width, height }}
             contentFit="contain"
             // Apple's default WebP codec can blend or time animated frames wrongly.

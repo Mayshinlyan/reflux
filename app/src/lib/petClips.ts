@@ -18,8 +18,8 @@ export const PET_ASPECT = 630 / 540;
  * art/build-clips.sh prints; change them together.
  */
 export const CLIP_MS: Record<PetClip, number> = {
-  react_happy: 42 * 83,
-  react_unwell: 42 * 83,
+  react_happy: 41 * 83,
+  react_unwell: 41 * 83,
   celebrate: 48 * 83,
 };
 

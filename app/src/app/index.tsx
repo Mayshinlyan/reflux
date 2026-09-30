@@ -1,7 +1,8 @@
 import { type Href, Redirect, router } from 'expo-router';
 import { Activity, Camera, Carrot, Pill, Plus, UserRound } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { CircleActionButton } from '@/components/CircleActionButton';
@@ -14,13 +15,24 @@ import { STAGE_NAMES, STAGE_SCALE, statusLine } from '@/lib/petProgress';
 import { fontFamily, radius, space, useColors } from '@/theme';
 
 /**
- * Full-size (Grown dog) pet width. Younger stages draw at STAGE_SCALE of this. The clips
- * are cropped tight to the dog, so 268 draws it as large as the approved 340 did with the
- * old, wider canvas.
+ * Everything on Today that isn't the pet, stacked vertically: screen padding, the header,
+ * the name/status/progress block and the Log/Scan row. The pet gets the rest.
  */
-const PET_SIZE = 268;
-/** Matches Pet's own layout: clip height plus its ground-shadow gap. */
-const PET_HEIGHT = Math.round(PET_SIZE * PET_ASPECT) + space.s2;
+const RESERVED_HEIGHT = 330;
+
+/**
+ * The full-size (Grown dog) pet: as wide as the screen allows, but short enough that the
+ * whole screen fits on small phones too. Younger stages draw at STAGE_SCALE of it.
+ */
+function usePetSize() {
+  const window = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const byWidth = window.width - 2 * space.s3;
+  const byHeight = (window.height - insets.top - insets.bottom - RESERVED_HEIGHT) / PET_ASPECT;
+  const width = Math.floor(Math.max(160, Math.min(byWidth, byHeight)));
+  // Pet's own layout: clip height plus its ground-shadow gap.
+  return { width, height: Math.round(width * PET_ASPECT) + space.s2 };
+}
 
 /**
  * Today — the pet-hero home screen, laid out as in docs/design/mockups.html.
@@ -34,6 +46,7 @@ export default function TodayScreen() {
   const { settings } = useSettings();
   const petName = settings.petName;
   const pet = usePetState();
+  const petSize = usePetSize();
 
   const go = (href: Href) => {
     setMenuOpen(false);
@@ -56,55 +69,56 @@ export default function TodayScreen() {
 
       <View style={styles.hero}>
         <View style={styles.stageWrap}>
-          <View style={styles.petBox}>
+          <View style={[styles.petBox, petSize]}>
             <Pet
               name={petName}
-              width={Math.round(PET_SIZE * STAGE_SCALE[pet.stage])}
+              width={Math.round(petSize.width * STAGE_SCALE[pet.stage])}
               mood={pet.mood}
               celebrating={pet.stageUp}
               onCelebrationEnd={pet.markStageSeen}
             />
           </View>
-          {menuOpen && (
-            <View style={styles.menu}>
-              <CircleActionButton
-                variant="menu"
-                label="Symptoms"
-                icon={Activity}
-                onPress={() => go('/log/symptoms')}
-              />
-              <View style={styles.menuRaised}>
-                <CircleActionButton
-                  variant="menu"
-                  label="Food"
-                  icon={Carrot}
-                  onPress={() => go('/log/food')}
-                />
-              </View>
-              <CircleActionButton
-                variant="menu"
-                label="Medication"
-                icon={Pill}
-                onPress={() => go('/log/medication')}
-              />
-            </View>
-          )}
         </View>
-        <AppText style={styles.petName}>{petName}</AppText>
-        <AppText variant="label" color={pet.mood === 'happy' ? 'sageInk' : 'clayInk'}>
-          {statusLine(petName, pet.mood, pet.hasLogs)}
-        </AppText>
+        {/* While the Log menu is open it sits over this block, so the block steps aside. */}
         <View
-          style={[styles.track, { backgroundColor: colors.surface2 }]}
-          accessible
-          accessibilityRole="progressbar"
-          accessibilityLabel={`${STAGE_NAMES[pet.stage]}, growth progress`}
-          accessibilityValue={{ min: 0, max: 100, now: pet.progress }}>
-          <View style={[styles.fill, { width: `${pet.progress}%`, backgroundColor: colors.sage }]} />
+          style={[styles.info, menuOpen && styles.hidden]}
+          accessibilityElementsHidden={menuOpen}
+          importantForAccessibility={menuOpen ? 'no-hide-descendants' : 'auto'}>
+          <AppText style={styles.petName}>{petName}</AppText>
+          <AppText variant="label" color={pet.mood === 'happy' ? 'sageInk' : 'clayInk'}>
+            {statusLine(petName, pet.mood, pet.hasLogs)}
+          </AppText>
+          <View
+            style={[styles.track, { backgroundColor: colors.surface2 }]}
+            accessible
+            accessibilityRole="progressbar"
+            accessibilityLabel={`${STAGE_NAMES[pet.stage]}, growth progress`}
+            accessibilityValue={{ min: 0, max: 100, now: pet.progress }}>
+            <View style={[styles.fill, { width: `${pet.progress}%`, backgroundColor: colors.sage }]} />
+          </View>
+          <AppText variant="caption" color="inkSoft">
+            {STAGE_NAMES[pet.stage]}
+          </AppText>
         </View>
-        <AppText variant="caption" color="inkSoft">
-          {STAGE_NAMES[pet.stage]}
-        </AppText>
+        {menuOpen && (
+          <View style={styles.menu}>
+            <CircleActionButton
+              variant="menu"
+              label="Symptoms"
+              icon={Activity}
+              onPress={() => go('/log/symptoms')}
+            />
+            <View style={styles.menuRaised}>
+              <CircleActionButton variant="menu" label="Food" icon={Carrot} onPress={() => go('/log/food')} />
+            </View>
+            <CircleActionButton
+              variant="menu"
+              label="Medication"
+              icon={Pill}
+              onPress={() => go('/log/medication')}
+            />
+          </View>
+        )}
       </View>
 
       <View style={styles.actions}>
@@ -137,14 +151,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   hero: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-  petBox: { width: PET_SIZE, height: PET_HEIGHT, alignItems: 'center', justifyContent: 'flex-end' },
+  petBox: { alignItems: 'center', justifyContent: 'flex-end' },
+  info: { alignItems: 'center' },
+  hidden: { opacity: 0 },
   track: { width: 200, height: 8, borderRadius: radius.pill, marginTop: space.s1, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: radius.pill },
   stageWrap: { alignItems: 'center', justifyContent: 'center' },
   menu: {
     position: 'absolute',
-    // Opens above the pet's head so it never covers the face.
-    bottom: PET_HEIGHT + space.s2,
+    // Opens just above the Log button, over the name and progress, so the pet (which fills
+    // most of the screen) keeps its face uncovered.
+    bottom: 0,
     width: 260,
     flexDirection: 'row',
     alignItems: 'flex-end',
