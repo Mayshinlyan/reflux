@@ -1,60 +1,64 @@
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Clock } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
-import {
-  type MealClock,
-  clockFromDate,
-  composeMealTime,
-  dayChoiceLabel,
-  formatMealTime,
-  MEAL_DAY_CHOICES,
-  MINUTE_STEP,
-} from '@/lib/mealTime';
+import { earliestMealTime, formatMealTime, withTimeOf } from '@/lib/mealTime';
 import { radius, space, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { BottomSheet } from './BottomSheet';
 import { Button } from './Button';
-import { TagChip } from './TagChip';
 
 type Props = {
   /** When the meal was eaten; null means "now", worked out when it is saved. */
   value: Date | null;
   onChange: (value: Date | null) => void;
-  /** Disables the row while something else is in flight. */
+  /** Disables the pill while something else is in flight. */
   disabled?: boolean;
 };
 
-const DAYS = Array.from({ length: MEAL_DAY_CHOICES }, (_, offset) => offset);
-const HOURS = Array.from({ length: 12 }, (_, index) => index + 1);
-const MINUTES = Array.from({ length: 60 / MINUTE_STEP }, (_, index) => index * MINUTE_STEP);
-
-const pad = (minute: number) => String(minute).padStart(2, '0');
-
 /**
- * "When did you eat this?" for logging a meal after the fact. Shows "Now" until changed; the sheet picks a
- * day (today back to six days ago) and a time, and won't accept one that hasn't happened yet.
+ * "When did you eat this?" for logging a meal after the fact: a pill showing "Now" until changed. It opens
+ * the phone's own date-and-time picker (a wheel in a sheet on iOS, the system dialogs on Android), limited to
+ * the past week and never later than now.
  */
 export function MealTimePicker({ value, onChange, disabled = false }: Props) {
   const colors = useColors();
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<MealClock>(() => clockFromDate(new Date(), new Date()));
+  const [draft, setDraft] = useState(() => new Date());
+  const now = new Date();
+
+  // Android has no inline wheel: the date dialog, then the time dialog, then it's set.
+  const openAndroid = () => {
+    const start = value ?? new Date();
+    DateTimePickerAndroid.open({
+      value: start,
+      mode: 'date',
+      minimumDate: earliestMealTime(new Date()),
+      maximumDate: new Date(),
+      onValueChange: (_, day) =>
+        DateTimePickerAndroid.open({
+          value: withTimeOf(day, start),
+          mode: 'time',
+          onValueChange: (__, time) => {
+            const picked = withTimeOf(day, time);
+            // The time dialog can't be capped, so a later-today pick is pulled back to now.
+            onChange(picked.getTime() > Date.now() ? new Date() : picked);
+          },
+        }),
+    });
+  };
 
   const openSheet = () => {
-    const now = new Date();
-    setDraft(clockFromDate(value ?? now, now));
+    if (Platform.OS === 'android') return openAndroid();
+    setDraft(value ?? new Date());
     setOpen(true);
   };
 
-  // `now` is read on each render so a sheet left open can't approve a time that was still in the future.
-  const now = new Date();
-  const picked = composeMealTime(now, draft);
-  const inFuture = picked.getTime() > now.getTime();
-
   const apply = () => {
-    if (inFuture) return;
-    onChange(picked);
+    // The wheel is capped at the moment the sheet rendered; a sheet left open can't set a future time.
+    onChange(draft.getTime() > Date.now() ? new Date() : draft);
     setOpen(false);
   };
 
@@ -91,75 +95,21 @@ export function MealTimePicker({ value, onChange, disabled = false }: Props) {
         <AppText variant="title" accessibilityRole="header">
           When did you eat this?
         </AppText>
-
-        <AppText variant="label" color="inkSoft" style={styles.group}>
-          Day
-        </AppText>
-        <View style={styles.chips} accessibilityRole="radiogroup">
-          {DAYS.map((offset) => (
-            <TagChip
-              key={offset}
-              role="radio"
-              label={dayChoiceLabel(offset, now)}
-              selected={draft.dayOffset === offset}
-              onPress={() => setDraft((prev) => ({ ...prev, dayOffset: offset }))}
-            />
-          ))}
-        </View>
-
-        <AppText variant="label" color="inkSoft" style={styles.group}>
-          Hour
-        </AppText>
-        <View style={styles.chips} accessibilityRole="radiogroup">
-          {HOURS.map((hour) => (
-            <TagChip
-              key={hour}
-              role="radio"
-              label={String(hour)}
-              selected={draft.hour12 === hour}
-              onPress={() => setDraft((prev) => ({ ...prev, hour12: hour }))}
-            />
-          ))}
-        </View>
-
-        <AppText variant="label" color="inkSoft" style={styles.group}>
-          Minute
-        </AppText>
-        <View style={styles.chips} accessibilityRole="radiogroup">
-          {MINUTES.map((minute) => (
-            <TagChip
-              key={minute}
-              role="radio"
-              label={`:${pad(minute)}`}
-              selected={draft.minute === minute}
-              onPress={() => setDraft((prev) => ({ ...prev, minute }))}
-            />
-          ))}
-        </View>
-
-        <View style={[styles.chips, styles.meridiem]} accessibilityRole="radiogroup">
-          <TagChip
-            role="radio"
-            label="AM"
-            selected={!draft.pm}
-            onPress={() => setDraft((prev) => ({ ...prev, pm: false }))}
-          />
-          <TagChip
-            role="radio"
-            label="PM"
-            selected={draft.pm}
-            onPress={() => setDraft((prev) => ({ ...prev, pm: true }))}
+        <View style={styles.wheel}>
+          <DateTimePicker
+            value={draft}
+            mode="datetime"
+            display="spinner"
+            minuteInterval={5}
+            minimumDate={earliestMealTime(now)}
+            maximumDate={now}
+            textColor={colors.ink}
+            themeVariant="light"
+            onValueChange={(_, date) => setDraft(date)}
           />
         </View>
-
-        {inFuture && (
-          <AppText accessibilityRole="alert" color="redInk" style={styles.future}>
-            That time hasn&apos;t happened yet. Pick an earlier one.
-          </AppText>
-        )}
-
         <View style={styles.actions}>
-          <Button label="Set time" onPress={apply} disabled={inFuture} />
+          <Button label="Set time" onPress={apply} />
           <Button label="Use now" variant="secondary" onPress={useNow} />
         </View>
       </BottomSheet>
@@ -179,9 +129,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   pillText: { ...typography.label, fontSize: 14, fontFamily: 'Nunito_700Bold', flexShrink: 1 },
-  group: { marginTop: space.s2, marginBottom: space.s1 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
-  meridiem: { marginTop: space.s1 },
-  future: { marginTop: space.s2 },
-  actions: { gap: space.s1, marginTop: space.s3 },
+  wheel: { alignItems: 'center', marginTop: space.s1 },
+  actions: { gap: space.s1, marginTop: space.s2 },
 });
