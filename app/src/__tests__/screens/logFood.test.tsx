@@ -2,10 +2,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 import LogFoodScreen from '@/app/log/food';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { listDiaryFoodLogs } from '@/db/repositories/food';
+import { createFoodLog, listDiaryFoodLogs } from '@/db/repositories/food';
+import { createSavedFood, saveFoodFromLog } from '@/db/repositories/savedFoods';
 import { foodLogs } from '@/db/schema';
 import type { AppDb } from '@/db/types';
 import { AppError, friendlyMessages } from '@/lib/errors';
+import type { MealAnalysis } from '@/types/analysis';
 import { pickFoodPhoto } from '@/services/photoPicker';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { analyzeFood } from '@/services/relayClient';
@@ -82,6 +84,43 @@ beforeEach(() => {
 });
 
 afterEach(() => closeDb());
+
+describe('Log food screen: My foods shelf', () => {
+  it('shows nothing when no foods are saved', async () => {
+    await render(<LogFoodScreen />);
+    expect(screen.queryByText('My foods')).toBeNull();
+  });
+
+  it('logs a saved food in one tap with its saved verdict, without calling the relay', async () => {
+    const { meta, ...analysis } = result;
+    const id = createFoodLog(mockDb, {
+      entryType: 'diary',
+      source: 'text',
+      analysis: analysis as MealAnalysis,
+      meta,
+    });
+    saveFoodFromLog(mockDb, id);
+    await render(<LogFoodScreen />);
+
+    await press('Mint tea');
+
+    const logs = listDiaryFoodLogs(mockDb, ALL_TIME);
+    expect(logs).toHaveLength(2);
+    expect(logs[1]).toMatchObject({ mealName: 'Mint tea', overallVerdict: 'caution' });
+    expect(analyze).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the first few and a "See all" chip when there are more', async () => {
+    for (const name of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) createSavedFood(mockDb, name);
+    await render(<LogFoodScreen />);
+
+    expect(screen.getByRole('button', { name: 'F' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'G' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'See all' })).toBeTruthy();
+  });
+});
 
 describe('Log food screen (text)', () => {
   it('keeps "Check it" disabled until something is typed', async () => {

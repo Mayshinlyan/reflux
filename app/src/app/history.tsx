@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
-import { Pencil, RotateCw } from 'lucide-react-native';
+import { BookmarkPlus, Pencil, RotateCw } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
 import { Alert, ScrollView, SectionList, StyleSheet, View } from 'react-native';
 
@@ -23,6 +23,7 @@ import type { LifestyleTagKey } from '@/constants/lifestyleTags';
 import type { SymptomKey } from '@/constants/symptomItems';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { deleteFoodLog, listDiaryFoodLogs, relogFood } from '@/db/repositories/food';
+import { saveFoodFromLog } from '@/db/repositories/savedFoods';
 import { deleteMedicationLog, listMedicationLogs, relogMedication } from '@/db/repositories/medications';
 import {
   deleteSymptomLog,
@@ -158,6 +159,21 @@ export default function HistoryScreen() {
     reload();
   };
 
+  /** Saves a meal to "My foods" for one-tap logging. The sheet stays open; saving it twice is a no-op. */
+  const saveFood = (entry: TimelineEntry) => {
+    if (entry.kind !== 'food') return;
+    let created: boolean;
+    try {
+      ({ created } = saveFoodFromLog(db, entry.id));
+    } catch (error) {
+      logger.error('saveFood', error);
+      Alert.alert("Couldn't save", friendlyMessages.INTERNAL);
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    toast(created ? 'Saved to My foods' : 'Already in My foods');
+  };
+
   /** Asks "Remove X?" and, if confirmed, runs `remove` and refreshes the list and the open sheet. */
   const confirmRemove = (label: string, operation: string, remove: () => void) => {
     Alert.alert(`Remove ${label}?`, 'It will be taken off this entry.', [
@@ -268,6 +284,7 @@ export default function HistoryScreen() {
             late={isLate(selected)}
             onEdit={edit}
             onRelog={relog}
+            onSaveFood={saveFood}
             onDelete={confirmDelete}
             onRemoveSymptom={confirmRemoveSymptom}
             onRemoveTag={confirmRemoveTag}
@@ -283,6 +300,7 @@ function EntryDetail({
   late,
   onEdit,
   onRelog,
+  onSaveFood,
   onDelete,
   onRemoveSymptom,
   onRemoveTag,
@@ -291,6 +309,7 @@ function EntryDetail({
   late: boolean;
   onEdit: (entry: TimelineEntry) => void;
   onRelog: (entry: TimelineEntry) => void;
+  onSaveFood: (entry: TimelineEntry) => void;
   onDelete: (entry: TimelineEntry) => void;
   onRemoveSymptom: (entry: SymptomEntry, key: SymptomKey) => void;
   onRemoveTag: (entry: SymptomEntry, tag: LifestyleTagKey) => void;
@@ -397,6 +416,14 @@ function EntryDetail({
         )}
         {entry.kind !== 'symptom' && (
           <Button label="Log again" icon={RotateCw} onPress={() => onRelog(entry)} />
+        )}
+        {entry.kind === 'food' && (
+          <Button
+            label="Save to My foods"
+            variant="secondary"
+            icon={BookmarkPlus}
+            onPress={() => onSaveFood(entry)}
+          />
         )}
         <Button label="Delete" variant="quietDanger" onPress={() => onDelete(entry)} />
       </View>

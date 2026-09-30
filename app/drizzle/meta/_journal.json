@@ -15,6 +15,13 @@
       "when": 1790783456416,
       "tag": "0001_unchecked_meals",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790791083641,
+      "tag": "0002_my_foods",
+      "breakpoints": true
     }
   ]
 }

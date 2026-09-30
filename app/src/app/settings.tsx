@@ -118,6 +118,7 @@ export default function SettingsScreen() {
           value={formatClock(settings.bedtime)}
           onPress={() => setSheet('bedtime')}
         />
+        <SettingsRow label="My foods" onPress={() => router.push('/log/my-foods')} />
         <SettingsRow label="My medications" onPress={() => router.push('/log/medication')} />
 
         <SectionTitle>Your data</SectionTitle>

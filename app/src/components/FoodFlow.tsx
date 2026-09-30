@@ -12,6 +12,7 @@ import { CircleActionButton } from '@/components/CircleActionButton';
 import { FoodLoading } from '@/components/FoodLoading';
 import { MealResultCard } from '@/components/MealResultCard';
 import { Screen } from '@/components/Screen';
+import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { useDb } from '@/db/DatabaseProvider';
@@ -21,6 +22,7 @@ import {
   promoteCheckToDiary,
   updateFoodCheck,
 } from '@/db/repositories/food';
+import { listSavedFoods, logSavedFood, type StoredSavedFood } from '@/db/repositories/savedFoods';
 import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -30,6 +32,8 @@ import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { radius, space, useColors } from '@/theme';
 
 const MAX_TEXT = 200;
+/** How many of "My foods" show on the shelf; "See all" opens the rest. */
+const SHELF_SIZE = 6;
 /** The relay's cap on `details`; the newest words win when earlier notes and a correction overflow it. */
 const MAX_DETAILS = 300;
 const CAMERA_DENIED =
@@ -48,6 +52,7 @@ const copy = {
   saveUncheckedLabel: 'Save without a verdict',
   savedUnchecked: 'Saved without a verdict',
   saved: 'Added to your food diary',
+  shelfTitle: 'My foods',
 } as const;
 
 /** What was actually sent, so an edit while loading can't mismatch the saved entry. */
@@ -84,6 +89,17 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
     },
     [],
   );
+
+  // "My foods" shelf: saved foods that log in one tap. Loaded once; a failure just hides the shelf.
+  const [myFoods] = useState<StoredSavedFood[]>(() => {
+    try {
+      return listSavedFoods(db);
+    } catch {
+      // Code only: the shelf is optional, so the screen works without it.
+      logger.error('loadSavedFoods', new AppError('INTERNAL'));
+      return [];
+    }
+  });
 
   // The stored check for the result on screen, and which result it was stored for.
   const checkId = useRef<number | null>(null);
@@ -234,6 +250,24 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
     router.back();
   };
 
+  /** One tap on "My foods": logs the saved meal as eaten now, with its saved verdict and no relay call. */
+  const logMyFood = (food: StoredSavedFood) => {
+    if (busy || saving.current) return;
+    saving.current = true;
+    try {
+      logSavedFood(db, food.id);
+    } catch {
+      saving.current = false;
+      // Code only: a raw error could echo the food text or a file path.
+      logger.error('logSavedFood', new AppError('INTERNAL'));
+      toast("We couldn't save that. Please try again.");
+      return;
+    }
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    toast(copy.saved);
+    router.back();
+  };
+
   /**
    * "Update verdict": the AI re-checks the food with the user's comment and the new verdict is shown
    * (and stored on the check) before anything goes into the diary. Comments build on each other.
@@ -367,6 +401,32 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
               <AppText color="inkSoft" style={styles.subtitle}>
                 {copy.intro}
               </AppText>
+              {myFoods.length > 0 && (
+                <View style={styles.shelf}>
+                  <AppText variant="label" color="inkSoft" accessibilityRole="header">
+                    {copy.shelfTitle}
+                  </AppText>
+                  <View style={styles.chips}>
+                    {myFoods.slice(0, SHELF_SIZE).map((food) => (
+                      <TagChip
+                        key={food.id}
+                        role="button"
+                        label={food.mealName}
+                        selected={false}
+                        onPress={() => logMyFood(food)}
+                      />
+                    ))}
+                    {myFoods.length > SHELF_SIZE && (
+                      <TagChip
+                        role="button"
+                        label="See all"
+                        selected
+                        onPress={() => router.push('/log/my-foods')}
+                      />
+                    )}
+                  </View>
+                </View>
+              )}
               <View style={styles.capture}>
                 <CircleActionButton
                   large
@@ -444,6 +504,8 @@ const styles = StyleSheet.create({
   actions: { gap: space.s1 },
   footer: { gap: space.s1, paddingTop: space.s1 },
   correction: { marginTop: space.s2 },
+  shelf: { gap: space.s1, marginBottom: space.s1 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
   photo: { width: '100%', height: 200, borderRadius: radius.lg, marginBottom: space.s1 },
   error: { borderRadius: radius.md, padding: space.s2, marginBottom: space.s2 },
 });
