@@ -17,9 +17,9 @@ import Animated, {
 import { lineForTap, nextReaction, TAP_COOLDOWN_MS, tiltFromTouch } from '@/lib/petMotion';
 import { radius, space, typography, useColors } from '@/theme';
 
-const DOG_IMAGE = require('@/assets/images/pet/dog.png');
-/** dog.png is 276×298; keep its aspect ratio. */
-const ASPECT = 298 / 276;
+const PET_IMAGE = require('@/assets/images/pet/mellow.png');
+/** mellow.png is 677×746; keep its aspect ratio. */
+const ASPECT = 746 / 677;
 
 const SOFT_SPRING = { damping: 9, stiffness: 180, mass: 0.8 };
 
@@ -174,7 +174,7 @@ export function Pet({ name, width }: Props) {
         onPressOut={onPressOut}
         onPress={onPress}>
         <Animated.View style={petStyle}>
-          <Image source={DOG_IMAGE} style={{ width, height }} contentFit="contain" accessible={false} />
+          <Image source={PET_IMAGE} style={{ width, height }} contentFit="contain" accessible={false} />
         </Animated.View>
       </Pressable>
 
