@@ -19,7 +19,7 @@ import { radius, space, useColors } from '@/theme';
 import { AppText } from './AppText';
 
 type Props = {
-  source: 'text' | 'photo';
+  source: 'text' | 'photo' | 'correction';
   /** Shown as a small preview while a photo is being looked at. */
   photoUri?: string;
 };

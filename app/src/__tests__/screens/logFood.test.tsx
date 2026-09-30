@@ -443,7 +443,7 @@ describe('Log food screen (correcting the verdict on save)', () => {
     await fireEvent.changeText(correctionField(), 'pumpkin');
     await press('Save to diary');
 
-    expect(await screen.findByText('loading:text')).toBeTruthy();
+    expect(await screen.findByText('loading:correction')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save to diary' })).toBeNull();
     await act(async () => resolve(corrected));
     await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));

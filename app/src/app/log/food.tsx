@@ -220,7 +220,7 @@ export default function LogFoodScreen() {
             </>
           ) : busy ? (
             <FoodLoading
-              source={preparing ? 'photo' : (analyzed?.source ?? 'text')}
+              source={correcting ? 'correction' : preparing ? 'photo' : (analyzed?.source ?? 'text')}
               photoUri={!preparing && analyzed?.source === 'photo' ? analyzed.uri : undefined}
             />
           ) : reviewingPhoto && analyzed?.source === 'photo' ? (
