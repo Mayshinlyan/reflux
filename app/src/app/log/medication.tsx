@@ -18,6 +18,7 @@ import { BackHeader } from '@/components/BackHeader';
 import { Button } from '@/components/Button';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
+import { SwipeNav } from '@/components/SwipeNav';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
@@ -37,6 +38,7 @@ import type { AppDb } from '@/db/types';
 import { friendlyMessages } from '@/lib/errors';
 import { formatTime, localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
+import { medicationSwipe } from '@/lib/logSwipe';
 import { formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { medicationTypeLabel } from '@/lib/timeline';
@@ -233,7 +235,7 @@ export default function MedicationScreen() {
     const id = form.id;
     Alert.alert(
       `Remove ${trimmedName || 'this medication'}?`,
-      'It leaves your list, but past logs stay in History.',
+      'It leaves your list, but past logs stay in Your Logs.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -412,88 +414,90 @@ export default function MedicationScreen() {
   }
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <BackHeader title="Log medication" />
-        {loadFailed && meds.length === 0 ? (
-          <AppText color="inkSoft" style={styles.empty}>
-            {`${friendlyMessages.INTERNAL} Your medications are still on this phone.`}
-          </AppText>
-        ) : meds.length === 0 ? (
-          <AppText color="inkSoft" style={styles.empty}>
-            Add the medications you take, then log each one with a single tap.
-          </AppText>
-        ) : (
-          <>
-            <AppText variant="label" color="inkSoft" accessibilityRole="header" style={styles.heading}>
-              Quick Log
+    <SwipeNav {...medicationSwipe} enabled={logging === null}>
+      <Screen>
+        <ScrollView contentContainerStyle={styles.content}>
+          <BackHeader title="Log medication" />
+          {loadFailed && meds.length === 0 ? (
+            <AppText color="inkSoft" style={styles.empty}>
+              {`${friendlyMessages.INTERNAL} Your medications are still on this phone.`}
             </AppText>
-            {meds.map((med) => {
-              const today = taken.get(med.id);
-              const done = justLogged.has(med.id);
-              return (
-                <View
-                  key={med.id}
-                  style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Edit ${doseLabel(med)}`}
-                    onPress={() => openEdit(med)}
-                    style={styles.info}>
-                    <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                      <Pill size={18} color={colors.clayInk} strokeWidth={2.2} />
-                    </View>
-                    <View style={styles.text}>
-                      <AppText style={styles.medName} numberOfLines={2}>
-                        {doseLabel(med)}
+          ) : meds.length === 0 ? (
+            <AppText color="inkSoft" style={styles.empty}>
+              Add the medications you take, then log each one with a single tap.
+            </AppText>
+          ) : (
+            <>
+              <AppText variant="label" color="inkSoft" accessibilityRole="header" style={styles.heading}>
+                Quick Log
+              </AppText>
+              {meds.map((med) => {
+                const today = taken.get(med.id);
+                const done = justLogged.has(med.id);
+                return (
+                  <View
+                    key={med.id}
+                    style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Edit ${doseLabel(med)}`}
+                      onPress={() => openEdit(med)}
+                      style={styles.info}>
+                      <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
+                        <Pill size={18} color={colors.clayInk} strokeWidth={2.2} />
+                      </View>
+                      <View style={styles.text}>
+                        <AppText style={styles.medName} numberOfLines={2}>
+                          {doseLabel(med)}
+                        </AppText>
+                        <AppText variant="caption" color="inkSoft">
+                          {medicationTypeLabel(med.type)}
+                          {today
+                            ? ` · Taken today ${formatTime(today.lastAt, today.tz)}${today.count > 1 ? ` (${today.count}×)` : ''}`
+                            : ''}
+                        </AppText>
+                      </View>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
+                      accessibilityState={{ disabled: done }}
+                      disabled={done}
+                      onPress={() => askWhen(med)}
+                      style={({ pressed }) => [
+                        styles.logButton,
+                        {
+                          backgroundColor: done ? colors.sageInk : colors.sageTint,
+                          opacity: pressed ? 0.8 : 1,
+                        },
+                      ]}>
+                      <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
+                        {done ? 'Logged ✓' : 'Log'}
                       </AppText>
-                      <AppText variant="caption" color="inkSoft">
-                        {medicationTypeLabel(med.type)}
-                        {today
-                          ? ` · Taken today ${formatTime(today.lastAt, today.tz)}${today.count > 1 ? ` (${today.count}×)` : ''}`
-                          : ''}
-                      </AppText>
-                    </View>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
-                    accessibilityState={{ disabled: done }}
-                    disabled={done}
-                    onPress={() => askWhen(med)}
-                    style={({ pressed }) => [
-                      styles.logButton,
-                      {
-                        backgroundColor: done ? colors.sageInk : colors.sageTint,
-                        opacity: pressed ? 0.8 : 1,
-                      },
-                    ]}>
-                    <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
-                      {done ? 'Logged ✓' : 'Log'}
-                    </AppText>
-                  </Pressable>
-                </View>
-              );
-            })}
-          </>
-        )}
-        <Pressable accessibilityRole="button" onPress={openAdd} style={styles.add}>
-          <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Log a new medication</AppText>
-        </Pressable>
-      </ScrollView>
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </>
+          )}
+          <Pressable accessibilityRole="button" onPress={openAdd} style={styles.add}>
+            <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Log a new medication</AppText>
+          </Pressable>
+        </ScrollView>
 
-      <MealTimeSheet
-        visible={logging !== null}
-        question="When did you take this?"
-        confirmLabel="Log it"
-        onConfirm={(at) => {
-          const med = logging;
-          setLogging(null);
-          if (med) logOnce(med, at);
-        }}
-        onClose={() => setLogging(null)}
-      />
-    </Screen>
+        <MealTimeSheet
+          visible={logging !== null}
+          question="When did you take this?"
+          confirmLabel="Log it"
+          onConfirm={(at) => {
+            const med = logging;
+            setLogging(null);
+            if (med) logOnce(med, at);
+          }}
+          onClose={() => setLogging(null)}
+        />
+      </Screen>
+    </SwipeNav>
   );
 }
 

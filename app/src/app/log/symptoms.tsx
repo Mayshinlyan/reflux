@@ -19,6 +19,7 @@ import { BodyMap } from '@/components/BodyMap';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { StepTracker } from '@/components/StepTracker';
+import { SwipeNav } from '@/components/SwipeNav';
 import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
 import { useToast } from '@/components/Toast';
@@ -29,6 +30,7 @@ import { useDb } from '@/db/DatabaseProvider';
 import { createSymptomLog, getSymptomLog, updateSymptomLog } from '@/db/repositories/symptoms';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { symptomsSwipe } from '@/lib/logSwipe';
 import { radius, space, typography, useColors } from '@/theme';
 
 const MAX_NOTE_LENGTH = 1000;
@@ -159,129 +161,136 @@ export default function LogSymptomsScreen() {
 
   const title = zone !== null ? zoneLabel(zone) : editingId !== undefined ? 'Edit symptoms' : 'Log symptoms';
 
-  return (
-    <Screen style={styles.screen}>
-      <BackHeader title={title} onBack={goBack} />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          ref={scroll}
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          {zone !== null ? (
-            <>
-              <AppText color="inkSoft" style={styles.subtitle}>
-                Tap anything that applies.
-              </AppText>
-              <View style={styles.chips}>
-                {zoneSymptoms(zone).map((key) => (
-                  <SymptomChip
-                    key={key}
-                    label={SYMPTOM_ITEMS.find((item) => item.key === key)?.label ?? key}
-                    selected={selected.has(key)}
-                    onToggle={() => toggleSymptom(key)}
-                  />
-                ))}
-              </View>
-            </>
-          ) : step === 1 ? (
-            <>
-              <AppText color="inkSoft" style={styles.subtitle}>
-                Where are you feeling it? Tap a spot.
-              </AppText>
-              <BodyMap counts={counts} onZonePress={setZone} />
-            </>
-          ) : step === 2 ? (
-            <>
-              <AppText variant="title" accessibilityRole="header">
-                Anything else going on?
-              </AppText>
-              <AppText color="inkSoft" style={styles.subtitle}>
-                Optional. Tap anything that fits.
-              </AppText>
-              <View style={styles.chips}>
-                {LIFESTYLE_TAGS.map((tag) => (
-                  <TagChip
-                    key={tag.key}
-                    label={tag.label}
-                    selected={tags.has(tag.key)}
-                    onPress={() => toggleTag(tag.key)}
-                  />
-                ))}
-              </View>
-            </>
-          ) : (
-            <>
-              <AppText variant="title" accessibilityRole="header">
-                Note (optional)
-              </AppText>
-              <AppText color="inkSoft" style={styles.subtitle}>
-                Anything worth remembering about this?
-              </AppText>
-              <TextInput
-                value={note}
-                onChangeText={setNote}
-                placeholder="Anything worth remembering about this…"
-                placeholderTextColor={colors.inkSoft}
-                multiline
-                maxLength={MAX_NOTE_LENGTH}
-                accessibilityLabel="Note"
-                style={[
-                  styles.note,
-                  { backgroundColor: colors.surface, borderColor: colors.hairline, color: colors.ink },
-                ]}
-              />
-            </>
-          )}
-        </ScrollView>
+  // Swiping between log screens is only for a fresh, untouched log, so it can't drop a half-finished one.
+  const pristine = editingId === undefined && !inner && selected.size === 0 && tags.size === 0 && !note;
 
-        <View style={styles.footer}>
-          {zone !== null ? (
-            <Button label="Done" onPress={() => setZone(null)} />
-          ) : (
-            <>
-              {editingId !== undefined ? (
-                // Editing: change one thing and save from wherever you are. Next is still there
-                // if you want to look at the other steps.
-                <>
-                  <Button
-                    label="Save changes"
-                    onPress={save}
-                    disabled={selected.size === 0}
-                    accessibilityHint={selected.size === 0 ? 'Choose at least one symptom first' : undefined}
-                  />
-                  {step < TOTAL_STEPS && (
-                    <View style={styles.secondary}>
-                      <Button
-                        label="Next"
-                        variant="secondary"
-                        onPress={() => setStep(step + 1)}
-                        disabled={step === 1 && selected.size === 0}
-                      />
-                    </View>
-                  )}
-                </>
-              ) : (
-                <Button
-                  label={step < TOTAL_STEPS ? 'Next' : 'Save entry'}
-                  onPress={next}
-                  disabled={step === 1 && selected.size === 0}
-                  accessibilityHint={
-                    step === 1 && selected.size === 0 ? 'Choose at least one symptom first' : undefined
-                  }
+  return (
+    <SwipeNav {...symptomsSwipe} enabled={pristine}>
+      <Screen style={styles.screen}>
+        <BackHeader title={title} onBack={goBack} />
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView
+            ref={scroll}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            {zone !== null ? (
+              <>
+                <AppText color="inkSoft" style={styles.subtitle}>
+                  Tap anything that applies.
+                </AppText>
+                <View style={styles.chips}>
+                  {zoneSymptoms(zone).map((key) => (
+                    <SymptomChip
+                      key={key}
+                      label={SYMPTOM_ITEMS.find((item) => item.key === key)?.label ?? key}
+                      selected={selected.has(key)}
+                      onToggle={() => toggleSymptom(key)}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : step === 1 ? (
+              <>
+                <AppText color="inkSoft" style={styles.subtitle}>
+                  Where are you feeling it? Tap a spot.
+                </AppText>
+                <BodyMap counts={counts} onZonePress={setZone} />
+              </>
+            ) : step === 2 ? (
+              <>
+                <AppText variant="title" accessibilityRole="header">
+                  Anything else going on?
+                </AppText>
+                <AppText color="inkSoft" style={styles.subtitle}>
+                  Optional. Tap anything that fits.
+                </AppText>
+                <View style={styles.chips}>
+                  {LIFESTYLE_TAGS.map((tag) => (
+                    <TagChip
+                      key={tag.key}
+                      label={tag.label}
+                      selected={tags.has(tag.key)}
+                      onPress={() => toggleTag(tag.key)}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : (
+              <>
+                <AppText variant="title" accessibilityRole="header">
+                  Note (optional)
+                </AppText>
+                <AppText color="inkSoft" style={styles.subtitle}>
+                  Anything worth remembering about this?
+                </AppText>
+                <TextInput
+                  value={note}
+                  onChangeText={setNote}
+                  placeholder="Anything worth remembering about this…"
+                  placeholderTextColor={colors.inkSoft}
+                  multiline
+                  maxLength={MAX_NOTE_LENGTH}
+                  accessibilityLabel="Note"
+                  style={[
+                    styles.note,
+                    { backgroundColor: colors.surface, borderColor: colors.hairline, color: colors.ink },
+                  ]}
                 />
-              )}
-              <StepTracker
-                step={step}
-                total={TOTAL_STEPS}
-                caption={STEP_CAPTIONS[step - 1] ?? ''}
-                label="Log symptoms progress"
-              />
-            </>
-          )}
-        </View>
-      </KeyboardAvoidingView>
-    </Screen>
+              </>
+            )}
+          </ScrollView>
+
+          <View style={styles.footer}>
+            {zone !== null ? (
+              <Button label="Done" onPress={() => setZone(null)} />
+            ) : (
+              <>
+                {editingId !== undefined ? (
+                  // Editing: change one thing and save from wherever you are. Next is still there
+                  // if you want to look at the other steps.
+                  <>
+                    <Button
+                      label="Save changes"
+                      onPress={save}
+                      disabled={selected.size === 0}
+                      accessibilityHint={
+                        selected.size === 0 ? 'Choose at least one symptom first' : undefined
+                      }
+                    />
+                    {step < TOTAL_STEPS && (
+                      <View style={styles.secondary}>
+                        <Button
+                          label="Next"
+                          variant="secondary"
+                          onPress={() => setStep(step + 1)}
+                          disabled={step === 1 && selected.size === 0}
+                        />
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <Button
+                    label={step < TOTAL_STEPS ? 'Next' : 'Save entry'}
+                    onPress={next}
+                    disabled={step === 1 && selected.size === 0}
+                    accessibilityHint={
+                      step === 1 && selected.size === 0 ? 'Choose at least one symptom first' : undefined
+                    }
+                  />
+                )}
+                <StepTracker
+                  step={step}
+                  total={TOTAL_STEPS}
+                  caption={STEP_CAPTIONS[step - 1] ?? ''}
+                  label="Log symptoms progress"
+                />
+              </>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </Screen>
+    </SwipeNav>
   );
 }
 

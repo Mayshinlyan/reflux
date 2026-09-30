@@ -74,7 +74,7 @@ describe('Settings', () => {
     expect(screen.getByRole('button', { name: 'My pet, Mochi' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Bedtime, 10:30 PM' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'My medications' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'History' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Your Logs' })).toBeTruthy();
   });
 
   it('groups bedtime, pet, foods and medications under Personalize, bedtime first', async () => {
@@ -88,10 +88,10 @@ describe('Settings', () => {
     expect(rows).toEqual(['Bedtime, 10:30 PM', 'My pet, Mochi', 'My foods', 'My medications']);
   });
 
-  it('opens History and My medications', async () => {
+  it('opens Your Logs and My medications', async () => {
     await render(<SettingsScreen />);
 
-    await press('button', 'History');
+    await press('button', 'Your Logs');
     await press('button', 'My medications');
 
     expect(mockPush.mock.calls).toEqual([['/history'], ['/log/medication']]);

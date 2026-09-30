@@ -311,7 +311,7 @@ describe('Medications: editing and removing', () => {
     await press('button', 'Remove from my list');
     expect(alert).toHaveBeenLastCalledWith(
       'Remove Omeprazole?',
-      'It leaves your list, but past logs stay in History.',
+      'It leaves your list, but past logs stay in Your Logs.',
       expect.any(Array),
     );
     await act(async () => pressAlertButton(alert, 'Remove'));
