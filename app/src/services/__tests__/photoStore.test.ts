@@ -1,4 +1,4 @@
-import { deletePhoto, savePhoto } from '../photoStore';
+import { deleteAllPhotos, deletePhoto, savePhoto } from '../photoStore';
 
 const mockCreate = jest.fn();
 const mockCopy = jest.fn();
@@ -10,6 +10,12 @@ jest.mock('expo-file-system', () => ({
   Directory: class {
     create(options: unknown) {
       mockCreate(options);
+    }
+    get exists() {
+      return mockExists;
+    }
+    delete() {
+      mockDelete('photos-dir');
     }
   },
   File: class {
@@ -56,6 +62,16 @@ describe('photoStore', () => {
     mockDelete.mockClear();
     mockExists = false;
     deletePhoto('file:///doc/photos/gone.jpg');
+    expect(mockDelete).not.toHaveBeenCalled();
+  });
+
+  it('removes the whole photos folder when it exists, and ignores a missing one', () => {
+    deleteAllPhotos();
+    expect(mockDelete).toHaveBeenCalledWith('photos-dir');
+
+    mockDelete.mockClear();
+    mockExists = false;
+    deleteAllPhotos();
     expect(mockDelete).not.toHaveBeenCalled();
   });
 });

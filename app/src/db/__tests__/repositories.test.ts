@@ -3,6 +3,7 @@ import { count } from 'drizzle-orm';
 
 import type { MealAnalysis } from '@/types/analysis';
 
+import { deleteAllData } from '../repositories/data';
 import {
   createFoodLog,
   deleteFoodLog,
@@ -29,7 +30,15 @@ import {
   removeTagFromLog,
   updateSymptomLog,
 } from '../repositories/symptoms';
-import { medicationLogs, medications, symptomLogItems, symptomLogTags } from '../schema';
+import {
+  appSettings,
+  foodLogs,
+  medicationLogs,
+  medications,
+  symptomLogItems,
+  symptomLogs,
+  symptomLogTags,
+} from '../schema';
 import { createTestDb } from './testDb';
 
 const DAY = { from: '2026-09-28T00:00:00.000Z', to: '2026-09-29T00:00:00.000Z' };
@@ -362,5 +371,62 @@ describe('medications', () => {
     // @ts-expect-error unknown type
     expect(() => createMedication(db, { name: 'X', type: 'vitamin' })).toThrow();
     expect(() => createMedication(db, { name: '  ', type: 'other' })).toThrow();
+  });
+});
+
+describe('delete all data', () => {
+  const seed = (db: ReturnType<typeof createTestDb>['db']) => {
+    createSymptomLog(db, {
+      items: [{ key: 'heartburn' }],
+      tags: ['large_meal'],
+      loggedAt: '2026-09-28T20:20:00.000Z',
+      tz: 'Europe/London',
+    });
+    createFoodLog(db, { entryType: 'diary', source: 'text', inputText: 'mint tea', analysis: mintTea, meta });
+    createFoodLog(db, {
+      entryType: 'check',
+      source: 'photo',
+      photoUri: 'file:///p.jpg',
+      analysis: mintTea,
+      meta,
+    });
+    const medId = createMedication(db, { name: 'Omeprazole', type: 'ppi' });
+    logMedication(db, medId, { takenAt: '2026-09-28T07:00:00.000Z', tz: 'Europe/London' });
+    setSetting(db, 'onboardingDone', true);
+    setSetting(db, 'petName', 'Biscuit');
+    setSetting(db, 'bedtime', '23:30');
+    setSetting(db, 'petSeenStage', 2);
+  };
+  const rows = (db: ReturnType<typeof createTestDb>['db']) =>
+    [symptomLogs, symptomLogItems, symptomLogTags, foodLogs, medications, medicationLogs].map(
+      (table) => db.select({ n: count() }).from(table).get()?.n,
+    );
+
+  it('removes every log, check, medication and its history', () => {
+    const { db } = createTestDb();
+    seed(db);
+    expect(rows(db).every((n) => (n ?? 0) > 0)).toBe(true);
+
+    deleteAllData(db);
+
+    expect(rows(db)).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+
+  it('resets the pet and bedtime but keeps onboarding done', () => {
+    const { db } = createTestDb();
+    seed(db);
+
+    deleteAllData(db);
+
+    expect(getAllSettings(db)).toEqual({ ...DEFAULT_SETTINGS, onboardingDone: true });
+    expect(db.select({ n: count() }).from(appSettings).get()?.n).toBe(1);
+  });
+
+  it('is safe on an empty database and lets new data be logged afterwards', () => {
+    const { db } = createTestDb();
+    expect(() => deleteAllData(db)).not.toThrow();
+
+    createSymptomLog(db, { items: [{ key: 'heartburn' }], loggedAt: DAY.from, tz: 'UTC' });
+    expect(listSymptomLogs(db, DAY)).toHaveLength(1);
   });
 });
