@@ -25,6 +25,10 @@ jest.mock('@/services/relayClient', () => ({ analyzeFood: jest.fn() }));
 jest.mock('@/services/photoPicker', () => ({ pickFoodPhoto: jest.fn() }));
 jest.mock('@/services/photoStore', () => ({ savePhoto: jest.fn(), deletePhoto: jest.fn() }));
 jest.mock('expo-image', () => ({ Image: () => null }));
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 // The real loader animates with Reanimated, which needs a native runtime; its own test covers it.
 jest.mock('@/components/FoodLoading', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -85,7 +89,7 @@ beforeEach(() => {
 
 afterEach(() => closeDb());
 
-describe('Log food screen: My foods shelf', () => {
+describe('Log food screen: My foods', () => {
   it('shows nothing when no foods are saved', async () => {
     await render(<LogFoodScreen />);
     expect(screen.queryByText('My foods')).toBeNull();
@@ -102,7 +106,8 @@ describe('Log food screen: My foods shelf', () => {
     saveFoodFromLog(mockDb, id);
     await render(<LogFoodScreen />);
 
-    await press('Mint tea');
+    await press('My foods, 1');
+    await press('Log Mint tea');
 
     const logs = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(logs).toHaveLength(2);
@@ -112,13 +117,16 @@ describe('Log food screen: My foods shelf', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the first few and a "See all" chip when there are more', async () => {
+  it('lists every saved food in the sheet, with its verdict', async () => {
     for (const name of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) createSavedFood(mockDb, name);
     await render(<LogFoodScreen />);
+    expect(screen.queryByRole('button', { name: 'Log G' })).toBeNull();
 
-    expect(screen.getByRole('button', { name: 'F' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'G' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'See all' })).toBeTruthy();
+    await press('My foods, 7');
+
+    expect(screen.getByRole('button', { name: 'Log A' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Log G' })).toBeTruthy();
+    expect(screen.getAllByText('No verdict')).toHaveLength(7);
   });
 });
 

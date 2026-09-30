@@ -23,6 +23,10 @@ jest.mock('@/services/relayClient', () => ({ analyzeFood: jest.fn() }));
 jest.mock('@/services/photoPicker', () => ({ pickFoodPhoto: jest.fn() }));
 jest.mock('@/services/photoStore', () => ({ savePhoto: jest.fn(), deletePhoto: jest.fn() }));
 jest.mock('expo-image', () => ({ Image: () => null }));
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 jest.mock('@/components/FoodLoading', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Text } = require('react-native');
