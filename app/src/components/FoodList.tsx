@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Utensils } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -8,14 +8,15 @@ import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
+import { MealTimePicker } from '@/components/MealTimePicker';
 import { Screen } from '@/components/Screen';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { VERDICT_LABELS } from '@/components/VerdictBadge';
 import { useDb } from '@/db/DatabaseProvider';
+import { listDiaryFoodLogs } from '@/db/repositories/food';
 import {
-  createSavedFood,
   listSavedFoods,
   logSavedFood,
   MAX_SAVED_FOOD_NAME,
@@ -23,36 +24,64 @@ import {
   renameSavedFood,
   type StoredSavedFood,
 } from '@/db/repositories/savedFoods';
+import type { AppDb } from '@/db/types';
 import { friendlyMessages } from '@/lib/errors';
+import { formatTime, localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
+import { formatMealTime } from '@/lib/mealTime';
+import { currentTimeZone } from '@/lib/time';
 import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
 
 /** How long a row says "Logged ✓" (and ignores taps) after a one-tap log, so a double-tap can't log twice. */
 const LOGGED_FLASH_MS = 2500;
+const DAY_MS = 86_400_000;
 
-type Form = { mode: 'add' } | { mode: 'edit'; id: number };
+/** What has been eaten today, per meal name (lower case): how many times and when last. */
+type EatenToday = Map<string, { count: number; lastAt: string; tz: string }>;
+
+function loadEatenToday(db: AppDb): EatenToday {
+  const now = new Date();
+  const tz = currentTimeZone();
+  const today = localDayKey(now.toISOString(), tz);
+  const meals = listDiaryFoodLogs(db, {
+    from: new Date(now.getTime() - 2 * DAY_MS).toISOString(),
+    to: new Date(now.getTime() + DAY_MS).toISOString(),
+  });
+  const eaten: EatenToday = new Map();
+  for (const meal of meals) {
+    if (localDayKey(meal.loggedAt, meal.tz) !== today) continue;
+    const key = meal.mealName.toLowerCase();
+    // Meals come oldest first, so the last one seen is the most recent.
+    eaten.set(key, { count: (eaten.get(key)?.count ?? 0) + 1, lastAt: meal.loggedAt, tz: meal.tz });
+  }
+  return eaten;
+}
 
 /**
- * "My foods": meals saved for one-tap logging. Tap Log to add one to the diary as eaten now (with the
- * verdict it was saved with, no new analysis); tap a food to rename or remove it, or swipe it left to delete;
- * "Add a food" saves a new one by name. Foods are also saved from History, with "Save to My foods".
+ * The Food screen when there are saved foods: "My foods" as cards, each logged with one tap (with the
+ * verdict it was saved with, no new analysis) at the time in the header. Tap a food to rename or remove it,
+ * swipe it left to delete; "Check a new food" opens the photo/text check, which can save to this list.
  */
-export default function MyFoodsScreen() {
+export function FoodList() {
   const colors = useColors();
   const db = useDb();
   const toast = useToast();
 
   const [foods, setFoods] = useState<StoredSavedFood[]>([]);
+  const [eaten, setEaten] = useState<EatenToday>(new Map());
   const [loadFailed, setLoadFailed] = useState(false);
   const [justLogged, setJustLogged] = useState<ReadonlySet<number>>(new Set());
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+  // When the meal was eaten, for logging after the fact. Null = now, worked out at the moment of logging.
+  const [eatenAt, setEatenAt] = useState<Date | null>(null);
 
-  const [form, setForm] = useState<Form | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
   const [name, setName] = useState('');
 
   const reload = useCallback(() => {
     try {
       setFoods(listSavedFoods(db));
+      setEaten(loadEatenToday(db));
       setLoadFailed(false);
     } catch (error) {
       logger.error('loadSavedFoods', error);
@@ -67,28 +96,34 @@ export default function MyFoodsScreen() {
   }, []);
 
   const trimmedName = name.trim();
-  const closeForm = () => setForm(null);
-  const openAdd = () => {
-    setName('');
-    setForm({ mode: 'add' });
-  };
   const openEdit = (food: StoredSavedFood) => {
     setName(food.mealName);
-    setForm({ mode: 'edit', id: food.id });
+    setEditing(food.id);
   };
+
+  const checkNew = () =>
+    router.push({
+      pathname: '/log/food',
+      params: eatenAt ? { check: '1', at: eatenAt.toISOString() } : { check: '1' },
+    });
 
   const logOnce = (food: StoredSavedFood) => {
     // `disabled` only applies after a re-render, so two taps in the same instant must be caught here.
     if (timers.current.has(food.id)) return;
     try {
-      logSavedFood(db, food.id);
+      logSavedFood(db, food.id, eatenAt?.toISOString());
     } catch (error) {
       logger.error('logSavedFood', error);
       Alert.alert("Couldn't log", friendlyMessages.INTERNAL);
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    toast(`${food.mealName} logged`);
+    // An earlier meal doesn't show under "Eaten today", so the toast says when it was logged for.
+    toast(
+      eatenAt
+        ? `${food.mealName} logged for ${formatMealTime(eatenAt, new Date())}`
+        : `${food.mealName} logged`,
+    );
     setJustLogged((current) => new Set(current).add(food.id));
     timers.current.set(
       food.id,
@@ -101,21 +136,21 @@ export default function MyFoodsScreen() {
         });
       }, LOGGED_FLASH_MS),
     );
+    reload();
   };
 
-  const save = () => {
-    if (form === null || !trimmedName) return;
+  const saveName = () => {
+    if (editing === null || !trimmedName) return;
     try {
-      if (form.mode === 'add') createSavedFood(db, trimmedName);
-      else renameSavedFood(db, form.id, trimmedName);
+      renameSavedFood(db, editing, trimmedName);
     } catch (error) {
-      logger.error(form.mode === 'add' ? 'createSavedFood' : 'renameSavedFood', error);
+      logger.error('renameSavedFood', error);
       Alert.alert("Couldn't save", friendlyMessages.INTERNAL);
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    toast(form.mode === 'add' ? `${trimmedName} added` : 'Changes saved');
-    setForm(null);
+    toast('Changes saved');
+    setEditing(null);
     reload();
   };
 
@@ -135,7 +170,7 @@ export default function MyFoodsScreen() {
             return;
           }
           toast('Removed from your list');
-          setForm(null);
+          setEditing(null);
           reload();
         },
       },
@@ -144,18 +179,19 @@ export default function MyFoodsScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <BackHeader title="My foods" />
+      <ScrollView contentContainerStyle={styles.content}>
+        <BackHeader title="Food" right={<MealTimePicker value={eatenAt} onChange={setEatenAt} />} />
         {loadFailed && foods.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
             {`${friendlyMessages.INTERNAL} Your foods are still on this phone.`}
           </AppText>
         ) : foods.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
-            Add the foods you eat often, or save a meal from History, then log each one with a single tap.
+            Check a food, then save it to log it again with a single tap.
           </AppText>
         ) : (
           foods.map((food) => {
+            const today = eaten.get(food.mealName.toLowerCase());
             const done = justLogged.has(food.id);
             return (
               <SwipeToDelete
@@ -184,6 +220,9 @@ export default function MyFoodsScreen() {
                       </AppText>
                       <AppText variant="caption" color="inkSoft">
                         {food.overallVerdict ? VERDICT_LABELS[food.overallVerdict] : 'No verdict'}
+                        {today
+                          ? ` · Eaten today ${formatTime(today.lastAt, today.tz)}${today.count > 1 ? ` (${today.count}×)` : ''}`
+                          : ''}
                       </AppText>
                     </View>
                   </Pressable>
@@ -209,14 +248,14 @@ export default function MyFoodsScreen() {
             );
           })
         )}
-        <Pressable accessibilityRole="button" onPress={openAdd} style={styles.add}>
-          <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Add a food</AppText>
+        <Pressable accessibilityRole="button" onPress={checkNew} style={styles.add}>
+          <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Check a new food</AppText>
         </Pressable>
       </ScrollView>
 
-      <BottomSheet visible={form !== null} onClose={closeForm}>
+      <BottomSheet visible={editing !== null} onClose={() => setEditing(null)}>
         <AppText variant="title" accessibilityRole="header">
-          {form?.mode === 'edit' ? 'Edit food' : 'Add a food'}
+          Edit food
         </AppText>
         <View style={styles.sheetField}>
           <TextField
@@ -226,19 +265,17 @@ export default function MyFoodsScreen() {
             placeholder="e.g. oatmeal with banana"
             maxLength={MAX_SAVED_FOOD_NAME}
             returnKeyType="done"
-            onSubmitEditing={save}
+            onSubmitEditing={saveName}
           />
         </View>
-        <Button label="Save" onPress={save} disabled={!trimmedName} />
-        {form?.mode === 'edit' && (
-          <View style={styles.secondary}>
-            <Button
-              label="Remove from my list"
-              variant="quietDanger"
-              onPress={() => form.mode === 'edit' && confirmRemove(form.id, trimmedName)}
-            />
-          </View>
-        )}
+        <Button label="Save" onPress={saveName} disabled={!trimmedName} />
+        <View style={styles.secondary}>
+          <Button
+            label="Remove from my list"
+            variant="quietDanger"
+            onPress={() => editing !== null && confirmRemove(editing, trimmedName)}
+          />
+        </View>
       </BottomSheet>
     </Screen>
   );
