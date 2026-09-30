@@ -1,4 +1,4 @@
-import { Activity, Carrot, type LucideIcon, Pill, Trash2 } from 'lucide-react-native';
+import { Activity, Carrot, type LucideIcon, Pill, RotateCw, Trash2 } from 'lucide-react-native';
 import { type ReactNode, useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -23,13 +23,20 @@ type Props = {
   side?: ReactNode;
   /** When set, swiping the row left reveals a Delete button that calls this. */
   onDelete?: () => void;
+  /** When set, swiping the row right reveals a "Log again" button that calls this. */
+  onRelog?: () => void;
 };
 
 /** One row in the History timeline (the mockup's `.row-item`). */
-export function TimelineItem({ kind, title, time, onPress, side, onDelete }: Props) {
+export function TimelineItem({ kind, title, time, onPress, side, onDelete, onRelog }: Props) {
   const colors = useColors();
   const { icon: Icon, bg, fg, noun } = KIND_STYLE[kind];
   const swipeable = useRef<SwipeableMethods>(null);
+  const canSwipe = Boolean(onDelete || onRelog);
+  const actions = [
+    ...(onRelog ? [{ name: 'relog', label: 'Log again' }] : []),
+    ...(onDelete ? [{ name: 'delete', label: 'Delete' }] : []),
+  ];
   const row = (
     <Pressable
       onPress={onPress}
@@ -37,13 +44,14 @@ export function TimelineItem({ kind, title, time, onPress, side, onDelete }: Pro
       accessibilityLabel={`${noun}: ${title}, ${time}`}
       accessibilityHint="Shows details"
       // Swiping isn't possible with a screen reader, so offer the same action from its actions menu.
-      accessibilityActions={onDelete ? [{ name: 'delete', label: 'Delete' }] : undefined}
+      accessibilityActions={canSwipe ? actions : undefined}
       onAccessibilityAction={(event) => {
         if (event.nativeEvent.actionName === 'delete') onDelete?.();
+        if (event.nativeEvent.actionName === 'relog') onRelog?.();
       }}
       style={({ pressed }) => [
         styles.row,
-        !onDelete && styles.gap,
+        !canSwipe && styles.gap,
         { backgroundColor: colors.surface, borderColor: colors.hairline, opacity: pressed ? 0.85 : 1 },
       ]}>
       <View style={[styles.icon, { backgroundColor: colors[bg] }]}>
@@ -60,28 +68,51 @@ export function TimelineItem({ kind, title, time, onPress, side, onDelete }: Pro
       {side}
     </Pressable>
   );
-  if (!onDelete) return row;
+  if (!canSwipe) return row;
 
   return (
     <ReanimatedSwipeable
       ref={swipeable}
       friction={2}
+      overshootLeft={false}
       overshootRight={false}
+      leftThreshold={40}
       rightThreshold={40}
       containerStyle={styles.gap}
-      renderRightActions={() => (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Delete ${title}`}
-          onPress={() => {
-            swipeable.current?.close();
-            onDelete();
-          }}
-          style={[styles.deleteAction, { backgroundColor: colors.cta }]}>
-          <Trash2 size={20} color={colors.ctaInk} strokeWidth={2.2} />
-          <AppText style={[styles.deleteText, { color: colors.ctaInk }]}>Delete</AppText>
-        </Pressable>
-      )}>
+      renderLeftActions={
+        onRelog
+          ? () => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Log ${title} again`}
+                onPress={() => {
+                  swipeable.current?.close();
+                  onRelog();
+                }}
+                style={[styles.relogAction, { backgroundColor: colors.surface2 }]}>
+                <RotateCw size={20} color={colors.ink} strokeWidth={2.2} />
+                <AppText style={styles.actionText}>Log again</AppText>
+              </Pressable>
+            )
+          : undefined
+      }
+      renderRightActions={
+        onDelete
+          ? () => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Delete ${title}`}
+                onPress={() => {
+                  swipeable.current?.close();
+                  onDelete();
+                }}
+                style={[styles.deleteAction, { backgroundColor: colors.cta }]}>
+                <Trash2 size={20} color={colors.ctaInk} strokeWidth={2.2} />
+                <AppText style={[styles.actionText, { color: colors.ctaInk }]}>Delete</AppText>
+              </Pressable>
+            )
+          : undefined
+      }>
       {row}
     </ReanimatedSwipeable>
   );
@@ -97,7 +128,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
   },
-  deleteText: { ...typography.label, fontSize: 13 },
+  relogAction: {
+    width: 88,
+    minHeight: minTouchTarget,
+    marginRight: space.s1,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  actionText: { ...typography.label, fontSize: 13 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

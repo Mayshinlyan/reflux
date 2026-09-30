@@ -136,6 +136,31 @@ export function promoteCheckToDiary(db: AppDb, id: number, eatenAt: string = now
   if (updated.length === 0) throw new Error(`Food check ${id} not found`);
 }
 
+/**
+ * "Log again": saves a copy of a meal as a new diary entry eaten now. It reuses the stored analysis
+ * (and photo file) so the relay is never called, which means the verdict is the one from the first time.
+ */
+export function relogFood(db: AppDb, id: number): number {
+  const source = getFoodLog(db, id);
+  if (!source) throw new Error(`Food log ${id} not found`);
+  return db
+    .insert(foodLogs)
+    .values({
+      entryType: 'diary',
+      source: source.source,
+      inputText: source.inputText,
+      photoUri: source.photoUri,
+      mealName: source.mealName,
+      overallVerdict: source.overallVerdict,
+      analysis: source.analysis,
+      analysisMeta: source.analysisMeta,
+      loggedAt: nowIso(),
+      tz: currentTimeZone(),
+    })
+    .returning({ id: foodLogs.id })
+    .get().id;
+}
+
 export function deleteFoodLog(db: AppDb, id: number): void {
   db.delete(foodLogs).where(eq(foodLogs.id, id)).run();
 }

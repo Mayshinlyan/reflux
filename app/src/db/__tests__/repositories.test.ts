@@ -11,6 +11,7 @@ import {
   getFoodLog,
   listDiaryFoodLogs,
   promoteCheckToDiary,
+  relogFood,
   updateFoodCheck,
 } from '../repositories/food';
 import {
@@ -358,6 +359,60 @@ describe('unchecked meals', () => {
       photoUri: 'file:///p.jpg',
       inputText: null,
     });
+  });
+});
+
+describe('relogFood', () => {
+  it('copies a checked meal as a new diary entry eaten now, keeping its verdict and photo', () => {
+    const { db } = createTestDb();
+    const id = createFoodLog(db, {
+      entryType: 'diary',
+      source: 'photo',
+      photoUri: 'file:///p.jpg',
+      analysis: mintTea,
+      meta,
+      loggedAt: '2020-01-01T08:00:00.000Z',
+      tz: 'Asia/Tokyo',
+    });
+
+    const newId = relogFood(db, id);
+
+    expect(newId).not.toBe(id);
+    const copy = getFoodLog(db, newId);
+    expect(copy).toMatchObject({
+      entryType: 'diary',
+      source: 'photo',
+      photoUri: 'file:///p.jpg',
+      mealName: 'Mint tea',
+      overallVerdict: 'caution',
+      analysis: mintTea,
+    });
+    expect(copy!.loggedAt > '2020-01-01T08:00:00.000Z').toBe(true);
+    expect(getFoodLog(db, id)?.loggedAt).toBe('2020-01-01T08:00:00.000Z');
+  });
+
+  it('copies a meal saved without a verdict', () => {
+    const { db } = createTestDb();
+    const id = createUncheckedMeal(db, { source: 'text', inputText: 'toast' });
+
+    const copy = getFoodLog(db, relogFood(db, id));
+
+    expect(copy).toMatchObject({ mealName: 'toast', overallVerdict: null, analysis: null });
+  });
+
+  it('keeps the copy when the original is deleted', () => {
+    const { db } = createTestDb();
+    const id = createUncheckedMeal(db, { source: 'text', inputText: 'toast' });
+    const newId = relogFood(db, id);
+
+    deleteFoodLog(db, id);
+
+    expect(getFoodLog(db, newId)).toBeDefined();
+  });
+
+  it('throws for a meal that does not exist', () => {
+    const { db } = createTestDb();
+    expect(() => relogFood(db, 999)).toThrow('not found');
   });
 });
 

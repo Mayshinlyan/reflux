@@ -8,11 +8,12 @@ import { View } from 'react-native';
  */
 const ReanimatedSwipeableStub = forwardRef<
   { close: () => void },
-  { children?: ReactNode; renderRightActions?: () => ReactNode }
->(function ReanimatedSwipeableStub({ children, renderRightActions }, ref) {
+  { children?: ReactNode; renderLeftActions?: () => ReactNode; renderRightActions?: () => ReactNode }
+>(function ReanimatedSwipeableStub({ children, renderLeftActions, renderRightActions }, ref) {
   useImperativeHandle(ref, () => ({ close: () => {} }));
   return (
     <View>
+      {renderLeftActions?.()}
       {children}
       {renderRightActions?.()}
     </View>
