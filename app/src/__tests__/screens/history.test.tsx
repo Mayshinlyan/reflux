@@ -12,7 +12,13 @@ import { lightColors } from '@/theme';
 let mockDb: AppDb;
 let closeDb: () => void;
 
-jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
+jest.mock('@/db/DatabaseProvider', () => ({
+  useDb: () => mockDb,
+  useSettings: () => ({
+    settings: { bedtime: '22:30', lateMealWindowMinutes: 180 },
+    update: jest.fn(),
+  }),
+}));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('@/components/Toast', () => ({ useToast: () => jest.fn() }));
@@ -271,8 +277,10 @@ describe('History: symptom entry', () => {
   });
 });
 
-const seedMeal = (overrides: { photoUri?: string | null } = {}) =>
+const seedMeal = (overrides: { photoUri?: string | null; loggedAt?: string; tz?: string } = {}) =>
   createFoodLog(mockDb, {
+    loggedAt: overrides.loggedAt,
+    tz: overrides.tz,
     entryType: 'diary',
     source: overrides.photoUri ? 'photo' : 'text',
     inputText: overrides.photoUri ? null : 'dim sum',
@@ -304,6 +312,23 @@ describe('History: saved meals', () => {
 
     expect(screen.getByText('Steamed dim sum')).toBeTruthy();
     expect(screen.getByLabelText('Caution')).toBeTruthy();
+  });
+
+  it('badges a meal eaten within 3 hours of bedtime, in the list and the detail', async () => {
+    seedMeal({ loggedAt: new Date().toISOString().slice(0, 10) + 'T20:00:00Z', tz: 'UTC' });
+    await render(<HistoryScreen />);
+
+    expect(screen.getByLabelText('Late meal, close to bedtime')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
+    expect(screen.getAllByLabelText('Late meal, close to bedtime')).toHaveLength(2);
+  });
+
+  it('does not badge an earlier meal', async () => {
+    seedMeal({ loggedAt: new Date().toISOString().slice(0, 10) + 'T12:00:00Z', tz: 'UTC' });
+    await render(<HistoryScreen />);
+
+    expect(screen.queryByLabelText('Late meal, close to bedtime')).toBeNull();
   });
 
   it('opens the full analysis: overall reasoning, items, ingredients and the note', async () => {
