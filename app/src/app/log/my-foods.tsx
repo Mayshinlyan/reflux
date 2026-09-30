@@ -9,6 +9,7 @@ import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
+import { MealResultCard } from '@/components/MealResultCard';
 import { Screen } from '@/components/Screen';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TextField } from '@/components/TextField';
@@ -47,6 +48,8 @@ export default function MyFoodsScreen() {
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
   const [editing, setEditing] = useState<StoredSavedFood | null>(null);
+  // What the sheet shows. Not cleared on close, so the sheet keeps its content while it slides away.
+  const [sheetFood, setSheetFood] = useState<StoredSavedFood | null>(null);
   const [name, setName] = useState('');
 
   const reload = useCallback(() => {
@@ -70,6 +73,7 @@ export default function MyFoodsScreen() {
   const openEdit = (food: StoredSavedFood) => {
     setName(food.mealName);
     setEditing(food);
+    setSheetFood(food);
   };
   const checkFood = () => {
     if (!editing) return;
@@ -230,9 +234,23 @@ export default function MyFoodsScreen() {
       </ScrollView>
 
       <BottomSheet visible={editing !== null} onClose={closeForm}>
-        <AppText variant="title" accessibilityRole="header">
-          Edit food
+        {/* The saved verdict first, like a meal in History; editing sits below it. */}
+        <AppText variant="title" accessibilityRole="header" style={styles.sheetTitle}>
+          {sheetFood?.mealName}
         </AppText>
+        {sheetFood?.photoUri ? (
+          <Image
+            source={{ uri: sheetFood.photoUri }}
+            style={styles.sheetPhoto}
+            contentFit="cover"
+            accessibilityLabel="Your food photo"
+          />
+        ) : null}
+        {sheetFood?.analysis ? (
+          <MealResultCard analysis={sheetFood.analysis} showTitle={false} />
+        ) : (
+          <AppText color="inkSoft">No verdict yet.</AppText>
+        )}
         <View style={styles.sheetField}>
           <TextField
             label="Name"
@@ -248,7 +266,7 @@ export default function MyFoodsScreen() {
         <View style={styles.secondary}>
           {/* A photo or a description goes through the verdict flow; the food keeps its name. */}
           <Button
-            label={editing?.overallVerdict ? 'Check again' : 'Get a verdict'}
+            label={sheetFood?.overallVerdict ? 'Check again' : 'Get a verdict'}
             variant="secondary"
             onPress={checkFood}
           />
@@ -300,6 +318,8 @@ const styles = StyleSheet.create({
   logText: { ...typography.label, fontSize: 14, fontFamily: 'Nunito_800ExtraBold' },
   add: { minHeight: minTouchTarget, justifyContent: 'center', paddingVertical: space.s1 },
   addText: { ...typography.bodyEm, fontSize: 15, fontFamily: 'Nunito_700Bold' },
+  sheetTitle: { marginBottom: space.s1 },
+  sheetPhoto: { width: '100%', height: 180, borderRadius: radius.lg, marginBottom: space.s1 },
   sheetField: { marginTop: space.s2, marginBottom: space.s1 },
   secondary: { marginTop: space.s1, gap: space.s1 },
 });

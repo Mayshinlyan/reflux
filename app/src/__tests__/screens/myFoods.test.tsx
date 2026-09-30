@@ -4,8 +4,9 @@ import { Alert, type AlertButton } from 'react-native';
 import MyFoodsScreen from '@/app/log/my-foods';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
-import { createSavedFood, listSavedFoods } from '@/db/repositories/savedFoods';
+import { createSavedFood, listSavedFoods, saveCheckedFood } from '@/db/repositories/savedFoods';
 import type { AppDb } from '@/db/types';
+import type { MealAnalysis } from '@/types/analysis';
 
 let mockDb: AppDb;
 let closeDb: () => void;
@@ -106,6 +107,38 @@ describe('My foods', () => {
     await press('Edit Oatmeal');
     await fireEvent.changeText(screen.getByLabelText('Name'), '   ');
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
+  it("shows a food's verdict when it is tapped", async () => {
+    const analysis: MealAnalysis = {
+      isFood: true,
+      mealName: 'Mint tea',
+      items: [
+        {
+          name: 'Mint tea',
+          ingredients: [{ name: 'Peppermint', matchedCategories: ['mint'] }],
+          verdict: 'caution',
+          reasoning: 'Peppermint relaxes the valve.',
+          matchedTriggers: [{ category: 'mint', evidence: 'peppermint' }],
+        },
+      ],
+      overall: { verdict: 'caution', confidence: 'high', reasoning: 'Mint is a common trigger.' },
+    };
+    saveCheckedFood(mockDb, {
+      source: 'text',
+      inputText: 'mint tea',
+      analysis,
+      meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
+    });
+    createSavedFood(mockDb, 'Oatmeal');
+    await render(<MyFoodsScreen />);
+
+    await press('Edit Mint tea');
+    expect(screen.getByText('Mint is a common trigger.')).toBeTruthy();
+    expect(screen.getByText('Peppermint relaxes the valve.')).toBeTruthy();
+
+    await press('Edit Oatmeal');
+    expect(screen.getByText('No verdict yet.')).toBeTruthy();
   });
 
   it('renames a food', async () => {
