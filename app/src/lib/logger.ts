@@ -15,7 +15,8 @@ export const logger = {
     const code: ErrorCode = error instanceof AppError ? error.code : 'INTERNAL';
     const requestId = error instanceof AppError ? error.requestId : undefined;
     if (__DEV__) {
-      console.error(`[${operation}] ${code}`, error);
+      // warn, not error: handled errors shouldn't trigger the red LogBox error screen
+      console.warn(`[${operation}] ${code}`, error);
       return;
     }
     Sentry.captureException(new Error(`${operation}: ${code}`), {
