@@ -2,7 +2,10 @@ import { convertFormDataAsync } from 'expo/src/winter/fetch/convertFormData';
 
 import { friendlyMessages } from '@/lib/errors';
 
+import { getNetworkStateAsync } from 'expo-network';
+
 import { analyzeFood } from '../relayClient';
+import { getIdToken } from '../firebase';
 
 // A stand-in with the parts of an expo-file-system File that Expo's multipart encoder uses.
 jest.mock('expo-file-system', () => ({
@@ -18,6 +21,7 @@ jest.mock('expo-file-system', () => ({
     }
   },
 }));
+jest.mock('expo-network', () => ({ getNetworkStateAsync: jest.fn() }));
 jest.mock('../firebase', () => ({ getIdToken: jest.fn().mockResolvedValue('test-token') }));
 
 const analysis = {
@@ -128,6 +132,37 @@ describe('analyzeFood', () => {
     fetchMock.mockRejectedValue(new TypeError('Network request failed'));
 
     await expect(analyzeFood({ text: 'a' })).rejects.toMatchObject({ code: 'NETWORK' });
+  });
+
+  it('reports OFFLINE when the request fails and the phone has no connection', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Network request failed'));
+    (getNetworkStateAsync as jest.Mock).mockResolvedValueOnce({ isConnected: false });
+
+    const error = await analyzeFood({ text: 'a' }).catch((e) => e);
+
+    expect(error.code).toBe('OFFLINE');
+    expect(error.friendlyMessage).toBe(friendlyMessages.OFFLINE);
+  });
+
+  it('reports OFFLINE when the first-run sign-in fails without a connection', async () => {
+    (getIdToken as jest.Mock).mockRejectedValueOnce(new Error('auth/network-request-failed'));
+    (getNetworkStateAsync as jest.Mock).mockResolvedValueOnce({
+      isConnected: true,
+      isInternetReachable: false,
+    });
+
+    await expect(analyzeFood({ text: 'a' })).rejects.toMatchObject({ code: 'OFFLINE' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the sign-in error when the phone is online', async () => {
+    (getIdToken as jest.Mock).mockRejectedValueOnce(new Error('AUTH_FAILED'));
+    (getNetworkStateAsync as jest.Mock).mockResolvedValueOnce({
+      isConnected: true,
+      isInternetReachable: true,
+    });
+
+    await expect(analyzeFood({ text: 'a' })).rejects.toThrow('AUTH_FAILED');
   });
 
   it('rethrows the caller abort untouched', async () => {

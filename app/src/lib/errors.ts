@@ -34,7 +34,7 @@ export const friendlyMessages: Record<ErrorCode, string> = {
   AI_UPSTREAM_ERROR: 'Something went wrong looking at your food. Please try again.',
   AI_INVALID_OUTPUT: 'Something went wrong looking at your food. Please try again.',
   INTERNAL: 'Something went wrong. Please try again.',
-  OFFLINE: 'Checking food needs an internet connection. Your logs still save offline.',
+  OFFLINE: 'Checking food needs an internet connection. Symptoms and medications still save offline.',
   NETWORK: "We couldn't reach the server. Please check your connection and try again.",
   DB_MIGRATION_FAILED:
     "We couldn't finish updating the app's storage. Your logs are safe. Please close the app and open it again.",

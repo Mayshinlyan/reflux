@@ -15,7 +15,12 @@ import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { useDb } from '@/db/DatabaseProvider';
-import { createFoodLog, promoteCheckToDiary, updateFoodCheck } from '@/db/repositories/food';
+import {
+  createFoodLog,
+  createUncheckedMeal,
+  promoteCheckToDiary,
+  updateFoodCheck,
+} from '@/db/repositories/food';
 import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -40,6 +45,8 @@ const copy = {
   saveLabel: 'I ate this',
   updateLabel: 'Update verdict',
   skipLabel: 'Not now',
+  saveUncheckedLabel: 'Save without a verdict',
+  savedUnchecked: 'Saved without a verdict',
   saved: 'Added to your food diary',
 } as const;
 
@@ -200,6 +207,33 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
     router.back();
   };
 
+  /** Saves what was typed or photographed as a plain diary entry, with no relay call (works offline). */
+  const saveUnchecked = () => {
+    const target: Analyzed | null =
+      analyzed?.source === 'photo' ? analyzed : trimmed ? { source: 'text', text: trimmed } : null;
+    if (!target || busy || saving.current) return;
+    saving.current = true;
+    let storedPhoto: string | null = null;
+    try {
+      if (target.source === 'photo') storedPhoto = savePhoto(target.uri);
+      createUncheckedMeal(db, {
+        source: target.source,
+        inputText: target.source === 'text' ? target.text : null,
+        photoUri: storedPhoto,
+      });
+    } catch {
+      saving.current = false;
+      if (storedPhoto) deletePhoto(storedPhoto);
+      // Code only: a raw error could echo the food text or a file path.
+      logger.error('saveFoodLog', new AppError('INTERNAL'));
+      toast("We couldn't save that. Please try again.");
+      return;
+    }
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    toast(copy.savedUnchecked);
+    router.back();
+  };
+
   /**
    * "Update verdict": the AI re-checks the food with the user's comment and the new verdict is shown
    * (and stored on the check) before anything goes into the diary. Comments build on each other.
@@ -323,6 +357,7 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
                 label={state.status === 'error' ? 'Try again' : copy.analyzeLabel}
                 onPress={checkPhotoWithDetails}
               />
+              <Button label={copy.saveUncheckedLabel} variant="secondary" onPress={saveUnchecked} />
               <Button label="Choose a different photo" variant="secondary" onPress={tryAnother} />
             </>
           ) : (
@@ -366,6 +401,12 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
                   state.status === 'error' && analyzed?.source === 'text' ? 'Try again' : copy.analyzeLabel
                 }
                 onPress={checkText}
+                disabled={!trimmed}
+              />
+              <Button
+                label={copy.saveUncheckedLabel}
+                variant="secondary"
+                onPress={saveUnchecked}
                 disabled={!trimmed}
               />
             </>

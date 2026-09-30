@@ -34,11 +34,10 @@ export function usePetState(): PetState & {
         const medications = listMedicationLogs(db, ALL_TIME);
         const derived = derivePetState(
           {
-            food: food.map((log) => ({
-              loggedAt: log.loggedAt,
-              tz: log.tz,
-              verdict: log.overallVerdict,
-            })),
+            // A meal saved without a check has no verdict, so it doesn't move the pet.
+            food: food.flatMap((log) =>
+              log.overallVerdict ? [{ loggedAt: log.loggedAt, tz: log.tz, verdict: log.overallVerdict }] : [],
+            ),
             symptoms: symptoms.map((log) => ({
               loggedAt: log.loggedAt,
               scores: log.items.map((item) => item.score),

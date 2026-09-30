@@ -78,11 +78,12 @@ export const foodLogs = sqliteTable(
     /** Local file URI of the (EXIF-stripped) photo in app storage. */
     photoUri: text('photo_uri'),
     mealName: text('meal_name').notNull(),
-    overallVerdict: text('overall_verdict', { enum: ['ok', 'caution', 'trigger'] }).notNull(),
+    /** Null for a meal saved without a check (e.g. offline): it has no verdict, analysis or meta. */
+    overallVerdict: text('overall_verdict', { enum: ['ok', 'caution', 'trigger'] }),
     /** JSON: items, ingredients, verdicts, reasoning, matched triggers, overall. */
-    analysis: text('analysis', { mode: 'json' }).notNull(),
+    analysis: text('analysis', { mode: 'json' }),
     /** JSON: { model, promptVersion, rulesetVersion } — which AI produced this result. */
-    analysisMeta: text('analysis_meta', { mode: 'json' }).notNull(),
+    analysisMeta: text('analysis_meta', { mode: 'json' }),
     loggedAt: text('logged_at').notNull(),
     tz: text('tz').notNull(),
     ...timestamps,

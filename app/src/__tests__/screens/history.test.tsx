@@ -4,7 +4,8 @@ import { Alert, type AlertButton } from 'react-native';
 
 import HistoryScreen from '@/app/history';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { createFoodLog } from '@/db/repositories/food';
+import { createFoodLog, createUncheckedMeal } from '@/db/repositories/food';
+import { createMedication, logMedication } from '@/db/repositories/medications';
 import { createSymptomLog, getSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 import { lightColors } from '@/theme';
@@ -362,5 +363,27 @@ describe('History: saved meals', () => {
     await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
 
     expect(screen.queryByLabelText('Your meal photo')).toBeNull();
+  });
+});
+
+describe('History: meals saved without a verdict', () => {
+  it('lists the meal with no verdict badge and says so in the detail', async () => {
+    createUncheckedMeal(mockDb, { source: 'text', inputText: 'grilled fish' });
+    await render(<HistoryScreen />);
+
+    expect(screen.queryByText('Caution')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: grilled fish/ }));
+
+    expect(screen.getByText('Saved without a verdict.')).toBeTruthy();
+  });
+});
+
+describe('History: medications', () => {
+  it('lists a logged medication', async () => {
+    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    logMedication(mockDb, id);
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('Omeprazole 20 mg')).toBeTruthy();
   });
 });
