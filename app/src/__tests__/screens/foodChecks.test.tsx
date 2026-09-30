@@ -90,7 +90,7 @@ describe('Food screen: checks and "I ate this"', () => {
   it('"mint tea" → Caution citing mint → "I ate this" puts it in the diary with no second relay call', async () => {
     analyze.mockResolvedValue(mintTea);
     await render(<LogFoodScreen />);
-    expect(screen.getByText('Food')).toBeTruthy();
+    expect(screen.getByText('Log food')).toBeTruthy();
 
     await type('mint tea');
     await press('Analyze meal');

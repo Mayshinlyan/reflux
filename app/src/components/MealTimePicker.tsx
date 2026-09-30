@@ -1,14 +1,15 @@
-import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Clock } from 'lucide-react-native';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
-import { earliestMealTime, formatMealTime, withTimeOf } from '@/lib/mealTime';
+import { earliestMealTime, formatMealTime } from '@/lib/mealTime';
 import { radius, space, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { BottomSheet } from './BottomSheet';
 import { Button } from './Button';
+import { pickTimeAndroid } from './MealTimeSheet';
 
 type Props = {
   /** When the meal was eaten; null means "now", worked out when it is saved. */
@@ -36,29 +37,8 @@ export function MealTimePicker({
   const [draft, setDraft] = useState(() => new Date());
   const now = new Date();
 
-  // Android has no inline wheel: the date dialog, then the time dialog, then it's set.
-  const openAndroid = () => {
-    const start = value ?? new Date();
-    DateTimePickerAndroid.open({
-      value: start,
-      mode: 'date',
-      minimumDate: earliestMealTime(new Date()),
-      maximumDate: new Date(),
-      onValueChange: (_, day) =>
-        DateTimePickerAndroid.open({
-          value: withTimeOf(day, start),
-          mode: 'time',
-          onValueChange: (__, time) => {
-            const picked = withTimeOf(day, time);
-            // The time dialog can't be capped, so a later-today pick is pulled back to now.
-            onChange(picked.getTime() > Date.now() ? new Date() : picked);
-          },
-        }),
-    });
-  };
-
   const openSheet = () => {
-    if (Platform.OS === 'android') return openAndroid();
+    if (Platform.OS === 'android') return pickTimeAndroid(value ?? new Date(), onChange);
     setDraft(value ?? new Date());
     setOpen(true);
   };

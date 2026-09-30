@@ -2,12 +2,11 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 import LogFoodScreen from '@/app/log/food';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { createFoodLog, listDiaryFoodLogs } from '@/db/repositories/food';
-import { createSavedFood, listSavedFoods, saveFoodFromLog } from '@/db/repositories/savedFoods';
+import { listDiaryFoodLogs } from '@/db/repositories/food';
+import { createSavedFood, listSavedFoods } from '@/db/repositories/savedFoods';
 import { foodLogs } from '@/db/schema';
 import type { AppDb } from '@/db/types';
 import { AppError, friendlyMessages } from '@/lib/errors';
-import type { MealAnalysis } from '@/types/analysis';
 import { pickFoodPhoto } from '@/services/photoPicker';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { analyzeFood } from '@/services/relayClient';
@@ -16,7 +15,7 @@ let mockDb: AppDb;
 let closeDb: () => void;
 const mockBack = jest.fn();
 const mockToast = jest.fn();
-let mockParams: { camera?: string; myFood?: string; food?: string } = {};
+let mockParams: { camera?: string; myFood?: string; food?: string; check?: string } = {};
 
 jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
@@ -104,49 +103,84 @@ beforeEach(() => {
 
 afterEach(() => closeDb());
 
-describe('Log food screen: Quick Log', () => {
-  it('shows nothing when no foods are saved', async () => {
+describe('Log food screen: Save to My foods', () => {
+  const checkMintTea = async () => {
+    analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
-    expect(screen.queryByText('My foods')).toBeNull();
+    await type('mint tea');
+    await press('Analyze meal');
+    await screen.findByText('Mint is a common trigger.');
+  };
+
+  it('saves the checked meal to My foods too, with its verdict, when ticked', async () => {
+    await checkMintTea();
+
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Save to My foods' }));
+    await press('I ate this');
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([{ mealName: 'Mint tea' }]);
+    expect(listSavedFoods(mockDb)).toMatchObject([{ mealName: 'Mint tea', overallVerdict: 'caution' }]);
+    expect(mockToast).toHaveBeenCalledWith('Added to your food diary and My foods');
   });
 
-  it('logs a saved food in one tap with its saved verdict, without calling the relay', async () => {
-    const { meta, ...analysis } = result;
-    const id = createFoodLog(mockDb, {
-      entryType: 'diary',
-      source: 'text',
-      analysis: analysis as MealAnalysis,
-      meta,
-    });
-    saveFoodFromLog(mockDb, id);
-    await render(<LogFoodScreen />);
+  it('leaves My foods alone when not ticked', async () => {
+    await checkMintTea();
 
-    expect(screen.getByRole('header', { name: 'My foods' })).toBeTruthy();
-    await press('Mint tea');
+    await press('I ate this');
 
-    const logs = listDiaryFoodLogs(mockDb, ALL_TIME);
-    expect(logs).toHaveLength(2);
-    expect(logs[1]).toMatchObject({ mealName: 'Mint tea', overallVerdict: 'caution' });
-    expect(analyze).not.toHaveBeenCalled();
+    expect(listSavedFoods(mockDb)).toHaveLength(0);
     expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
+  });
+});
+
+describe('Log food screen: "Add a food" from the Food list', () => {
+  // The food may not have been eaten yet, so the field asks "What's the food?".
+  const typeFood = async (value: string) =>
+    fireEvent.changeText(screen.getByLabelText("What's the food?"), value);
+
+  beforeEach(() => {
+    mockParams = { check: '1' };
+  });
+
+  it('saves the verdict to My foods only, without adding a meal to the diary', async () => {
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+    await typeFood('mint tea');
+    await press('Analyze meal');
+    await screen.findByText('Mint is a common trigger.');
+
+    await press('Save to My foods only');
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(listSavedFoods(mockDb)).toMatchObject([{ mealName: 'Mint tea', overallVerdict: 'caution' }]);
+    expect(mockToast).toHaveBeenCalledWith('Mint tea added to My foods');
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the first six as chips, and "See all" opens the full list', async () => {
-    for (const name of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) createSavedFood(mockDb, name);
+  it('can still log it as eaten, and keep it too', async () => {
+    analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
+    await typeFood('mint tea');
+    await press('Analyze meal');
+    await screen.findByText('Mint is a common trigger.');
 
-    expect(screen.getByRole('button', { name: 'F' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'G' })).toBeNull();
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Save to My foods' }));
+    await press('I ate this');
 
-    await press('See all');
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
+    expect(listSavedFoods(mockDb)).toHaveLength(1);
+  });
 
-    expect(screen.getByRole('button', { name: 'Log G' })).toBeTruthy();
-    expect(screen.getAllByText('No verdict')).toHaveLength(7);
+  it('saves a typed food to My foods by name when skipping the verdict', async () => {
+    await render(<LogFoodScreen />);
+    await typeFood('Banana bread');
 
-    await press('Log G');
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([{ mealName: 'G' }]);
-    expect(mockBack).toHaveBeenCalledTimes(1);
+    await press('Save without a verdict');
+
+    expect(analyze).not.toHaveBeenCalled();
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Banana bread']);
+    expect(mockToast).toHaveBeenCalledWith('Banana bread added to My foods');
   });
 });
 
@@ -588,7 +622,7 @@ describe('Food screen for My foods', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('hides Quick Log and can still add a typed food by name without a verdict', async () => {
+  it('can still add a typed food by name without a verdict', async () => {
     mockParams = { myFood: '1' };
     createSavedFood(mockDb, 'Oatmeal');
     await render(<LogFoodScreen />);
@@ -682,23 +716,6 @@ describe('Log food screen: back-logging a meal', () => {
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(meal.mealName).toBe('toast and eggs');
     expect(meal.loggedAt).toBe(yesterdayBreakfast().toISOString());
-  });
-
-  it('logs a saved food at the chosen time', async () => {
-    const { meta, ...analysis } = result;
-    saveFoodFromLog(
-      mockDb,
-      createFoodLog(mockDb, { entryType: 'diary', source: 'text', analysis: analysis as MealAnalysis, meta }),
-    );
-    await render(<LogFoodScreen />);
-    await chooseBreakfast();
-
-    await press('Mint tea');
-
-    const logged = listDiaryFoodLogs(mockDb, ALL_TIME).filter(
-      (meal) => meal.loggedAt === yesterdayBreakfast().toISOString(),
-    );
-    expect(logged).toHaveLength(1);
   });
 
   it('never saves a time that has not happened yet', async () => {

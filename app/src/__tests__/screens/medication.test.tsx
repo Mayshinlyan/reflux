@@ -54,6 +54,12 @@ const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.00
 const press = async (role: 'button' | 'radio', name: string) =>
   fireEvent.press(screen.getByRole(role, { name }));
 
+/** Log now: tap Log, then confirm the time sheet without changing the time. */
+const logNow = async (name = 'Log Omeprazole 20mg') => {
+  await press('button', name);
+  await press('button', 'Log it');
+};
+
 const pressAlertButton = (spy: jest.SpyInstance, text: string) => {
   const buttons = spy.mock.calls.at(-1)?.[2] as AlertButton[];
   buttons.find((button) => button.text === text)?.onPress?.();
@@ -74,12 +80,22 @@ afterEach(() => {
 const seedOmeprazole = () =>
   createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20mg' });
 
-describe('Medications: one-tap logging', () => {
-  it('logs a saved medication with a single tap, keeping a snapshot of its name, type and dose', async () => {
+describe('Medications: logging', () => {
+  it('has a "Log medication" title and a "Quick Log" heading', async () => {
+    seedOmeprazole();
+    await render(<MedicationScreen />);
+    expect(screen.getByText('Log medication')).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Quick Log' })).toBeTruthy();
+  });
+
+  it('asks when it was taken before logging, and logs right now when the time is left alone', async () => {
     const id = seedOmeprazole();
     await render(<MedicationScreen />);
 
     await press('button', 'Log Omeprazole 20mg');
+    expect(screen.getByText('When did you take this?')).toBeTruthy();
+    expect(listMedicationLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    await press('button', 'Log it');
 
     expect(listMedicationLogs(mockDb, ALL_TIME)).toEqual([
       expect.objectContaining({ medicationId: id, name: 'Omeprazole', type: 'ppi', doseText: '20mg' }),
@@ -93,7 +109,7 @@ describe('Medications: one-tap logging', () => {
     await render(<MedicationScreen />);
     expect(screen.queryByText(/Taken today/)).toBeNull();
 
-    await press('button', 'Log Omeprazole 20mg');
+    await logNow();
 
     expect(screen.getByText('Logged ✓')).toBeTruthy();
     expect(screen.getByText(/PPI · Taken today /)).toBeTruthy();
@@ -107,9 +123,10 @@ describe('Medications: one-tap logging', () => {
     jest.useFakeTimers();
     seedOmeprazole();
     await render(<MedicationScreen />);
-    const button = screen.getByRole('button', { name: 'Log Omeprazole 20mg' });
+    await press('button', 'Log Omeprazole 20mg');
+    const button = screen.getByRole('button', { name: 'Log it' });
 
-    // Both calls happen before React can re-render the button as disabled.
+    // Both calls happen before React can re-render the sheet away.
     await act(async () => {
       void fireEvent.press(button);
       void fireEvent.press(button);
@@ -123,12 +140,12 @@ describe('Medications: one-tap logging', () => {
     seedOmeprazole();
     await render(<MedicationScreen />);
 
-    await press('button', 'Log Omeprazole 20mg');
+    await logNow();
     await act(async () => {
       jest.advanceTimersByTime(3000);
     });
     expect(screen.queryByText('Logged ✓')).toBeNull();
-    await press('button', 'Log Omeprazole 20mg');
+    await logNow();
 
     expect(listMedicationLogs(mockDb, ALL_TIME)).toHaveLength(2);
     expect(screen.getByText(/Taken today .* \(2×\)/)).toBeTruthy();
@@ -150,7 +167,7 @@ describe('Medications: one-tap logging', () => {
 
 describe('Medications: adding', () => {
   const openPicker = async () => {
-    await press('button', '+ Add a medication');
+    await press('button', '+ Log a new medication');
     await press('button', 'Medication');
   };
 
@@ -183,7 +200,7 @@ describe('Medications: adding', () => {
 
   it('cannot add until a medication is chosen', async () => {
     await render(<MedicationScreen />);
-    await press('button', '+ Add a medication');
+    await press('button', '+ Log a new medication');
 
     expect(screen.getByRole('button', { name: 'Add medication' }).props.accessibilityState).toMatchObject({
       disabled: true,
@@ -256,12 +273,12 @@ describe('Medications: adding', () => {
 
   it('goes back from the form to the list without leaving the screen', async () => {
     await render(<MedicationScreen />);
-    await press('button', '+ Add a medication');
+    await press('button', '+ Log a new medication');
     expect(screen.getByRole('header', { name: 'Add medication' })).toBeTruthy(); // the form is open
 
     await press('button', 'Back');
 
-    expect(screen.getByRole('button', { name: '+ Add a medication' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '+ Log a new medication' })).toBeTruthy();
     expect(mockBack).not.toHaveBeenCalled();
   });
 });
@@ -327,31 +344,49 @@ describe('Medications: logging an earlier dose', () => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 8, 15);
   };
-  const pressTime = async () =>
-    fireEvent.press(screen.getByRole('button', { name: /^When did you take this\?/ }));
-
-  it('shows "Now" in the header once there is something to log', async () => {
-    await render(<MedicationScreen />);
-    expect(screen.queryByLabelText('When did you take this? Now')).toBeNull();
-
-    seedOmeprazole();
-    await render(<MedicationScreen />);
-    expect(screen.getByLabelText('When did you take this? Now')).toBeTruthy();
-  });
 
   it('logs a dose at the chosen time, and it does not count as taken today', async () => {
     seedOmeprazole();
     await render(<MedicationScreen />);
 
-    await pressTime();
-    await act(() => mockWheel?.onValueChange({}, yesterdayMorning()));
-    await press('button', 'Set time');
-    expect(screen.getByLabelText('When did you take this? Yesterday, 8:15 AM')).toBeTruthy();
     await press('button', 'Log Omeprazole 20mg');
+    await act(() => mockWheel?.onValueChange({}, yesterdayMorning()));
+    await press('button', 'Log it');
 
     const [log] = listMedicationLogs(mockDb, ALL_TIME);
     expect(log.takenAt).toBe(yesterdayMorning().toISOString());
     expect(screen.queryByText(/Taken today/)).toBeNull();
     expect(mockToast).toHaveBeenCalledWith('Omeprazole logged for Yesterday, 8:15 AM');
+  });
+
+  it('starts the next dose on now again, not on the last chosen time', async () => {
+    jest.useFakeTimers();
+    seedOmeprazole();
+    await render(<MedicationScreen />);
+    await press('button', 'Log Omeprazole 20mg');
+    await act(() => mockWheel?.onValueChange({}, yesterdayMorning()));
+    await press('button', 'Log it');
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+    });
+
+    await press('button', 'Log Omeprazole 20mg');
+    await press('button', 'Log it');
+
+    const times = listMedicationLogs(mockDb, ALL_TIME).map((log) => log.takenAt);
+    expect(times).toHaveLength(2);
+    expect(times[1]).not.toBe(yesterdayMorning().toISOString());
+  });
+
+  it('never logs a time that has not happened yet', async () => {
+    seedOmeprazole();
+    await render(<MedicationScreen />);
+
+    await press('button', 'Log Omeprazole 20mg');
+    await act(() => mockWheel?.onValueChange({}, new Date(Date.now() + 60 * 60 * 1000)));
+    await press('button', 'Log it');
+
+    const [log] = listMedicationLogs(mockDb, ALL_TIME);
+    expect(new Date(log.takenAt).getTime()).toBeLessThanOrEqual(Date.now());
   });
 });

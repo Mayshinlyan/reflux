@@ -2,23 +2,34 @@ import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 
 import { FoodFlow, type MyFoodTarget } from '@/components/FoodFlow';
+import { FoodList } from '@/components/FoodList';
 import { useDb } from '@/db/DatabaseProvider';
-import { getSavedFood } from '@/db/repositories/savedFoods';
+import { getSavedFood, listSavedFoods } from '@/db/repositories/savedFoods';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
 /**
- * The food screen: analyze a photo or a typed description, then "I ate this" adds it to the diary.
- * Scan on Today opens it with `?camera=1` to go straight to the camera. My foods opens it with
- * `?myFood=1` to add a food with a verdict, plus `&food=<id>` to check one already saved.
+ * The Food screen: "My foods" with one-tap Log, like Medications. With nothing saved yet it is the
+ * photo/text check instead, as it is for `?check=1` ("Log a new food" on the list, which can also save the
+ * result to My foods) and `?camera=1` (Scan on Today, straight to the camera). `?myFood=1&food=<id>`
+ * re-checks a saved food ("Get a verdict" / "Check again"), saving the verdict to it and not the diary.
  */
 export default function LogFoodScreen() {
-  const { camera, myFood, food } = useLocalSearchParams<{
+  const db = useDb();
+  const { camera, check, myFood, food } = useLocalSearchParams<{
     camera?: string;
+    check?: string;
     myFood?: string;
     food?: string;
   }>();
-  const db = useDb();
+  // Decided once on arrival, so deleting the last food doesn't swap the screen out from under the user.
+  const [hasFoods] = useState(() => {
+    try {
+      return listSavedFoods(db).length > 0;
+    } catch {
+      return false; // the check still works without the list
+    }
+  });
   const [target] = useState<MyFoodTarget | undefined>(() => {
     if (myFood !== '1') return undefined;
     let saved = null;
@@ -33,5 +44,9 @@ export default function LogFoodScreen() {
     const name = saved.source === 'text' ? (saved.inputText ?? saved.mealName) : saved.mealName;
     return { id: saved.id, name };
   });
-  return <FoodFlow openCamera={camera === '1'} myFood={target} />;
+
+  if (target || camera === '1' || check === '1' || !hasFoods) {
+    return <FoodFlow openCamera={camera === '1'} myFood={target} fromList={check === '1'} />;
+  }
+  return <FoodList />;
 }

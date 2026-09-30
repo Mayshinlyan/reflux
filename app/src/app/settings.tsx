@@ -118,7 +118,7 @@ export default function SettingsScreen() {
             setSheet('pet');
           }}
         />
-        <SettingsRow label="My foods" onPress={() => router.push('/log/my-foods')} />
+        <SettingsRow label="My foods" onPress={() => router.push('/log/food')} />
         <SettingsRow label="My medications" onPress={() => router.push('/log/medication')} />
 
         <SectionTitle>Your data</SectionTitle>
