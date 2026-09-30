@@ -20,6 +20,7 @@ import {
   listMedicationLogs,
   listMedications,
   logMedication,
+  relogMedication,
   updateMedication,
 } from '../repositories/medications';
 import { DEFAULT_SETTINGS, getAllSettings, getSetting, setSetting } from '../repositories/settings';
@@ -449,6 +450,44 @@ describe('medications', () => {
 
     const logs = db.select().from(medicationLogs).all();
     expect(logs).toEqual([expect.objectContaining({ medicationId: null, name: 'Gaviscon' })]);
+  });
+
+  it('logs a past dose again as taken now, from the log rather than the saved medication', () => {
+    const { db } = createTestDb();
+    const medId = createMedication(db, { name: 'Omeprazole', type: 'ppi', defaultDose: '20mg' });
+    const logId = logMedication(db, medId, { takenAt: '2020-01-01T08:00:00.000Z', notes: 'with food' });
+    updateMedication(db, medId, { name: 'Changed', type: 'ppi', defaultDose: '40mg' });
+
+    const newId = relogMedication(db, logId);
+
+    const copy = db
+      .select()
+      .from(medicationLogs)
+      .all()
+      .find((log) => log.id === newId);
+    expect(copy).toMatchObject({
+      medicationId: medId,
+      name: 'Omeprazole',
+      type: 'ppi',
+      doseText: '20mg',
+      notes: null,
+    });
+    expect(copy!.takenAt > '2020-01-01T08:00:00.000Z').toBe(true);
+  });
+
+  it('logs a dose again after its saved medication was deleted', () => {
+    const { db } = createTestDb();
+    const medId = createMedication(db, { name: 'Gaviscon', type: 'alginate' });
+    const logId = logMedication(db, medId);
+    db.delete(medications).run();
+
+    expect(() => relogMedication(db, logId)).not.toThrow();
+    expect(db.select().from(medicationLogs).all()).toHaveLength(2);
+  });
+
+  it('throws for a log that does not exist', () => {
+    const { db } = createTestDb();
+    expect(() => relogMedication(db, 999)).toThrow('not found');
   });
 
   it('rejects unknown types and blank names', () => {

@@ -23,7 +23,7 @@ import type { LifestyleTagKey } from '@/constants/lifestyleTags';
 import type { SymptomKey } from '@/constants/symptomItems';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { deleteFoodLog, listDiaryFoodLogs, relogFood } from '@/db/repositories/food';
-import { deleteMedicationLog, listMedicationLogs } from '@/db/repositories/medications';
+import { deleteMedicationLog, listMedicationLogs, relogMedication } from '@/db/repositories/medications';
 import {
   deleteSymptomLog,
   listSymptomLogs,
@@ -140,13 +140,14 @@ export default function HistoryScreen() {
     ]);
   };
 
-  /** Saves a meal again as eaten now (no relay call) and closes the detail if it was open. */
+  /** Saves a meal or medication again as happening now (no relay call) and closes the detail if it was open. */
   const relog = (entry: TimelineEntry) => {
-    if (entry.kind !== 'food') return;
+    if (entry.kind === 'symptom') return;
     try {
-      relogFood(db, entry.id);
+      if (entry.kind === 'food') relogFood(db, entry.id);
+      else relogMedication(db, entry.id);
     } catch (error) {
-      logger.error('relogFood', error);
+      logger.error('relog', error);
       Alert.alert("Couldn't log it again", friendlyMessages.INTERNAL);
       return;
     }
@@ -239,7 +240,7 @@ export default function HistoryScreen() {
             }
             onPress={() => setSelected(item)}
             onDelete={() => confirmDelete(item)}
-            onRelog={item.kind === 'food' ? () => relog(item) : undefined}
+            onRelog={item.kind !== 'symptom' ? () => relog(item) : undefined}
           />
         )}
         stickySectionHeadersEnabled={false}
@@ -394,7 +395,9 @@ function EntryDetail({
         {entry.kind === 'symptom' && (
           <Button label="Edit entry" icon={Pencil} onPress={() => onEdit(entry)} />
         )}
-        {entry.kind === 'food' && <Button label="Log again" icon={RotateCw} onPress={() => onRelog(entry)} />}
+        {entry.kind !== 'symptom' && (
+          <Button label="Log again" icon={RotateCw} onPress={() => onRelog(entry)} />
+        )}
         <Button label="Delete" variant="quietDanger" onPress={() => onDelete(entry)} />
       </View>
     </View>
