@@ -353,12 +353,14 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
                 onSubmitEditing={checkPhotoWithDetails}
               />
               {errorBanner}
-              <Button
-                label={state.status === 'error' ? 'Try again' : copy.analyzeLabel}
-                onPress={checkPhotoWithDetails}
-              />
-              <Button label={copy.saveUncheckedLabel} variant="secondary" onPress={saveUnchecked} />
-              <Button label="Choose a different photo" variant="secondary" onPress={tryAnother} />
+              <View style={styles.actions}>
+                <Button
+                  label={state.status === 'error' ? 'Try again' : copy.analyzeLabel}
+                  onPress={checkPhotoWithDetails}
+                />
+                <Button label={copy.saveUncheckedLabel} variant="secondary" onPress={saveUnchecked} />
+                <Button label="Choose a different photo" variant="secondary" onPress={tryAnother} />
+              </View>
             </>
           ) : (
             <>
@@ -396,19 +398,21 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
                 onSubmitEditing={checkText}
               />
               {errorBanner}
-              <Button
-                label={
-                  state.status === 'error' && analyzed?.source === 'text' ? 'Try again' : copy.analyzeLabel
-                }
-                onPress={checkText}
-                disabled={!trimmed}
-              />
-              <Button
-                label={copy.saveUncheckedLabel}
-                variant="secondary"
-                onPress={saveUnchecked}
-                disabled={!trimmed}
-              />
+              <View style={styles.actions}>
+                <Button
+                  label={
+                    state.status === 'error' && analyzed?.source === 'text' ? 'Try again' : copy.analyzeLabel
+                  }
+                  onPress={checkText}
+                  disabled={!trimmed}
+                />
+                <Button
+                  label={copy.saveUncheckedLabel}
+                  variant="secondary"
+                  onPress={saveUnchecked}
+                  disabled={!trimmed}
+                />
+              </View>
             </>
           )}
         </ScrollView>
@@ -437,6 +441,7 @@ const styles = StyleSheet.create({
   or: { textAlign: 'center', marginVertical: space.s2 },
   disclaimer: { textAlign: 'center', marginVertical: space.s1 },
   capture: { flexDirection: 'row', justifyContent: 'center', gap: space.s4, marginVertical: space.s2 },
+  actions: { gap: space.s1 },
   footer: { gap: space.s1, paddingTop: space.s1 },
   correction: { marginTop: space.s2 },
   photo: { width: '100%', height: 200, borderRadius: radius.lg, marginBottom: space.s1 },
