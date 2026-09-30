@@ -58,13 +58,19 @@ export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, o
       }
       hitSlop={4}
       style={[styles.tag, colorStyle]}>
-      <AppText style={[styles.label, { color: selected ? colors.clayInk : colors.inkSoft }]}>{label}</AppText>
+      <AppText
+        numberOfLines={1}
+        style={[styles.label, { color: selected ? colors.clayInk : colors.inkSoft }]}>
+        {label}
+      </AppText>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   tag: {
+    // A long name stays one line and ends in "…" instead of growing into a tall pill.
+    maxWidth: '100%',
     minHeight: 40,
     justifyContent: 'center',
     paddingHorizontal: 14,

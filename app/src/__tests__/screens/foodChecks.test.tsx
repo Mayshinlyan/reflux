@@ -69,7 +69,7 @@ const chamomile = {
 
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 const allRows = () => mockDb.select().from(foodLogs).all();
-const type = async (value: string) => fireEvent.changeText(screen.getByLabelText("What's the food?"), value);
+const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('What did you eat?'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
 
 beforeEach(() => {
@@ -210,11 +210,7 @@ describe('Food screen: checks and "I ate this"', () => {
 describe('Food screen: saving without a verdict', () => {
   it('saves a typed meal as a diary entry with no verdict and never calls the relay', async () => {
     await render(<LogFoodScreen />);
-    expect(
-      screen.getByRole('button', { name: 'Save without a verdict' }).props.accessibilityState,
-    ).toMatchObject({
-      disabled: true,
-    });
+    expect(screen.queryByRole('button', { name: 'Save without a verdict' })).toBeNull();
 
     await type('  grilled fish  ');
     await press('Save without a verdict');
