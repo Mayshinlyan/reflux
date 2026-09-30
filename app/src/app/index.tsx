@@ -9,12 +9,13 @@ import { Pet } from '@/components/Pet';
 import { Screen } from '@/components/Screen';
 import { useSettings } from '@/db/DatabaseProvider';
 import { usePetState } from '@/hooks/usePetState';
+import { PET_ASPECT } from '@/lib/petClips';
 import { STAGE_NAMES, STAGE_SCALE, statusLine } from '@/lib/petProgress';
 import { fontFamily, radius, space, useColors } from '@/theme';
 
 const PET_SIZE = 200;
-/** Matches Pet's own layout: image height (276×298 aspect) plus its ground-shadow gap. */
-const PET_HEIGHT = Math.round((PET_SIZE * 298) / 276) + space.s2;
+/** Matches Pet's own layout: clip height plus its ground-shadow gap. */
+const PET_HEIGHT = Math.round(PET_SIZE * PET_ASPECT) + space.s2;
 
 /**
  * Today — the pet-hero home screen, laid out as in docs/design/mockups.html.
@@ -51,7 +52,14 @@ export default function TodayScreen() {
       <View style={styles.hero}>
         <View style={styles.stageWrap}>
           <View style={styles.petBox}>
-            <Pet name={petName} width={Math.round(PET_SIZE * STAGE_SCALE[pet.stage])} />
+            <Pet
+              name={petName}
+              width={Math.round(PET_SIZE * STAGE_SCALE[pet.stage])}
+              mood={pet.mood}
+              hasLogs={pet.hasLogs}
+              celebrating={pet.stageUp}
+              onCelebrationEnd={pet.markStageSeen}
+            />
           </View>
           {menuOpen && (
             <View style={styles.menu}>

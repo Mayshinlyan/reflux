@@ -1,43 +1,68 @@
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
+import { useFocusEffect } from 'expo-router';
 import { Heart } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, type GestureResponderEvent, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
+  AppState,
+  type GestureResponderEvent,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withRepeat,
   withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
+import { CELEBRATE_MS, clipFor, PET_ASPECT, type PetClip, posterFor } from '@/lib/petClips';
+import type { PetMood } from '@/lib/petProgress';
 import { lineForTap, nextReaction, TAP_COOLDOWN_MS, tiltFromTouch } from '@/lib/petMotion';
 import { radius, space, typography, useColors } from '@/theme';
 
-const DOG_IMAGE = require('@/assets/images/pet/dog.png');
-/** dog.png is 276×298; keep its aspect ratio. */
-const ASPECT = 298 / 276;
+const CLIPS: Record<PetClip, number> = {
+  idle_happy: require('@/assets/images/pet/idle_happy.webp'),
+  idle_unwell: require('@/assets/images/pet/idle_unwell.webp'),
+  idle_neutral: require('@/assets/images/pet/idle_neutral.webp'),
+  celebrate: require('@/assets/images/pet/celebrate.webp'),
+};
+const POSTERS = {
+  poster_happy: require('@/assets/images/pet/poster_happy.png'),
+  poster_unwell: require('@/assets/images/pet/poster_unwell.png'),
+};
 
 const SOFT_SPRING = { damping: 9, stiffness: 180, mass: 0.8 };
 
-type Props = { name: string; width: number };
+type Props = {
+  name: string;
+  width: number;
+  mood: PetMood;
+  /** False until the first entry is logged. */
+  hasLogs: boolean;
+  /** Play the one-time stage-up celebration, then call `onCelebrationEnd`. */
+  celebrating: boolean;
+  onCelebrationEnd: () => void;
+};
 
 /**
- * The companion pet. A flat illustration given depth with perspective transforms:
- * it breathes when idle, tilts toward your finger, and plays a hop, a 3D spin or a
- * wiggle on each tap, with a ground shadow, a floating heart and a speech bubble.
- * Taps are play only and never affect progress. Reduced motion keeps only the
- * bubble and haptic.
+ * The companion pet: a pre-rendered 3D dog. A looping clip matches its mood (a calm
+ * one before the first entry), and a one-time celebration clip plays on a stage-up.
+ * On top of that it tilts toward your finger and plays a hop, a spin or a wiggle on
+ * each tap, with a ground shadow, a floating heart and a speech bubble. Taps are play
+ * only and never affect progress. Reduced motion shows a still and keeps only the
+ * bubble and haptic. Clips pause when Today isn't focused or the app is backgrounded.
  */
-export function Pet({ name, width }: Props) {
+export function Pet({ name, width, mood, hasLogs, celebrating, onCelebrationEnd }: Props) {
   const colors = useColors();
   const reduceMotion = useReducedMotion();
-  const height = Math.round(width * ASPECT);
+  const height = Math.round(width * PET_ASPECT);
 
-  const breathe = useSharedValue(0);
   const tiltX = useSharedValue(0);
   const tiltY = useSharedValue(0);
   const spin = useSharedValue(0);
@@ -47,15 +72,48 @@ export function Pet({ name, width }: Props) {
   const wiggle = useSharedValue(0);
   const heart = useSharedValue(0);
 
+  const playCelebration = celebrating && !reduceMotion;
+  const clip = clipFor({ mood, hasLogs, celebrating: playCelebration });
+
   const tapCount = useRef(0);
   const lastTap = useRef(0);
   const [bubble, setBubble] = useState<string | null>(null);
   const bubbleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Clips only play while Today is on screen and the app is in the foreground.
+  const imageRef = useRef<Image>(null);
+  const [focused, setFocused] = useState(true);
+  const [appActive, setAppActive] = useState(AppState.currentState === 'active');
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
   useEffect(() => {
-    if (reduceMotion) return;
-    breathe.value = withRepeat(withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.sin) }), -1, true);
-  }, [breathe, reduceMotion]);
+    const subscription = AppState.addEventListener('change', (state) => setAppActive(state === 'active'));
+    return () => subscription.remove();
+  }, []);
+  const playing = focused && appActive && !reduceMotion;
+  useEffect(() => {
+    if (playing) imageRef.current?.startAnimating().catch(() => {});
+    else imageRef.current?.stopAnimating().catch(() => {});
+  }, [playing]);
+
+  // The celebration plays once, then hands back so the stage is marked as seen. The timer
+  // only runs while the clip is actually playing, so leaving Today mid-celebration doesn't
+  // use it up unwatched. With reduced motion there is nothing to play, so it is marked seen
+  // straight away.
+  useEffect(() => {
+    if (!celebrating) return;
+    if (reduceMotion) {
+      onCelebrationEnd();
+      return;
+    }
+    if (!playing) return;
+    const timer = setTimeout(onCelebrationEnd, CELEBRATE_MS);
+    return () => clearTimeout(timer);
+  }, [celebrating, reduceMotion, playing, onCelebrationEnd]);
 
   useEffect(
     () => () => {
@@ -134,16 +192,15 @@ export function Pet({ name, width }: Props) {
   };
 
   const petStyle = useAnimatedStyle(() => {
-    const breath = breathe.value;
     return {
       transform: [
         { perspective: 700 },
-        { translateY: hop.value - breath * 3 },
+        { translateY: hop.value },
         { rotateX: `${tiltX.value}deg` },
         { rotateY: `${tiltY.value + spin.value}deg` },
         { rotateZ: `${wiggle.value}deg` },
-        { scaleX: squashX.value * (1 + breath * 0.012) },
-        { scaleY: squashY.value * (1 + breath * 0.022) },
+        { scaleX: squashX.value },
+        { scaleY: squashY.value },
       ],
     };
   });
@@ -153,7 +210,7 @@ export function Pet({ name, width }: Props) {
     const lift = Math.min(1, -hop.value / 46);
     return {
       opacity: 0.16 * (1 - lift * 0.6),
-      transform: [{ scaleX: (1 - lift * 0.35) * (1 + breathe.value * 0.03) }],
+      transform: [{ scaleX: 1 - lift * 0.35 }],
     };
   });
 
@@ -174,7 +231,18 @@ export function Pet({ name, width }: Props) {
         onPressOut={onPressOut}
         onPress={onPress}>
         <Animated.View style={petStyle}>
-          <Image source={DOG_IMAGE} style={{ width, height }} contentFit="contain" accessible={false} />
+          <Image
+            // A new clip is a new view, so it starts from its first frame.
+            key={reduceMotion ? 'poster' : clip}
+            ref={imageRef}
+            source={reduceMotion ? POSTERS[posterFor(mood)] : CLIPS[clip]}
+            style={{ width, height }}
+            contentFit="contain"
+            autoplay={playing}
+            // Apple's default WebP codec can blend or time animated frames wrongly.
+            useAppleWebpCodec={false}
+            accessible={false}
+          />
         </Animated.View>
       </Pressable>
 

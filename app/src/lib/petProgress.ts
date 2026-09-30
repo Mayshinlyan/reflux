@@ -77,6 +77,11 @@ export function derivePetState(logs: PetLogs, bedtime: string, lateMealWindowMin
   return { stage, progress, mood: last && last.delta < 0 ? 'unwell' : 'happy' };
 }
 
+/** A stage-up worth celebrating: the pet is further along than the last stage the user saw. */
+export function hasStageUp(stage: PetStage, seenStage: number): boolean {
+  return stage > seenStage;
+}
+
 /** Warm, never-blaming status lines. Mood is always shown as words, not colour alone. */
 export function statusLine(name: string, mood: PetMood, hasLogs: boolean): string {
   if (mood === 'unwell') return `${name}'s feeling a little ruff today.`;

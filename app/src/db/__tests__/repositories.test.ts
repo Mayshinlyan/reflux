@@ -71,6 +71,15 @@ describe('settings', () => {
     const { db } = createTestDb();
     expect(() => setSetting(db, 'bedtime', '25:00')).toThrow();
     expect(() => setSetting(db, 'petName', '   ')).toThrow();
+    expect(() => setSetting(db, 'petSeenStage', 3)).toThrow();
+    expect(() => setSetting(db, 'petSeenStage', -1)).toThrow();
+  });
+
+  it('remembers the last pet stage the user saw, starting at 0', () => {
+    const { db } = createTestDb();
+    expect(getSetting(db, 'petSeenStage')).toBe(0);
+    setSetting(db, 'petSeenStage', 2);
+    expect(getSetting(db, 'petSeenStage')).toBe(2);
   });
 });
 
