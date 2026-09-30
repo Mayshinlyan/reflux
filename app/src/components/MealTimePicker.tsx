@@ -16,14 +16,21 @@ type Props = {
   onChange: (value: Date | null) => void;
   /** Disables the pill while something else is in flight. */
   disabled?: boolean;
+  /** The sheet's title and the pill's spoken label, e.g. "When did you take this?" for medication. */
+  question?: string;
 };
 
 /**
- * "When did you eat this?" for logging a meal after the fact: a pill showing "Now" until changed. It opens
+ * "When did you eat/take this?" for logging a meal or a dose after the fact: a pill showing "Now" until changed. It opens
  * the phone's own date-and-time picker (a wheel in a sheet on iOS, the system dialogs on Android), limited to
  * the past week and never later than now.
  */
-export function MealTimePicker({ value, onChange, disabled = false }: Props) {
+export function MealTimePicker({
+  value,
+  onChange,
+  disabled = false,
+  question = 'When did you eat this?',
+}: Props) {
   const colors = useColors();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => new Date());
@@ -71,8 +78,8 @@ export function MealTimePicker({ value, onChange, disabled = false }: Props) {
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`When did you eat this? ${formatMealTime(value, now)}`}
-        accessibilityHint="Opens a picker to choose when you ate it"
+        accessibilityLabel={`${question} ${formatMealTime(value, now)}`}
+        accessibilityHint="Opens a picker to choose the time"
         disabled={disabled}
         accessibilityState={{ disabled }}
         onPress={openSheet}
@@ -93,7 +100,7 @@ export function MealTimePicker({ value, onChange, disabled = false }: Props) {
 
       <BottomSheet visible={open} onClose={() => setOpen(false)}>
         <AppText variant="title" accessibilityRole="header">
-          When did you eat this?
+          {question}
         </AppText>
         <View style={styles.wheel}>
           <DateTimePicker

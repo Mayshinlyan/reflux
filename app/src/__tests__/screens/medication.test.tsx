@@ -33,6 +33,22 @@ jest.mock('expo-haptics', () => ({
   NotificationFeedbackType: { Success: 'success' },
 }));
 
+// The time picker's sheet reads safe-area insets.
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+// The native wheel can't render here: the stand-in keeps its latest props so a test can "turn" it.
+let mockWheel: { onValueChange: (event: unknown, date: Date) => void } | null = null;
+jest.mock('@react-native-community/datetimepicker', () => ({
+  __esModule: true,
+  default: (props: NonNullable<typeof mockWheel>) => {
+    mockWheel = props;
+    return null;
+  },
+  DateTimePickerAndroid: { open: jest.fn() },
+}));
+
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 
 const press = async (role: 'button' | 'radio', name: string) =>
@@ -302,5 +318,40 @@ describe('Medications: editing and removing', () => {
 
     expect(listMedications(mockDb)).toHaveLength(1);
     alert.mockRestore();
+  });
+});
+
+describe('Medications: logging an earlier dose', () => {
+  /** Yesterday at 8:15 AM, local time: always in the past whenever the test runs. */
+  const yesterdayMorning = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 8, 15);
+  };
+  const pressTime = async () =>
+    fireEvent.press(screen.getByRole('button', { name: /^When did you take this\?/ }));
+
+  it('shows "Now" in the header once there is something to log', async () => {
+    await render(<MedicationScreen />);
+    expect(screen.queryByLabelText('When did you take this? Now')).toBeNull();
+
+    seedOmeprazole();
+    await render(<MedicationScreen />);
+    expect(screen.getByLabelText('When did you take this? Now')).toBeTruthy();
+  });
+
+  it('logs a dose at the chosen time, and it does not count as taken today', async () => {
+    seedOmeprazole();
+    await render(<MedicationScreen />);
+
+    await pressTime();
+    await act(() => mockWheel?.onValueChange({}, yesterdayMorning()));
+    await press('button', 'Set time');
+    expect(screen.getByLabelText('When did you take this? Yesterday, 8:15 AM')).toBeTruthy();
+    await press('button', 'Log Omeprazole 20mg');
+
+    const [log] = listMedicationLogs(mockDb, ALL_TIME);
+    expect(log.takenAt).toBe(yesterdayMorning().toISOString());
+    expect(screen.queryByText(/Taken today/)).toBeNull();
+    expect(mockToast).toHaveBeenCalledWith('Omeprazole logged for Yesterday, 8:15 AM');
   });
 });
