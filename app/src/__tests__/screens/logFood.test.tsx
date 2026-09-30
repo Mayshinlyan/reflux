@@ -59,10 +59,10 @@ const result = {
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('What did you eat?'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
-/** A photo now stops at a review step (with optional details) until "Check it". */
+/** A photo now stops at a review step (with optional details) until "Analyze meal". */
 const reviewThenCheck = async () => {
   await screen.findByLabelText('Anything we should know?');
-  await press('Check it');
+  await press('Analyze meal');
 };
 
 beforeEach(() => {
@@ -82,9 +82,9 @@ afterEach(() => closeDb());
 describe('Log food screen (text)', () => {
   it('keeps "Check it" disabled until something is typed', async () => {
     await render(<LogFoodScreen />);
-    expect(screen.getByRole('button', { name: 'Check it' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Analyze meal' })).toBeDisabled();
     await type('   ');
-    expect(screen.getByRole('button', { name: 'Check it' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Analyze meal' })).toBeDisabled();
   });
 
   it('analyzes the trimmed text, shows the result, and saves it to the diary', async () => {
@@ -92,7 +92,7 @@ describe('Log food screen (text)', () => {
     await render(<LogFoodScreen />);
 
     await type('  mint tea ');
-    await press('Check it');
+    await press('Analyze meal');
 
     expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
     expect(analyze).toHaveBeenCalledWith({ text: 'mint tea' }, expect.any(AbortSignal));
@@ -119,7 +119,7 @@ describe('Log food screen (text)', () => {
     analyze.mockReturnValue(new Promise((r) => (resolve = r)));
     await render(<LogFoodScreen />);
     await type('dim sum');
-    await press('Check it');
+    await press('Analyze meal');
 
     expect(screen.getByText('loading:text')).toBeTruthy();
     expect(screen.queryByLabelText('What did you eat?')).toBeNull();
@@ -134,7 +134,7 @@ describe('Log food screen (text)', () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
     await type('dim sum');
-    await press('Check it');
+    await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
 
     const insideScroll = (element: { parent: unknown; type: unknown } | null): boolean =>
@@ -149,7 +149,7 @@ describe('Log food screen (text)', () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
     await type('mint tea');
-    await press('Check it');
+    await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
 
     const save = screen.getByRole('button', { name: 'Save to diary' });
@@ -164,7 +164,7 @@ describe('Log food screen (text)', () => {
     await render(<LogFoodScreen />);
 
     await type('toast');
-    await press('Check it');
+    await press('Analyze meal');
 
     expect(await screen.findByText(friendlyMessages.RATE_LIMITED)).toBeTruthy();
     expect(screen.getByLabelText('What did you eat?').props.value).toBe('toast');
@@ -180,7 +180,7 @@ describe('Log food screen (text)', () => {
     await render(<LogFoodScreen />);
 
     await type('toast');
-    await press('Check it');
+    await press('Analyze meal');
 
     expect(await screen.findByText(friendlyMessages.INTERNAL)).toBeTruthy();
   });
@@ -189,7 +189,7 @@ describe('Log food screen (text)', () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
     await type('mint tea');
-    await press('Check it');
+    await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
 
     await press('Try something else');
@@ -264,7 +264,7 @@ describe('Log food screen (photo)', () => {
     await act(async () => choose({ status: 'ok', photo }));
     expect(await screen.findByLabelText('Anything we should know?')).toBeTruthy();
     expect(screen.queryByText('loading:photo')).toBeNull();
-    await press('Check it');
+    await press('Analyze meal');
     expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
   });
 
@@ -352,7 +352,7 @@ describe('Log food screen (photo)', () => {
       await screen.findByLabelText('Anything we should know?'),
       '  homemade, no chili ',
     );
-    await press('Check it');
+    await press('Analyze meal');
 
     await screen.findByText('Mint is a common trigger.');
     expect(analyze).toHaveBeenCalledWith(
@@ -375,7 +375,7 @@ describe('Log food screen (correcting the verdict on save)', () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
     await type('soup');
-    await press('Check it');
+    await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
 
     expect(screen.queryByRole('button', { name: /check again/i })).toBeNull();
@@ -385,7 +385,7 @@ describe('Log food screen (correcting the verdict on save)', () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
     await type('soup');
-    await press('Check it');
+    await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
     await press('Save to diary');
 
@@ -397,7 +397,7 @@ describe('Log food screen (correcting the verdict on save)', () => {
     analyze.mockResolvedValueOnce(result).mockResolvedValueOnce(corrected);
     await render(<LogFoodScreen />);
     await type('soup');
-    await press('Check it');
+    await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
 
     await fireEvent.changeText(correctionField(), " it's pumpkin, no cream ");
@@ -417,7 +417,7 @@ describe('Log food screen (correcting the verdict on save)', () => {
     await render(<LogFoodScreen />);
     await press('Take a photo');
     await fireEvent.changeText(await screen.findByLabelText('Anything we should know?'), 'homemade');
-    await press('Check it');
+    await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
 
     await fireEvent.changeText(correctionField(), 'it is pumpkin soup');
@@ -438,7 +438,7 @@ describe('Log food screen (correcting the verdict on save)', () => {
     analyze.mockResolvedValueOnce(result).mockReturnValueOnce(new Promise((r) => (resolve = r)));
     await render(<LogFoodScreen />);
     await type('soup');
-    await press('Check it');
+    await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
     await fireEvent.changeText(correctionField(), 'pumpkin');
     await press('Save to diary');
@@ -453,7 +453,7 @@ describe('Log food screen (correcting the verdict on save)', () => {
     analyze.mockResolvedValueOnce(result).mockRejectedValueOnce(new AppError('RATE_LIMITED', 'req-2'));
     await render(<LogFoodScreen />);
     await type('soup');
-    await press('Check it');
+    await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
     await fireEvent.changeText(correctionField(), 'pumpkin');
     await press('Save to diary');
