@@ -135,8 +135,8 @@ export default function TodayScreen() {
         <CircleActionButton
           label="Scan"
           icon={Camera}
-          accessibilityHint="Check a food before you eat it"
-          onPress={() => go('/check')}
+          accessibilityHint="Opens the camera to check a food"
+          onPress={() => go({ pathname: '/log/food', params: { camera: '1' } })}
         />
       </View>
     </Screen>
