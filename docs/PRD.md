@@ -33,6 +33,8 @@ Quick log: tap the spot on a simple body map (Throat & voice, Chest or Tummy), t
 **User story:** "As someone with LPR, I want to log that my throat hurts and I felt hoarse right now, in under 10 seconds, so I actually keep doing it."
 
 ### 5.2 Food logging
+Food logging and the food checker (5.3) are one screen, reached from "+ → Food" or from the Scan button on Today (which opens the camera straight away). Every result ends with "I ate this" (adds it to the diary) or "Not now" (keeps it out of the diary).
+
 Take a photo or type what was eaten. The app identifies the meal, breaks it into items and ingredients, and saves it to a personal food diary alongside an AI reflux-friendliness assessment for the record — the user doesn't have to type ingredients by hand.
 
 **User story:** "As someone tracking triggers, I want to snap a photo of my lunch and have the ingredients and a reflux read-out appear automatically."

@@ -139,11 +139,11 @@ Three bottom tabs plus a floating **+** button:
   - **Principles:** encouraging, not punishing; the pet never dies or disappears; no streak-shame. The pet is decorative feedback, never a medical judgement.
   - **Storage:** only the pet's identity (`pet_name`, `pet_animal`) is persisted, in `app_settings`; stage/progress/mood are computed on read and not stored. Nothing about the pet is sent to the relay.
   - **Post-MVP:** clinician/dietitian review of pet wording (alongside the ruleset review); additional stages/animals/accessories.
-- **Check:** camera-first. Snap or type food and see per-item verdicts plus an overall verdict. "I ate this" saves it to the diary.
+- **Check (Scan on Today):** opens the one food screen (`log/food`) with the camera already open. Snap or type food and see per-item verdicts plus an overall verdict. "I ate this" saves it to the diary; "Not now" leaves it as a check.
 - **History:** a day-grouped timeline of symptoms, meals and medications, with filter chips. Tap an entry for detail, edit or delete.
 - **+ sheet:** Log symptoms / Log food / Log medication.
   - **Quick symptom log:** tap chips for the symptoms you feel → 1–5 each → optional tags (stress, lay down after eating, large meal, alcohol, exercise, poor sleep) → optional note → save.
-  - **Log food:** camera or text → meal card (items + ingredients) → save.
+  - **Log food:** the same food screen as Check, without opening the camera first: camera, library or text → meal card (items + ingredients) → "I ate this".
   - **Log medication:** one tap on a saved med, or add new (name, type: PPI / H2 blocker / antacid / alginate / other, optional dose).
 - **Settings:** my pet (rename, change animal), bedtime (default 22:30; a meal within 3h of bedtime is flagged as late), my medications, privacy explainer, disclaimer, about and credits (RSI citation, AI disclosure), delete all data, send feedback (email link).
 - **Added in M2:** weekly RSI check-in, 7-day trend strip on Today, export, dark mode, analytics and crash-reporting toggles.

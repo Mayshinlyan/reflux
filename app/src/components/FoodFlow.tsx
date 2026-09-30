@@ -30,42 +30,28 @@ const MAX_DETAILS = 300;
 const CAMERA_DENIED =
   'Camera access is off. You can turn it on in Settings, choose a photo instead, or type it in.';
 
-/** `log` saves an eaten meal straight to the diary; `check` looks at a food before eating it. */
-export type FoodFlowMode = 'log' | 'check';
-
-const COPY = {
-  log: {
-    title: 'Log food',
-    intro: "What did you eat? We'll work out the ingredients.",
-    textLabel: 'What did you eat?',
-    textPlaceholder: 'e.g. spicy chicken tacos',
-    analyzeLabel: 'Analyze meal',
-    correctionNote: "We'll re-check the verdict with this when you save.",
-    saveLabel: 'Save to diary',
-    saved: 'Meal logged',
-  },
-  check: {
-    title: 'Check a food',
-    intro: "See if it's likely to bother your reflux before you eat it.",
-    textLabel: 'What are you thinking of eating?',
-    textPlaceholder: 'e.g. mint tea',
-    analyzeLabel: 'Check it',
-    correctionNote: "We'll re-check the verdict with this when you tap I ate this.",
-    saveLabel: 'I ate this',
-    saved: 'Saved to your food diary',
-  },
+const copy = {
+  title: 'Food',
+  intro: 'Snap or type a food to see how it might sit with your reflux.',
+  textLabel: "What's the food?",
+  textPlaceholder: 'e.g. spicy chicken tacos',
+  analyzeLabel: 'Analyze meal',
+  correctionNote: "We'll re-check the verdict with this when you tap I ate this.",
+  saveLabel: 'I ate this',
+  skipLabel: 'Not now',
+  saved: 'Added to your food diary',
 } as const;
 
 /** What was actually sent, so an edit while loading can't mismatch the saved entry. */
 type Analyzed = { source: 'text'; text: string } | { source: 'photo'; uri: string };
 
 /**
- * A photo or a typed description → relay analysis → a result card. In `log` mode Save writes a diary
- * entry. In `check` mode each result is kept as a check (outside the diary, so the pet ignores it) and
- * "I ate this" promotes that check, reusing its analysis instead of calling the relay again.
+ * The one food screen, for a meal just eaten or one being considered: a photo or a typed description →
+ * relay analysis → a result card. Each result is kept as a check (outside the diary, so the pet ignores
+ * it); "I ate this" promotes that check, reusing its analysis instead of calling the relay again.
+ * `openCamera` (the Scan shortcut on Today) opens the camera as soon as the screen appears.
  */
-export function FoodFlow({ mode }: { mode: FoodFlowMode }) {
-  const copy = COPY[mode];
+export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
   const colors = useColors();
   const db = useDb();
   const toast = useToast();
@@ -77,7 +63,7 @@ export function FoodFlow({ mode }: { mode: FoodFlowMode }) {
   const [details, setDetails] = useState('');
   const [correction, setCorrection] = useState('');
   const [preparing, setPreparing] = useState(false);
-  // True while Save re-checks the food with the user's comment before writing the diary entry.
+  // True while "I ate this" re-checks the food with the user's comment before writing the diary entry.
   const [correcting, setCorrecting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const saving = useRef(false);
@@ -89,11 +75,11 @@ export function FoodFlow({ mode }: { mode: FoodFlowMode }) {
     [],
   );
 
-  // Check mode: the stored check for the result on screen, and which result it was stored for.
+  // The stored check for the result on screen, and which result it was stored for.
   const checkId = useRef<number | null>(null);
   const checkedResult = useRef<AnalysisResult | null>(null);
   useEffect(() => {
-    if (mode !== 'check' || state.status !== 'done' || !analyzed) return;
+    if (state.status !== 'done' || !analyzed) return;
     if (checkedResult.current === state.result) return;
     checkedResult.current = state.result;
     checkId.current = null;
@@ -114,7 +100,7 @@ export function FoodFlow({ mode }: { mode: FoodFlowMode }) {
       // Code only. Not fatal: "I ate this" then writes the diary entry straight from the result.
       logger.error('saveFoodCheck', new AppError('INTERNAL'));
     }
-  }, [mode, state, analyzed, db]);
+  }, [state, analyzed, db]);
 
   const busy = preparing || correcting || state.status === 'loading';
   const showResult = state.status === 'done' && !correcting;
@@ -165,6 +151,15 @@ export function FoodFlow({ mode }: { mode: FoodFlowMode }) {
       if (alive.current) setPreparing(false);
     }
   };
+
+  // Scan on Today: straight to the camera, once. Cancelling it leaves this screen's other options.
+  const cameraOpened = useRef(false);
+  useEffect(() => {
+    if (!openCamera || cameraOpened.current) return;
+    cameraOpened.current = true;
+    void checkPhoto('camera');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on arrival; checkPhoto's state is fresh then
+  }, [openCamera]);
 
   /** `rechecked`: the result came from re-checking with the user's comment, so it replaces a stored check's analysis. */
   const persist = (result: AnalysisResult, rechecked: boolean) => {
@@ -362,7 +357,8 @@ export function FoodFlow({ mode }: { mode: FoodFlowMode }) {
         {showResult && (
           <View style={styles.footer}>
             <Button label={copy.saveLabel} onPress={() => void save()} />
-            <Button label="Try something else" variant="secondary" onPress={tryAnother} />
+            {/* The check stays stored, outside the diary. */}
+            <Button label={copy.skipLabel} variant="secondary" onPress={() => router.back()} />
           </View>
         )}
       </KeyboardAvoidingView>
