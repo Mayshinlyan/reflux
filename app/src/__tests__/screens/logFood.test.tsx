@@ -21,6 +21,12 @@ jest.mock('@/services/relayClient', () => ({ analyzeFood: jest.fn() }));
 jest.mock('@/services/photoPicker', () => ({ pickFoodPhoto: jest.fn() }));
 jest.mock('@/services/photoStore', () => ({ savePhoto: jest.fn(), deletePhoto: jest.fn() }));
 jest.mock('expo-image', () => ({ Image: () => null }));
+// The real loader animates with Reanimated, which needs a native runtime; its own test covers it.
+jest.mock('@/components/FoodLoading', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Text } = require('react-native');
+  return { FoodLoading: ({ source }: { source: string }) => <Text>{`loading:${source}`}</Text> };
+});
 jest.mock('expo-router', () => ({
   router: { back: () => mockBack(), canGoBack: () => true, replace: jest.fn() },
 }));
@@ -103,21 +109,20 @@ describe('Log food screen (text)', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('saves the text that was analyzed, even if the field is edited while loading', async () => {
+  it('shows the loader instead of the form while the relay works, then the result', async () => {
     let resolve!: (value: unknown) => void;
     analyze.mockReturnValue(new Promise((r) => (resolve = r)));
     await render(<LogFoodScreen />);
-
-    await type('mint tea');
+    await type('dim sum');
     await press('Check it');
-    await type('pizza');
-    await act(async () => resolve(result));
-    await press('Save to diary');
 
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)[0]).toMatchObject({
-      inputText: 'mint tea',
-      mealName: 'Mint tea',
-    });
+    expect(screen.getByText('loading:text')).toBeTruthy();
+    expect(screen.queryByLabelText('What did you eat?')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Take a photo' })).toBeNull();
+
+    await act(async () => resolve(result));
+    expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
+    expect(screen.queryByText('loading:text')).toBeNull();
   });
 
   it('keeps Save on screen outside the scrolling result, however long the meal is', async () => {
@@ -199,7 +204,7 @@ describe('Log food screen (photo)', () => {
 
     await press('Take a photo');
     expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
-    expect(pick).toHaveBeenCalledWith('camera');
+    expect(pick).toHaveBeenCalledWith('camera', expect.any(Function));
     expect(analyze).toHaveBeenCalledWith(
       { photo: { uri: photo.uri, mimeType: 'image/jpeg' } },
       expect.any(AbortSignal),
@@ -217,6 +222,41 @@ describe('Log food screen (photo)', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
+  it('shows the photo loader while the photo is prepared and analyzed', async () => {
+    let resolve!: (value: unknown) => void;
+    analyze.mockReturnValue(new Promise((r) => (resolve = r)));
+    pick.mockResolvedValue({ status: 'ok', photo });
+    await render(<LogFoodScreen />);
+
+    await press('Take a photo');
+
+    expect(await screen.findByText('loading:photo')).toBeTruthy();
+    await act(async () => resolve(result));
+    await screen.findByText('Mint is a common trigger.');
+  });
+
+  it('keeps the form while the system picker is open and shows the loader once a photo is chosen', async () => {
+    let choose!: (result: unknown) => void;
+    let onPicked!: () => void;
+    pick.mockImplementation((_source: string, callback: () => void) => {
+      onPicked = callback;
+      return new Promise((resolve) => (choose = resolve));
+    });
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+
+    await press('Take a photo');
+    // The picker is on screen: the app behind it must not flash a loader.
+    expect(screen.queryByText('loading:photo')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Take a photo' })).toBeTruthy();
+
+    await act(async () => onPicked());
+    expect(screen.getByText('loading:photo')).toBeTruthy();
+
+    await act(async () => choose({ status: 'ok', photo }));
+    expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
+  });
+
   it('can pick from the library', async () => {
     pick.mockResolvedValue({ status: 'ok', photo });
     analyze.mockResolvedValue(result);
@@ -225,7 +265,7 @@ describe('Log food screen (photo)', () => {
     await press('Choose a photo');
 
     await screen.findByText('Mint is a common trigger.');
-    expect(pick).toHaveBeenCalledWith('library');
+    expect(pick).toHaveBeenCalledWith('library', expect.any(Function));
   });
 
   it('explains a denied camera permission and does not analyze', async () => {
