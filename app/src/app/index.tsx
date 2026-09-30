@@ -8,6 +8,8 @@ import { CircleActionButton } from '@/components/CircleActionButton';
 import { Pet } from '@/components/Pet';
 import { Screen } from '@/components/Screen';
 import { useSettings } from '@/db/DatabaseProvider';
+import { usePetState } from '@/hooks/usePetState';
+import { STAGE_NAMES, STAGE_SCALE, statusLine } from '@/lib/petProgress';
 import { fontFamily, radius, space, useColors } from '@/theme';
 
 const PET_SIZE = 200;
@@ -17,13 +19,15 @@ const PET_HEIGHT = Math.round((PET_SIZE * 298) / 276) + space.s2;
 /**
  * Today — the pet-hero home screen, laid out as in docs/design/mockups.html.
  * "Log" opens a floating menu above the pet; "Scan" opens Check. Tapping the pet plays
- * with it (see Pet). Step 6 adds stages and moods. First launch redirects to Welcome.
+ * with it (see Pet). The pet's stage, progress and mood are derived from the logs
+ * (lib/petProgress). First launch redirects to Welcome.
  */
 export default function TodayScreen() {
   const colors = useColors();
   const [menuOpen, setMenuOpen] = useState(false);
   const { settings } = useSettings();
   const petName = settings.petName;
+  const pet = usePetState();
 
   const go = (href: Href) => {
     setMenuOpen(false);
@@ -46,7 +50,9 @@ export default function TodayScreen() {
 
       <View style={styles.hero}>
         <View style={styles.stageWrap}>
-          <Pet name={petName} width={PET_SIZE} />
+          <View style={styles.petBox}>
+            <Pet name={petName} width={Math.round(PET_SIZE * STAGE_SCALE[pet.stage])} />
+          </View>
           {menuOpen && (
             <View style={styles.menu}>
               <CircleActionButton
@@ -73,8 +79,19 @@ export default function TodayScreen() {
           )}
         </View>
         <AppText style={styles.petName}>{petName}</AppText>
-        <AppText variant="label" color="sageInk">
-          {petName} is happy to see you!
+        <AppText variant="label" color={pet.mood === 'happy' ? 'sageInk' : 'clayInk'}>
+          {statusLine(petName, pet.mood, pet.hasLogs)}
+        </AppText>
+        <View
+          style={[styles.track, { backgroundColor: colors.surface2 }]}
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityLabel={`${STAGE_NAMES[pet.stage]}, growth progress`}
+          accessibilityValue={{ min: 0, max: 100, now: pet.progress }}>
+          <View style={[styles.fill, { width: `${pet.progress}%`, backgroundColor: colors.sage }]} />
+        </View>
+        <AppText variant="caption" color="inkSoft">
+          {STAGE_NAMES[pet.stage]}
         </AppText>
       </View>
 
@@ -108,6 +125,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   hero: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  petBox: { width: PET_SIZE, height: PET_HEIGHT, alignItems: 'center', justifyContent: 'flex-end' },
+  track: { width: 200, height: 8, borderRadius: radius.pill, marginTop: space.s1, overflow: 'hidden' },
+  fill: { height: '100%', borderRadius: radius.pill },
   stageWrap: { alignItems: 'center', justifyContent: 'center' },
   menu: {
     position: 'absolute',
