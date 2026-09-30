@@ -20,6 +20,7 @@ import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
+import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { radius, space, useColors } from '@/theme';
 
@@ -45,6 +46,8 @@ export default function LogFoodScreen() {
   const [details, setDetails] = useState('');
   const [correction, setCorrection] = useState('');
   const [preparing, setPreparing] = useState(false);
+  // True while Save re-checks the food with the user's comment before writing the diary entry.
+  const [correcting, setCorrecting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const saving = useRef(false);
   const alive = useRef(true);
@@ -55,7 +58,8 @@ export default function LogFoodScreen() {
     [],
   );
 
-  const busy = preparing || state.status === 'loading';
+  const busy = preparing || correcting || state.status === 'loading';
+  const showResult = state.status === 'done' && !correcting;
   const trimmed = text.trim();
 
   const run = (target: Analyzed, notes: string) => {
@@ -78,14 +82,6 @@ export default function LogFoodScreen() {
   const checkPhotoWithDetails = () => {
     if (busy || analyzed?.source !== 'photo') return;
     run(analyzed, draft.trim());
-  };
-
-  /** Re-runs the same food with the user's correction added, so the AI can be certain what it is. */
-  const recheck = () => {
-    const note = correction.trim();
-    if (!note || busy || !analyzed) return;
-    setCorrection('');
-    run(analyzed, [details, note].filter(Boolean).join('. ').slice(-MAX_DETAILS));
   };
 
   const checkPhoto = async (source: PhotoSource) => {
@@ -112,10 +108,10 @@ export default function LogFoodScreen() {
     }
   };
 
-  const save = () => {
-    if (state.status !== 'done' || !analyzed || saving.current) return;
+  const persist = (result: AnalysisResult) => {
+    if (!analyzed) return;
     saving.current = true;
-    const { meta, ...analysis } = state.result;
+    const { meta, ...analysis } = result;
     let storedPhoto: string | null = null;
     try {
       if (analyzed.source === 'photo') storedPhoto = savePhoto(analyzed.uri);
@@ -140,6 +136,38 @@ export default function LogFoodScreen() {
     router.back();
   };
 
+  /** With a comment in "Is this right?", the AI re-checks the food with it first, and the corrected verdict is what gets saved. */
+  const save = async () => {
+    if (state.status !== 'done' || !analyzed || saving.current) return;
+    const note = correction.trim();
+    if (!note) {
+      persist(state.result);
+      return;
+    }
+    saving.current = true;
+    setCorrecting(true);
+    const notes = [details, note].filter(Boolean).join('. ').slice(-MAX_DETAILS);
+    try {
+      const corrected = await analyzeFood(
+        analyzed.source === 'text'
+          ? { text: analyzed.text, details: notes }
+          : { photo: { uri: analyzed.uri, mimeType: 'image/jpeg' }, details: notes },
+      );
+      if (!alive.current) return;
+      setCorrecting(false);
+      saving.current = false;
+      persist(corrected);
+    } catch (caught) {
+      if (!alive.current) return;
+      const error = caught instanceof AppError ? caught : new AppError('INTERNAL');
+      logger.error('analyzeFood', error);
+      setCorrecting(false);
+      saving.current = false;
+      // Nothing was saved: the original verdict and the comment stay so the user can retry.
+      toast(error.friendlyMessage);
+    }
+  };
+
   const tryAnother = () => {
     setAnalyzed(null);
     setDraft('');
@@ -161,7 +189,7 @@ export default function LogFoodScreen() {
       <BackHeader title="Log food" />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-          {state.status === 'done' ? (
+          {showResult ? (
             <>
               {analyzed?.source === 'photo' && (
                 <Image
@@ -181,14 +209,10 @@ export default function LogFoodScreen() {
                   placeholder="e.g. it's pumpkin soup, no cream"
                   maxLength={MAX_TEXT}
                   returnKeyType="done"
-                  onSubmitEditing={recheck}
                 />
-                <Button
-                  label="Check again with this"
-                  variant="secondary"
-                  onPress={recheck}
-                  disabled={!correction.trim()}
-                />
+                <AppText variant="caption" color="inkSoft">
+                  We&apos;ll re-check the verdict with this when you save.
+                </AppText>
               </View>
               <AppText variant="caption" color="inkSoft" style={styles.disclaimer}>
                 For tracking only, not medical advice. Food results are AI-generated.
@@ -269,9 +293,9 @@ export default function LogFoodScreen() {
           )}
         </ScrollView>
         {/* Outside the scroll area so Save is always on screen, however long the result is. */}
-        {state.status === 'done' && (
+        {showResult && (
           <View style={styles.footer}>
-            <Button label="Save to diary" onPress={save} />
+            <Button label="Save to diary" onPress={() => void save()} />
             <Button label="Try something else" variant="secondary" onPress={tryAnother} />
           </View>
         )}
