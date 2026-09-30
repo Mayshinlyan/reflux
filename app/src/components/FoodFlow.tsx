@@ -51,6 +51,8 @@ const copy = {
   title: 'Food',
   textLabel: 'What did you eat?',
   textPlaceholder: 'What did you eat?',
+  // A food saved to My foods may not have been eaten yet.
+  myFoodTextLabel: "What's the food?",
   analyzeLabel: 'Analyze meal',
   correctionNote: 'Tap Update verdict to re-check it with this.',
   saveLabel: 'I ate this',
@@ -449,7 +451,7 @@ export function FoodFlow({ openCamera = false, myFood }: { openCamera?: boolean;
           ) : (
             <>
               <TextField
-                label={copy.textLabel}
+                label={myFood ? copy.myFoodTextLabel : copy.textLabel}
                 hideLabel
                 accessory={
                   <>
@@ -470,7 +472,7 @@ export function FoodFlow({ openCamera = false, myFood }: { openCamera?: boolean;
                   setText(value);
                   setDetails(''); // a correction belongs to the text it was made for
                 }}
-                placeholder={copy.textPlaceholder}
+                placeholder={myFood ? copy.myFoodTextLabel : copy.textPlaceholder}
                 maxLength={MAX_TEXT}
                 returnKeyType="done"
                 onSubmitEditing={checkText}

@@ -596,7 +596,8 @@ describe('Food screen for My foods', () => {
     expect(screen.queryByRole('header', { name: 'My foods' })).toBeNull();
     // A saved food isn't eaten, so there is no meal time to pick.
     expect(screen.queryByRole('button', { name: /^When did you eat this\?/ })).toBeNull();
-    await type('  Banana bread ');
+    expect(screen.queryByLabelText('What did you eat?')).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText("What's the food?"), '  Banana bread ');
     await press('Save without a verdict');
 
     expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Banana bread', 'Oatmeal']);
@@ -612,7 +613,7 @@ describe('Food screen for My foods', () => {
     await render(<LogFoodScreen />);
 
     expect(screen.getByRole('header', { name: 'Get a verdict' })).toBeTruthy();
-    expect(screen.getByLabelText('What did you eat?').props.value).toBe('My tea');
+    expect(screen.getByLabelText("What's the food?").props.value).toBe('My tea');
     expect(screen.queryByRole('button', { name: 'Save without a verdict' })).toBeNull();
     await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
