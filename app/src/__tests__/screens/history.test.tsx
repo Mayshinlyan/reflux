@@ -23,7 +23,8 @@ jest.mock('@/db/DatabaseProvider', () => ({
 }));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
-jest.mock('@/components/Toast', () => ({ useToast: () => jest.fn() }));
+const mockToast = jest.fn();
+jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -479,8 +480,15 @@ describe('History: save a meal to My foods', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
     await fireEvent.press(screen.getByRole('button', { name: 'Save to My foods' }));
+
+    // The sheet closes so the toast isn't hidden behind it.
+    expect(screen.queryByRole('button', { name: 'Save to My foods' })).toBeNull();
+    expect(mockToast).toHaveBeenLastCalledWith('Saved to My foods');
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
     await fireEvent.press(screen.getByRole('button', { name: 'Save to My foods' }));
 
+    expect(mockToast).toHaveBeenLastCalledWith('Already in My foods');
     expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Steamed dim sum']);
   });
 

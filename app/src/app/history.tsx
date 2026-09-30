@@ -159,7 +159,7 @@ export default function HistoryScreen() {
     reload();
   };
 
-  /** Saves a meal to "My foods" for one-tap logging. The sheet stays open; saving it twice is a no-op. */
+  /** Saves a meal to "My foods" for one-tap logging and closes the sheet so the toast is visible (it sits under a modal). Saving it twice is a no-op. */
   const saveFood = (entry: TimelineEntry) => {
     if (entry.kind !== 'food') return;
     let created: boolean;
@@ -171,6 +171,8 @@ export default function HistoryScreen() {
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    pendingEdit.current = null;
+    setSelected(null);
     toast(created ? 'Saved to My foods' : 'Already in My foods');
   };
 
