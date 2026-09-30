@@ -362,73 +362,106 @@ describe('Log food screen (photo)', () => {
   });
 });
 
-describe('Log food screen (correcting the verdict)', () => {
+describe('Log food screen (correcting the verdict on save)', () => {
   const photo = { uri: 'file:///cache/prepared.jpg', width: 1024, height: 768 };
   const correctionField = () => screen.getByLabelText('Is this right? Tell us more');
+  const corrected = {
+    ...result,
+    mealName: 'Pumpkin soup',
+    overall: { verdict: 'ok', confidence: 'high', reasoning: 'Plain pumpkin soup.' },
+  };
 
-  it('keeps "Check again" disabled until a comment is typed', async () => {
+  it('has no separate re-check button', async () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
     await type('soup');
     await press('Check it');
     await screen.findByText('Mint is a common trigger.');
 
-    expect(screen.getByRole('button', { name: 'Check again with this' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /check again/i })).toBeNull();
   });
 
-  it('re-analyzes the same text with the comment as details', async () => {
+  it('saves the original verdict without another call when there is no comment', async () => {
     analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+    await type('soup');
+    await press('Check it');
+    await screen.findByText('Mint is a common trigger.');
+    await press('Save to diary');
+
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)[0]).toMatchObject({ mealName: 'Mint tea' });
+  });
+
+  it('re-checks text with the comment on save and stores the corrected verdict', async () => {
+    analyze.mockResolvedValueOnce(result).mockResolvedValueOnce(corrected);
     await render(<LogFoodScreen />);
     await type('soup');
     await press('Check it');
     await screen.findByText('Mint is a common trigger.');
 
     await fireEvent.changeText(correctionField(), " it's pumpkin, no cream ");
-    await press('Check again with this');
+    await press('Save to diary');
 
-    await waitFor(() => expect(analyze).toHaveBeenCalledTimes(2));
-    expect(analyze).toHaveBeenLastCalledWith(
-      { text: 'soup', details: "it's pumpkin, no cream" },
-      expect.any(AbortSignal),
-    );
-    expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
-    expect(correctionField().props.value).toBe('');
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    expect(analyze).toHaveBeenCalledTimes(2);
+    expect(analyze).toHaveBeenLastCalledWith({ text: 'soup', details: "it's pumpkin, no cream" });
+    const logs = listDiaryFoodLogs(mockDb, ALL_TIME);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({ mealName: 'Pumpkin soup', overallVerdict: 'ok', inputText: 'soup' });
   });
 
-  it('re-analyzes a photo with the earlier details plus the new comment, and saves once', async () => {
+  it('re-checks a photo with earlier details plus the comment, then saves once', async () => {
     pick.mockResolvedValue({ status: 'ok', photo });
-    analyze.mockResolvedValue(result);
+    analyze.mockResolvedValueOnce(result).mockResolvedValueOnce(corrected);
     await render(<LogFoodScreen />);
     await press('Take a photo');
     await fireEvent.changeText(await screen.findByLabelText('Anything we should know?'), 'homemade');
     await press('Check it');
     await screen.findByText('Mint is a common trigger.');
 
-    await fireEvent.changeText(correctionField(), 'it is peppermint tea');
-    await press('Check again with this');
-
-    await waitFor(() => expect(analyze).toHaveBeenCalledTimes(2));
-    expect(analyze).toHaveBeenLastCalledWith(
-      { photo: { uri: photo.uri, mimeType: 'image/jpeg' }, details: 'homemade. it is peppermint tea' },
-      expect.any(AbortSignal),
-    );
-    await screen.findByText('Mint is a common trigger.');
+    await fireEvent.changeText(correctionField(), 'it is pumpkin soup');
     await press('Save to diary');
+
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    expect(analyze).toHaveBeenLastCalledWith({
+      photo: { uri: photo.uri, mimeType: 'image/jpeg' },
+      details: 'homemade. it is pumpkin soup',
+    });
+    expect(store).toHaveBeenCalledTimes(1);
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)[0]).toMatchObject({ mealName: 'Pumpkin soup' });
   });
 
-  it('keeps the photo and shows the error if the re-check fails', async () => {
-    pick.mockResolvedValue({ status: 'ok', photo });
+  it('shows the loader while re-checking on save', async () => {
+    let resolve!: (value: unknown) => void;
+    analyze.mockResolvedValueOnce(result).mockReturnValueOnce(new Promise((r) => (resolve = r)));
+    await render(<LogFoodScreen />);
+    await type('soup');
+    await press('Check it');
+    await screen.findByText('Mint is a common trigger.');
+    await fireEvent.changeText(correctionField(), 'pumpkin');
+    await press('Save to diary');
+
+    expect(await screen.findByText('loading:text')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Save to diary' })).toBeNull();
+    await act(async () => resolve(corrected));
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+  });
+
+  it('saves nothing and keeps the result and comment if the re-check fails', async () => {
     analyze.mockResolvedValueOnce(result).mockRejectedValueOnce(new AppError('RATE_LIMITED', 'req-2'));
     await render(<LogFoodScreen />);
-    await press('Take a photo');
-    await reviewThenCheck();
+    await type('soup');
+    await press('Check it');
     await screen.findByText('Mint is a common trigger.');
+    await fireEvent.changeText(correctionField(), 'pumpkin');
+    await press('Save to diary');
 
-    await fireEvent.changeText(correctionField(), 'it is peppermint tea');
-    await press('Check again with this');
-
-    expect(await screen.findByText(friendlyMessages.RATE_LIMITED)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
+    await waitFor(() => expect(mockToast).toHaveBeenCalledWith(friendlyMessages.RATE_LIMITED));
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(screen.getByText('Mint is a common trigger.')).toBeTruthy();
+    expect(correctionField().props.value).toBe('pumpkin');
   });
 });
