@@ -1,5 +1,7 @@
 module.exports = {
   preset: 'jest-expo',
+  // Screen tests render whole screens; the first one in a worker is slow on cold CI runners.
+  testTimeout: 20000,
   testMatch: ['**/__tests__/**/*.test.ts?(x)'],
   // Metro resolves lucide's ESM build; Jest needs its CommonJS build.
   moduleNameMapper: {
