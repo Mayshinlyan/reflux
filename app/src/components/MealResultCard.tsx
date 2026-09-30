@@ -9,14 +9,23 @@ import { AppText } from './AppText';
 import { VerdictBadge } from './VerdictBadge';
 
 /** A meal analysis: the overall verdict and reasoning, then each item with its own verdict. */
-export function MealResultCard({ analysis }: { analysis: MealAnalysis }) {
+export function MealResultCard({
+  analysis,
+  showTitle = true,
+}: {
+  analysis: MealAnalysis;
+  /** Hide the meal name when the screen already shows it as its own heading. */
+  showTitle?: boolean;
+}) {
   const colors = useColors();
   return (
     <View>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-        <AppText variant="title" accessibilityRole="header">
-          {analysis.mealName}
-        </AppText>
+        {showTitle && (
+          <AppText variant="title" accessibilityRole="header">
+            {analysis.mealName}
+          </AppText>
+        )}
         <VerdictBadge verdict={analysis.overall.verdict} />
         <AppText color="inkSoft">{analysis.overall.reasoning}</AppText>
       </View>
