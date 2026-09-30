@@ -1,10 +1,10 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, type AlertButton } from 'react-native';
 
 import HistoryScreen from '@/app/history';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { createFoodLog, createUncheckedMeal } from '@/db/repositories/food';
+import { createFoodLog, createUncheckedMeal, listDiaryFoodLogs } from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
 import { createSymptomLog, getSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
@@ -363,6 +363,71 @@ describe('History: saved meals', () => {
     await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
 
     expect(screen.queryByLabelText('Your meal photo')).toBeNull();
+  });
+});
+
+const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
+
+describe('History: swipe to delete an entry', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('asks first, and Cancel keeps the meal', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete Steamed dim sum' }));
+    expect(alert.mock.calls.at(-1)?.[0]).toBe('Delete this entry?');
+    pressAlertButton(alert, 'Cancel');
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
+  });
+
+  it('removes the meal from the list once confirmed', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete Steamed dim sum' }));
+    await act(async () => pressAlertButton(alert, 'Delete'));
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: /^Meal: Steamed dim sum/ })).toBeNull();
+  });
+
+  it('offers Delete to screen readers as an action on the row', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    seedMeal();
+    await render(<HistoryScreen />);
+
+    await fireEvent(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }), 'accessibilityAction', {
+      nativeEvent: { actionName: 'delete' },
+    });
+
+    expect(alert.mock.calls.at(-1)?.[0]).toBe('Delete this entry?');
+  });
+
+  it('deletes a symptom entry the same way', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    seedFullEntry();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Delete Throat & voice/ }));
+    await act(async () => pressAlertButton(alert, 'Delete'));
+
+    expect(screen.queryByRole('button', { name: /^Symptoms: Throat & voice/ })).toBeNull();
+  });
+
+  it('deletes a medication entry the same way', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    logMedication(mockDb, id);
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete Omeprazole 20 mg' }));
+    await act(async () => pressAlertButton(alert, 'Delete'));
+
+    expect(screen.queryByText('Omeprazole 20 mg')).toBeNull();
   });
 });
 

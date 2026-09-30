@@ -10,6 +10,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -41,7 +42,7 @@ function RootLayout() {
 
   // The splash stays up until the database is open and migrated.
   return (
-    <>
+    <GestureHandlerRootView style={styles.root}>
       <StatusBar style="dark" />
       <DatabaseProvider fallback={null} errorView={<DatabaseErrorScreen />}>
         <HideSplash />
@@ -56,7 +57,7 @@ function RootLayout() {
           </Stack>
         </ToastProvider>
       </DatabaseProvider>
-    </>
+    </GestureHandlerRootView>
   );
 }
 
@@ -105,6 +106,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   center: { flex: 1, justifyContent: 'center' },
   gap: { marginBottom: space.s2 },
 });

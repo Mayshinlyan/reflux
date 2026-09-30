@@ -7,6 +7,9 @@ module.exports = {
   moduleNameMapper: {
     // `@/assets/*` lives outside src (see tsconfig paths); must come before the generic `@/*` mapping.
     '^@/assets/(.*)$': '<rootDir>/assets/$1',
+    // Reanimated's native runtime can't load in Jest; use a plain stand-in for the swipeable row.
+    '^react-native-gesture-handler/ReanimatedSwipeable$':
+      '<rootDir>/src/test-utils/ReanimatedSwipeableStub.tsx',
     '^lucide-react-native$': '<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js',
   },
   transformIgnorePatterns: [
