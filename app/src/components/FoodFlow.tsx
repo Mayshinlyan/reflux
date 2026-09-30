@@ -15,7 +15,7 @@ import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { useDb } from '@/db/DatabaseProvider';
-import { createFoodLog, promoteCheckToDiary } from '@/db/repositories/food';
+import { createFoodLog, promoteCheckToDiary, updateFoodCheck } from '@/db/repositories/food';
 import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -36,8 +36,9 @@ const copy = {
   textLabel: "What's the food?",
   textPlaceholder: 'e.g. spicy chicken tacos',
   analyzeLabel: 'Analyze meal',
-  correctionNote: "We'll re-check the verdict with this when you tap I ate this.",
+  correctionNote: 'Tap Update verdict to re-check it with this.',
   saveLabel: 'I ate this',
+  updateLabel: 'Update verdict',
   skipLabel: 'Not now',
   saved: 'Added to your food diary',
 } as const;
@@ -63,8 +64,10 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
   const [details, setDetails] = useState('');
   const [correction, setCorrection] = useState('');
   const [preparing, setPreparing] = useState(false);
-  // True while "I ate this" re-checks the food with the user's comment before writing the diary entry.
+  // True while "Update verdict" re-checks the food with the user's comment.
   const [correcting, setCorrecting] = useState(false);
+  // A verdict updated from the user's comment; it replaces the first result on screen.
+  const [updated, setUpdated] = useState<AnalysisResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const saving = useRef(false);
   const alive = useRef(true);
@@ -103,11 +106,14 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
   }, [state, analyzed, db]);
 
   const busy = preparing || correcting || state.status === 'loading';
-  const showResult = state.status === 'done' && !correcting;
+  const shown = state.status === 'done' ? (updated ?? state.result) : null;
+  const showResult = shown !== null && !correcting;
+  const hasComment = correction.trim() !== '';
   const trimmed = text.trim();
 
   const run = (target: Analyzed, notes: string) => {
     setNotice(null);
+    setUpdated(null);
     setAnalyzed(target);
     setDetails(notes);
     const extra = notes ? { details: notes } : {};
@@ -161,15 +167,15 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on arrival; checkPhoto's state is fresh then
   }, [openCamera]);
 
-  /** `rechecked`: the result came from re-checking with the user's comment, so it replaces a stored check's analysis. */
-  const persist = (result: AnalysisResult, rechecked: boolean) => {
-    if (!analyzed) return;
+  /** "I ate this": saves exactly the verdict on screen, with no further relay call. */
+  const save = () => {
+    if (!shown || !analyzed || saving.current) return;
     saving.current = true;
-    const { meta, ...analysis } = result;
+    const { meta, ...analysis } = shown;
     let storedPhoto: string | null = null;
     try {
       if (checkId.current !== null) {
-        promoteCheckToDiary(db, checkId.current, undefined, rechecked ? { analysis, meta } : undefined);
+        promoteCheckToDiary(db, checkId.current);
       } else {
         if (analyzed.source === 'photo') storedPhoto = savePhoto(analyzed.uri);
         createFoodLog(db, {
@@ -194,40 +200,52 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
     router.back();
   };
 
-  /** With a comment in "Is this right?", the AI re-checks the food with it first, and the corrected verdict is what gets saved. */
-  const save = async () => {
-    if (state.status !== 'done' || !analyzed || saving.current) return;
+  /**
+   * "Update verdict": the AI re-checks the food with the user's comment and the new verdict is shown
+   * (and stored on the check) before anything goes into the diary. Comments build on each other.
+   */
+  const updateVerdict = async () => {
     const note = correction.trim();
-    if (!note) {
-      persist(state.result, false);
-      return;
-    }
+    if (!shown || !analyzed || !note || saving.current) return;
     saving.current = true;
     setCorrecting(true);
     const notes = [details, note].filter(Boolean).join('. ').slice(-MAX_DETAILS);
     try {
-      const rechecked = await analyzeFood(
+      const result = await analyzeFood(
         analyzed.source === 'text'
           ? { text: analyzed.text, details: notes }
           : { photo: { uri: analyzed.uri, mimeType: 'image/jpeg' }, details: notes },
       );
       if (!alive.current) return;
-      setCorrecting(false);
-      saving.current = false;
-      persist(rechecked, true);
+      if (checkId.current !== null) {
+        const { meta, ...analysis } = result;
+        try {
+          updateFoodCheck(db, checkId.current, { analysis, meta });
+        } catch {
+          // Code only. "I ate this" then writes the diary entry straight from the verdict on screen.
+          logger.error('saveFoodCheck', new AppError('INTERNAL'));
+          checkId.current = null;
+        }
+      }
+      setUpdated(result);
+      setDetails(notes);
+      setCorrection('');
+      toast('Verdict updated');
     } catch (caught) {
       if (!alive.current) return;
       const error = caught instanceof AppError ? caught : new AppError('INTERNAL');
       logger.error('analyzeFood', error);
-      setCorrecting(false);
-      saving.current = false;
-      // Nothing was saved: the original verdict and the comment stay so the user can retry.
+      // The current verdict and the comment stay so the user can retry.
       toast(error.friendlyMessage);
+    } finally {
+      saving.current = false;
+      if (alive.current) setCorrecting(false);
     }
   };
 
   const tryAnother = () => {
     checkId.current = null; // an unused check stays stored as a check
+    setUpdated(null);
     setAnalyzed(null);
     setDraft('');
     setDetails('');
@@ -258,7 +276,7 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
                   accessibilityLabel="Your meal photo"
                 />
               )}
-              <MealResultCard analysis={state.result} />
+              {shown && <MealResultCard analysis={shown} />}
               <View style={styles.correction}>
                 <TextField
                   label="Is this right? Tell us more"
@@ -356,7 +374,12 @@ export function FoodFlow({ openCamera = false }: { openCamera?: boolean }) {
         {/* Outside the scroll area so Save is always on screen, however long the result is. */}
         {showResult && (
           <View style={styles.footer}>
-            <Button label={copy.saveLabel} onPress={() => void save()} />
+            {/* A comment turns the main button into "Update verdict", so what gets saved is always what's shown. */}
+            {hasComment ? (
+              <Button label={copy.updateLabel} onPress={() => void updateVerdict()} />
+            ) : (
+              <Button label={copy.saveLabel} onPress={save} />
+            )}
             {/* The check stays stored, outside the diary. */}
             <Button label={copy.skipLabel} variant="secondary" onPress={() => router.back()} />
           </View>
