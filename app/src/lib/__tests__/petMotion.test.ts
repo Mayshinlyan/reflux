@@ -1,4 +1,4 @@
-import { HAPPY_LINES, lineForTap, MAX_TILT_X_DEG, MAX_TILT_Y_DEG, tiltFromTouch } from '../petMotion';
+import { happyLines, lineForTap, MAX_TILT_X_DEG, MAX_TILT_Y_DEG, tiltFromTouch } from '../petMotion';
 
 describe('tiltFromTouch', () => {
   it('does not tilt when touched in the centre', () => {
@@ -20,7 +20,12 @@ describe('tiltFromTouch', () => {
 
 describe('tap cycling', () => {
   it('picks a different line on each tap and wraps around', () => {
-    expect(lineForTap(0)).not.toBe(lineForTap(1));
-    expect(lineForTap(HAPPY_LINES.length)).toBe(lineForTap(0));
+    expect(lineForTap(0, 'mochi')).not.toBe(lineForTap(1, 'mochi'));
+    expect(lineForTap(happyLines('mochi').length, 'mochi')).toBe(lineForTap(0, 'mochi'));
+  });
+
+  it('only the dog says woof', () => {
+    expect(happyLines('dog')).toContain('Woof!');
+    expect(happyLines('mochi')).not.toContain('Woof!');
   });
 });

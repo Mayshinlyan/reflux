@@ -18,12 +18,14 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withRepeat,
+  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
 import { CLIP_MS, PET_ASPECT, type PetClip, type PetPoster, posterFor, viewFor } from '@/lib/petClips';
 import type { PetMood } from '@/lib/petProgress';
+import type { PetAnimal } from '@/lib/pets';
 import { lineForTap, TAP_COOLDOWN_MS, tiltFromTouch } from '@/lib/petMotion';
 import { radius, space, typography, useColors } from '@/theme';
 
@@ -37,6 +39,9 @@ const POSTERS: Record<PetPoster, number> = {
   poster_unwell: require('@/assets/images/pet/poster_unwell.webp'),
 };
 
+/** Mochi has one still for every mood and no clips; it bounces when tapped instead. */
+const MOCHI_IMAGE = require('@/assets/images/pet/mochi.png');
+
 /** Extra time a clip may take to load before the pet returns to its still anyway. */
 const LOAD_MARGIN_MS = 1500;
 
@@ -44,6 +49,7 @@ const SOFT_SPRING = { damping: 9, stiffness: 180, mass: 0.8 };
 
 type Props = {
   name: string;
+  animal: PetAnimal;
   width: number;
   mood: PetMood;
   /** Play the one-time stage-up celebration, then call `onCelebrationEnd`. */
@@ -52,14 +58,15 @@ type Props = {
 };
 
 /**
- * The companion pet: a pre-rendered 3D dog. At rest it is a still image matching its
+ * The companion pet. The dog is a pre-rendered 3D model; Mochi is a flat illustration that
+ * bounces when tapped (no clips). For the dog, at rest it is a still image matching its
  * mood, breathing gently. A tap plays its mood clip once (with a haptic, a heart and a
  * speech bubble), and a stage-up plays the celebration clip once; then it returns to
  * the still. Taps are play only and never affect progress. Nothing plays when Today
  * isn't focused or the app is backgrounded, and reduced motion keeps only the bubble
  * and haptic.
  */
-export function Pet({ name, width, mood, celebrating, onCelebrationEnd }: Props) {
+export function Pet({ name, animal, width, mood, celebrating, onCelebrationEnd }: Props) {
   const colors = useColors();
   const reduceMotion = useReducedMotion();
   const height = Math.round(width * PET_ASPECT);
@@ -86,7 +93,9 @@ export function Pet({ name, width, mood, celebrating, onCelebrationEnd }: Props)
   }, []);
   const active = focused && appActive;
 
-  const view = viewFor({ mood, celebrating, reacting, active, reduceMotion });
+  // Only the dog has clips; for any other pet the view is always its still.
+  const hasClips = animal === 'dog';
+  const view = viewFor({ mood, celebrating, reacting, active, reduceMotion: reduceMotion || !hasClips });
   const playing = view.kind === 'clip' ? view.clip : null;
 
   // Each clip plays once, then the pet goes back to its still. The timer runs from when the
@@ -106,10 +115,11 @@ export function Pet({ name, width, mood, celebrating, onCelebrationEnd }: Props)
     return () => clearTimeout(timer);
   }, [playing, loaded, onCelebrationEnd]);
 
-  // With reduced motion there is no celebration to watch, so the stage is marked seen.
+  // With reduced motion, or a pet without a celebration clip, there is nothing to watch, so the
+  // stage is marked seen.
   useEffect(() => {
-    if (celebrating && reduceMotion) onCelebrationEnd();
-  }, [celebrating, reduceMotion, onCelebrationEnd]);
+    if (celebrating && (reduceMotion || !hasClips)) onCelebrationEnd();
+  }, [celebrating, reduceMotion, hasClips, onCelebrationEnd]);
 
   // A gentle breath keeps the still pet alive; it stops while a clip plays.
   const breathe = useSharedValue(0);
@@ -132,6 +142,7 @@ export function Pet({ name, width, mood, celebrating, onCelebrationEnd }: Props)
   const squashX = useSharedValue(1);
   const squashY = useSharedValue(1);
   const heart = useSharedValue(0);
+  const hop = useSharedValue(0);
 
   const tapCount = useRef(0);
   const lastTap = useRef(0);
@@ -168,7 +179,7 @@ export function Pet({ name, width, mood, celebrating, onCelebrationEnd }: Props)
     const count = tapCount.current++;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    const line = lineForTap(count);
+    const line = lineForTap(count, animal);
     setBubble(line);
     AccessibilityInfo.announceForAccessibility(`${name}: ${line}`);
     if (bubbleTimer.current) clearTimeout(bubbleTimer.current);
@@ -177,6 +188,10 @@ export function Pet({ name, width, mood, celebrating, onCelebrationEnd }: Props)
     if (reduceMotion) return;
     heart.value = 0;
     heart.value = withTiming(1, { duration: 900, easing: Easing.out(Easing.quad) });
+    if (!hasClips) {
+      hop.value = withSequence(withTiming(-16, { duration: 140 }), withSpring(0, SOFT_SPRING));
+      return;
+    }
     // A clip already playing runs to its end rather than restarting on every tap, and a
     // tap during the celebration doesn't queue a reaction for afterwards.
     if (!celebrating) setReacting(true);
@@ -185,7 +200,7 @@ export function Pet({ name, width, mood, celebrating, onCelebrationEnd }: Props)
   const petStyle = useAnimatedStyle(() => ({
     transform: [
       { perspective: 700 },
-      { translateY: -breathe.value * 3 },
+      { translateY: -breathe.value * 3 + hop.value },
       { rotateX: `${tiltX.value}deg` },
       { rotateY: `${tiltY.value}deg` },
       { scaleX: squashX.value * (1 + breathe.value * 0.012) },
@@ -217,9 +232,9 @@ export function Pet({ name, width, mood, celebrating, onCelebrationEnd }: Props)
           {/* One image view whose source changes: expo-image keeps showing the current
               picture until the next one is ready, so switching never flashes blank. */}
           <Image
-            source={view.kind === 'clip' ? CLIPS[view.clip] : POSTERS[view.poster]}
+            source={!hasClips ? MOCHI_IMAGE : view.kind === 'clip' ? CLIPS[view.clip] : POSTERS[view.poster]}
             // While a clip loads, show its still: the clip's first frame, so it can't blink.
-            placeholder={POSTERS[posterFor(mood)]}
+            placeholder={hasClips ? POSTERS[posterFor(mood)] : undefined}
             placeholderContentFit="contain"
             style={{ width, height }}
             contentFit="contain"

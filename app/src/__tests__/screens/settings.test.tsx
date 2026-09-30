@@ -71,7 +71,7 @@ describe('Settings', () => {
   it('shows the current pet name and bedtime, with the defaults on a fresh install', async () => {
     await render(<SettingsScreen />);
 
-    expect(screen.getByRole('button', { name: 'My pet, Buddy' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'My pet, Mochi' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Bedtime, 10:30 PM' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'My medications' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'History' })).toBeTruthy();
@@ -85,7 +85,7 @@ describe('Settings', () => {
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
       .filter((label) => /^(Bedtime|My pet|My foods|My medications)/.test(label ?? ''));
-    expect(rows).toEqual(['Bedtime, 10:30 PM', 'My pet, Buddy', 'My foods', 'My medications']);
+    expect(rows).toEqual(['Bedtime, 10:30 PM', 'My pet, Mochi', 'My foods', 'My medications']);
   });
 
   it('opens History and My medications', async () => {
@@ -144,9 +144,9 @@ describe('Settings: bedtime', () => {
 describe('Settings: my pet', () => {
   it('opens with the current name and saves a new one, trimmed', async () => {
     await render(<SettingsScreen />);
-    await press('button', 'My pet, Buddy');
+    await press('button', 'My pet, Mochi');
 
-    expect(screen.getByLabelText('Name').props.value).toBe('Buddy');
+    expect(screen.getByLabelText('Name').props.value).toBe('Mochi');
     await fireEvent.changeText(screen.getByLabelText('Name'), '  Biscuit ');
     await press('button', 'Save');
 
@@ -157,24 +157,24 @@ describe('Settings: my pet', () => {
 
   it('will not save a blank name', async () => {
     await render(<SettingsScreen />);
-    await press('button', 'My pet, Buddy');
+    await press('button', 'My pet, Mochi');
     await fireEvent.changeText(screen.getByLabelText('Name'), '   ');
 
     expect(screen.getByRole('button', { name: 'Save' }).props.accessibilityState).toMatchObject({
       disabled: true,
     });
-    expect(getAllSettings(mockDb).petName).toBe('Buddy');
+    expect(getAllSettings(mockDb).petName).toBe('Mochi');
   });
 
   it('always starts from the saved name, not a half-typed one from last time', async () => {
     await render(<SettingsScreen />);
-    await press('button', 'My pet, Buddy');
+    await press('button', 'My pet, Mochi');
     await fireEvent.changeText(screen.getByLabelText('Name'), 'Halfway');
     await fireEvent.press(screen.getByRole('button', { name: 'Close', includeHiddenElements: true })); // dismiss without saving
 
-    await press('button', 'My pet, Buddy');
+    await press('button', 'My pet, Mochi');
 
-    expect(screen.getByLabelText('Name').props.value).toBe('Buddy');
+    expect(screen.getByLabelText('Name').props.value).toBe('Mochi');
   });
 });
 
@@ -213,7 +213,7 @@ describe('Settings: delete all my data', () => {
     expect(listMedications(mockDb)).toHaveLength(0);
     expect(mockDeleteAllPhotos).toHaveBeenCalledTimes(1);
     expect(getSetting(mockDb, 'onboardingDone')).toBe(true);
-    expect(screen.getByRole('button', { name: 'My pet, Buddy' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'My pet, Mochi' })).toBeTruthy();
     expect(mockToast).toHaveBeenCalledWith('All your data was deleted');
   });
 

@@ -41,7 +41,7 @@ describe('deltas', () => {
 });
 
 describe('derivePetState', () => {
-  it('starts as a happy puppy with no progress', () => {
+  it('starts as a happy little pet with no progress', () => {
     expect(derive({})).toEqual({ stage: 0, progress: 0, mood: 'happy' });
   });
 
@@ -103,9 +103,12 @@ describe('derivePetState', () => {
 
 describe('statusLine', () => {
   it('is warm in every mood', () => {
-    expect(statusLine('Buddy', 'happy', true)).toBe('Buddy is thriving!');
-    expect(statusLine('Buddy', 'happy', false)).toBe('Buddy is happy to see you!');
-    expect(statusLine('Buddy', 'unwell', true)).toBe("Buddy's feeling a little ruff today.");
+    expect(statusLine('Mochi', 'happy', true, 'mochi')).toBe('Mochi is thriving!');
+    expect(statusLine('Mochi', 'happy', false, 'mochi')).toBe('Mochi is happy to see you!');
+    expect(statusLine('Mochi', 'unwell', true, 'mochi')).toBe(
+      "Mochi's feeling a little under the weather today.",
+    );
+    expect(statusLine('Buddy', 'unwell', true, 'dog')).toBe("Buddy's feeling a little ruff today.");
   });
 });
 

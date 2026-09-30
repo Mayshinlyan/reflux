@@ -7,7 +7,7 @@ import TodayScreen from '@/app/index';
 const mockPush = jest.fn();
 
 jest.mock('@/db/DatabaseProvider', () => ({
-  useSettings: () => ({ settings: { petName: 'Buddy', onboardingDone: true } }),
+  useSettings: () => ({ settings: { petName: 'Mochi', petAnimal: 'mochi', onboardingDone: true } }),
 }));
 jest.mock('@/hooks/usePetState', () => ({
   usePetState: () => ({
@@ -42,7 +42,7 @@ beforeEach(() => mockPush.mockClear());
 describe('Today: swipe left for History', () => {
   it('opens History after a long enough left swipe', async () => {
     await render(<TodayScreen />);
-    expect(screen.getByText('Buddy')).toBeTruthy();
+    expect(screen.getByText('Mochi')).toBeTruthy();
 
     swipe(-120);
 
