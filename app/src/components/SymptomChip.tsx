@@ -34,7 +34,7 @@ export function SymptomChip({ label, selected, onToggle, readOnly, onRemove }: P
           accessibilityRole="button"
           accessibilityLabel={`Remove ${label}`}
           onPress={onRemove}
-          hitSlop={6}
+          hitSlop={8}
           style={({ pressed }) => [styles.minus, { opacity: pressed ? 0.6 : 1 }]}>
           <Minus size={16} color={colors.sageInk} strokeWidth={2.8} />
         </Pressable>
