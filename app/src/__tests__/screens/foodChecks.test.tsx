@@ -23,6 +23,12 @@ jest.mock('@/services/relayClient', () => ({ analyzeFood: jest.fn() }));
 jest.mock('@/services/photoPicker', () => ({ pickFoodPhoto: jest.fn() }));
 jest.mock('@/services/photoStore', () => ({ savePhoto: jest.fn(), deletePhoto: jest.fn() }));
 jest.mock('expo-image', () => ({ Image: () => null }));
+// The native wheel can't render here; leaving it alone means "eaten right now".
+jest.mock('@react-native-community/datetimepicker', () => ({
+  __esModule: true,
+  default: () => null,
+  DateTimePickerAndroid: { open: jest.fn() },
+}));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -71,6 +77,11 @@ const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.00
 const allRows = () => mockDb.select().from(foodLogs).all();
 const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('What did you eat?'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
+/** "I ate this" now asks when first; leaving the wheel alone saves it as eaten right now. */
+const ateThis = async () => {
+  await press('I ate this');
+  await press('Save');
+};
 
 beforeEach(() => {
   const { db, sqlite } = createTestDb();
@@ -101,7 +112,7 @@ describe('Food screen: checks and "I ate this"', () => {
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
     expect(allRows()).toMatchObject([{ entryType: 'check', inputText: 'mint tea' }]);
 
-    await press('I ate this');
+    await ateThis();
 
     expect(analyze).toHaveBeenCalledTimes(1);
     const diary = listDiaryFoodLogs(mockDb, ALL_TIME);
@@ -160,7 +171,7 @@ describe('Food screen: checks and "I ate this"', () => {
     await screen.findByText('Chamomile is usually gentle.');
     expect(allRows()).toMatchObject([{ entryType: 'check', mealName: 'Chamomile tea' }]);
 
-    await press('I ate this');
+    await ateThis();
 
     expect(analyze).toHaveBeenCalledTimes(2);
     expect(analyze).toHaveBeenLastCalledWith({ text: 'herbal tea', details: 'it was chamomile' });
@@ -178,7 +189,7 @@ describe('Food screen: checks and "I ate this"', () => {
     await screen.findByLabelText('Anything we should know?');
     await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
-    await press('I ate this');
+    await ateThis();
 
     expect(store).toHaveBeenCalledTimes(1);
     expect(allRows()).toMatchObject([
@@ -200,7 +211,7 @@ describe('Food screen: checks and "I ate this"', () => {
     await screen.findByText('Mint is a common trigger.');
     expect(allRows()).toHaveLength(0);
 
-    await press('I ate this');
+    await ateThis();
 
     expect(analyze).toHaveBeenCalledTimes(1);
     expect(allRows()).toMatchObject([{ entryType: 'diary', photoUri: 'file:///doc/photos/meal.jpg' }]);
@@ -214,6 +225,7 @@ describe('Food screen: saving without a verdict', () => {
 
     await type('  grilled fish  ');
     await press('Save without a verdict');
+    await press('Save');
 
     expect(analyze).not.toHaveBeenCalled();
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
@@ -251,6 +263,7 @@ describe('Food screen: saving without a verdict', () => {
     expect(await screen.findByText(friendlyMessages.OFFLINE)).toBeTruthy();
 
     await press('Save without a verdict');
+    await press('Save');
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
       { inputText: 'rice and beans', overallVerdict: null },

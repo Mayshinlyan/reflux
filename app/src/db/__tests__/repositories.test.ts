@@ -3,7 +3,7 @@ import { count } from 'drizzle-orm';
 
 import type { MealAnalysis } from '@/types/analysis';
 
-import { deleteAllData } from '../repositories/data';
+import { countLoggedEntries, deleteAllData } from '../repositories/data';
 import {
   createFoodLog,
   createUncheckedMeal,
@@ -707,5 +707,29 @@ describe('delete all data', () => {
 
     createSymptomLog(db, { items: [{ key: 'heartburn' }], loggedAt: DAY.from, tz: 'UTC' });
     expect(listSymptomLogs(db, DAY)).toHaveLength(1);
+  });
+});
+
+describe('countLoggedEntries', () => {
+  it('counts diary meals, symptom logs and doses, but not one-off checks', () => {
+    const { db } = createTestDb();
+    expect(countLoggedEntries(db)).toBe(0);
+
+    createSymptomLog(db, { items: [{ key: 'heartburn' }], loggedAt: DAY.from, tz: 'UTC' });
+    createFoodLog(db, { entryType: 'diary', source: 'text', inputText: 'mint tea', analysis: mintTea, meta });
+    createUncheckedMeal(db, { source: 'text', inputText: 'toast' });
+    const checkId = createFoodLog(db, {
+      entryType: 'check',
+      source: 'text',
+      inputText: 'tea',
+      analysis: mintTea,
+      meta,
+    });
+    const medId = createMedication(db, { name: 'Omeprazole', type: 'ppi' });
+    logMedication(db, medId, { takenAt: DAY.from, tz: 'UTC' });
+    expect(countLoggedEntries(db)).toBe(4);
+
+    promoteCheckToDiary(db, checkId);
+    expect(countLoggedEntries(db)).toBe(5);
   });
 });

@@ -10,7 +10,7 @@ import { BackHeader } from '@/components/BackHeader';
 import { Button } from '@/components/Button';
 import { FoodLoading } from '@/components/FoodLoading';
 import { MealResultCard } from '@/components/MealResultCard';
-import { MealTimePicker } from '@/components/MealTimePicker';
+import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
 import { SwipeNav } from '@/components/SwipeNav';
 import { TagChip } from '@/components/TagChip';
@@ -98,8 +98,8 @@ export function FoodFlow({
   // A verdict updated from the user's comment; it replaces the first result on screen.
   const [updated, setUpdated] = useState<AnalysisResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  // When the meal was eaten, for back-logging. Null = now, worked out at the moment of saving.
-  const [eatenAt, setEatenAt] = useState<Date | null>(null);
+  // Which save is waiting on "When did you eat this?" (the time sheet on iPhone).
+  const [askingWhen, setAskingWhen] = useState<'ate' | 'unchecked' | null>(null);
   // "Save to My foods" on the result: also keep the meal for one-tap logging from the Food list.
   const [keep, setKeep] = useState(false);
   const saving = useRef(false);
@@ -146,8 +146,6 @@ export function FoodFlow({
   const showResult = shown !== null && !correcting;
   const hasComment = correction.trim() !== '';
   const trimmed = text.trim();
-  /** The chosen time as the ISO instant the diary stores; undefined lets the repository stamp "now". */
-  const eatenIso = () => eatenAt?.toISOString();
 
   const run = (target: Analyzed, notes: string) => {
     setNotice(null);
@@ -172,7 +170,7 @@ export function FoodFlow({
     run(analyzed, draft.trim());
   };
 
-  const checkPhoto = async (source: PhotoSource) => {
+  const checkPhoto = async (source: PhotoSource, fromScan = false) => {
     if (busy) return;
     setNotice(null);
     try {
@@ -181,6 +179,8 @@ export function FoodFlow({
       });
       if (!alive.current) return;
       if (picked.status === 'denied') setNotice(CAMERA_DENIED);
+      // Closing the camera that Scan opened means "never mind": back to where the user came from.
+      if (picked.status === 'canceled' && fromScan) router.back();
       if (picked.status !== 'ok') return;
       // Not analyzed yet: the review step lets the user add optional details first.
       setAnalyzed({ source: 'photo', uri: picked.photo.uri });
@@ -196,17 +196,30 @@ export function FoodFlow({
     }
   };
 
-  // Scan on Today: straight to the camera, once. Cancelling it leaves this screen's other options.
+  // Scan on Today: straight to the camera, once. Closing it goes back; denied access keeps the screen and says why.
   const cameraOpened = useRef(false);
   useEffect(() => {
     if (!openCamera || cameraOpened.current) return;
     cameraOpened.current = true;
-    void checkPhoto('camera');
+    void checkPhoto('camera', true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on arrival; checkPhoto's state is fresh then
   }, [openCamera]);
 
+  /**
+   * "I ate this" / "Save without a verdict" was tapped: ask when it was eaten first, then save at that time
+   * (`null` is now). A My foods check isn't eaten, so it has no time and saves straight away.
+   */
+  const onSaveUnchecked = () => (addsToList ? saveUnchecked() : askWhen('unchecked'));
+
+  const askWhen = (action: 'ate' | 'unchecked') => {
+    const run = action === 'ate' ? save : saveUnchecked;
+    if (busy || saving.current) return;
+    if (Platform.OS === 'android') pickTimeAndroid(new Date(), run);
+    else setAskingWhen(action);
+  };
+
   /** "I ate this" (or "Save to My foods"): saves exactly the verdict on screen, with no further relay call. */
-  const save = () => {
+  const save = (eatenAt: Date | null = null) => {
     if (!shown || !analyzed || saving.current) return;
     saving.current = true;
     const { meta, ...analysis } = shown;
@@ -228,7 +241,7 @@ export function FoodFlow({
           ? `${saved.mealName} added to My foods`
           : `Updated ${saved.mealName} in My foods`;
       } else if (checkId.current !== null) {
-        promoteCheckToDiary(db, checkId.current, eatenIso());
+        promoteCheckToDiary(db, checkId.current, eatenAt?.toISOString());
         diaryId = checkId.current;
       } else {
         if (analyzed.source === 'photo') storedPhoto = savePhoto(analyzed.uri);
@@ -239,7 +252,7 @@ export function FoodFlow({
           photoUri: storedPhoto,
           analysis,
           meta,
-          loggedAt: eatenIso(),
+          loggedAt: eatenAt?.toISOString(),
         });
       }
     } catch {
@@ -294,13 +307,13 @@ export function FoodFlow({
   };
 
   /** Saves what was typed as a plain diary entry, with no relay call (works offline). */
-  const saveUnchecked = () => {
+  const saveUnchecked = (eatenAt: Date | null = null) => {
     if (!trimmed || busy || saving.current) return;
     saving.current = true;
     try {
       // Only offered for a food described in words: for My foods it is added by name.
       if (addsToList) createSavedFood(db, trimmed);
-      else createUncheckedMeal(db, { source: 'text', inputText: trimmed, loggedAt: eatenIso() });
+      else createUncheckedMeal(db, { source: 'text', inputText: trimmed, loggedAt: eatenAt?.toISOString() });
     } catch {
       saving.current = false;
       // Code only: a raw error could echo the food text.
@@ -373,12 +386,8 @@ export function FoodFlow({
   return (
     <SwipeNav {...foodSwipe} enabled={swipeable}>
       <Screen>
-        {/* The chosen time is kept across steps and used by every way of saving. A My foods check isn't eaten, so it has none. */}
         <BackHeader
           title={myFood ? (myFood.id === undefined ? 'Add a food' : 'Get a verdict') : copy.title}
-          right={
-            myFood ? undefined : <MealTimePicker value={eatenAt} onChange={setEatenAt} disabled={busy} />
-          }
         />
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
@@ -490,7 +499,7 @@ export function FoodFlow({
                     />
                     {/* A quiet link: it's the fallback (offline, or no verdict wanted), not the main action. */}
                     {canSaveUnchecked && (
-                      <Pressable accessibilityRole="button" onPress={saveUnchecked} style={styles.link}>
+                      <Pressable accessibilityRole="button" onPress={onSaveUnchecked} style={styles.link}>
                         <AppText style={[styles.linkText, { color: colors.clayInk }]}>
                           {copy.saveUncheckedLabel}
                         </AppText>
@@ -508,7 +517,10 @@ export function FoodFlow({
               {hasComment ? (
                 <Button label={copy.updateLabel} onPress={() => void updateVerdict()} />
               ) : (
-                <Button label={myFood ? 'Save to My foods' : copy.saveLabel} onPress={save} />
+                <Button
+                  label={myFood ? 'Save to My foods' : copy.saveLabel}
+                  onPress={() => (myFood ? save() : askWhen('ate'))}
+                />
               )}
               {/* The check stays stored, outside the diary (a My foods check saves nothing). "Save to My foods
                 only" waits for a comment's update, for the same reason as the main button. */}
@@ -520,6 +532,18 @@ export function FoodFlow({
             </View>
           )}
         </KeyboardAvoidingView>
+        <MealTimeSheet
+          visible={askingWhen !== null}
+          question="When did you eat this?"
+          confirmLabel="Save"
+          onConfirm={(at) => {
+            const action = askingWhen;
+            setAskingWhen(null);
+            if (action === 'ate') save(at);
+            else if (action === 'unchecked') saveUnchecked(at);
+          }}
+          onClose={() => setAskingWhen(null)}
+        />
       </Screen>
     </SwipeNav>
   );

@@ -82,6 +82,11 @@ const result = {
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('What did you eat?'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
+/** "I ate this" now asks when first; leaving the wheel alone saves it as eaten right now. */
+const ateThis = async () => {
+  await press('I ate this');
+  await press('Save');
+};
 /** A photo now stops at a review step (with optional details) until "Analyze meal". */
 const reviewThenCheck = async () => {
   await screen.findByLabelText('Anything we should know?');
@@ -116,7 +121,7 @@ describe('Log food screen: Save to My foods', () => {
     await checkMintTea();
 
     await fireEvent.press(screen.getByRole('checkbox', { name: 'Save to My foods' }));
-    await press('I ate this');
+    await ateThis();
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([{ mealName: 'Mint tea' }]);
     expect(listSavedFoods(mockDb)).toMatchObject([{ mealName: 'Mint tea', overallVerdict: 'caution' }]);
@@ -126,7 +131,7 @@ describe('Log food screen: Save to My foods', () => {
   it('leaves My foods alone when not ticked', async () => {
     await checkMintTea();
 
-    await press('I ate this');
+    await ateThis();
 
     expect(listSavedFoods(mockDb)).toHaveLength(0);
     expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
@@ -165,7 +170,7 @@ describe('Log food screen: "Add a food" from the Food list', () => {
     await screen.findByText('Mint is a common trigger.');
 
     await fireEvent.press(screen.getByRole('checkbox', { name: 'Save to My foods' }));
-    await press('I ate this');
+    await ateThis();
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
     expect(listSavedFoods(mockDb)).toHaveLength(1);
@@ -206,7 +211,7 @@ describe('Log food screen (text)', () => {
     expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
     expect(analyze).toHaveBeenCalledWith({ text: 'mint tea' }, expect.any(AbortSignal));
 
-    await press('I ate this');
+    await ateThis();
 
     const logs = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(logs).toHaveLength(1);
@@ -261,7 +266,8 @@ describe('Log food screen (text)', () => {
     await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
 
-    const save = screen.getByRole('button', { name: 'I ate this' });
+    await press('I ate this');
+    const save = screen.getByRole('button', { name: 'Save' });
     await fireEvent.press(save);
     await fireEvent.press(save);
 
@@ -327,7 +333,7 @@ describe('Log food screen (photo)', () => {
       expect.any(AbortSignal),
     );
 
-    await press('I ate this');
+    await ateThis();
 
     expect(store).toHaveBeenCalledWith(photo.uri);
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)[0]).toMatchObject({
@@ -408,6 +414,25 @@ describe('Log food screen (photo)', () => {
 
     expect(analyze).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Take a photo' })).toBeEnabled();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('goes back to where Scan was tapped when the camera it opened is closed', async () => {
+    mockParams = { camera: '1' };
+    pick.mockResolvedValue({ status: 'canceled' });
+    await render(<LogFoodScreen />);
+
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it('stays on the screen and explains when Scan is denied camera access', async () => {
+    mockParams = { camera: '1' };
+    pick.mockResolvedValue({ status: 'denied' });
+    await render(<LogFoodScreen />);
+
+    expect(await screen.findByText(/Camera access is off/)).toBeTruthy();
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it('shows a friendly message when the photo cannot be read', async () => {
@@ -445,7 +470,7 @@ describe('Log food screen (photo)', () => {
     await screen.findByText('Mint is a common trigger.');
 
     closeDb();
-    await press('I ate this');
+    await ateThis();
 
     // Saved with the check when the result arrived; that check still references it.
     expect(removePhoto).not.toHaveBeenCalled();
@@ -492,7 +517,7 @@ describe('Food screen (updating the verdict with a comment)', () => {
   it('saves the verdict on screen without another call when there is no comment', async () => {
     analyze.mockResolvedValue(result);
     await analyzeSoup();
-    await press('I ate this');
+    await ateThis();
 
     expect(analyze).toHaveBeenCalledTimes(1);
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)[0]).toMatchObject({ mealName: 'Mint tea' });
@@ -528,7 +553,7 @@ describe('Food screen (updating the verdict with a comment)', () => {
     ]);
     expect(mockBack).not.toHaveBeenCalled();
 
-    await press('I ate this');
+    await ateThis();
 
     expect(analyze).toHaveBeenCalledTimes(2);
     const logs = listDiaryFoodLogs(mockDb, ALL_TIME);
@@ -558,7 +583,7 @@ describe('Food screen (updating the verdict with a comment)', () => {
       details: 'homemade. it is pumpkin soup. no cream',
     });
     await screen.findByRole('button', { name: 'I ate this' });
-    await press('I ate this');
+    await ateThis();
     expect(store).toHaveBeenCalledTimes(1);
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([{ mealName: 'Pumpkin soup' }]);
   });
@@ -658,60 +683,81 @@ describe('Food screen for My foods', () => {
   });
 });
 
-describe('Log food screen: back-logging a meal', () => {
-  const pressTime = async () =>
-    fireEvent.press(screen.getByRole('button', { name: /^When did you eat this\?/ }));
+describe('Log food screen: asking when it was eaten', () => {
   /** Yesterday at 8:15 AM, local time: always in the past whenever the test runs. */
   const yesterdayBreakfast = () => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 8, 15);
   };
   const turnWheel = async (date: Date) => act(() => mockWheel?.onValueChange({}, date));
-  const chooseBreakfast = async () => {
-    await pressTime();
-    await turnWheel(yesterdayBreakfast());
-    await press('Set time');
+  const checkMintTea = async () => {
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+    await type('mint tea');
+    await press('Analyze meal');
+    await screen.findByText('Mint is a common trigger.');
   };
 
   beforeEach(() => {
     mockWheel = null;
   });
 
-  it('shows "Now" until a time is chosen', async () => {
+  it('has no time picker up front', async () => {
     await render(<LogFoodScreen />);
-    expect(screen.getByLabelText('When did you eat this? Now')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^When did you eat this\?/ })).toBeNull();
+    expect(screen.queryByText('When did you eat this?')).toBeNull();
   });
 
-  it('opens one date-and-time wheel limited to the past week', async () => {
-    await render(<LogFoodScreen />);
-    await pressTime();
+  it('asks when it was eaten after the verdict, in a wheel limited to the past week', async () => {
+    await checkMintTea();
+    await press('I ate this');
 
+    expect(screen.getByText('When did you eat this?')).toBeTruthy();
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
     const now = new Date();
     expect(mockWheel?.maximumDate.getTime()).toBeLessThanOrEqual(Date.now());
     expect(mockWheel?.minimumDate).toEqual(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6));
   });
 
   it('saves "I ate this" at the chosen time', async () => {
-    analyze.mockResolvedValue(result);
-    await render(<LogFoodScreen />);
-    await chooseBreakfast();
-    expect(screen.getByLabelText('When did you eat this? Yesterday, 8:15 AM')).toBeTruthy();
-    await type('mint tea');
-    await press('Analyze meal');
-    await screen.findByText('Mint is a common trigger.');
-
+    await checkMintTea();
     await press('I ate this');
+    await turnWheel(yesterdayBreakfast());
+    await press('Save');
 
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(meal.loggedAt).toBe(yesterdayBreakfast().toISOString());
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('saves "Save without a verdict" at the chosen time', async () => {
+  it('saves as eaten right now when the wheel is left alone', async () => {
+    await checkMintTea();
+    const before = Date.now();
+    await ateThis();
+
+    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
+    expect(new Date(meal.loggedAt).getTime()).toBeGreaterThanOrEqual(before - 1000);
+    expect(new Date(meal.loggedAt).getTime()).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('saves nothing if the sheet is dismissed', async () => {
+    await checkMintTea();
+    await press('I ate this');
+    await fireEvent.press(screen.getByLabelText('Close', { includeHiddenElements: true }));
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'I ate this' })).toBeTruthy();
+  });
+
+  it('asks too before "Save without a verdict", and saves at the chosen time', async () => {
     await render(<LogFoodScreen />);
-    await chooseBreakfast();
     await type('toast and eggs');
 
     await press('Save without a verdict');
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    await turnWheel(yesterdayBreakfast());
+    await press('Save');
 
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(meal.mealName).toBe('toast and eggs');
@@ -720,22 +766,12 @@ describe('Log food screen: back-logging a meal', () => {
 
   it('never saves a time that has not happened yet', async () => {
     await render(<LogFoodScreen />);
-    await pressTime();
-    await turnWheel(new Date(Date.now() + 60 * 60 * 1000));
-    await press('Set time');
     await type('toast');
-
     await press('Save without a verdict');
+    await turnWheel(new Date(Date.now() + 60 * 60 * 1000));
+    await press('Save');
 
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(new Date(meal.loggedAt).getTime()).toBeLessThanOrEqual(Date.now());
-  });
-
-  it('"Use now" goes back to logging the current time', async () => {
-    await render(<LogFoodScreen />);
-    await chooseBreakfast();
-    await pressTime();
-    await press('Use now');
-    expect(screen.getByLabelText('When did you eat this? Now')).toBeTruthy();
   });
 });
