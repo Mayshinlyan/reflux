@@ -1,4 +1,4 @@
-import { ne } from 'drizzle-orm';
+import { count, eq, ne } from 'drizzle-orm';
 
 import {
   appSettings,
@@ -30,4 +30,16 @@ export function deleteAllData(db: AppDb): void {
     tx.delete(savedFoods).run();
     tx.delete(appSettings).where(ne(appSettings.key, 'onboardingDone')).run();
   });
+}
+
+/**
+ * How many entries the user has logged: diary meals (checked or not), symptom logs and
+ * medication doses. One-off food checks aren't logs until they're eaten. Coins are derived
+ * from this, so deleting an entry takes its coin back and nothing about coins is stored.
+ */
+export function countLoggedEntries(db: AppDb): number {
+  const meals = db.select({ n: count() }).from(foodLogs).where(eq(foodLogs.entryType, 'diary')).get()?.n ?? 0;
+  const symptoms = db.select({ n: count() }).from(symptomLogs).get()?.n ?? 0;
+  const doses = db.select({ n: count() }).from(medicationLogs).get()?.n ?? 0;
+  return meals + symptoms + doses;
 }
