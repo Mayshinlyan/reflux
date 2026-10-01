@@ -46,37 +46,49 @@ const swipe = (translationX: number, translationY = 0, velocityX = 0, velocityY 
 beforeEach(() => mockPush.mockClear());
 
 describe('Today: swipe to move around', () => {
-  it('opens Food after a long enough left swipe', async () => {
+  it('opens Your Logs after a long enough left swipe', async () => {
     await render(<TodayScreen />);
     expect(screen.getByText('Mochi')).toBeTruthy();
 
     swipe(-120);
 
-    expect(mockPush).toHaveBeenCalledWith('/log/food');
+    expect(mockPush).toHaveBeenCalledWith('/history');
   });
 
-  it('opens Food on a short but fast left flick', async () => {
+  it('opens Your Logs on a short but fast left flick', async () => {
     await render(<TodayScreen />);
     swipe(-30, 0, -900);
-    expect(mockPush).toHaveBeenCalledWith('/log/food');
-  });
-
-  it('opens Your Logs on a swipe up', async () => {
-    await render(<TodayScreen />);
-    swipe(0, -120);
     expect(mockPush).toHaveBeenCalledWith('/history');
   });
 
-  it('ignores a right swipe and a short, slow drag', async () => {
+  it('opens the profile after a long enough right swipe', async () => {
     await render(<TodayScreen />);
     swipe(120);
-    swipe(-30, 0, -100);
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith('/settings');
   });
 
-  it('opens Your Logs from its button', async () => {
+  it('opens the profile on a short but fast right flick', async () => {
     await render(<TodayScreen />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Your Logs' }));
-    expect(mockPush).toHaveBeenCalledWith('/history');
+    swipe(30, 0, 900);
+    expect(mockPush).toHaveBeenCalledWith('/settings');
+  });
+
+  it('ignores a short, slow drag and a swipe up', async () => {
+    await render(<TodayScreen />);
+    swipe(-30, 0, -100);
+    swipe(0, -120);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+describe('Today: buttons', () => {
+  it('has no Your Logs button; Scan, Log and the profile remain', async () => {
+    await render(<TodayScreen />);
+    expect(screen.queryByRole('button', { name: 'Your Logs' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Log' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Scan' })).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Settings' }));
+    expect(mockPush).toHaveBeenCalledWith('/settings');
   });
 });
