@@ -25,6 +25,7 @@ import {
 } from '@/db/repositories/food';
 import { createSavedFood, saveCheckedFood, saveFoodFromLog } from '@/db/repositories/savedFoods';
 import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
+import { playChing } from '@/lib/ching';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { foodSwipe } from '@/lib/logSwipe';
@@ -70,8 +71,8 @@ export type MyFoodTarget = { id?: number; name?: string };
  * it); "I ate this" promotes that check, reusing its analysis instead of calling the relay again.
  * `openCamera` (the Scan shortcut on Today) opens the camera as soon as the screen appears.
  * With `myFood`, the verdict is saved to "My foods" instead, and nothing goes into the diary.
- * `fromList` ("Log a new food" on the Food list) also offers saving the result to My foods only, and saves a
- * food typed without a verdict to My foods by name.
+ * `fromList` ("Log a new food" on the Food list) also offers saving the result to My foods only; saving
+ * without a verdict still logs the meal to the diary.
  */
 export function FoodFlow({
   openCamera = false,
@@ -139,8 +140,9 @@ export function FoodFlow({
     }
   }, [state, analyzed, db, myFood]);
 
-  // "Log a new food" and My foods checks add to the list; an unchecked save then means "by name", not the diary.
-  const addsToList = Boolean(myFood) || fromList;
+  // My foods checks add to the list; an unchecked save then means "by name", not the diary.
+  const addsToList = Boolean(myFood);
+  const foodListMode = addsToList || fromList;
   const busy = preparing || correcting || state.status === 'loading';
   const shown = state.status === 'done' ? (updated ?? state.result) : null;
   const showResult = shown !== null && !correcting;
@@ -273,8 +275,11 @@ export function FoodFlow({
       }
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (diaryId !== null) playChing();
     toast(savedMessage);
-    router.back();
+    // A diary entry lands on Today, even from the Food list; a My foods save returns to where it began.
+    if (diaryId !== null) router.dismissTo('/');
+    else router.back();
   };
 
   /** "Save to My foods only" (from the Food list): keeps the verdict for one-tap logging, without eating it now. */
@@ -322,8 +327,10 @@ export function FoodFlow({
       return;
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (!addsToList) playChing();
     toast(addsToList ? `${trimmed} added to My foods` : copy.savedUnchecked);
-    router.back();
+    if (addsToList) router.back();
+    else router.dismissTo('/');
   };
 
   /**
@@ -459,7 +466,7 @@ export function FoodFlow({
             ) : (
               <>
                 <TextField
-                  label={addsToList ? copy.myFoodTextLabel : copy.textLabel}
+                  label={foodListMode ? copy.myFoodTextLabel : copy.textLabel}
                   hideLabel
                   accessory={
                     <>
@@ -480,7 +487,7 @@ export function FoodFlow({
                     setText(value);
                     setDetails(''); // a correction belongs to the text it was made for
                   }}
-                  placeholder={addsToList ? copy.myFoodTextLabel : copy.textPlaceholder}
+                  placeholder={foodListMode ? copy.myFoodTextLabel : copy.textPlaceholder}
                   maxLength={MAX_TEXT}
                   returnKeyType="done"
                   onSubmitEditing={checkText}

@@ -39,7 +39,7 @@ jest.mock('@/components/FoodLoading', () => {
   return { FoodLoading: ({ source }: { source: string }) => <Text>{`loading:${source}`}</Text> };
 });
 jest.mock('expo-router', () => ({
-  router: { back: () => mockBack(), canGoBack: () => true, replace: jest.fn() },
+  router: { back: () => mockBack(), dismissTo: () => mockBack(), canGoBack: () => true, replace: jest.fn() },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('expo-haptics', () => ({
