@@ -13,13 +13,19 @@ export const VERDICT_LABELS: Record<AppVerdict, string> = {
   trigger: 'Likely trigger',
 };
 
-const ICONS = { good: BadgeCheck, ok: CircleCheck, caution: CircleAlert, trigger: TriangleAlert } as const;
+/** The icon for each verdict; it always travels with the label. */
+export const VERDICT_ICONS = {
+  good: BadgeCheck,
+  ok: CircleCheck,
+  caution: CircleAlert,
+  trigger: TriangleAlert,
+} as const;
 
 /** Verdict colours are always paired with an icon and a label, never colour alone. */
 export function VerdictBadge({ verdict }: { verdict: AppVerdict }) {
   const colors = useColors();
   const { fg, bg } = verdictColors[verdict];
-  const Icon = ICONS[verdict];
+  const Icon = VERDICT_ICONS[verdict];
   return (
     <View
       style={[styles.badge, { backgroundColor: colors[bg] }]}
