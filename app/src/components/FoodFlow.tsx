@@ -293,36 +293,23 @@ export function FoodFlow({
     router.back();
   };
 
-  /** Saves what was typed or photographed as a plain diary entry, with no relay call (works offline). */
+  /** Saves what was typed as a plain diary entry, with no relay call (works offline). */
   const saveUnchecked = () => {
-    const target: Analyzed | null =
-      analyzed?.source === 'photo' ? analyzed : trimmed ? { source: 'text', text: trimmed } : null;
-    if (!target || busy || saving.current) return;
+    if (!trimmed || busy || saving.current) return;
     saving.current = true;
-    let storedPhoto: string | null = null;
     try {
-      if (addsToList) {
-        // Only offered for a new food described in words: it is added by name, like before.
-        if (target.source === 'text') createSavedFood(db, target.text);
-      } else {
-        if (target.source === 'photo') storedPhoto = savePhoto(target.uri);
-        createUncheckedMeal(db, {
-          source: target.source,
-          inputText: target.source === 'text' ? target.text : null,
-          photoUri: storedPhoto,
-          loggedAt: eatenIso(),
-        });
-      }
+      // Only offered for a food described in words: for My foods it is added by name.
+      if (addsToList) createSavedFood(db, trimmed);
+      else createUncheckedMeal(db, { source: 'text', inputText: trimmed, loggedAt: eatenIso() });
     } catch {
       saving.current = false;
-      if (storedPhoto) deletePhoto(storedPhoto);
-      // Code only: a raw error could echo the food text or a file path.
+      // Code only: a raw error could echo the food text.
       logger.error('saveFoodLog', new AppError('INTERNAL'));
       toast("We couldn't save that. Please try again.");
       return;
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    toast(addsToList && target.source === 'text' ? `${target.text} added to My foods` : copy.savedUnchecked);
+    toast(addsToList ? `${trimmed} added to My foods` : copy.savedUnchecked);
     router.back();
   };
 
@@ -367,17 +354,6 @@ export function FoodFlow({
       saving.current = false;
       if (alive.current) setCorrecting(false);
     }
-  };
-
-  const tryAnother = () => {
-    checkId.current = null; // an unused check stays stored as a check
-    setKeep(false);
-    setUpdated(null);
-    setAnalyzed(null);
-    setDraft('');
-    setDetails('');
-    setCorrection('');
-    reset();
   };
 
   // Unchecked saves go to the diary; for My foods only a new food typed by name can skip the verdict.
@@ -469,10 +445,6 @@ export function FoodFlow({
                     label={state.status === 'error' ? 'Try again' : copy.analyzeLabel}
                     onPress={checkPhotoWithDetails}
                   />
-                  {!addsToList && (
-                    <Button label={copy.saveUncheckedLabel} variant="secondary" onPress={saveUnchecked} />
-                  )}
-                  <Button label="Choose a different photo" variant="secondary" onPress={tryAnother} />
                 </View>
               </>
             ) : (

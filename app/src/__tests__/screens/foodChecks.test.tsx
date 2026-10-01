@@ -231,18 +231,16 @@ describe('Food screen: saving without a verdict', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('saves a picked photo without a verdict, named "Meal"', async () => {
+  it('offers only the check after a photo is taken, not saving it unchecked or swapping the photo', async () => {
     pick.mockResolvedValue({ status: 'ok', photo: { uri: 'file:///cache/prepared.jpg' } });
     await render(<LogFoodScreen />);
     await press('Choose a photo');
 
-    await press('Save without a verdict');
-
+    expect(screen.getByRole('button', { name: 'Analyze meal' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Save without a verdict' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Choose a different photo' })).toBeNull();
     expect(analyze).not.toHaveBeenCalled();
-    expect(store).toHaveBeenCalledWith('file:///cache/prepared.jpg');
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
-      { source: 'photo', mealName: 'Meal', photoUri: 'file:///doc/photos/meal.jpg', overallVerdict: null },
-    ]);
+    expect(store).not.toHaveBeenCalled();
   });
 
   it('still offers it after an offline failure, and saves the typed text', async () => {
