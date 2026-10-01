@@ -1,5 +1,3 @@
-import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
-import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
@@ -14,49 +12,31 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { AppText } from '@/components/AppText';
-import { logger } from '@/lib/logger';
 import { radius, useColors } from '@/theme';
 
-const CHING = require('@/assets/sounds/coin.wav');
-
-/** Waits for the log screen's closing transition, so the pop lands on a settled Today. */
+/** Waits for the log screen's closing transition, so the bounce and "+N" land on a settled Today. */
 const CELEBRATE_DELAY_MS = 350;
 
 type Props = {
   coins: number;
-  /** Coins just earned; with a new `gainId` the counter chings and floats "+gain". */
+  /** Coins just earned; with a new `gainId` the counter bounces and floats "+gain". */
   gain: number;
   gainId: number;
 };
 
 /**
- * The coin balance in Today's header. Each time coins are earned it plays a short "ching"
- * (silent when the phone is on silent, and mixed with any music rather than pausing it),
- * gives a light haptic, bounces and floats a "+N" above itself. With reduced motion the
- * number simply updates.
+ * The coin balance in Today's header. Each time coins are earned it bounces and floats a "+N"
+ * above itself. With reduced motion the number simply updates. The "ching" itself plays when the
+ * log is saved (see `playChing`), not here, so it isn't held up by the screen transition.
  */
 export function CoinCounter({ coins, gain, gainId }: Props) {
   const colors = useColors();
   const reduceMotion = useReducedMotion();
-  const player = useAudioPlayer(CHING);
   const bounce = useSharedValue(1);
   const float = useSharedValue(0);
 
   useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: false }).catch((error) => logger.error('coinAudioMode', error));
-  }, []);
-
-  useEffect(() => {
     if (gainId === 0) return;
-    const timer = setTimeout(() => {
-      try {
-        player.seekTo(0);
-        player.play();
-      } catch (error) {
-        logger.error('coinSound', error);
-      }
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    }, CELEBRATE_DELAY_MS);
     if (!reduceMotion) {
       bounce.value = withDelay(
         CELEBRATE_DELAY_MS,
@@ -68,8 +48,7 @@ export function CoinCounter({ coins, gain, gainId }: Props) {
         withTiming(1, { duration: 900, easing: Easing.out(Easing.quad) }),
       );
     }
-    return () => clearTimeout(timer);
-    // Only a new gain celebrates; the player and shared values are stable.
+    // Only a new gain celebrates; the shared values are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gainId]);
 

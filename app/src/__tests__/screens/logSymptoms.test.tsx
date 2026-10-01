@@ -9,6 +9,8 @@ let mockDb: AppDb;
 let closeDb: () => void;
 let mockParams: { id?: string } = {};
 const mockBack = jest.fn();
+const mockChing = jest.fn();
+jest.mock('@/lib/ching', () => ({ playChing: () => mockChing() }));
 const mockToast = jest.fn();
 
 jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
@@ -48,6 +50,7 @@ beforeEach(() => {
   closeDb = () => sqlite.close();
   mockParams = {};
   mockBack.mockClear();
+  mockChing.mockClear();
   mockToast.mockClear();
 });
 
@@ -97,6 +100,7 @@ describe('Log symptoms screen: three steps', () => {
     expect(log?.tags).toEqual(['large_meal']);
     expect(log?.notes).toBe('after dinner');
     expect(mockToast).toHaveBeenCalledWith('Symptoms logged');
+    expect(mockChing).toHaveBeenCalledTimes(1);
     expect(mockBack).toHaveBeenCalled();
   });
 

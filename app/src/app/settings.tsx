@@ -11,6 +11,7 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { SectionTitle } from '@/components/SectionTitle';
 import { SettingsRow } from '@/components/SettingsRow';
+import { SwipeNav } from '@/components/SwipeNav';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
@@ -22,6 +23,9 @@ import { deleteAllPhotos } from '@/services/photoStore';
 import { minTouchTarget, space, useColors } from '@/theme';
 
 const MAX_PET_NAME = 24;
+
+// Module-level so the swipe gesture isn't rebuilt on every render.
+const closeProfile = () => router.back();
 
 type Sheet = 'bedtime' | 'pet' | null;
 
@@ -99,35 +103,38 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <BackHeader title="Profile" />
-        <SectionTitle first>Activity</SectionTitle>
-        <SettingsRow label="Your Logs" onPress={() => router.push('/history')} />
+      {/* Profile slides in from the left, so swiping left closes it. */}
+      <SwipeNav onSwipeLeft={closeProfile} enabled={sheet === null}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <BackHeader title="Profile" />
+          <SectionTitle first>Activity</SectionTitle>
+          <SettingsRow label="Your Logs" onPress={() => router.push('/history')} />
 
-        <SectionTitle>Personalize</SectionTitle>
-        <SettingsRow
-          label="Bedtime"
-          value={formatClock(settings.bedtime)}
-          onPress={() => setSheet('bedtime')}
-        />
-        <SettingsRow
-          label="My pet"
-          value={settings.petName}
-          onPress={() => {
-            setPetName(settings.petName);
-            setSheet('pet');
-          }}
-        />
-        <SettingsRow label="My foods" onPress={() => router.push('/log/food')} />
-        <SettingsRow label="My medications" onPress={() => router.push('/log/medication')} />
+          <SectionTitle>Personalize</SectionTitle>
+          <SettingsRow
+            label="Bedtime"
+            value={formatClock(settings.bedtime)}
+            onPress={() => setSheet('bedtime')}
+          />
+          <SettingsRow
+            label="My pet"
+            value={settings.petName}
+            onPress={() => {
+              setPetName(settings.petName);
+              setSheet('pet');
+            }}
+          />
+          <SettingsRow label="My foods" onPress={() => router.push('/log/food')} />
+          <SettingsRow label="My medications" onPress={() => router.push('/log/medication')} />
 
-        <SectionTitle>Your data</SectionTitle>
-        <AppText variant="caption" color="inkSoft" style={styles.note}>
-          Everything you log stays on this phone. Food descriptions and photos are sent to be analyzed, and
-          are not kept by Reflux.
-        </AppText>
-        <Button label="Delete all my data" variant="quietDanger" onPress={confirmDeleteAll} />
-      </ScrollView>
+          <SectionTitle>Your data</SectionTitle>
+          <AppText variant="caption" color="inkSoft" style={styles.note}>
+            Everything you log stays on this phone. Food descriptions and photos are sent to be analyzed, and
+            are not kept by Reflux.
+          </AppText>
+          <Button label="Delete all my data" variant="quietDanger" onPress={confirmDeleteAll} />
+        </ScrollView>
+      </SwipeNav>
 
       <BottomSheet visible={sheet === 'bedtime'} onClose={closeSheet}>
         <AppText variant="title" accessibilityRole="header">

@@ -50,7 +50,7 @@ jest.mock('@/components/FoodLoading', () => {
   return { FoodLoading: ({ source }: { source: string }) => <Text>{`loading:${source}`}</Text> };
 });
 jest.mock('expo-router', () => ({
-  router: { back: () => mockBack(), canGoBack: () => true, replace: jest.fn() },
+  router: { back: () => mockBack(), dismissTo: () => mockBack(), canGoBack: () => true, replace: jest.fn() },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('expo-haptics', () => ({
@@ -176,16 +176,17 @@ describe('Log food screen: "Add a food" from the Food list', () => {
     expect(listSavedFoods(mockDb)).toHaveLength(1);
   });
 
-  it('saves a typed food to My foods by name when skipping the verdict', async () => {
+  it('logs a typed food to the diary, not My foods, when skipping the verdict', async () => {
     await render(<LogFoodScreen />);
     await typeFood('Banana bread');
 
     await press('Save without a verdict');
+    await press('Save');
 
     expect(analyze).not.toHaveBeenCalled();
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
-    expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Banana bread']);
-    expect(mockToast).toHaveBeenCalledWith('Banana bread added to My foods');
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME).map((food) => food.mealName)).toEqual(['Banana bread']);
+    expect(listSavedFoods(mockDb)).toHaveLength(0);
+    expect(mockToast).toHaveBeenCalledWith('Saved without a verdict');
   });
 });
 

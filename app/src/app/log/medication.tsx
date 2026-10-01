@@ -35,6 +35,7 @@ import {
 } from '@/db/repositories/medications';
 import type { Medication } from '@/db/schema';
 import type { AppDb } from '@/db/types';
+import { playChing } from '@/lib/ching';
 import { friendlyMessages } from '@/lib/errors';
 import { formatTime, localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
@@ -194,6 +195,7 @@ export default function MedicationScreen() {
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    playChing();
     // An earlier dose doesn't show under "Taken today", so the toast says when it was logged for.
     toast(at ? `${med.name} logged for ${formatMealTime(at, new Date())}` : `${med.name} logged`);
     setJustLogged((current) => new Set(current).add(med.id));

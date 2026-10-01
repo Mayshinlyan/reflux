@@ -74,7 +74,6 @@ export default function TodayScreen() {
     <SwipeNav onSwipeLeft={swipeToLogs} onSwipeRight={swipeToProfile}>
       <Screen style={styles.container}>
         <View style={styles.header}>
-          <CoinCounter coins={coins.coins} gain={coins.gain} gainId={coins.gainId} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Settings"
@@ -82,6 +81,7 @@ export default function TodayScreen() {
             style={[styles.iconButton, { backgroundColor: colors.surface2 }]}>
             <UserRound size={19} color={colors.ink} strokeWidth={2} />
           </Pressable>
+          <CoinCounter coins={coins.coins} gain={coins.gain} gainId={coins.gainId} />
         </View>
 
         <View style={styles.hero}>
@@ -166,7 +166,7 @@ export default function TodayScreen() {
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center', paddingBottom: space.s4 },
-  header: { width: '100%', flexDirection: 'row', justifyContent: 'flex-end', gap: space.s1 },
+  header: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   iconButton: {
     width: 44,
     height: 44,
