@@ -28,6 +28,7 @@ import { LIFESTYLE_TAGS, type LifestyleTagKey } from '@/constants/lifestyleTags'
 import { SYMPTOM_ITEMS, type SymptomKey } from '@/constants/symptomItems';
 import { useDb } from '@/db/DatabaseProvider';
 import { createSymptomLog, getSymptomLog, updateSymptomLog } from '@/db/repositories/symptoms';
+import { playChing } from '@/lib/ching';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { symptomsSwipe } from '@/lib/logSwipe';
@@ -144,6 +145,7 @@ export default function LogSymptomsScreen() {
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    if (editingId === undefined) playChing();
     toast(editingId !== undefined ? 'Entry updated' : 'Symptoms logged');
     router.back();
   };

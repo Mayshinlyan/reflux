@@ -28,6 +28,7 @@ import {
   type StoredSavedFood,
 } from '@/db/repositories/savedFoods';
 import type { AppDb } from '@/db/types';
+import { playChing } from '@/lib/ching';
 import { friendlyMessages } from '@/lib/errors';
 import { formatTime, localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
@@ -146,6 +147,7 @@ export function FoodList() {
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    playChing();
     // An earlier meal doesn't show under "Eaten today", so the toast says when it was logged for.
     toast(at ? `${food.mealName} logged for ${formatMealTime(at, new Date())}` : `${food.mealName} logged`);
     setJustLogged((current) => new Set(current).add(food.id));

@@ -15,6 +15,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import { preloadChing } from '@/lib/ching';
 import { ToastProvider } from '@/components/Toast';
 import { DatabaseProvider } from '@/db/DatabaseProvider';
 import { friendlyMessages } from '@/lib/errors';
@@ -54,6 +55,8 @@ function RootLayout() {
             }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
+            {/* Profile sits to the left of Today, so it slides in from the left. */}
+            <Stack.Screen name="settings" options={{ animation: 'slide_from_left' }} />
           </Stack>
         </ToastProvider>
       </DatabaseProvider>
@@ -64,6 +67,7 @@ function RootLayout() {
 function HideSplash() {
   useEffect(() => {
     SplashScreen.hideAsync();
+    preloadChing();
   }, []);
   return null;
 }
