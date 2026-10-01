@@ -19,6 +19,17 @@ jest.mock('@/hooks/usePetState', () => ({
     markStageSeen: jest.fn(),
   }),
 }));
+// Reanimated's native runtime can't load in Jest; use its mocks (which lack useReducedMotion).
+jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/lib/module/mock'));
+jest.mock('react-native-reanimated', () => ({
+  ...jest.requireActual('react-native-reanimated/mock'),
+  useReducedMotion: () => false,
+}));
+jest.mock('@/hooks/useCoins', () => ({ useCoins: () => ({ coins: 7, gain: 0, gainId: 0 }) }));
+jest.mock('expo-audio', () => ({
+  useAudioPlayer: () => ({ play: jest.fn(), seekTo: jest.fn() }),
+  setAudioModeAsync: () => Promise.resolve(),
+}));
 // The real pet animates with Reanimated and video; not needed to test navigation.
 jest.mock('@/components/Pet', () => ({ Pet: () => null }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -90,5 +101,12 @@ describe('Today: buttons', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Settings' }));
     expect(mockPush).toHaveBeenCalledWith('/settings');
+  });
+});
+
+describe('Today: coins', () => {
+  it('shows the coin balance in the header', async () => {
+    await render(<TodayScreen />);
+    expect(screen.getByLabelText('7 coins')).toBeTruthy();
   });
 });
