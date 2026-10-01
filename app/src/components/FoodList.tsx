@@ -425,7 +425,7 @@ export function FoodList() {
           onClose={() => setLogging(null)}
         />
 
-        <BottomSheet visible={editing !== null} onClose={closeForm}>
+        <BottomSheet visible={editing !== null} onClose={closeForm} scrollToTopKey={changing}>
           {/* The saved verdict first, like a meal in Your Logs; editing sits below it. */}
           <AppText variant="title" accessibilityRole="header" style={styles.sheetTitle}>
             {sheetFood?.mealName}
