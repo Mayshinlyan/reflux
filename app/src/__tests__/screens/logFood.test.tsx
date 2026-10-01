@@ -128,6 +128,15 @@ describe('Log food screen: Save to My foods', () => {
     expect(mockToast).toHaveBeenCalledWith('Added to your food diary and My foods');
   });
 
+  it('shows the Update verdict hint only once a comment is typed', async () => {
+    await checkMintTea();
+    expect(screen.queryByText('Tap Update verdict to re-check it with this.')).toBeNull();
+
+    await fireEvent.changeText(screen.getByLabelText('Is this right? Tell us more'), 'no mint');
+
+    expect(screen.getByText('Tap Update verdict to re-check it with this.')).toBeTruthy();
+  });
+
   it('leaves My foods alone when not ticked', async () => {
     await checkMintTea();
 

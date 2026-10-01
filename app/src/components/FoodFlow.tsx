@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Camera, Images, type LucideIcon } from 'lucide-react-native';
+import { Bookmark, Camera, Images, type LucideIcon } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -13,7 +13,6 @@ import { MealResultCard } from '@/components/MealResultCard';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
 import { SwipeNav } from '@/components/SwipeNav';
-import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { useDb } from '@/db/DatabaseProvider';
@@ -408,7 +407,15 @@ export function FoodFlow({
                     accessibilityLabel="Your meal photo"
                   />
                 )}
-                {shown && <MealResultCard analysis={shown} />}
+                {shown && (
+                  <MealResultCard
+                    analysis={shown}
+                    action={!myFood && <KeepToggle kept={keep} onPress={() => setKeep((on) => !on)} />}
+                  />
+                )}
+                <AppText variant="caption" color="inkSoft" style={styles.disclaimer}>
+                  For tracking only, not medical advice. Food results are AI-generated.
+                </AppText>
                 <View style={styles.correction}>
                   <TextField
                     label="Is this right? Tell us more"
@@ -419,18 +426,13 @@ export function FoodFlow({
                     maxLength={MAX_TEXT}
                     returnKeyType="done"
                   />
-                  <AppText variant="caption" color="inkSoft">
-                    {copy.correctionNote}
-                  </AppText>
+                  {/* Only once there's a comment: that's when the main button turns into Update verdict. */}
+                  {hasComment && (
+                    <AppText variant="caption" color="inkSoft">
+                      {copy.correctionNote}
+                    </AppText>
+                  )}
                 </View>
-                {!myFood && (
-                  <View style={styles.keep}>
-                    <TagChip label={copy.keepLabel} selected={keep} onPress={() => setKeep((on) => !on)} />
-                  </View>
-                )}
-                <AppText variant="caption" color="inkSoft" style={styles.disclaimer}>
-                  For tracking only, not medical advice. Food results are AI-generated.
-                </AppText>
               </>
             ) : busy ? (
               <FoodLoading
@@ -578,11 +580,35 @@ function IconButton({
   );
 }
 
+/**
+ * The bookmark on the result card: tick it to also keep the meal in My foods when "I ate this" is
+ * tapped. Filled = on, so the state shows in the icon's shape as well as its colour.
+ */
+function KeepToggle({ kept, onPress }: { kept: boolean; onPress: () => void }) {
+  const colors = useColors();
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityLabel={copy.keepLabel}
+      accessibilityState={{ checked: kept }}
+      onPress={onPress}
+      style={({ pressed }) => [styles.iconButton, styles.keep, { opacity: pressed ? 0.6 : 1 }]}>
+      <Bookmark
+        size={22}
+        color={kept ? colors.clay : colors.inkSoft}
+        fill={kept ? colors.clay : 'transparent'}
+        strokeWidth={2.2}
+      />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingBottom: space.s3 },
-  disclaimer: { textAlign: 'center', marginVertical: space.s1 },
-  keep: { flexDirection: 'row', marginTop: space.s2 },
+  disclaimer: { textAlign: 'center', marginBottom: space.s1 },
+  // Pulled into the card's corner padding so the full touch target doesn't push the title down.
+  keep: { marginTop: -space.s1, marginRight: -space.s1 },
   iconButton: {
     width: minTouchTarget,
     height: minTouchTarget,

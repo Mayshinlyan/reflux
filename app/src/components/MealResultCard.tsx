@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { mainIngredients } from '@/lib/ingredients';
@@ -13,20 +13,28 @@ import { VERDICT_LABELS, VerdictBadge } from './VerdictBadge';
 export function MealResultCard({
   analysis,
   showTitle = true,
+  action,
 }: {
   analysis: MealAnalysis;
   /** Hide the meal name when the screen already shows it as its own heading. */
   showTitle?: boolean;
+  /** A small icon control beside the meal name (e.g. the My foods bookmark). */
+  action?: ReactNode;
 }) {
   const colors = useColors();
   const verdict = effectiveVerdict(analysis);
   return (
     <View>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-        {showTitle && (
-          <AppText variant="title" accessibilityRole="header">
-            {analysis.mealName}
-          </AppText>
+        {(showTitle || action) && (
+          <View style={styles.head}>
+            {showTitle && (
+              <AppText variant="title" accessibilityRole="header" style={styles.title}>
+                {analysis.mealName}
+              </AppText>
+            )}
+            {action}
+          </View>
         )}
         <VerdictBadge verdict={verdict} />
         {verdict !== analysis.overall.verdict && (
@@ -90,6 +98,9 @@ function IngredientLine({ ingredients }: { ingredients: MealItem['ingredients'] 
 
 const styles = StyleSheet.create({
   toggle: { minHeight: minTouchTarget, justifyContent: 'center', alignSelf: 'flex-start' },
+  // The action hangs off the top-right corner so it doesn't push the title down.
+  head: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-end', gap: space.s1 },
+  title: { flex: 1 },
   card: { borderWidth: 1, borderRadius: radius.lg, padding: space.s2, gap: space.s1, marginBottom: space.s1 },
   item: { borderWidth: 1, borderRadius: radius.md, padding: space.s2, gap: 4, marginBottom: space.s1 },
   itemHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s1 },
