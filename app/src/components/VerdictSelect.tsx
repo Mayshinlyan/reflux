@@ -6,15 +6,15 @@ import { fontFamily, minTouchTarget, radius, space, useColors, verdictColors } f
 import type { AppVerdict } from '@/types/analysis';
 
 import { AppText } from './AppText';
-import { VERDICT_ICONS, VERDICT_LABELS, VerdictBadge } from './VerdictBadge';
+import { VERDICT_ICONS, VERDICT_LABELS } from './VerdictBadge';
 
 /** Best to worst. "OK" is only ever set by hand. */
 const CHOICES: AppVerdict[] = ['good', 'ok', 'caution', 'trigger'];
 
 /**
- * A verdict dropdown. Closed, it is one row with the current verdict's badge. Open, that row becomes the
- * list of choices in place (not a second modal, since it lives in a sheet): plain rows of icon and label,
- * with a check on the current one. Choosing one closes it.
+ * A verdict dropdown. Closed, it is one row with the current verdict. Open, that row becomes the list of
+ * choices in place (not a second modal, since it lives in a sheet). Both look the same: plain icon and
+ * label, with a check on the current choice. Choosing one closes it.
  */
 export function VerdictSelect({
   value,
@@ -33,28 +33,21 @@ export function VerdictSelect({
       <View style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
         {open ? (
           <View accessibilityRole="radiogroup" accessibilityLabel="Verdict">
-            {CHOICES.map((choice, index) => {
-              const Icon = VERDICT_ICONS[choice];
-              const color = colors[verdictColors[choice].fg];
-              return (
-                <Pressable
-                  key={choice}
-                  accessibilityRole="radio"
-                  accessibilityLabel={VERDICT_LABELS[choice]}
-                  accessibilityState={{ checked: choice === value }}
-                  onPress={() => {
-                    onChange(choice);
-                    setOpen(false);
-                  }}
-                  style={[styles.row, index > 0 && { borderTopWidth: 1, borderTopColor: colors.hairline }]}>
-                  <View style={styles.option}>
-                    <Icon size={18} color={color} strokeWidth={2.4} />
-                    <AppText style={[styles.optionText, { color }]}>{VERDICT_LABELS[choice]}</AppText>
-                  </View>
-                  {choice === value && <Check size={18} color={colors.inkSoft} strokeWidth={2.4} />}
-                </Pressable>
-              );
-            })}
+            {CHOICES.map((choice, index) => (
+              <Pressable
+                key={choice}
+                accessibilityRole="radio"
+                accessibilityLabel={VERDICT_LABELS[choice]}
+                accessibilityState={{ checked: choice === value }}
+                onPress={() => {
+                  onChange(choice);
+                  setOpen(false);
+                }}
+                style={[styles.row, index > 0 && { borderTopWidth: 1, borderTopColor: colors.hairline }]}>
+                <VerdictOption verdict={choice} />
+                {choice === value && <Check size={18} color={colors.inkSoft} strokeWidth={2.4} />}
+              </Pressable>
+            ))}
           </View>
         ) : (
           <Pressable
@@ -63,14 +56,24 @@ export function VerdictSelect({
             accessibilityState={{ expanded: false }}
             onPress={() => setOpen(true)}
             style={styles.row}>
-            {/* The badge pins itself to the top of a column; the wrapper centers it in this row. */}
-            <View>
-              <VerdictBadge verdict={value} />
-            </View>
+            <VerdictOption verdict={value} />
             <ChevronDown size={20} color={colors.inkSoft} strokeWidth={2.2} />
           </Pressable>
         )}
       </View>
+    </View>
+  );
+}
+
+/** A verdict as the dropdown shows it, closed or open: its colored icon and label, no pill. */
+function VerdictOption({ verdict }: { verdict: AppVerdict }) {
+  const colors = useColors();
+  const Icon = VERDICT_ICONS[verdict];
+  const color = colors[verdictColors[verdict].fg];
+  return (
+    <View style={styles.option}>
+      <Icon size={18} color={color} strokeWidth={2.4} />
+      <AppText style={[styles.optionText, { color }]}>{VERDICT_LABELS[verdict]}</AppText>
     </View>
   );
 }
