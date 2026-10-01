@@ -6,10 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { CircleActionButton } from '@/components/CircleActionButton';
+import { CoinCounter } from '@/components/CoinCounter';
 import { Pet } from '@/components/Pet';
 import { Screen } from '@/components/Screen';
 import { SwipeNav } from '@/components/SwipeNav';
 import { useSettings } from '@/db/DatabaseProvider';
+import { useCoins } from '@/hooks/useCoins';
 import { usePetState } from '@/hooks/usePetState';
 import { PET_ASPECT } from '@/lib/petClips';
 import { STAGE_SCALE, statusLine } from '@/lib/petProgress';
@@ -43,7 +45,7 @@ function usePetSize() {
  * Today — the pet-hero home screen, laid out as in docs/design/mockups.html.
  * "Log" opens a floating menu above the pet; "Scan" opens Check. Tapping the pet plays
  * with it (see Pet). The pet's stage, progress and mood are derived from the logs
- * (lib/petProgress). Swiping left opens the log screens (Food first); swiping up opens Your Logs.
+ * (lib/petProgress). Every log earns a coin, shown top right (lib/coins). Swiping left opens the log screens (Food first); swiping up opens Your Logs.
  * First launch redirects to Welcome.
  */
 export default function TodayScreen() {
@@ -53,6 +55,7 @@ export default function TodayScreen() {
   const petName = settings.petName;
   const animal = settings.petAnimal;
   const pet = usePetState();
+  const coins = useCoins();
   const petSize = usePetSize();
 
   const go = (href: Href) => {
@@ -70,6 +73,7 @@ export default function TodayScreen() {
     <SwipeNav onSwipeLeft={swipeToFood} onSwipeUp={swipeToLogs}>
       <Screen style={styles.container}>
         <View style={styles.header}>
+          <CoinCounter coins={coins.coins} gain={coins.gain} gainId={coins.gainId} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Settings"
@@ -167,7 +171,7 @@ export default function TodayScreen() {
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center', paddingBottom: space.s4 },
-  header: { width: '100%', flexDirection: 'row', justifyContent: 'flex-end' },
+  header: { width: '100%', flexDirection: 'row', justifyContent: 'flex-end', gap: space.s1 },
   iconButton: {
     width: 44,
     height: 44,
