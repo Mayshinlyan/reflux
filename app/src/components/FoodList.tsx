@@ -16,8 +16,8 @@ import { SwipeNav } from '@/components/SwipeNav';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
-import { TagChip } from '@/components/TagChip';
 import { VERDICT_LABELS } from '@/components/VerdictBadge';
+import { VerdictSelect } from '@/components/VerdictSelect';
 import { useDb } from '@/db/DatabaseProvider';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
 import {
@@ -53,8 +53,6 @@ const DAY_MS = 86_400_000;
 const MAX_DETAILS = 300;
 /** Shown in the sheet's photo tile when a food has no photo. */
 const FILLER_PHOTO = require('@/assets/images/filler.jpg');
-/** Best to worst. "OK" is only ever set by hand. */
-const VERDICT_CHOICES: AppVerdict[] = ['good', 'ok', 'caution', 'trigger'];
 
 /** What has been eaten today, per meal name (lower case): how many times and when last. */
 type EatenToday = Map<string, { count: number; lastAt: string; tz: string }>;
@@ -505,24 +503,7 @@ export function FoodList() {
                     multiline
                   />
                 ) : null}
-                {verdict ? (
-                  <View accessibilityRole="radiogroup">
-                    <AppText variant="label" color="inkSoft" style={styles.verdictLabel}>
-                      Verdict
-                    </AppText>
-                    <View style={styles.verdictChoices}>
-                      {VERDICT_CHOICES.map((choice) => (
-                        <TagChip
-                          key={choice}
-                          label={VERDICT_LABELS[choice]}
-                          selected={verdict === choice}
-                          role="radio"
-                          onPress={() => setVerdict(choice)}
-                        />
-                      ))}
-                    </View>
-                  </View>
-                ) : null}
+                {verdict ? <VerdictSelect value={verdict} onChange={setVerdict} /> : null}
               </View>
               <Button label="Save" onPress={save} disabled={!trimmedName || checking} />
               <View style={styles.secondary}>
@@ -604,8 +585,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: space.s1,
   },
-  verdictLabel: { marginBottom: space.s1 },
-  verdictChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
   photoEdit: {
     position: 'absolute',
     top: 10,

@@ -324,6 +324,9 @@ describe('Food screen: My foods', () => {
     });
 
     const radio = (name: string) => screen.getByRole('radio', { name });
+    /** The collapsed dropdown row, named for the verdict it shows. */
+    const verdictRow = (current: string) => screen.getByRole('button', { name: `Verdict, ${current}` });
+    const openVerdicts = async (current: string) => fireEvent.press(verdictRow(current));
 
     it('lets you set the verdict by hand in edit mode only, keeping the AI reasoning', async () => {
       saveCheckedFood(mockDb, { source: 'text', inputText: 'mint tea', analysis: tea, meta });
@@ -332,10 +335,15 @@ describe('Food screen: My foods', () => {
       expect(screen.queryByRole('radio', { name: 'OK' })).toBeNull();
 
       await press('Edit');
+      // Collapsed: one row with the current verdict, not a list of all four.
+      expect(screen.queryByRole('radio')).toBeNull();
+      await openVerdicts('Caution');
       expect(['OK', 'Likely OK', 'Caution', 'Likely trigger'].map((name) => radio(name))).toHaveLength(4);
       expect(radio('Caution').props.accessibilityState).toEqual({ checked: true });
 
       await fireEvent.press(radio('OK'));
+      expect(screen.queryByRole('radio')).toBeNull(); // choosing closes it
+      expect(verdictRow('OK')).toBeTruthy();
       expect(screen.getByText('Set by you. The AI said Caution.')).toBeTruthy();
       expect(screen.getByText('Mint is a common trigger.')).toBeTruthy();
       expect(listSavedFoods(mockDb)[0].overallVerdict).toBe('caution'); // not stored until Save
@@ -349,15 +357,18 @@ describe('Food screen: My foods', () => {
 
     it("clears the override when the AI's own verdict is chosen again, and on Cancel", async () => {
       await openTea();
+      await openVerdicts('Caution');
       await fireEvent.press(radio('OK'));
+      await openVerdicts('OK');
       await fireEvent.press(radio('Caution'));
       expect(screen.queryByText(/Set by you/)).toBeNull();
 
+      await openVerdicts('Caution');
       await fireEvent.press(radio('Likely OK'));
       await press('Cancel');
       expect(screen.queryByText(/Set by you/)).toBeNull();
       await press('Edit');
-      expect(radio('Caution').props.accessibilityState).toEqual({ checked: true });
+      expect(verdictRow('Caution')).toBeTruthy();
     });
 
     it('replaces a verdict set by hand when Check again gives a new one', async () => {
@@ -368,12 +379,13 @@ describe('Food screen: My foods', () => {
       };
       mockAnalyze.mockResolvedValue({ ...better, meta });
       await openTea();
+      await openVerdicts('Caution');
       await fireEvent.press(radio('OK'));
       await fireEvent.changeText(screen.getByLabelText('Ingredients'), 'Honey');
       await press('Check again');
 
       expect(mockToast).toHaveBeenCalledWith('Verdict updated, replacing yours. Save to keep it.');
-      expect(radio('Likely OK').props.accessibilityState).toEqual({ checked: true });
+      expect(verdictRow('Likely OK')).toBeTruthy();
       expect(screen.queryByText(/Set by you/)).toBeNull();
       await press('Save');
       const [food] = listSavedFoods(mockDb);
