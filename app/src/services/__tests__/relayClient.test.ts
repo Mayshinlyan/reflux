@@ -1,3 +1,5 @@
+import { AppState } from 'react-native';
+
 import { convertFormDataAsync } from 'expo/src/winter/fetch/convertFormData';
 
 import { friendlyMessages } from '@/lib/errors';
@@ -132,6 +134,46 @@ describe('analyzeFood', () => {
     fetchMock.mockRejectedValue(new TypeError('Network request failed'));
 
     await expect(analyzeFood({ text: 'a' })).rejects.toMatchObject({ code: 'NETWORK' });
+  });
+
+  describe('when the app is closed mid-request', () => {
+    let onChange: (state: string) => void;
+    beforeEach(() => {
+      jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+        onChange = listener as (state: string) => void;
+        return { remove: jest.fn() };
+      });
+    });
+    afterEach(() => jest.restoreAllMocks());
+
+    it('asks again once, so the user never sees the pause as an error', async () => {
+      fetchMock
+        .mockImplementationOnce(() => {
+          onChange('background');
+          return Promise.reject(new TypeError('Network request failed'));
+        })
+        .mockReturnValueOnce(json(200, analysis));
+
+      await expect(analyzeFood({ text: 'a' })).resolves.toEqual(analysis);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not retry a failure when the app stayed open', async () => {
+      fetchMock.mockRejectedValue(new TypeError('Network request failed'));
+
+      await expect(analyzeFood({ text: 'a' })).rejects.toMatchObject({ code: 'NETWORK' });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('gives up after the one retry', async () => {
+      fetchMock.mockImplementation(() => {
+        onChange('background');
+        return Promise.reject(new TypeError('Network request failed'));
+      });
+
+      await expect(analyzeFood({ text: 'a' })).rejects.toMatchObject({ code: 'NETWORK' });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('reports OFFLINE when the request fails and the phone has no connection', async () => {

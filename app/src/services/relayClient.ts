@@ -1,5 +1,6 @@
 import { File } from 'expo-file-system';
 import { getNetworkStateAsync } from 'expo-network';
+import { AppState } from 'react-native';
 
 import { relayBaseUrl } from '@/lib/config';
 import { AppError, isRelayErrorCode } from '@/lib/errors';
@@ -31,6 +32,18 @@ async function isOffline(): Promise<boolean> {
   }
 }
 
+/**
+ * Watches for the app leaving the foreground, e.g. the phone locking. iOS pauses a request then, and
+ * on return its timer has run out or its connection is dead even though the relay may have finished.
+ */
+function watchBackground() {
+  let happened = false;
+  const subscription = AppState.addEventListener('change', (state) => {
+    if (state === 'background') happened = true;
+  });
+  return { happened: () => happened, stop: () => subscription.remove() };
+}
+
 /** Turns a non-2xx relay response into an AppError via the shared code mapping. */
 async function toAppError(response: Response, fallbackRequestId: string): Promise<AppError> {
   try {
@@ -56,33 +69,41 @@ export async function analyzeFood(input: AnalyzeInput, signal?: AbortSignal): Pr
   }
 
   const headers: Record<string, string> = { Authorization: `Bearer ${token}`, 'X-Request-Id': id };
-  let body: string | FormData;
-  if ('text' in input) {
-    headers['Content-Type'] = 'application/json';
-    body = JSON.stringify({ text: input.text, ...(input.details ? { details: input.details } : {}) });
-  } else {
+  const buildBody = (): string | FormData => {
+    if ('text' in input) {
+      headers['Content-Type'] = 'application/json';
+      return JSON.stringify({ text: input.text, ...(input.details ? { details: input.details } : {}) });
+    }
     // Expo's fetch rebuilds multipart bodies itself and only accepts a Blob-like value with
     // bytes (an expo-file-system File). The old React Native { uri, name, type } object throws
     // "Unsupported FormDataPart implementation" and would surface as a network error.
     const form = new FormData();
     form.append('photo', new File(input.photo.uri) as unknown as Blob);
     if (input.details) form.append('details', input.details);
-    body = form;
-  }
+    return form;
+  };
 
-  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   let response: Response;
-  try {
-    response = await fetch(`${relayBaseUrl()}/v1/analyze-food`, {
-      method: 'POST',
-      headers,
-      body,
-      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
-    });
-  } catch (error) {
-    if (signal?.aborted) throw error;
-    if (!timeout.aborted && (await isOffline())) throw new AppError('OFFLINE', id);
-    throw new AppError(timeout.aborted ? 'AI_TIMEOUT' : 'NETWORK', id);
+  for (let attempt = 1; ; attempt += 1) {
+    const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+    const background = watchBackground();
+    try {
+      response = await fetch(`${relayBaseUrl()}/v1/analyze-food`, {
+        method: 'POST',
+        headers,
+        body: buildBody(),
+        signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+      });
+      break;
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      if (!timeout.aborted && (await isOffline())) throw new AppError('OFFLINE', id);
+      // The app was closed mid-request: that is the phone pausing, not a slow relay, so ask again once.
+      if (attempt === 1 && background.happened()) continue;
+      throw new AppError(timeout.aborted ? 'AI_TIMEOUT' : 'NETWORK', id);
+    } finally {
+      background.stop();
+    }
   }
 
   if (!response.ok) throw await toAppError(response, id);
