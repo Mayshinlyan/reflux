@@ -318,6 +318,64 @@ describe('Food screen: My foods', () => {
       expect(checkAgainButton()).toBeTruthy();
     });
 
+    const radio = (name: string) => screen.getByRole('radio', { name });
+
+    it('lets you set the verdict by hand in edit mode only, keeping the AI reasoning', async () => {
+      saveCheckedFood(mockDb, { source: 'text', inputText: 'mint tea', analysis: tea, meta });
+      await render(<FoodList />);
+      await press('Edit Mint tea');
+      expect(screen.queryByRole('radio', { name: 'OK' })).toBeNull();
+
+      await press('Edit');
+      expect(['OK', 'Likely OK', 'Caution', 'Likely trigger'].map((name) => radio(name))).toHaveLength(4);
+      expect(radio('Caution').props.accessibilityState).toEqual({ checked: true });
+
+      await fireEvent.press(radio('OK'));
+      expect(screen.getByText('Set by you. The AI said Caution.')).toBeTruthy();
+      expect(screen.getByText('Mint is a common trigger.')).toBeTruthy();
+      expect(listSavedFoods(mockDb)[0].overallVerdict).toBe('caution'); // not stored until Save
+
+      await press('Save');
+      const [food] = listSavedFoods(mockDb);
+      expect(food.overallVerdict).toBe('good');
+      expect(food.analysis?.overall).toMatchObject({ verdict: 'caution', userVerdict: 'good' });
+      expect(screen.getByText('OK')).toBeTruthy(); // the list row
+    });
+
+    it("clears the override when the AI's own verdict is chosen again, and on Cancel", async () => {
+      await openTea();
+      await fireEvent.press(radio('OK'));
+      await fireEvent.press(radio('Caution'));
+      expect(screen.queryByText(/Set by you/)).toBeNull();
+
+      await fireEvent.press(radio('Likely OK'));
+      await press('Cancel');
+      expect(screen.queryByText(/Set by you/)).toBeNull();
+      await press('Edit');
+      expect(radio('Caution').props.accessibilityState).toEqual({ checked: true });
+    });
+
+    it('replaces a verdict set by hand when Check again gives a new one', async () => {
+      const better: MealAnalysis = {
+        ...tea,
+        items: [{ ...tea.items[0], ingredients: [{ name: 'Honey', matchedCategories: [] }], verdict: 'ok' }],
+        overall: { verdict: 'ok', confidence: 'high', reasoning: 'Honey water is gentle.' },
+      };
+      mockAnalyze.mockResolvedValue({ ...better, meta });
+      await openTea();
+      await fireEvent.press(radio('OK'));
+      await fireEvent.changeText(screen.getByLabelText('Ingredients'), 'Honey');
+      await press('Check again');
+
+      expect(mockToast).toHaveBeenCalledWith('Verdict updated, replacing yours. Save to keep it.');
+      expect(radio('Likely OK').props.accessibilityState).toEqual({ checked: true });
+      expect(screen.queryByText(/Set by you/)).toBeNull();
+      await press('Save');
+      const [food] = listSavedFoods(mockDb);
+      expect(food.overallVerdict).toBe('ok');
+      expect(food.analysis?.overall.userVerdict).toBeUndefined();
+    });
+
     it('does not show Check again for a name change alone', async () => {
       await openTea();
       await fireEvent.changeText(screen.getByLabelText('Name'), 'Tea');

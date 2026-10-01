@@ -79,7 +79,7 @@ export const foodLogs = sqliteTable(
     photoUri: text('photo_uri'),
     mealName: text('meal_name').notNull(),
     /** Null for a meal saved without a check (e.g. offline): it has no verdict, analysis or meta. */
-    overallVerdict: text('overall_verdict', { enum: ['ok', 'caution', 'trigger'] }),
+    overallVerdict: text('overall_verdict', { enum: ['good', 'ok', 'caution', 'trigger'] }),
     /** JSON: items, ingredients, verdicts, reasoning, matched triggers, overall. */
     analysis: text('analysis', { mode: 'json' }),
     /** JSON: { model, promptVersion, rulesetVersion } — which AI produced this result. */
@@ -94,7 +94,7 @@ export const foodLogs = sqliteTable(
       .where(sql`${t.entryType} = 'diary'`),
     check('food_logs_entry_type_check', sql`${t.entryType} in ('diary', 'check')`),
     check('food_logs_source_check', sql`${t.source} in ('photo', 'text')`),
-    check('food_logs_verdict_check', sql`${t.overallVerdict} in ('ok', 'caution', 'trigger')`),
+    check('food_logs_verdict_check', sql`${t.overallVerdict} in ('good', 'ok', 'caution', 'trigger')`),
   ],
 );
 
@@ -150,14 +150,14 @@ export const savedFoods = sqliteTable(
     photoUri: text('photo_uri'),
     mealName: text('meal_name').notNull(),
     /** Null for a food added by name only: it has no verdict or analysis. */
-    overallVerdict: text('overall_verdict', { enum: ['ok', 'caution', 'trigger'] }),
+    overallVerdict: text('overall_verdict', { enum: ['good', 'ok', 'caution', 'trigger'] }),
     analysis: text('analysis', { mode: 'json' }),
     analysisMeta: text('analysis_meta', { mode: 'json' }),
     ...timestamps,
   },
   (t) => [
     check('saved_foods_source_check', sql`${t.source} in ('photo', 'text')`),
-    check('saved_foods_verdict_check', sql`${t.overallVerdict} in ('ok', 'caution', 'trigger')`),
+    check('saved_foods_verdict_check', sql`${t.overallVerdict} in ('good', 'ok', 'caution', 'trigger')`),
   ],
 );
 

@@ -5,6 +5,12 @@
  */
 export type Verdict = 'ok' | 'caution' | 'trigger';
 
+/**
+ * What the app shows and stores as a verdict: the AI's three, plus 'good' ("OK"), which only the user can
+ * set, by hand on a saved food. The relay never returns it.
+ */
+export type AppVerdict = Verdict | 'good';
+
 export type TriggerCategory =
   | 'acidic'
   | 'caffeine'
@@ -29,7 +35,13 @@ export type MealAnalysis = {
   isFood: boolean;
   mealName: string;
   items: MealItem[];
-  overall: { verdict: Verdict; confidence: 'low' | 'medium' | 'high'; reasoning: string };
+  overall: {
+    verdict: Verdict;
+    confidence: 'low' | 'medium' | 'high';
+    reasoning: string;
+    /** The verdict the user chose over the AI's `verdict`. The AI's own stays here for "The AI said …". */
+    userVerdict?: AppVerdict;
+  };
 };
 
 /** Which model, prompt and ruleset produced an analysis — stored with every result. */

@@ -120,6 +120,46 @@ describe('migrations', () => {
     sqlite.close();
   });
 
+  it('0003 keeps existing meals and foods, and allows the OK verdict', () => {
+    const sqlite = new Database(':memory:');
+    sqlite.pragma('foreign_keys = ON');
+    const db = drizzle(sqlite, { schema });
+    migrate(db, { migrationsFolder: firstMigrations(3) });
+    sqlite
+      .prepare(
+        `INSERT INTO food_logs (entry_type, source, meal_name, overall_verdict, logged_at, tz)
+         VALUES ('diary', 'text', 'Tea', 'caution', '2026-09-28T19:45:00.000Z', 'UTC')`,
+      )
+      .run();
+    sqlite
+      .prepare(
+        `INSERT INTO saved_foods (source, meal_name, overall_verdict) VALUES ('text', 'Oatmeal', 'ok')`,
+      )
+      .run();
+    const goodMeal = `INSERT INTO food_logs (entry_type, source, meal_name, overall_verdict, logged_at, tz)
+         VALUES ('diary', 'text', 'Mint', 'good', '2026-09-29T08:00:00.000Z', 'UTC')`;
+    const goodFood = `INSERT INTO saved_foods (source, meal_name, overall_verdict) VALUES ('text', 'Mint', 'good')`;
+    expect(() => sqlite.prepare(goodMeal).run()).toThrow();
+    expect(() => sqlite.prepare(goodFood).run()).toThrow();
+
+    migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+
+    expect(sqlite.prepare('SELECT meal_name, overall_verdict FROM food_logs').all()).toEqual([
+      { meal_name: 'Tea', overall_verdict: 'caution' },
+    ]);
+    expect(sqlite.prepare('SELECT meal_name, overall_verdict FROM saved_foods').all()).toEqual([
+      { meal_name: 'Oatmeal', overall_verdict: 'ok' },
+    ]);
+    expect(() => sqlite.prepare(goodMeal).run()).not.toThrow();
+    expect(() => sqlite.prepare(goodFood).run()).not.toThrow();
+    expect(() =>
+      sqlite
+        .prepare(`INSERT INTO saved_foods (source, meal_name, overall_verdict) VALUES ('text', 'X', 'nope')`)
+        .run(),
+    ).toThrow();
+    sqlite.close();
+  });
+
   it('creates every table on a fresh install', () => {
     const { sqlite } = createTestDb();
     expect(tables(sqlite)).toEqual(EXPECTED_TABLES);

@@ -4,6 +4,8 @@
  * Dark mode ships in Milestone 2; the palette is defined now so the structure is ready.
  */
 
+import type { AppVerdict } from '@/types/analysis';
+
 export const lightColors = {
   bg: '#FBF7F2',
   surface: '#FFFFFF',
@@ -17,6 +19,9 @@ export const lightColors = {
   sage: '#8BA888',
   sageInk: '#4F6B4C',
   sageTint: '#EAF0E8',
+  good: '#5E8F63',
+  goodInk: '#2F5A3A',
+  goodTint: '#D3E8D6',
   honey: '#D9A441',
   honeyInk: '#8A5F1E',
   honeyTint: '#FBF1DE',
@@ -43,6 +48,9 @@ export const darkColors: Palette = {
   sage: '#A3C29E',
   sageInk: '#C9DDC5',
   sageTint: '#263427',
+  good: '#6FB07A',
+  goodInk: '#BFE6C4',
+  goodTint: '#1E3A26',
   honey: '#E8BD6A',
   honeyInk: '#F0D39A',
   honeyTint: '#3A2E14',
@@ -55,9 +63,8 @@ export const darkColors: Palette = {
 };
 
 /** Verdict colors are always paired with an icon + label, never used alone. */
-export type Verdict = 'ok' | 'caution' | 'trigger';
-
-export const verdictColors: Record<Verdict, { fg: ColorToken; bg: ColorToken; accent: ColorToken }> = {
+export const verdictColors: Record<AppVerdict, { fg: ColorToken; bg: ColorToken; accent: ColorToken }> = {
+  good: { fg: 'goodInk', bg: 'goodTint', accent: 'good' },
   ok: { fg: 'sageInk', bg: 'sageTint', accent: 'sage' },
   caution: { fg: 'honeyInk', bg: 'honeyTint', accent: 'honey' },
   trigger: { fg: 'redInk', bg: 'redTint', accent: 'red' },

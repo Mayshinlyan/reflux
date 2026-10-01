@@ -16,6 +16,7 @@ import { SwipeNav } from '@/components/SwipeNav';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
+import { TagChip } from '@/components/TagChip';
 import { VERDICT_LABELS } from '@/components/VerdictBadge';
 import { useDb } from '@/db/DatabaseProvider';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
@@ -36,11 +37,13 @@ import { formatTime, localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
 import { foodSwipe } from '@/lib/logSwipe';
 import { formatIngredients, parseIngredients, withIngredients } from '@/lib/ingredients';
+import { effectiveVerdict, withUserVerdict } from '@/lib/verdict';
 import { formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
+import type { AppVerdict } from '@/types/analysis';
 import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
 
 /** How long a row says "Logged ✓" (and ignores taps) after a one-tap log, so a double-tap can't log twice. */
@@ -48,6 +51,8 @@ const LOGGED_FLASH_MS = 2500;
 const DAY_MS = 86_400_000;
 /** The relay's cap on `details`, and ours on the ingredient list typed in the sheet. */
 const MAX_DETAILS = 300;
+/** Best to worst. "OK" is only ever set by hand. */
+const VERDICT_CHOICES: AppVerdict[] = ['good', 'ok', 'caution', 'trigger'];
 
 /** What has been eaten today, per meal name (lower case): how many times and when last. */
 type EatenToday = Map<string, { count: number; lastAt: string; tz: string }>;
@@ -103,6 +108,8 @@ export function FoodList() {
     ingredients: '',
     photo: undefined,
   });
+  // The verdict chosen in the chips (the AI's own, or the user's over it); null for a food with none.
+  const [verdict, setVerdict] = useState<AppVerdict | null>(null);
   const [checking, setChecking] = useState(false);
   // False: the sheet shows the verdict. True: the edit fields are open (after the Edit button).
   const [changing, setChanging] = useState(false);
@@ -137,6 +144,7 @@ export function FoodList() {
     setIngredientsText(ingredients);
     setPhoto(undefined);
     setRechecked(null);
+    setVerdict(food.analysis ? effectiveVerdict(food.analysis) : null);
     setChecked({ ingredients, photo: undefined });
     setChecking(false);
   };
@@ -216,7 +224,9 @@ export function FoodList() {
   const canCheckAgain = Boolean(sheetFood?.analysis) && (ingredientsChanged || photoChanged);
 
   // A verdict from Check again replaces the saved one on screen until it is saved.
-  const shownAnalysis = rechecked ?? sheetFood?.analysis ?? null;
+  const checkedAnalysis = rechecked ?? sheetFood?.analysis ?? null;
+  const shownAnalysis =
+    checkedAnalysis && verdict ? withUserVerdict(checkedAnalysis, verdict) : checkedAnalysis;
 
   const pickPhoto = async (source: PhotoSource) => {
     try {
@@ -259,7 +269,12 @@ export function FoodList() {
       setRechecked(result);
       setIngredientsText(ingredients);
       setChecked({ ingredients, photo });
-      toast('Verdict updated. Save to keep it.');
+      // The AI re-judged the food, so its new verdict replaces one set by hand.
+      const replaced = verdict !== null && verdict !== checkedAnalysis?.overall.verdict;
+      setVerdict(result.overall.verdict);
+      toast(
+        replaced ? 'Verdict updated, replacing yours. Save to keep it.' : 'Verdict updated. Save to keep it.',
+      );
     } catch (caught) {
       if (editingId.current !== id) return;
       const error = caught instanceof AppError ? caught : new AppError('INTERNAL');
@@ -287,6 +302,7 @@ export function FoodList() {
       } else if (editing.analysis && ingredientsChanged) {
         edit.ingredients = ingredientNames;
       }
+      if (verdict && (rechecked ?? editing.analysis)) edit.verdict = verdict;
       updateSavedFood(db, editing.id, edit);
     } catch (error) {
       if (storedPhoto) deletePhoto(storedPhoto);
@@ -487,6 +503,24 @@ export function FoodList() {
                     multiline
                   />
                 ) : null}
+                {verdict ? (
+                  <View accessibilityRole="radiogroup">
+                    <AppText variant="label" color="inkSoft" style={styles.verdictLabel}>
+                      Verdict
+                    </AppText>
+                    <View style={styles.verdictChoices}>
+                      {VERDICT_CHOICES.map((choice) => (
+                        <TagChip
+                          key={choice}
+                          label={VERDICT_LABELS[choice]}
+                          selected={verdict === choice}
+                          role="radio"
+                          onPress={() => setVerdict(choice)}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
               </View>
               <Button label="Save" onPress={save} disabled={!trimmedName || checking} />
               <View style={styles.secondary}>
@@ -568,6 +602,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: space.s1,
   },
+  verdictLabel: { marginBottom: space.s1 },
+  verdictChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
   photoEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   photoEdit: {
     position: 'absolute',

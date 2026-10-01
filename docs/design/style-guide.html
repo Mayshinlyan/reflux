@@ -5,6 +5,7 @@
     --ink:#2E2A26; --ink-soft:#635A52; --hairline:#EDE6DD;
     --clay:#C8664A; --clay-ink:#8A4531; --clay-tint:#F3E3DC;
     --sage:#8BA888; --sage-ink:#4F6B4C; --sage-tint:#EAF0E8;
+    --good:#5E8F63; --good-ink:#2F5A3A; --good-tint:#D3E8D6;
     --honey:#D9A441; --honey-ink:#8A5F1E; --honey-tint:#FBF1DE;
     --red:#C4553D; --red-ink:#8B3B29; --red-tint:#F7E5DF;
     --cta:#B2543A; --cta-ink:#FFFFFF;
@@ -18,6 +19,8 @@
       --ink:#F3ECE4; --ink-soft:#B3A89D; --hairline:#3D362F;
       --clay:#E08260; --clay-ink:#F2C4B0; --clay-tint:#3A2620;
       --sage:#A3C29E; --sage-ink:#C9DDC5; --sage-tint:#263427;
+    --good:#6FB07A; --good-ink:#BFE6C4; --good-tint:#1E3A26;
+      --good:#6FB07A; --good-ink:#BFE6C4; --good-tint:#1E3A26;
       --honey:#E8BD6A; --honey-ink:#F0D39A; --honey-tint:#3A2E14;
       --red:#DD7A62; --red-ink:#F0AC98; --red-tint:#3A2018;
       color-scheme: dark;
@@ -130,6 +133,7 @@
     padding:8px 14px;border-radius:var(--r-pill);
   }
   .badge svg{width:16px;height:16px;flex:none}
+  .badge-good{background:var(--good-tint);color:var(--good-ink)}
   .badge-ok{background:var(--sage-tint);color:var(--sage-ink)}
   .badge-caution{background:var(--honey-tint);color:var(--honey-ink)}
   .badge-trigger{background:var(--red-tint);color:var(--red-ink)}
@@ -365,6 +369,7 @@
       <div class="swatch"><div class="chip" style="background:var(--ink-soft)"></div><div class="meta"><div class="name">Ink soft</div><div class="hex">#7A716A</div><div class="use">Secondary text</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--clay)"></div><div class="meta"><div class="name">Clay</div><div class="hex">#C8664A</div><div class="use">Icons, marks, selected borders</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--cta)"></div><div class="meta"><div class="name">CTA (deep clay)</div><div class="hex">#B2543A</div><div class="use">Solid buttons — 4.9:1 with white text</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--good)"></div><div class="meta"><div class="name">Deep green</div><div class="hex">#5E8F63</div><div class="use">"OK", a verdict you set yourself</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--sage)"></div><div class="meta"><div class="name">Sage</div><div class="hex">#8BA888</div><div class="use">Selected state, "Likely OK"</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--honey)"></div><div class="meta"><div class="name">Honey</div><div class="hex">#D9A441</div><div class="use">"Caution"</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--red)"></div><div class="meta"><div class="name">Clay red</div><div class="hex">#C4553D</div><div class="use">"Likely trigger"</div></div></div>
@@ -452,6 +457,10 @@
             <div class="device__group">
               <div class="device__group-label">Verdict badges</div>
               <div class="row">
+                <span class="badge badge-good">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>
+                  OK
+                </span>
                 <span class="badge badge-ok">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.25"/><path d="M6.5 14.5c1.6-1.3 3.2-1.3 4.8 0s3.2 1.3 4.8 0"/></svg>
                   Likely OK
@@ -606,6 +615,7 @@
                 </button>
               </div>
               <p class="caption-s" style="margin-top:10px">The photo tile is always there: an empty surface-2 tile with a camera icon when there is no photo. The pencil sits top right, 10px in, and appears only after Edit is tapped (viewing never shows edit controls); it opens the take or choose photo choice. It is drawn at 36px, with a 48px touch target.</p>
+              <p class="caption-s" style="margin-top:8px">In edit mode a row of four verdict chips lets you change the overall verdict. The card then shows your choice with a note, "Set by you. The AI said Caution.", and keeps the AI's reasoning below it. Choosing the AI's own verdict again removes the note. Checking again replaces your choice with the new AI verdict.</p>
               <p class="caption-s" style="margin-top:8px">A sheet opens to the saved details. Tapping Edit reveals the fields and scrolls the sheet back to the top, so the photo and name come into view first. Cancel does the same on the way back.</p>
             </div>
 
@@ -651,6 +661,13 @@
 
     <div class="verdict-detail" style="margin-top:var(--s4)">
       <div class="verdict-detail__item">
+        <div class="verdict-detail__icon" style="background:var(--good-tint);color:var(--good-ink)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>
+        </div>
+        <div class="name">OK</div>
+        <p>A solid check — you've confirmed it sits well with you.</p>
+      </div>
+      <div class="verdict-detail__item">
         <div class="verdict-detail__icon" style="background:var(--sage-tint);color:var(--sage-ink)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.25"/><path d="M6.5 14.5c1.6-1.3 3.2-1.3 4.8 0s3.2 1.3 4.8 0"/></svg>
         </div>
@@ -672,6 +689,7 @@
         <p>Sharp and jagged — the line breaks upward.</p>
       </div>
     </div>
+    <p class="caption-s">Four levels, best to worst: OK, Likely OK, Caution, Likely trigger. The AI only gives the last three. OK is one you choose yourself, so it gets a deeper green and a solid check and never appears from an analysis.</p>
     <p class="caption-s">Why the verdict icons look like this: a shared reflux-line motif, not a borrowed alert-kit glyph — calm and level for "OK," rising for "Caution," sharp and jagged instead of smooth for "Trigger." Icon and label always travel together, so the shape adds recognition without being load-bearing on its own.</p>
   </section>
 
