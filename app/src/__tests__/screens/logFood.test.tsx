@@ -455,10 +455,10 @@ describe('Log food screen (photo)', () => {
     await reviewThenCheck();
 
     expect(await screen.findByText(friendlyMessages.NOT_FOOD)).toBeTruthy();
-    // The photo stays, so the user can retry or pick another.
+    // The photo stays, so the user can retry; there is no other way out of this step but Back.
     expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
-    await press('Choose a different photo');
-    expect(screen.getByRole('button', { name: 'Take a photo' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Choose a different photo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save without a verdict' })).toBeNull();
   });
 
   it('keeps the photo with its stored check if "I ate this" cannot save', async () => {
