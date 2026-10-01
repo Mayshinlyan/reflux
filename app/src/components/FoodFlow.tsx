@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Bookmark, Camera, Images, type LucideIcon } from 'lucide-react-native';
+import { Camera, Check, Images, type LucideIcon } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -54,7 +54,7 @@ const copy = {
   savedUnchecked: 'Saved without a verdict',
   saved: 'Added to your food diary',
   savedAndKept: 'Added to your food diary and My foods',
-  keepLabel: 'Save to My foods',
+  keepLabel: 'Also save to My foods',
   keepOnlyLabel: 'Save to My foods only',
 } as const;
 
@@ -407,12 +407,7 @@ export function FoodFlow({
                     accessibilityLabel="Your meal photo"
                   />
                 )}
-                {shown && (
-                  <MealResultCard
-                    analysis={shown}
-                    action={!myFood && <KeepToggle kept={keep} onPress={() => setKeep((on) => !on)} />}
-                  />
-                )}
+                {shown && <MealResultCard analysis={shown} />}
                 <AppText variant="caption" color="inkSoft" style={styles.disclaimer}>
                   For tracking only, not medical advice. Food results are AI-generated.
                 </AppText>
@@ -522,6 +517,11 @@ export function FoodFlow({
           {/* Outside the scroll area so Save is always on screen, however long the result is. */}
           {showResult && (
             <View style={styles.footer}>
+              {/* Only beside "I ate this", the one save it changes. The Food list has its own "Save to My
+                foods only" button, so it isn't offered there. */}
+              {!myFood && !fromList && !hasComment && (
+                <KeepCheckbox checked={keep} onPress={() => setKeep((on) => !on)} />
+              )}
               {/* A comment turns the main button into "Update verdict", so what gets saved is always what's shown. */}
               {hasComment ? (
                 <Button label={copy.updateLabel} onPress={() => void updateVerdict()} />
@@ -581,24 +581,28 @@ function IconButton({
 }
 
 /**
- * The bookmark on the result card: tick it to also keep the meal in My foods when "I ate this" is
- * tapped. Filled = on, so the state shows in the icon's shape as well as its colour.
+ * "Also save to My foods": a checkbox row above "I ate this". Ticked = filled box with a tick, so the
+ * state shows in shape as well as colour. The whole row is the touch target.
  */
-function KeepToggle({ kept, onPress }: { kept: boolean; onPress: () => void }) {
+function KeepCheckbox({ checked, onPress }: { checked: boolean; onPress: () => void }) {
   const colors = useColors();
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityLabel={copy.keepLabel}
-      accessibilityState={{ checked: kept }}
+      accessibilityState={{ checked }}
       onPress={onPress}
-      style={({ pressed }) => [styles.iconButton, styles.keep, { opacity: pressed ? 0.6 : 1 }]}>
-      <Bookmark
-        size={22}
-        color={kept ? colors.clay : colors.inkSoft}
-        fill={kept ? colors.clay : 'transparent'}
-        strokeWidth={2.2}
-      />
+      style={({ pressed }) => [styles.keep, { opacity: pressed ? 0.6 : 1 }]}>
+      <View
+        style={[
+          styles.box,
+          checked
+            ? { backgroundColor: colors.cta, borderColor: colors.cta }
+            : { backgroundColor: colors.surface, borderColor: colors.inkSoft },
+        ]}>
+        {checked && <Check size={14} color={colors.ctaInk} strokeWidth={3} />}
+      </View>
+      <AppText variant="caption">{copy.keepLabel}</AppText>
     </Pressable>
   );
 }
@@ -607,8 +611,15 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingBottom: space.s3 },
   disclaimer: { textAlign: 'center', marginBottom: space.s1 },
-  // Pulled into the card's corner padding so the full touch target doesn't push the title down.
-  keep: { marginTop: -space.s1, marginRight: -space.s1 },
+  keep: { minHeight: minTouchTarget, flexDirection: 'row', alignItems: 'center', gap: space.s1 },
+  box: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   iconButton: {
     width: minTouchTarget,
     height: minTouchTarget,

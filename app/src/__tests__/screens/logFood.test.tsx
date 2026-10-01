@@ -120,7 +120,7 @@ describe('Log food screen: Save to My foods', () => {
   it('saves the checked meal to My foods too, with its verdict, when ticked', async () => {
     await checkMintTea();
 
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Save to My foods' }));
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Also save to My foods' }));
     await ateThis();
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([{ mealName: 'Mint tea' }]);
@@ -171,18 +171,18 @@ describe('Log food screen: "Add a food" from the Food list', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('can still log it as eaten, and keep it too', async () => {
+  it('can still log it as eaten, without the "Also save" checkbox (Save to My foods only covers that)', async () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
     await typeFood('mint tea');
     await press('Analyze meal');
     await screen.findByText('Mint is a common trigger.');
 
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Save to My foods' }));
+    expect(screen.queryByRole('checkbox', { name: 'Also save to My foods' })).toBeNull();
     await ateThis();
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
-    expect(listSavedFoods(mockDb)).toHaveLength(1);
+    expect(listSavedFoods(mockDb)).toHaveLength(0);
   });
 
   it('logs a typed food to the diary, not My foods, when skipping the verdict', async () => {
