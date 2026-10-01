@@ -28,11 +28,13 @@ People with Acid Reflux, Heartburn and LPR (laryngopharyngeal reflux) struggle t
 ## 5. Core Features
 
 ### 5.1 Symptom logging
+
 Quick log: tap the spot on a simple body map (Throat & voice, Chest or Tummy), then tap the symptoms felt from that area's short list, so only a few choices are ever on screen at once. The 12 symptoms offered are the 9-item Reflux Symptom Index (hoarseness, throat clearing, excess mucus/postnasal drip, difficulty swallowing, coughing after eating/lying down, breathing difficulty, troublesome cough, lump-in-throat sensation, heartburn/chest pain/indigestion) plus stomach pain, feeling full and constipation. Trouble sleeping is covered by the "Poor sleep" lifestyle tag rather than a symptom (older entries that contain it still display). There is no severity rating in the quick log: a symptom is simply felt or not. The flow is three short steps with a progress line at the bottom: (1) the body map, where picked areas show a count badge; (2) optionally tag lifestyle factors (stress, lay down after eating, large meal, alcohol, exercise, poor sleep); (3) an optional note, then Save. In History, each symptom and each "anything else" tag on an entry has a minus button to remove it without opening the editor (after a quick "Remove X?" confirmation, no Undo); the last symptom can't be removed, since an entry needs one, so the user deletes the entry instead, while tags can all be removed. Adding things, or changing the note, goes through Edit, which can save from any step. Full RSI check-in (all 9 items scored 0-5, totaled out of 45) is a Milestone 2 addition and is the one place severity is captured.
 
 **User story:** "As someone with LPR, I want to log that my throat hurts and I felt hoarse right now, in under 10 seconds, so I actually keep doing it."
 
 ### 5.2 Food logging
+
 Food logging and the food checker (5.3) are one screen, reached from "+ → Food" or from the Scan button on Today (which opens the camera straight away). Every result ends with "I ate this" (adds it to the diary) or "Not now" (keeps it out of the diary).
 
 Take a photo or type what was eaten. The app identifies the meal, breaks it into items and ingredients, and saves it to a personal food diary alongside an AI reflux-friendliness assessment for the record — the user doesn't have to type ingredients by hand.
@@ -40,20 +42,25 @@ Take a photo or type what was eaten. The app identifies the meal, breaks it into
 **User story:** "As someone tracking triggers, I want to snap a photo of my lunch and have the ingredients and a reflux read-out appear automatically."
 
 ### 5.3 Food checker
+
 Same underlying capability as food logging, used before eating: photo or text in, a per-item and overall verdict out (Likely OK / Caution / Likely trigger) with plain-language reasoning citing specific trigger categories (acidity, caffeine, mint, alcohol, carbonation, high-fat/fried, spicy, chocolate, raw garlic/onion, large portion). "I ate this" first asks "When did you eat this?" (a date-and-time wheel starting on now, limited to the past week and never in the future; leave it alone for right now), then promotes the check into the diary at that time with no re-analysis. Saving without a verdict asks the same question. Each result is kept on the device as a check, outside the diary, so it never affects the pet until the user taps "I ate this". An optional "Is this right?" comment turns the main button into "Update verdict": the AI re-checks the food with it and the new verdict is shown (comments build on each other). "I ate this" then saves exactly the verdict on screen, so nothing is re-judged after the user commits.
 
 **User story:** "As someone deciding what to order, I want to check a dish before I eat it and see why it might be risky."
 
 ### 5.4 Medications
+
 One-tap logging against a short personal list of saved medications (name, type: PPI / H2 blocker / antacid / alginate / other, optional dose). Provides context alongside symptoms and food.
 
 ### 5.5 Meal timing vs bedtime
+
 A bedtime setting (default 22:30); any meal logged within 3 hours of bedtime is flagged with a "late meal" badge, since eating close to lying down is a well-established reflux trigger. Computed at read time from the current bedtime setting, so changing it updates history retroactively.
 
 ### 5.6 Companion pet
+
 The Today screen is led by a companion pet, **Mochi** (a flat illustration; the user can rename it). A dog (default name Buddy, pre-rendered 3D clips) already exists in code and will be offered as a choice once the pet picker ships; more animals, ideally as Rive animations, can follow. The pet grows through three stages (Little Mochi → Growing Mochi → Grown Mochi; for the dog, Puppy → Young dog → Grown dog) as the user logs consistently, and shows a happy or unwell mood based on the latest entry. The pet is always gently moving (Mochi breathes and bounces; the dog plays mood clips). Tapping it gets a bounce, a heart, a haptic and a friendly speech bubble. Taps are just for play and never affect progress, and reduced motion is respected. Tone is always encouraging: the pet never dies or disappears, and it is decorative feedback, not a medical judgement. Progress is derived from the log history (so edits and deletes stay consistent); only the pet's name and animal are stored. Logging symptoms always gives a small boost (never a penalty), since checking in is the behaviour to encourage. Other rules and constants are in the build plan. Clinician review of pet wording is post-MVP.
 
 ### 5.7 Gamification: coins, discovery and collection
+
 One principle runs through all of it: **reward checking in, never the outcome.** A trigger meal or a bad symptom day earns exactly what a good one does, so the user is never nudged to skip logging the honest entries that trigger-finding depends on. Nothing here is a medical judgement, and nothing is ever taken away as a penalty.
 
 - **Coins (shipped).** Every saved entry (a diary meal, checked or not; a symptom log; a medication dose) earns 1 coin. One-off food checks earn nothing until "I ate this". On returning to Today after a log, the coin balance at the top right bounces, a "+1" floats up, and a short "ching" plays with a light haptic. The sound follows the phone's silent switch and mixes with the user's music rather than pausing it. With reduced motion the number just updates. Like the pet, the earned balance is derived from the log history, so deleting an entry takes its coin back and coins can't be farmed. Nothing about coins is stored.
@@ -61,6 +68,14 @@ One principle runs through all of it: **reward checking in, never the outcome.**
 - **Discovery (planned).** Once enough history exists, the pet "finds" insight cards drawn from the user's own logs, e.g. "3 of your 4 heartburn logs came within 3 hours of a late meal" or "Oatmeal has been Likely OK 6 times: a safe breakfast for you". Each new card earns a coin bonus (e.g. +5). Insights are computed on-device and worded as observations, never diagnoses. They build on the on-device trigger learning in the backlog.
 - **Collection (planned).** Coins buy cosmetic items for the pet and its corner of Today (e.g. a scarf, a bed, a bowl, a background). They are purely decorative and never affect growth. Because the earned balance is derived, the spendable balance is `earned − spent`, so only purchases need to be stored (on-device, like everything else). Deleting logs never takes back a bought item. If deletes push the balance below zero, it simply shows 0 until new logs bring it back.
 - **Challenges (later).** Optional, user-picked weekly goals, e.g. "Finish dinner by 7:30 three times" or "Try one new safe breakfast". Finishing one gives a celebration and a coin bonus. Skipping or missing one costs nothing.
+
+**To do later, in suggested order:**
+
+1. [ ] **Logging-only pet growth.** Progress comes from logging, never from verdicts (verdicts may still set the day's mood). Symptom logs must keep giving a small boost even once real severity scores arrive with the RSI check-in (today a severe average would cost progress).
+2. [ ] **Discovery cards.** On-device insight cards from the user's own logs, each earning a coin bonus. Needs enough history and builds on the trigger-learning backlog item.
+3. [ ] **Coin shop and collection.** Spend coins on cosmetics for the pet and its corner of Today. Store only purchases; the spendable balance is `earned − spent`, shown as 0 if deletes push it below zero.
+4. [ ] **Weekly challenges.** Optional, user-picked goals with a celebration and a coin bonus; missing one costs nothing.
+5. [ ] **Pet picker and more pets.** Offer the dog (and later animals, ideally Rive animations) as a choice alongside Mochi.
 
 ## 6. Design Principles
 
