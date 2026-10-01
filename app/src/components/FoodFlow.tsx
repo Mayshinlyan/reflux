@@ -170,7 +170,7 @@ export function FoodFlow({
     run(analyzed, draft.trim());
   };
 
-  const checkPhoto = async (source: PhotoSource) => {
+  const checkPhoto = async (source: PhotoSource, fromScan = false) => {
     if (busy) return;
     setNotice(null);
     try {
@@ -179,6 +179,8 @@ export function FoodFlow({
       });
       if (!alive.current) return;
       if (picked.status === 'denied') setNotice(CAMERA_DENIED);
+      // Closing the camera that Scan opened means "never mind": back to where the user came from.
+      if (picked.status === 'canceled' && fromScan) router.back();
       if (picked.status !== 'ok') return;
       // Not analyzed yet: the review step lets the user add optional details first.
       setAnalyzed({ source: 'photo', uri: picked.photo.uri });
@@ -194,12 +196,12 @@ export function FoodFlow({
     }
   };
 
-  // Scan on Today: straight to the camera, once. Cancelling it leaves this screen's other options.
+  // Scan on Today: straight to the camera, once. Closing it goes back; denied access keeps the screen and says why.
   const cameraOpened = useRef(false);
   useEffect(() => {
     if (!openCamera || cameraOpened.current) return;
     cameraOpened.current = true;
-    void checkPhoto('camera');
+    void checkPhoto('camera', true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on arrival; checkPhoto's state is fresh then
   }, [openCamera]);
 

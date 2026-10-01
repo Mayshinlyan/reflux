@@ -414,6 +414,25 @@ describe('Log food screen (photo)', () => {
 
     expect(analyze).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Take a photo' })).toBeEnabled();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('goes back to where Scan was tapped when the camera it opened is closed', async () => {
+    mockParams = { camera: '1' };
+    pick.mockResolvedValue({ status: 'canceled' });
+    await render(<LogFoodScreen />);
+
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it('stays on the screen and explains when Scan is denied camera access', async () => {
+    mockParams = { camera: '1' };
+    pick.mockResolvedValue({ status: 'denied' });
+    await render(<LogFoodScreen />);
+
+    expect(await screen.findByText(/Camera access is off/)).toBeTruthy();
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it('shows a friendly message when the photo cannot be read', async () => {
