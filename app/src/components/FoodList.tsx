@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
-import { Camera, Pencil, Utensils } from 'lucide-react-native';
+import { Pencil, Utensils } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -51,6 +51,8 @@ const LOGGED_FLASH_MS = 2500;
 const DAY_MS = 86_400_000;
 /** The relay's cap on `details`, and ours on the ingredient list typed in the sheet. */
 const MAX_DETAILS = 300;
+/** Shown in the sheet's photo tile when a food has no photo. */
+const FILLER_PHOTO = require('@/assets/images/filler.jpg');
 /** Best to worst. "OK" is only ever set by hand. */
 const VERDICT_CHOICES: AppVerdict[] = ['good', 'ok', 'caution', 'trigger'];
 
@@ -456,12 +458,12 @@ export function FoodList() {
                 accessibilityLabel="Your food photo"
               />
             ) : (
-              <View
-                style={[styles.photoEmpty, { backgroundColor: colors.surface2 }]}
-                accessible
-                accessibilityLabel="No photo yet">
-                <Camera size={28} color={colors.inkSoft} strokeWidth={2.2} />
-              </View>
+              <Image
+                source={FILLER_PHOTO}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                accessibilityLabel="No photo yet"
+              />
             )}
             {changing ? (
               <Pressable
@@ -604,7 +606,6 @@ const styles = StyleSheet.create({
   },
   verdictLabel: { marginBottom: space.s1 },
   verdictChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
-  photoEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   photoEdit: {
     position: 'absolute',
     top: 10,

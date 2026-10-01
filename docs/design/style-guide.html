@@ -233,8 +233,8 @@
   .meal-row__thumb.no-photo{display:flex;align-items:center;justify-content:center;color:var(--ink-soft)}
   .meal-row__thumb.no-photo svg{width:20px;height:20px}
   /* photo tile in a detail sheet: always present, pencil only while editing */
-  .photo-tile{position:relative;width:100%;max-width:320px;aspect-ratio:16/10;border-radius:var(--r-lg);overflow:hidden;background:var(--surface-2);color:var(--ink-soft);display:flex;align-items:center;justify-content:center}
-  .photo-tile > svg{width:28px;height:28px}
+  .photo-tile{position:relative;width:100%;max-width:320px;aspect-ratio:16/10;border-radius:var(--r-lg);overflow:hidden;background:var(--surface-2)}
+  .photo-tile > img{width:100%;height:100%;object-fit:cover;display:block}
   .photo-edit{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:var(--r-pill);border:none;background:rgba(46,42,38,.72);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
   .photo-edit svg{width:18px;height:18px}
   .meal-row__main{flex:1;min-width:0}
@@ -609,12 +609,12 @@
             <div class="device__group">
               <div class="device__group-label">Detail sheet: photo and editing</div>
               <div class="photo-tile">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                <img src="../../app/assets/images/filler.jpg" alt="No photo yet">
                 <button class="photo-edit" aria-label="Edit photo">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
                 </button>
               </div>
-              <p class="caption-s" style="margin-top:10px">The photo tile is always there: an empty surface-2 tile with a camera icon when there is no photo. The pencil sits top right, 10px in, and appears only after Edit is tapped (viewing never shows edit controls); it opens the take or choose photo choice. It is drawn at 36px, with a 48px touch target.</p>
+              <p class="caption-s" style="margin-top:10px">The photo tile is always there. With no photo it shows the filler image (app/assets/images/filler.jpg: a pale tile with a grey no-image mark, cropped to fill), never a blank gap. The pencil sits top right, 10px in, and appears only after Edit is tapped (viewing never shows edit controls); it opens the take or choose photo choice. It is drawn at 36px, with a 48px touch target.</p>
               <p class="caption-s" style="margin-top:8px">In edit mode a row of four verdict chips lets you change the overall verdict. The card then shows your choice with a note, "Set by you. The AI said Caution.", and keeps the AI's reasoning below it. Choosing the AI's own verdict again removes the note. Checking again replaces your choice with the new AI verdict.</p>
               <p class="caption-s" style="margin-top:8px">A sheet opens to the saved details. Tapping Edit reveals the fields and scrolls the sheet back to the top, so the photo and name come into view first. Cancel does the same on the way back.</p>
             </div>

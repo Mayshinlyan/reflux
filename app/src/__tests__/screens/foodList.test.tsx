@@ -18,7 +18,12 @@ let mockParams: Record<string, string> = {};
 jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
-jest.mock('expo-image', () => ({ Image: () => null }));
+// Renders as a plain view that keeps its props, so a test can find an image by its label.
+jest.mock('expo-image', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { View } = require('react-native');
+  return { Image: (props: object) => <View {...props} /> };
+});
 const mockAnalyze = jest.fn();
 jest.mock('@/services/relayClient', () => ({ analyzeFood: (input: unknown) => mockAnalyze(input) }));
 const mockPick = jest.fn();
