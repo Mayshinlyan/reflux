@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
-import { Utensils } from 'lucide-react-native';
+import { Camera, Pencil, Utensils } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -430,21 +430,35 @@ export function FoodList() {
           <AppText variant="title" accessibilityRole="header" style={styles.sheetTitle}>
             {sheetFood?.mealName}
           </AppText>
-          {(photo ?? sheetFood?.photoUri) ? (
-            <Image
-              source={{ uri: photo ?? sheetFood?.photoUri ?? undefined }}
-              style={styles.sheetPhoto}
-              contentFit="cover"
-              accessibilityLabel="Your food photo"
-            />
-          ) : null}
-          {changing ? (
-            <Pressable accessibilityRole="button" onPress={changePhoto} style={styles.photoLink}>
-              <AppText style={[styles.addText, { color: colors.clayInk }]}>
-                {(photo ?? sheetFood?.photoUri) ? 'Change photo' : 'Add photo'}
-              </AppText>
-            </Pressable>
-          ) : null}
+          {/* Always there, so a food without a photo has an empty tile; the pencil waits for Edit. */}
+          <View style={styles.sheetPhoto}>
+            {(photo ?? sheetFood?.photoUri) ? (
+              <Image
+                source={{ uri: photo ?? sheetFood?.photoUri ?? undefined }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                accessibilityLabel="Your food photo"
+              />
+            ) : (
+              <View
+                style={[styles.photoEmpty, { backgroundColor: colors.surface2 }]}
+                accessible
+                accessibilityLabel="No photo yet">
+                <Camera size={28} color={colors.inkSoft} strokeWidth={2.2} />
+              </View>
+            )}
+            {changing ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Edit photo"
+                // 36 + 2×6 = 48, the Android touch target
+                hitSlop={6}
+                onPress={changePhoto}
+                style={({ pressed }) => [styles.photoEdit, { opacity: pressed ? 0.7 : 1 }]}>
+                <Pencil size={18} color="#fff" strokeWidth={2.2} />
+              </Pressable>
+            ) : null}
+          </View>
           {shownAnalysis ? (
             <MealResultCard analysis={shownAnalysis} showTitle={false} />
           ) : (
@@ -547,8 +561,25 @@ const styles = StyleSheet.create({
   add: { minHeight: minTouchTarget, justifyContent: 'center', paddingVertical: space.s1 },
   addText: { ...typography.bodyEm, fontSize: 15, fontFamily: 'Nunito_700Bold' },
   sheetTitle: { marginBottom: space.s1 },
-  sheetPhoto: { width: '100%', height: 180, borderRadius: radius.lg },
-  photoLink: { minHeight: minTouchTarget, justifyContent: 'center', alignSelf: 'flex-start' },
+  sheetPhoto: {
+    width: '100%',
+    aspectRatio: 16 / 10,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    marginBottom: space.s1,
+  },
+  photoEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  photoEdit: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(46,42,38,0.72)',
+  },
   sheetField: { marginTop: space.s2, marginBottom: space.s1 },
   secondary: { marginTop: space.s1, gap: space.s1 },
 });

@@ -263,12 +263,14 @@ describe('Food screen: My foods', () => {
       expect(screen.queryByLabelText('Name')).toBeNull();
       expect(screen.queryByLabelText('Ingredients')).toBeNull();
       expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Change photo' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Edit photo' })).toBeNull();
+      expect(screen.getByLabelText('No photo yet')).toBeTruthy();
 
       await press('Edit');
       expect(screen.getByLabelText('Name')).toBeTruthy();
       expect(screen.getByLabelText('Ingredients')).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Edit photo' })).toBeTruthy();
     });
 
     it('Cancel drops the edits and goes back to the verdict', async () => {
@@ -311,7 +313,7 @@ describe('Food screen: My foods', () => {
 
       jest.spyOn(Alert, 'alert');
       mockPick.mockResolvedValue({ status: 'ok', photo: { uri: 'file:///new.jpg' } });
-      await press('Add photo');
+      await press('Edit photo');
       await act(async () => pressAlertButton(Alert.alert as unknown as jest.SpyInstance, 'Choose a photo'));
       expect(checkAgainButton()).toBeTruthy();
     });
