@@ -12,7 +12,7 @@ const WINDOW = 180;
 const empty: PetLogs = { food: [], symptoms: [], medications: [] };
 const derive = (logs: Partial<PetLogs>) => derivePetState({ ...empty, ...logs }, BEDTIME, WINDOW);
 
-const meal = (at: string, verdict: 'ok' | 'caution' | 'trigger') => ({
+const meal = (at: string, verdict: 'good' | 'ok' | 'caution' | 'trigger') => ({
   loggedAt: at,
   tz: 'UTC',
   verdict,
@@ -29,6 +29,9 @@ describe('deltas', () => {
     expect(foodDelta('caution', true)).toBe(-8);
     expect(foodDelta('trigger', true)).toBe(-14);
     expect(foodDelta('ok', true)).toBe(8);
+    // A verdict set to OK by hand counts as OK, late or not.
+    expect(foodDelta('good', false)).toBe(8);
+    expect(foodDelta('good', true)).toBe(8);
   });
 
   it('scores symptoms by average severity', () => {

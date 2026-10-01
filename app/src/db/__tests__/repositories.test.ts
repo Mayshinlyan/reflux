@@ -32,6 +32,7 @@ import {
   renameSavedFood,
   saveCheckedFood,
   saveFoodFromLog,
+  updateSavedFood,
 } from '../repositories/savedFoods';
 import { DEFAULT_SETTINGS, getAllSettings, getSetting, setSetting } from '../repositories/settings';
 import {
@@ -580,6 +581,66 @@ describe('saved foods (My foods)', () => {
       analysis: null,
     });
     expect(() => createSavedFood(db, '   ')).toThrow();
+  });
+
+  it('edits a saved food: name and photo, ingredients alone, or a new check', () => {
+    const { db } = createTestDb();
+    const meta = { model: 'm', promptVersion: 'p', rulesetVersion: 'r' };
+    const id = saveCheckedFood(db, { source: 'text', inputText: 'mint tea', analysis: mintTea, meta }).id;
+
+    updateSavedFood(db, id, { name: ' Tea ', photoUri: 'file:///new.jpg' });
+    expect(getSavedFood(db, id)).toMatchObject({ mealName: 'Tea', photoUri: 'file:///new.jpg' });
+
+    // New ingredients change the list only; the verdict is stale until checked again.
+    updateSavedFood(db, id, { name: 'Tea', ingredients: ['Honey'] });
+    const edited = getSavedFood(db, id);
+    expect(edited?.analysis?.items[0].ingredients.map((i) => i.name)).toEqual(['Honey']);
+    expect(edited?.overallVerdict).toBe(mintTea.overall.verdict);
+    expect(edited?.photoUri).toBe('file:///new.jpg');
+
+    const fresh = { ...mintTea, overall: { ...mintTea.overall, verdict: 'ok' as const } };
+    updateSavedFood(db, id, { name: 'Tea', check: { analysis: fresh, meta } });
+    expect(getSavedFood(db, id)).toMatchObject({ overallVerdict: 'ok', analysis: fresh });
+
+    expect(() => updateSavedFood(db, id, { name: ' ' })).toThrow();
+    expect(() => updateSavedFood(db, 999, { name: 'X' })).toThrow();
+  });
+
+  it("sets a verdict by hand over the AI's, and keeps both", () => {
+    const { db } = createTestDb();
+    const meta = { model: 'm', promptVersion: 'p', rulesetVersion: 'r' };
+    const id = saveCheckedFood(db, { source: 'text', inputText: 'mint tea', analysis: mintTea, meta }).id;
+    const aiVerdict = mintTea.overall.verdict;
+
+    updateSavedFood(db, id, { name: 'Mint tea', verdict: 'good' });
+    const mine = getSavedFood(db, id);
+    expect(mine?.overallVerdict).toBe('good');
+    expect(mine?.analysis?.overall).toMatchObject({
+      verdict: aiVerdict,
+      userVerdict: 'good',
+      reasoning: mintTea.overall.reasoning,
+    });
+
+    // Logging it carries the verdict that applies.
+    expect(getFoodLog(db, logSavedFood(db, id))?.overallVerdict).toBe('good');
+
+    // Choosing the AI's own verdict again clears the override.
+    updateSavedFood(db, id, { name: 'Mint tea', verdict: aiVerdict });
+    expect(getSavedFood(db, id)?.overallVerdict).toBe(aiVerdict);
+    expect(getSavedFood(db, id)?.analysis?.overall.userVerdict).toBeUndefined();
+
+    // A new check replaces the user's choice with the new AI verdict, unless one is chosen on top of it.
+    updateSavedFood(db, id, { name: 'Mint tea', verdict: 'good' });
+    const fresh = { ...mintTea, overall: { ...mintTea.overall, verdict: 'ok' as const } };
+    updateSavedFood(db, id, { name: 'Mint tea', check: { analysis: fresh, meta } });
+    expect(getSavedFood(db, id)).toMatchObject({ overallVerdict: 'ok', analysis: fresh });
+    updateSavedFood(db, id, { name: 'Mint tea', check: { analysis: fresh, meta }, verdict: 'trigger' });
+    expect(getSavedFood(db, id)?.overallVerdict).toBe('trigger');
+
+    // Editing ingredients keeps the user's verdict.
+    updateSavedFood(db, id, { name: 'Mint tea', ingredients: ['Honey'] });
+    expect(getSavedFood(db, id)?.overallVerdict).toBe('trigger');
+    expect(getSavedFood(db, id)?.analysis?.overall.userVerdict).toBe('trigger');
   });
 
   it('lists A to Z ignoring case, renames, and removes without touching History', () => {

@@ -1,5 +1,5 @@
 import { act, render } from '@testing-library/react-native';
-import { Platform, Text } from 'react-native';
+import { Platform, ScrollView, Text } from 'react-native';
 
 import { BottomSheet } from '../BottomSheet';
 
@@ -48,5 +48,26 @@ describe('BottomSheet onDismissed on Android', () => {
     });
 
     expect(onDismissed).not.toHaveBeenCalled();
+  });
+});
+
+describe('BottomSheet scrollToTopKey', () => {
+  const withKey = (key: boolean) => (
+    <BottomSheet visible onClose={jest.fn()} scrollToTopKey={key}>
+      <Text>content</Text>
+    </BottomSheet>
+  );
+
+  it('scrolls back to the top when the key changes, not on re-renders that keep it', async () => {
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(() => {});
+    const screen = await render(withKey(false));
+    scrollTo.mockClear();
+
+    await screen.rerender(withKey(false));
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    await screen.rerender(withKey(true));
+    expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: true });
+    scrollTo.mockRestore();
   });
 });

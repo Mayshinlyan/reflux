@@ -14,6 +14,7 @@ type Props = Pick<
   | 'autoCapitalize'
   | 'returnKeyType'
   | 'onSubmitEditing'
+  | 'multiline'
 > & {
   label: string;
   /** Shown after the label, e.g. "(optional)". */
@@ -40,7 +41,7 @@ export function TextField({ label, hint, hideLabel = false, accessory, ...input 
           {...input}
           accessibilityLabel={label}
           placeholderTextColor={colors.inkSoft}
-          style={[styles.input, { color: colors.ink }]}
+          style={[styles.input, input.multiline && styles.multiline, { color: colors.ink }]}
         />
         {accessory && <View style={styles.accessory}>{accessory}</View>}
       </View>
@@ -60,5 +61,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  multiline: { minHeight: 88, textAlignVertical: 'top' },
   accessory: { flexDirection: 'row', alignItems: 'center', paddingRight: 4 },
 });

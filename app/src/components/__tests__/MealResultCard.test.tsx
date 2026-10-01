@@ -21,6 +21,26 @@ const analysis = (ingredients: ReturnType<typeof ingredient>[]): MealAnalysis =>
   overall: { verdict: 'caution', confidence: 'medium', reasoning: 'A few triggers.' },
 });
 
+describe('MealResultCard verdict set by the user', () => {
+  it("shows the user's verdict with a note, and keeps the AI's reasoning", async () => {
+    const mine = analysis([ingredient('pork')]);
+    mine.overall.userVerdict = 'good';
+    await render(<MealResultCard analysis={mine} />);
+
+    expect(screen.getByLabelText('OK')).toBeTruthy();
+    // Only the overall verdict is overridden; the item keeps the AI's own.
+    expect(screen.getAllByLabelText('Caution')).toHaveLength(1);
+    expect(screen.getByText('Set by you. The AI said Caution.')).toBeTruthy();
+    expect(screen.getByText('A few triggers.')).toBeTruthy();
+  });
+
+  it("has no note when the verdict is the AI's own", async () => {
+    await render(<MealResultCard analysis={analysis([ingredient('pork')])} />);
+    expect(screen.getAllByLabelText('Caution')).toHaveLength(2); // overall and the item
+    expect(screen.queryByText(/Set by you/)).toBeNull();
+  });
+});
+
 describe('MealResultCard ingredients', () => {
   it('shows a short main-ingredients line with the trigger ones kept, and hides the rest', async () => {
     const long = ['pork', 'shrimp', 'mushroom', 'wrapper', 'ginger', 'sesame', 'scallion'].map((n) =>

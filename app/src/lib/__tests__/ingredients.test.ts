@@ -1,6 +1,12 @@
-import type { MealItem, TriggerCategory } from '@/types/analysis';
+import type { MealAnalysis, MealItem, TriggerCategory } from '@/types/analysis';
 
-import { MAIN_INGREDIENT_LIMIT, mainIngredients } from '../ingredients';
+import {
+  formatIngredients,
+  MAIN_INGREDIENT_LIMIT,
+  mainIngredients,
+  parseIngredients,
+  withIngredients,
+} from '../ingredients';
 
 type Ingredient = MealItem['ingredients'][number];
 const make = (name: string, matchedCategories: TriggerCategory[]): Ingredient => ({
@@ -42,5 +48,45 @@ describe('mainIngredients', () => {
 
   it('handles an empty list', () => {
     expect(mainIngredients([])).toEqual({ shown: [], hiddenCount: 0 });
+  });
+});
+
+describe('editing ingredients', () => {
+  const meal: MealAnalysis = {
+    isFood: true,
+    mealName: 'Tea toast',
+    items: [
+      {
+        name: 'Tea',
+        ingredients: [make('Peppermint', ['mint']), plain('Water')],
+        verdict: 'caution',
+        reasoning: 'r',
+        matchedTriggers: [{ category: 'mint', evidence: 'peppermint' }],
+      },
+      {
+        name: 'Toast',
+        ingredients: [plain('Bread'), plain('water')],
+        verdict: 'ok',
+        reasoning: 'r',
+        matchedTriggers: [],
+      },
+    ],
+    overall: { verdict: 'caution', confidence: 'high', reasoning: 'r' },
+  };
+
+  it('lists every ingredient once, as a comma line', () => {
+    expect(formatIngredients(meal)).toBe('Peppermint, Water, Bread');
+  });
+
+  it('parses a typed line: trimmed, no blanks or repeats', () => {
+    expect(parseIngredients(' oats, Banana ,, oats ,  ')).toEqual(['oats', 'Banana']);
+    expect(parseIngredients('')).toEqual([]);
+  });
+
+  it('keeps the trigger tags of ingredients that stay, drops removed ones and adds new ones', () => {
+    const edited = withIngredients(meal, ['peppermint', 'Honey']);
+    expect(edited.items[0].ingredients).toEqual([make('Peppermint', ['mint']), make('Honey', [])]);
+    expect(edited.items[1].ingredients).toEqual([]);
+    expect(edited.overall).toEqual(meal.overall);
   });
 });

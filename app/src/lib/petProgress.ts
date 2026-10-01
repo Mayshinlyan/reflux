@@ -23,7 +23,7 @@ export const MAX_STAGE: PetStage = 2;
 
 /** Every tunable delta lives here. */
 export const PET_DELTAS = {
-  food: { ok: 8, caution: -4, trigger: -10 },
+  food: { good: 8, ok: 8, caution: -4, trigger: -10 },
   /** Extra penalty for a non-OK meal close to bedtime. */
   lateNonOk: -4,
   symptoms: { mild: 3, moderate: 0, severe: -8 },
@@ -51,7 +51,7 @@ export function symptomDelta(scores: readonly number[]): number {
 
 export function foodDelta(verdict: PetVerdict, late: boolean): number {
   const base = PET_DELTAS.food[verdict];
-  return verdict !== 'ok' && late ? base + PET_DELTAS.lateNonOk : base;
+  return verdict !== 'ok' && verdict !== 'good' && late ? base + PET_DELTAS.lateNonOk : base;
 }
 
 export function derivePetState(logs: PetLogs, bedtime: string, lateMealWindowMinutes: number): PetState {

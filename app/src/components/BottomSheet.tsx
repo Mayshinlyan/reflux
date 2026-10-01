@@ -9,6 +9,8 @@ type Props = {
   onClose: () => void;
   /** Called once the sheet has finished closing (use to navigate without pushing under a closing modal). */
   onDismissed?: () => void;
+  /** When this changes the sheet scrolls back to the top, e.g. when it swaps from viewing to editing. */
+  scrollToTopKey?: unknown;
   children: ReactNode;
 };
 
@@ -16,10 +18,14 @@ type Props = {
 const ANDROID_CLOSE_MS = 300;
 
 /** The mockup's bottom sheet: a scrim, a rounded surface with a handle, content that scrolls if long. */
-export function BottomSheet({ visible, onClose, onDismissed, children }: Props) {
+export function BottomSheet({ visible, onClose, onDismissed, scrollToTopKey, children }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const wasVisible = useRef(false);
+  const scroll = useRef<ScrollView>(null);
+  useEffect(() => {
+    scroll.current?.scrollTo({ y: 0, animated: true });
+  }, [scrollToTopKey]);
   // Held in a ref so a parent that passes a new function every render can't cancel the timer below.
   const dismissedRef = useRef(onDismissed);
   useEffect(() => {
@@ -57,7 +63,7 @@ export function BottomSheet({ visible, onClose, onDismissed, children }: Props) 
           ]}
           accessibilityViewIsModal>
           <View style={[styles.handle, { backgroundColor: colors.hairline }]} />
-          <ScrollView bounces={false} keyboardShouldPersistTaps="handled">
+          <ScrollView ref={scroll} bounces={false} keyboardShouldPersistTaps="handled">
             {children}
           </ScrollView>
         </View>

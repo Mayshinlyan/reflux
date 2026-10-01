@@ -18,7 +18,20 @@ let mockParams: Record<string, string> = {};
 jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
-jest.mock('expo-image', () => ({ Image: () => null }));
+// Renders as a plain view that keeps its props, so a test can find an image by its label.
+jest.mock('expo-image', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { View } = require('react-native');
+  return { Image: (props: object) => <View {...props} /> };
+});
+const mockAnalyze = jest.fn();
+jest.mock('@/services/relayClient', () => ({ analyzeFood: (input: unknown) => mockAnalyze(input) }));
+const mockPick = jest.fn();
+jest.mock('@/services/photoPicker', () => ({ pickFoodPhoto: (source: unknown) => mockPick(source) }));
+jest.mock('@/services/photoStore', () => ({
+  savePhoto: (uri: string) => `stored:${uri}`,
+  deletePhoto: jest.fn(),
+}));
 jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
@@ -81,6 +94,8 @@ beforeEach(() => {
   mockPush.mockClear();
   mockParams = {};
   mockWheel = null;
+  mockAnalyze.mockReset();
+  mockPick.mockReset();
 });
 afterEach(() => {
   jest.useRealTimers();
@@ -221,11 +236,222 @@ describe('Food screen: My foods', () => {
     expect(screen.getByText('No verdict yet.')).toBeTruthy();
   });
 
+  describe('editing a saved food', () => {
+    const meta = { model: 'm', promptVersion: 'p', rulesetVersion: 'r' };
+    const tea: MealAnalysis = {
+      isFood: true,
+      mealName: 'Mint tea',
+      items: [
+        {
+          name: 'Mint tea',
+          ingredients: [{ name: 'Peppermint', matchedCategories: ['mint'] }],
+          verdict: 'caution',
+          reasoning: 'Peppermint relaxes the valve.',
+          matchedTriggers: [{ category: 'mint', evidence: 'peppermint' }],
+        },
+      ],
+      overall: { verdict: 'caution', confidence: 'high', reasoning: 'Mint is a common trigger.' },
+    };
+    const openTea = async () => {
+      saveCheckedFood(mockDb, { source: 'text', inputText: 'mint tea', analysis: tea, meta });
+      await render(<FoodList />);
+      await press('Edit Mint tea');
+      await press('Edit');
+    };
+
+    it('shows the verdict first, and the edit fields only after Edit', async () => {
+      saveCheckedFood(mockDb, { source: 'text', inputText: 'mint tea', analysis: tea, meta });
+      await render(<FoodList />);
+      await press('Edit Mint tea');
+
+      expect(screen.getByText('Mint is a common trigger.')).toBeTruthy();
+      expect(screen.queryByLabelText('Name')).toBeNull();
+      expect(screen.queryByLabelText('Ingredients')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Edit photo' })).toBeNull();
+      expect(screen.getByLabelText('No photo yet')).toBeTruthy();
+
+      await press('Edit');
+      expect(screen.getByLabelText('Name')).toBeTruthy();
+      expect(screen.getByLabelText('Ingredients')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Edit photo' })).toBeTruthy();
+    });
+
+    it('Cancel drops the edits and goes back to the verdict', async () => {
+      await openTea();
+      await fireEvent.changeText(screen.getByLabelText('Name'), 'Tea');
+      await press('Cancel');
+      expect(screen.queryByLabelText('Name')).toBeNull();
+
+      await press('Edit');
+      expect(screen.getByLabelText('Name').props.value).toBe('Mint tea');
+    });
+
+    it('keeps ingredients edited after a Check again', async () => {
+      const better: MealAnalysis = {
+        ...tea,
+        items: [{ ...tea.items[0], ingredients: [{ name: 'Honey', matchedCategories: [] }], verdict: 'ok' }],
+        overall: { verdict: 'ok', confidence: 'high', reasoning: 'Honey water is gentle.' },
+      };
+      mockAnalyze.mockResolvedValue({ ...better, meta });
+      await openTea();
+      await fireEvent.changeText(screen.getByLabelText('Ingredients'), 'Honey');
+      await press('Check again');
+      await fireEvent.changeText(screen.getByLabelText('Ingredients'), 'Honey, lemon');
+      await press('Save');
+
+      const [food] = listSavedFoods(mockDb);
+      expect(food.overallVerdict).toBe('ok');
+      expect(food.analysis?.items[0].ingredients.map((i) => i.name)).toEqual(['Honey', 'lemon']);
+    });
+    const checkAgainButton = () => screen.queryByRole('button', { name: 'Check again' });
+
+    it('hides Check again until the ingredients or photo change', async () => {
+      await openTea();
+      expect(checkAgainButton()).toBeNull();
+
+      await fireEvent.changeText(screen.getByLabelText('Ingredients'), 'Peppermint, honey');
+      expect(checkAgainButton()).toBeTruthy();
+      await fireEvent.changeText(screen.getByLabelText('Ingredients'), 'Peppermint');
+      expect(checkAgainButton()).toBeNull();
+
+      jest.spyOn(Alert, 'alert');
+      mockPick.mockResolvedValue({ status: 'ok', photo: { uri: 'file:///new.jpg' } });
+      await press('Edit photo');
+      await act(async () => pressAlertButton(Alert.alert as unknown as jest.SpyInstance, 'Choose a photo'));
+      expect(checkAgainButton()).toBeTruthy();
+    });
+
+    const radio = (name: string) => screen.getByRole('radio', { name });
+    /** The collapsed dropdown row, named for the verdict it shows. */
+    const verdictRow = (current: string) => screen.getByRole('button', { name: `Verdict, ${current}` });
+    const openVerdicts = async (current: string) => fireEvent.press(verdictRow(current));
+
+    it('lets you set the verdict by hand in edit mode only, keeping the AI reasoning', async () => {
+      saveCheckedFood(mockDb, { source: 'text', inputText: 'mint tea', analysis: tea, meta });
+      await render(<FoodList />);
+      await press('Edit Mint tea');
+      expect(screen.queryByRole('radio', { name: 'OK' })).toBeNull();
+
+      await press('Edit');
+      // Collapsed: one row with the current verdict, not a list of all four.
+      expect(screen.queryByRole('radio')).toBeNull();
+      await openVerdicts('Caution');
+      expect(['OK', 'Likely OK', 'Caution', 'Likely trigger'].map((name) => radio(name))).toHaveLength(4);
+      expect(radio('Caution').props.accessibilityState).toEqual({ checked: true });
+
+      await fireEvent.press(radio('OK'));
+      expect(screen.queryByRole('radio')).toBeNull(); // choosing closes it
+      expect(verdictRow('OK')).toBeTruthy();
+      expect(screen.getByText('Set by you. The AI said Caution.')).toBeTruthy();
+      expect(screen.getByText('Mint is a common trigger.')).toBeTruthy();
+      expect(listSavedFoods(mockDb)[0].overallVerdict).toBe('caution'); // not stored until Save
+
+      await press('Save');
+      const [food] = listSavedFoods(mockDb);
+      expect(food.overallVerdict).toBe('good');
+      expect(food.analysis?.overall).toMatchObject({ verdict: 'caution', userVerdict: 'good' });
+      expect(screen.getByText('OK')).toBeTruthy(); // the list row
+    });
+
+    it("clears the override when the AI's own verdict is chosen again, and on Cancel", async () => {
+      await openTea();
+      await openVerdicts('Caution');
+      await fireEvent.press(radio('OK'));
+      await openVerdicts('OK');
+      await fireEvent.press(radio('Caution'));
+      expect(screen.queryByText(/Set by you/)).toBeNull();
+
+      await openVerdicts('Caution');
+      await fireEvent.press(radio('Likely OK'));
+      await press('Cancel');
+      expect(screen.queryByText(/Set by you/)).toBeNull();
+      await press('Edit');
+      expect(verdictRow('Caution')).toBeTruthy();
+    });
+
+    it('replaces a verdict set by hand when Check again gives a new one', async () => {
+      const better: MealAnalysis = {
+        ...tea,
+        items: [{ ...tea.items[0], ingredients: [{ name: 'Honey', matchedCategories: [] }], verdict: 'ok' }],
+        overall: { verdict: 'ok', confidence: 'high', reasoning: 'Honey water is gentle.' },
+      };
+      mockAnalyze.mockResolvedValue({ ...better, meta });
+      await openTea();
+      await openVerdicts('Caution');
+      await fireEvent.press(radio('OK'));
+      await fireEvent.changeText(screen.getByLabelText('Ingredients'), 'Honey');
+      await press('Check again');
+
+      expect(mockToast).toHaveBeenCalledWith('Verdict updated, replacing yours. Save to keep it.');
+      expect(verdictRow('Likely OK')).toBeTruthy();
+      expect(screen.queryByText(/Set by you/)).toBeNull();
+      await press('Save');
+      const [food] = listSavedFoods(mockDb);
+      expect(food.overallVerdict).toBe('ok');
+      expect(food.analysis?.overall.userVerdict).toBeUndefined();
+    });
+
+    it('does not show Check again for a name change alone', async () => {
+      await openTea();
+      await fireEvent.changeText(screen.getByLabelText('Name'), 'Tea');
+      expect(checkAgainButton()).toBeNull();
+    });
+
+    it('saves edited ingredients without a new verdict', async () => {
+      await openTea();
+      await fireEvent.changeText(screen.getByLabelText('Ingredients'), 'Peppermint, honey');
+      await press('Save');
+
+      expect(mockAnalyze).not.toHaveBeenCalled();
+      const [food] = listSavedFoods(mockDb);
+      expect(food.analysis?.items[0].ingredients.map((i) => i.name)).toEqual(['Peppermint', 'honey']);
+      expect(food.overallVerdict).toBe('caution');
+    });
+
+    it('checks again with the edited ingredients, then keeps the new verdict on Save', async () => {
+      const better: MealAnalysis = {
+        ...tea,
+        items: [{ ...tea.items[0], ingredients: [{ name: 'Honey', matchedCategories: [] }], verdict: 'ok' }],
+        overall: { verdict: 'ok', confidence: 'high', reasoning: 'Honey water is gentle.' },
+      };
+      mockAnalyze.mockResolvedValue({ ...better, meta });
+      await openTea();
+
+      await fireEvent.changeText(screen.getByLabelText('Ingredients'), 'Honey');
+      await press('Check again');
+
+      expect(mockAnalyze).toHaveBeenCalledWith({
+        text: 'Mint tea',
+        details: 'The ingredients are: Honey',
+      });
+      expect(screen.getByText('Honey water is gentle.')).toBeTruthy();
+      expect(checkAgainButton()).toBeNull(); // the verdict now matches what is shown
+      expect(listSavedFoods(mockDb)[0].overallVerdict).toBe('caution'); // not stored until Save
+
+      await press('Save');
+      expect(listSavedFoods(mockDb)[0]).toMatchObject({ overallVerdict: 'ok', analysis: better });
+    });
+
+    it('keeps the edits and says so when checking again fails', async () => {
+      mockAnalyze.mockRejectedValue(new Error('boom'));
+      await openTea();
+      await fireEvent.changeText(screen.getByLabelText('Ingredients'), 'Honey');
+      await press('Check again');
+
+      expect(mockToast).toHaveBeenCalled();
+      expect(screen.getByLabelText('Ingredients').props.value).toBe('Honey');
+      expect(checkAgainButton()).toBeTruthy();
+    });
+  });
+
   it('renames a food', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
 
     await press('Edit Oatmeal');
+    await press('Edit');
     await fireEvent.changeText(screen.getByLabelText('Name'), 'Porridge');
     await press('Save');
 
@@ -236,6 +462,7 @@ describe('Food screen: My foods', () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
     await press('Edit Oatmeal');
+    await press('Edit');
     await fireEvent.changeText(screen.getByLabelText('Name'), '   ');
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });

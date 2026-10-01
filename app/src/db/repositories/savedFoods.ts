@@ -1,7 +1,9 @@
 import { asc, eq, sql } from 'drizzle-orm';
 
+import { withIngredients } from '@/lib/ingredients';
+import { effectiveVerdict, withUserVerdict } from '@/lib/verdict';
 import { currentTimeZone, nowIso } from '@/lib/time';
-import type { AnalysisMeta, MealAnalysis } from '@/types/analysis';
+import type { AnalysisMeta, AppVerdict, MealAnalysis } from '@/types/analysis';
 
 import { foodLogs, type SavedFood, savedFoods } from '../schema';
 import type { AppDb } from '../types';
@@ -77,6 +79,45 @@ export function renameSavedFood(db: AppDb, id: number, name: string): void {
     .returning({ id: savedFoods.id })
     .all();
   if (updated.length === 0) throw new Error(`Saved food ${id} not found`);
+}
+
+export type SavedFoodEdit = {
+  name: string;
+  /** A new photo (already in permanent storage), or omitted to keep the current one. */
+  photoUri?: string;
+  /** The edited ingredient names, applied to the stored verdict; ignored when `check` is given. */
+  ingredients?: string[];
+  /** A verdict from checking the edited food again, replacing the stored one (and any verdict set by hand). */
+  check?: { analysis: MealAnalysis; meta: AnalysisMeta };
+  /** The verdict the user chose, applied over the AI's; the AI's own verdict clears it. Needs a stored verdict. */
+  verdict?: AppVerdict;
+};
+
+/**
+ * Saves edits to a saved food from its edit sheet. A new check replaces the verdict; edited ingredients
+ * alone change the stored list but leave the verdict as it was, until the food is checked again. A verdict
+ * chosen by hand sits on top of the AI's, and `overallVerdict` always holds the one that applies.
+ */
+export function updateSavedFood(db: AppDb, id: number, edit: SavedFoodEdit): void {
+  const mealName = edit.name.trim().slice(0, MAX_SAVED_FOOD_NAME);
+  if (!mealName) throw new Error('A saved food needs a name');
+  const existing = db.select().from(savedFoods).where(eq(savedFoods.id, id)).get();
+  if (!existing) throw new Error(`Saved food ${id} not found`);
+  const values: Partial<SavedFood> = { mealName, updatedAt: nowIso() };
+  if (edit.photoUri !== undefined) values.photoUri = edit.photoUri;
+  let analysis = existing.analysis as MealAnalysis | null;
+  if (edit.check) {
+    analysis = edit.check.analysis;
+    values.analysisMeta = edit.check.meta;
+  } else if (edit.ingredients && analysis) {
+    analysis = withIngredients(analysis, edit.ingredients);
+  }
+  if (edit.verdict !== undefined && analysis) analysis = withUserVerdict(analysis, edit.verdict);
+  if (analysis !== existing.analysis) {
+    values.analysis = analysis;
+    if (analysis) values.overallVerdict = effectiveVerdict(analysis);
+  }
+  db.update(savedFoods).set(values).where(eq(savedFoods.id, id)).run();
 }
 
 /** Removes a food from "My foods". Meals already logged from it stay in History. */

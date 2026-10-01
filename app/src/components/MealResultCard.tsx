@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { mainIngredients } from '@/lib/ingredients';
+import { effectiveVerdict } from '@/lib/verdict';
 import { minTouchTarget, radius, space, useColors } from '@/theme';
 import type { MealAnalysis, MealItem } from '@/types/analysis';
 
 import { AppText } from './AppText';
-import { VerdictBadge } from './VerdictBadge';
+import { VERDICT_LABELS, VerdictBadge } from './VerdictBadge';
 
 /** A meal analysis: the overall verdict and reasoning, then each item with its own verdict. */
 export function MealResultCard({
@@ -18,6 +19,7 @@ export function MealResultCard({
   showTitle?: boolean;
 }) {
   const colors = useColors();
+  const verdict = effectiveVerdict(analysis);
   return (
     <View>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
@@ -26,7 +28,12 @@ export function MealResultCard({
             {analysis.mealName}
           </AppText>
         )}
-        <VerdictBadge verdict={analysis.overall.verdict} />
+        <VerdictBadge verdict={verdict} />
+        {verdict !== analysis.overall.verdict && (
+          <AppText variant="caption" color="inkSoft">
+            {`Set by you. The AI said ${VERDICT_LABELS[analysis.overall.verdict]}.`}
+          </AppText>
+        )}
         <AppText color="inkSoft">{analysis.overall.reasoning}</AppText>
       </View>
       {analysis.items.map((item, index) => (

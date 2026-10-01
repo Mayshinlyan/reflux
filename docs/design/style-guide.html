@@ -5,6 +5,7 @@
     --ink:#2E2A26; --ink-soft:#635A52; --hairline:#EDE6DD;
     --clay:#C8664A; --clay-ink:#8A4531; --clay-tint:#F3E3DC;
     --sage:#8BA888; --sage-ink:#4F6B4C; --sage-tint:#EAF0E8;
+    --good:#5E8F63; --good-ink:#2F5A3A; --good-tint:#D3E8D6;
     --honey:#D9A441; --honey-ink:#8A5F1E; --honey-tint:#FBF1DE;
     --red:#C4553D; --red-ink:#8B3B29; --red-tint:#F7E5DF;
     --cta:#B2543A; --cta-ink:#FFFFFF;
@@ -18,6 +19,8 @@
       --ink:#F3ECE4; --ink-soft:#B3A89D; --hairline:#3D362F;
       --clay:#E08260; --clay-ink:#F2C4B0; --clay-tint:#3A2620;
       --sage:#A3C29E; --sage-ink:#C9DDC5; --sage-tint:#263427;
+    --good:#6FB07A; --good-ink:#BFE6C4; --good-tint:#1E3A26;
+      --good:#6FB07A; --good-ink:#BFE6C4; --good-tint:#1E3A26;
       --honey:#E8BD6A; --honey-ink:#F0D39A; --honey-tint:#3A2E14;
       --red:#DD7A62; --red-ink:#F0AC98; --red-tint:#3A2018;
       color-scheme: dark;
@@ -130,6 +133,7 @@
     padding:8px 14px;border-radius:var(--r-pill);
   }
   .badge svg{width:16px;height:16px;flex:none}
+  .badge-good{background:var(--good-tint);color:var(--good-ink)}
   .badge-ok{background:var(--sage-tint);color:var(--sage-ink)}
   .badge-caution{background:var(--honey-tint);color:var(--honey-ink)}
   .badge-trigger{background:var(--red-tint);color:var(--red-ink)}
@@ -228,6 +232,19 @@
   .meal-row__thumb{width:44px;height:44px;border-radius:var(--r-sm);flex:none;overflow:hidden;background:var(--surface-2)}
   .meal-row__thumb.no-photo{display:flex;align-items:center;justify-content:center;color:var(--ink-soft)}
   .meal-row__thumb.no-photo svg{width:20px;height:20px}
+  /* photo tile in a detail sheet: always present, pencil only while editing */
+  .photo-tile{position:relative;width:100%;max-width:320px;aspect-ratio:16/10;border-radius:var(--r-lg);overflow:hidden;background:var(--surface-2)}
+  .photo-tile > img{width:100%;height:100%;object-fit:cover;display:block}
+  /* dropdown: one row with the current value, opening in place to the choices */
+  .select{width:100%;max-width:320px;background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-md);overflow:hidden}
+  .select__row{display:flex;align-items:center;justify-content:space-between;min-height:52px;padding:0 14px}
+  .select__row + .select__row{border-top:1px solid var(--hairline)}
+  .select__row > svg{width:20px;height:20px;color:var(--ink-soft)}
+  .select__option{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:15px}
+  .select__option svg{width:18px;height:18px}
+  .select__row > svg.select__check{width:18px;height:18px}
+  .photo-edit{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:var(--r-pill);border:none;background:rgba(46,42,38,.72);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .photo-edit svg{width:18px;height:18px}
   .meal-row__main{flex:1;min-width:0}
   .meal-row__main h4{font-size:14.5px;font-weight:700;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .meal-row__main .time{font-size:12.5px;color:var(--ink-soft)}
@@ -360,6 +377,7 @@
       <div class="swatch"><div class="chip" style="background:var(--ink-soft)"></div><div class="meta"><div class="name">Ink soft</div><div class="hex">#7A716A</div><div class="use">Secondary text</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--clay)"></div><div class="meta"><div class="name">Clay</div><div class="hex">#C8664A</div><div class="use">Icons, marks, selected borders</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--cta)"></div><div class="meta"><div class="name">CTA (deep clay)</div><div class="hex">#B2543A</div><div class="use">Solid buttons — 4.9:1 with white text</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--good)"></div><div class="meta"><div class="name">Deep green</div><div class="hex">#5E8F63</div><div class="use">"OK", a verdict you set yourself</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--sage)"></div><div class="meta"><div class="name">Sage</div><div class="hex">#8BA888</div><div class="use">Selected state, "Likely OK"</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--honey)"></div><div class="meta"><div class="name">Honey</div><div class="hex">#D9A441</div><div class="use">"Caution"</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--red)"></div><div class="meta"><div class="name">Clay red</div><div class="hex">#C4553D</div><div class="use">"Likely trigger"</div></div></div>
@@ -447,6 +465,10 @@
             <div class="device__group">
               <div class="device__group-label">Verdict badges</div>
               <div class="row">
+                <span class="badge badge-good">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>
+                  OK
+                </span>
                 <span class="badge badge-ok">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.25"/><path d="M6.5 14.5c1.6-1.3 3.2-1.3 4.8 0s3.2 1.3 4.8 0"/></svg>
                   Likely OK
@@ -593,6 +615,28 @@
             </div>
 
             <div class="device__group">
+              <div class="device__group-label">Detail sheet: photo and editing</div>
+              <div class="photo-tile">
+                <img src="../../app/assets/images/filler.jpg" alt="No photo yet">
+                <button class="photo-edit" aria-label="Edit photo">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+                </button>
+              </div>
+              <div class="row" style="align-items:flex-start;gap:16px;margin-top:16px">
+                <div class="select"><div class="select__row"><span class="select__option" style="color:var(--honey-ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.25"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>Caution</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div></div>
+                <div class="select">
+                  <div class="select__row"><span class="select__option" style="color:var(--good-ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>OK</span></div>
+                  <div class="select__row"><span class="select__option" style="color:var(--sage-ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.25"/><path d="m9 12 2 2 4-4"/></svg>Likely OK</span></div>
+                  <div class="select__row"><span class="select__option" style="color:var(--honey-ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.25"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>Caution</span><svg class="select__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                  <div class="select__row"><span class="select__option" style="color:var(--red-ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Likely trigger</span></div>
+                </div>
+              </div>
+              <p class="caption-s" style="margin-top:10px">The photo tile is always there. With no photo it shows the filler image (app/assets/images/filler.jpg: a pale tile with a grey no-image mark, cropped to fill), never a blank gap. The pencil sits top right, 10px in, and appears only after Edit is tapped (viewing never shows edit controls); it opens the take or choose photo choice. It is drawn at 36px, with a 48px touch target.</p>
+              <p class="caption-s" style="margin-top:8px">In edit mode a verdict dropdown lets you change the overall verdict: one row showing the current verdict, which becomes the list of four choices in place (OK, Likely OK, Caution, Likely trigger), so the current one is never shown twice. The current verdict and the choices look the same, a plain colored icon and label (no pill), with a check on the current choice; picking one closes it. The card then shows your choice with a note, "Set by you. The AI said Caution.", and keeps the AI's reasoning below it. Choosing the AI's own verdict again removes the note. Checking again replaces your choice with the new AI verdict.</p>
+              <p class="caption-s" style="margin-top:8px">A sheet opens to the saved details. Tapping Edit reveals the fields and scrolls the sheet back to the top, so the photo and name come into view first. Cancel does the same on the way back.</p>
+            </div>
+
+            <div class="device__group">
               <div class="device__group-label">Medication row</div>
               <div class="med-row">
                 <div class="info">
@@ -634,6 +678,13 @@
 
     <div class="verdict-detail" style="margin-top:var(--s4)">
       <div class="verdict-detail__item">
+        <div class="verdict-detail__icon" style="background:var(--good-tint);color:var(--good-ink)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>
+        </div>
+        <div class="name">OK</div>
+        <p>A solid check — you've confirmed it sits well with you.</p>
+      </div>
+      <div class="verdict-detail__item">
         <div class="verdict-detail__icon" style="background:var(--sage-tint);color:var(--sage-ink)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.25"/><path d="M6.5 14.5c1.6-1.3 3.2-1.3 4.8 0s3.2 1.3 4.8 0"/></svg>
         </div>
@@ -655,6 +706,7 @@
         <p>Sharp and jagged — the line breaks upward.</p>
       </div>
     </div>
+    <p class="caption-s">Four levels, best to worst: OK, Likely OK, Caution, Likely trigger. The AI only gives the last three. OK is one you choose yourself, so it gets a deeper green and a solid check and never appears from an analysis.</p>
     <p class="caption-s">Why the verdict icons look like this: a shared reflux-line motif, not a borrowed alert-kit glyph — calm and level for "OK," rising for "Caution," sharp and jagged instead of smooth for "Trigger." Icon and label always travel together, so the shape adds recognition without being load-bearing on its own.</p>
   </section>
 
