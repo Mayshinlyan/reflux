@@ -220,7 +220,7 @@ export default function HistoryScreen() {
 
   return (
     <Screen style={styles.screen}>
-      <BackHeader title="History" />
+      <BackHeader title="Your Logs" />
       <View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
           {FILTERS.map((option) => (
@@ -265,7 +265,7 @@ export default function HistoryScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <AppText variant="title" style={styles.emptyTitle}>
-              {loadFailed ? "Couldn't load your history" : 'Nothing here yet'}
+              {loadFailed ? "Couldn't load your logs" : 'Nothing here yet'}
             </AppText>
             <AppText color="inkSoft" style={styles.emptyBody}>
               {loadFailed

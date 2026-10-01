@@ -102,7 +102,7 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <BackHeader title="Profile" />
         <SectionTitle first>Activity</SectionTitle>
-        <SettingsRow label="History" onPress={() => router.push('/history')} />
+        <SettingsRow label="Your Logs" onPress={() => router.push('/history')} />
 
         <SectionTitle>Personalize</SectionTitle>
         <SettingsRow
