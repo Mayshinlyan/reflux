@@ -12,11 +12,6 @@ type Props = {
   onSwipeLeft?: () => void;
   /** Finger moves right: back one screen. */
   onSwipeRight?: () => void;
-  /**
-   * Finger moves up. Only for screens that don't scroll (Today), since it would compete with the
-   * scroll view.
-   */
-  onSwipeUp?: () => void;
   /** Turn swipes off while a form is half-filled, so a stray drag can't drop it. */
   enabled?: boolean;
 };
@@ -25,27 +20,25 @@ type Props = {
  * Wraps a screen so horizontal swipes move between the log screens. Only a clear drag starts it, so
  * taps, vertical scrolling and swipe-to-delete rows (which claim their own touches) keep working.
  */
-export function SwipeNav({ children, onSwipeLeft, onSwipeRight, onSwipeUp, enabled = true }: Props) {
+export function SwipeNav({ children, onSwipeLeft, onSwipeRight, enabled = true }: Props) {
   // Pass stable callbacks: a new one rebuilds the gesture, which could interrupt a drag in progress.
   const gesture = useMemo(() => {
-    const pan = Gesture.Pan()
-      .runOnJS(true)
-      .enabled(enabled)
-      .activeOffsetX([-20, 20])
-      .onEnd((event, success) => {
-        if (!success) return;
-        const { translationX: dx, translationY: dy, velocityX: vx, velocityY: vy } = event;
-        if (Math.abs(dx) >= Math.abs(dy)) {
+    return (
+      Gesture.Pan()
+        .runOnJS(true)
+        .enabled(enabled)
+        .activeOffsetX([-20, 20])
+        // A vertical drag is left to scrolling.
+        .failOffsetY([-20, 20])
+        .onEnd((event, success) => {
+          if (!success) return;
+          const { translationX: dx, velocityX: vx } = event;
           if (dx <= -SWIPE_DISTANCE || vx <= -SWIPE_VELOCITY) onSwipeLeft?.();
           else if (dx >= SWIPE_DISTANCE || vx >= SWIPE_VELOCITY) onSwipeRight?.();
-        } else if (dy <= -SWIPE_DISTANCE || vy <= -SWIPE_VELOCITY) {
-          onSwipeUp?.();
-        }
-      })
-      .withTestId('swipe-nav');
-    // Without an up handler a vertical drag is left to scrolling; with one it starts the swipe.
-    return onSwipeUp ? pan.activeOffsetY(-20).failOffsetY(20) : pan.failOffsetY([-20, 20]);
-  }, [enabled, onSwipeLeft, onSwipeRight, onSwipeUp]);
+        })
+        .withTestId('swipe-nav')
+    );
+  }, [enabled, onSwipeLeft, onSwipeRight]);
 
   return (
     <GestureDetector gesture={gesture}>
