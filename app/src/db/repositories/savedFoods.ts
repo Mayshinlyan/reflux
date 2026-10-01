@@ -1,5 +1,6 @@
 import { asc, eq, sql } from 'drizzle-orm';
 
+import { withIngredients } from '@/lib/ingredients';
 import { currentTimeZone, nowIso } from '@/lib/time';
 import type { AnalysisMeta, MealAnalysis } from '@/types/analysis';
 
@@ -77,6 +78,37 @@ export function renameSavedFood(db: AppDb, id: number, name: string): void {
     .returning({ id: savedFoods.id })
     .all();
   if (updated.length === 0) throw new Error(`Saved food ${id} not found`);
+}
+
+export type SavedFoodEdit = {
+  name: string;
+  /** A new photo (already in permanent storage), or omitted to keep the current one. */
+  photoUri?: string;
+  /** The edited ingredient names, applied to the stored verdict; ignored when `check` is given. */
+  ingredients?: string[];
+  /** A verdict from checking the edited food again, replacing the stored one. */
+  check?: { analysis: MealAnalysis; meta: AnalysisMeta };
+};
+
+/**
+ * Saves edits to a saved food from its edit sheet. A new check replaces the verdict; edited ingredients
+ * alone change the stored list but leave the verdict as it was, until the food is checked again.
+ */
+export function updateSavedFood(db: AppDb, id: number, edit: SavedFoodEdit): void {
+  const mealName = edit.name.trim().slice(0, MAX_SAVED_FOOD_NAME);
+  if (!mealName) throw new Error('A saved food needs a name');
+  const existing = db.select().from(savedFoods).where(eq(savedFoods.id, id)).get();
+  if (!existing) throw new Error(`Saved food ${id} not found`);
+  const values: Partial<SavedFood> = { mealName, updatedAt: nowIso() };
+  if (edit.photoUri !== undefined) values.photoUri = edit.photoUri;
+  if (edit.check) {
+    values.analysis = edit.check.analysis;
+    values.analysisMeta = edit.check.meta;
+    values.overallVerdict = edit.check.analysis.overall.verdict;
+  } else if (edit.ingredients && existing.analysis) {
+    values.analysis = withIngredients(existing.analysis as MealAnalysis, edit.ingredients);
+  }
+  db.update(savedFoods).set(values).where(eq(savedFoods.id, id)).run();
 }
 
 /** Removes a food from "My foods". Meals already logged from it stay in History. */
