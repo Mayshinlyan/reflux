@@ -7,10 +7,11 @@ import {
   TOOL_NAME,
   textUserMessage,
 } from '../prompts/foodAnalysisPrompt.js';
-import { mealAnalysisJsonSchema } from '../schemas.js';
+import { mealAnalysisJsonSchema, type Portion } from '../schemas.js';
 
 export type ClaudeInput =
-  { kind: 'text'; text: string; details?: string } | { kind: 'photo'; jpeg: Buffer; details?: string };
+  | { kind: 'text'; text: string; details?: string; portion?: Portion }
+  | { kind: 'photo'; jpeg: Buffer; details?: string; portion?: Portion };
 
 /** Content-free numbers only; safe to log. */
 export type ClaudeTelemetry = {
@@ -83,13 +84,13 @@ export function createClaudeService(options: {
     async analyze(input) {
       const content: Anthropic.ContentBlockParam[] =
         input.kind === 'text'
-          ? [{ type: 'text', text: textUserMessage(input.text, input.details) }]
+          ? [{ type: 'text', text: textUserMessage(input.text, input.details, input.portion) }]
           : [
               {
                 type: 'image',
                 source: { type: 'base64', media_type: 'image/jpeg', data: input.jpeg.toString('base64') },
               },
-              { type: 'text', text: photoUserMessage(input.details) },
+              { type: 'text', text: photoUserMessage(input.details, input.portion) },
             ];
 
       const request = {

@@ -22,10 +22,14 @@ export const detailsSchema = z
   .max(MAX_DETAILS_CHARS)
   .transform((value) => sanitizeFoodText(value) || undefined);
 
+/** How much the user ate. A fixed set, so it can go into the prompt without sanitizing. */
+export const portionSchema = z.enum(['small', 'regular', 'large']);
+
 /** JSON body for text analysis. Unknown fields are rejected. */
 export const analyzeTextBodySchema = z.strictObject({
   text: z.string().max(200).transform(sanitizeFoodText).pipe(z.string().min(1)),
   details: detailsSchema.optional(),
+  portion: portionSchema.optional(),
 });
 
 // The output schema mirrors app/src/types/analysis.ts. Keep the two in sync.
@@ -52,6 +56,8 @@ export const mealAnalysisSchema = z.strictObject({
     reasoning: z.string().max(400),
   }),
 });
+
+export type Portion = z.infer<typeof portionSchema>;
 
 export type MealAnalysis = z.infer<typeof mealAnalysisSchema>;
 

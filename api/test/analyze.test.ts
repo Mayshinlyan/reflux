@@ -100,6 +100,23 @@ describe('POST /v1/analyze-food: text', () => {
     expect(claudeCalls[0]).toEqual({ kind: 'text', text: 'soup', details: undefined });
   });
 
+  it('passes the portion to Claude', async () => {
+    const { app, claudeCalls } = testApp();
+    const res = await post(app).send({ text: 'soup', portion: 'large' });
+    expect(res.status).toBe(200);
+    expect(claudeCalls[0]).toMatchObject({ kind: 'text', text: 'soup', portion: 'large' });
+  });
+
+  it.each([
+    { text: 'soup', portion: 'huge' },
+    { text: 'soup', portion: 2 },
+  ])('rejects portion %j', async (body) => {
+    const { app, claudeCalls } = testApp();
+    const res = await post(app).send(body);
+    expect(res.status).toBe(400);
+    expect(claudeCalls).toHaveLength(0);
+  });
+
   it.each([
     ['over 300 characters', { text: 'soup', details: 'a'.repeat(301) }],
     ['not a string', { text: 'soup', details: 5 }],
@@ -142,6 +159,21 @@ describe('POST /v1/analyze-food: photo', () => {
 
     expect(res.status).toBe(200);
     expect(claudeCalls[0]).toMatchObject({ kind: 'photo', details: 'homemade, no chili' });
+  });
+
+  it('passes the portion with the photo and rejects a bad one', async () => {
+    const { app, claudeCalls } = testApp();
+    const ok = await post(app)
+      .field('portion', 'small')
+      .attach('photo', jpeg, { filename: 'meal.jpg', contentType: 'image/jpeg' });
+    expect(ok.status).toBe(200);
+    expect(claudeCalls[0]).toMatchObject({ kind: 'photo', portion: 'small' });
+
+    const bad = await post(app)
+      .field('portion', 'huge')
+      .attach('photo', jpeg, { filename: 'meal.jpg', contentType: 'image/jpeg' });
+    expect(bad.status).toBe(400);
+    expect(claudeCalls).toHaveLength(1);
   });
 
   it('rejects unknown multipart fields', async () => {

@@ -11,6 +11,7 @@ import { Button } from '@/components/Button';
 import { FoodLoading } from '@/components/FoodLoading';
 import { MealResultCard } from '@/components/MealResultCard';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
+import { PortionSelect } from '@/components/PortionSelect';
 import { Screen } from '@/components/Screen';
 import { SwipeNav } from '@/components/SwipeNav';
 import { TextField } from '@/components/TextField';
@@ -32,6 +33,7 @@ import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
+import type { Portion } from '@/types/analysis';
 
 const MAX_TEXT = 200;
 /** The relay's cap on `details`; the newest words win when earlier notes and a correction overflow it. */
@@ -92,6 +94,8 @@ export function FoodFlow({
   const [draft, setDraft] = useState('');
   const [details, setDetails] = useState('');
   const [correction, setCorrection] = useState('');
+  // How much was eaten; sent with every check and kept for "Update verdict".
+  const [portion, setPortion] = useState<Portion>('regular');
   const [preparing, setPreparing] = useState(false);
   // True while "Update verdict" re-checks the food with the user's comment.
   const [correcting, setCorrecting] = useState(false);
@@ -153,7 +157,10 @@ export function FoodFlow({
     setUpdated(null);
     setAnalyzed(target);
     setDetails(notes);
-    const extra = notes ? { details: notes } : {};
+    const extra = {
+      ...(notes ? { details: notes } : {}),
+      ...(portion !== 'regular' ? { portion } : {}),
+    };
     void analyze(
       target.source === 'text'
         ? { text: target.text, ...extra }
@@ -342,11 +349,12 @@ export function FoodFlow({
     saving.current = true;
     setCorrecting(true);
     const notes = [details, note].filter(Boolean).join('. ').slice(-MAX_DETAILS);
+    const portionExtra = portion !== 'regular' ? { portion } : {};
     try {
       const result = await analyzeFood(
         analyzed.source === 'text'
-          ? { text: analyzed.text, details: notes }
-          : { photo: { uri: analyzed.uri, mimeType: 'image/jpeg' }, details: notes },
+          ? { text: analyzed.text, details: notes, ...portionExtra }
+          : { photo: { uri: analyzed.uri, mimeType: 'image/jpeg' }, details: notes, ...portionExtra },
       );
       if (!alive.current) return;
       if (checkId.current !== null) {
@@ -452,6 +460,7 @@ export function FoodFlow({
                   returnKeyType="done"
                   onSubmitEditing={checkPhotoWithDetails}
                 />
+                <PortionSelect value={portion} onChange={setPortion} />
                 {errorBanner}
                 <View style={styles.actions}>
                   <Button
@@ -489,6 +498,7 @@ export function FoodFlow({
                   returnKeyType="done"
                   onSubmitEditing={checkText}
                 />
+                {trimmed !== '' && <PortionSelect value={portion} onChange={setPortion} />}
                 {errorBanner}
                 {/* Only once something is typed, so an empty screen has one clear place to start. */}
                 {trimmed !== '' && (

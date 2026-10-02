@@ -533,6 +533,24 @@ describe('Food screen (updating the verdict with a comment)', () => {
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)[0]).toMatchObject({ mealName: 'Mint tea' });
   });
 
+  it('sends the chosen portion with the check and keeps it for "Update verdict"', async () => {
+    analyze.mockResolvedValueOnce(result).mockResolvedValueOnce(corrected);
+    await render(<LogFoodScreen />);
+
+    await type('soup');
+    await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Large' }));
+    await press('Analyze meal');
+
+    expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
+    expect(analyze).toHaveBeenCalledWith({ text: 'soup', portion: 'large' }, expect.any(AbortSignal));
+
+    await fireEvent.changeText(correctionField(), 'pumpkin');
+    await press('Update verdict');
+    await screen.findByText('Plain pumpkin soup.');
+    expect(analyze).toHaveBeenLastCalledWith({ text: 'soup', details: 'pumpkin', portion: 'large' });
+  });
+
   it('turns "I ate this" into "Update verdict" while there is a comment', async () => {
     analyze.mockResolvedValue(result);
     await analyzeSoup();

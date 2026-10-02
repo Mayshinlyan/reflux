@@ -11,6 +11,9 @@ export type Verdict = 'ok' | 'caution' | 'trigger';
  */
 export type AppVerdict = Verdict | 'good';
 
+/** How much the user ate, sent with a check so the verdict can account for it. */
+export type Portion = 'small' | 'regular' | 'large';
+
 export type TriggerCategory =
   | 'acidic'
   | 'caffeine'
