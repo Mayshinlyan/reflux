@@ -82,6 +82,12 @@ const result = {
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('What did you eat?'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
+/** Answers the "Any symptoms?" question that follows a saved meal. */
+const skipSymptoms = async () => {
+  await fireEvent.press(await screen.findByRole('button', { name: 'Not now' }));
+  // The sheet closes first, then the screen leaves.
+  await waitFor(() => expect(mockBack).toHaveBeenCalled());
+};
 /** "I ate this" now asks when first; leaving the wheel alone saves it as eaten right now. */
 const ateThis = async () => {
   await press('I ate this');
@@ -235,6 +241,7 @@ describe('Log food screen (text)', () => {
     });
     expect(logs[0].analysis).not.toHaveProperty('meta');
     expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
+    await skipSymptoms();
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
@@ -352,6 +359,7 @@ describe('Log food screen (photo)', () => {
       inputText: null,
       mealName: 'Mint tea',
     });
+    await skipSymptoms();
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
@@ -587,6 +595,7 @@ describe('Food screen (updating the verdict with a comment)', () => {
     const logs = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(logs).toHaveLength(1);
     expect(logs[0]).toMatchObject({ mealName: 'Pumpkin soup', overallVerdict: 'ok', inputText: 'soup' });
+    await skipSymptoms();
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
@@ -755,6 +764,7 @@ describe('Log food screen: asking when it was eaten', () => {
 
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(meal.loggedAt).toBe(yesterdayBreakfast().toISOString());
+    await skipSymptoms();
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 

@@ -13,7 +13,7 @@ export const BODY_ZONES: readonly { key: ZoneKey; label: string; symptoms: reado
     label: 'Throat & voice',
     symptoms: ['hoarseness', 'throat_clearing', 'mucus', 'swallowing', 'lump'],
   },
-  { key: 'chest', label: 'Chest', symptoms: ['heartburn', 'breathing', 'cough_after_eating', 'cough'] },
+  { key: 'chest', label: 'Chest', symptoms: ['heartburn', 'burping', 'breathing', 'cough_after_eating', 'cough'] },
   { key: 'tummy', label: 'Tummy', symptoms: ['stomach_pain', 'feeling_full', 'constipation'] },
 ];
 

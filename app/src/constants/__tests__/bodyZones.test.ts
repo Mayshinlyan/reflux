@@ -27,7 +27,7 @@ describe('body zones', () => {
       expect(zone.symptoms.length).toBeGreaterThan(0);
       expect(zone.symptoms.length).toBeLessThanOrEqual(5);
     }
-    expect(SYMPTOM_ITEMS).toHaveLength(13);
+    expect(SYMPTOM_ITEMS).toHaveLength(14);
   });
 
   it('puts the new tummy symptoms under Tummy', () => {

@@ -302,8 +302,8 @@ describe('hasPending', () => {
 /** The script drizzle-kit generates when a SQLite table must be rebuilt (e.g. a CHECK change). */
 const REBUILD_SYMPTOM_LOGS = [
   'PRAGMA foreign_keys=OFF;',
-  "CREATE TABLE `__new_symptom_logs` (`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` text DEFAULT 'quick' NOT NULL, `logged_at` text NOT NULL, `tz` text NOT NULL, `notes` text, `created_at` text NOT NULL, `updated_at` text NOT NULL);",
-  'INSERT INTO `__new_symptom_logs` SELECT `id`, `kind`, `logged_at`, `tz`, `notes`, `created_at`, `updated_at` FROM `symptom_logs`;',
+  "CREATE TABLE `__new_symptom_logs` (`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` text DEFAULT 'quick' NOT NULL, `logged_at` text NOT NULL, `tz` text NOT NULL, `notes` text, `food_log_id` integer, `created_at` text NOT NULL, `updated_at` text NOT NULL);",
+  'INSERT INTO `__new_symptom_logs` SELECT `id`, `kind`, `logged_at`, `tz`, `notes`, `food_log_id`, `created_at`, `updated_at` FROM `symptom_logs`;',
   'DROP TABLE `symptom_logs`;',
   'ALTER TABLE `__new_symptom_logs` RENAME TO `symptom_logs`;',
   'PRAGMA foreign_keys=ON;',

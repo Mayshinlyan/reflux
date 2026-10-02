@@ -22,7 +22,7 @@ import { VerdictBadge } from '@/components/VerdictBadge';
 import type { LifestyleTagKey } from '@/constants/lifestyleTags';
 import type { SymptomKey } from '@/constants/symptomItems';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
-import { deleteFoodLog, listDiaryFoodLogs, relogFood } from '@/db/repositories/food';
+import { deleteFoodLog, getFoodLog, listDiaryFoodLogs, relogFood } from '@/db/repositories/food';
 import { saveFoodFromLog } from '@/db/repositories/savedFoods';
 import { deleteMedicationLog, listMedicationLogs, relogMedication } from '@/db/repositories/medications';
 import {
@@ -316,7 +316,13 @@ function EntryDetail({
   onRemoveTag: (entry: SymptomEntry, tag: LifestyleTagKey) => void;
 }) {
   const colors = useColors();
+  const db = useDb();
   const when = `${dayLabel(localDayKey(entry.at, entry.tz))} · ${entry.time}`;
+  // Symptoms logged from the "Any symptoms?" question after a meal say which meal.
+  const afterMeal =
+    entry.kind === 'symptom' && entry.log.foodLogId !== null
+      ? getFoodLog(db, entry.log.foodLogId)
+      : undefined;
   return (
     <View>
       {entry.kind === 'symptom' && (
@@ -325,7 +331,7 @@ function EntryDetail({
             Symptom entry
           </AppText>
           <AppText variant="caption" color="inkSoft" style={styles.when}>
-            {when}
+            {afterMeal ? `${when} · After ${afterMeal.mealName}` : when}
           </AppText>
           {groupSymptoms(entry.log.items).map((group) => (
             <DetailSection key={group.zone} title={`${group.label} · ${group.keys.length}`}>

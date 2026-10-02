@@ -41,13 +41,15 @@ type Props = {
   /** The chosen time, or null when it was left alone, meaning "now, as of this tap". */
   onConfirm: (at: Date | null) => void;
   onClose: () => void;
+  /** Called once the sheet has finished closing (iPhone). */
+  onDismissed?: () => void;
 };
 
 /**
  * The step after tapping Log: a date-and-time wheel that starts on now, in the past week and never later than
  * now. Leave it alone to log right now. (On Android use `pickTimeAndroid` instead of showing this.)
  */
-export function MealTimeSheet({ visible, question, confirmLabel, onConfirm, onClose }: Props) {
+export function MealTimeSheet({ visible, question, confirmLabel, onConfirm, onClose, onDismissed }: Props) {
   const colors = useColors();
   // Reset on each open, so an earlier choice doesn't stick to the next food.
   const [draft, setDraft] = useState<{ at: Date; touched: boolean }>({ at: new Date(), touched: false });
@@ -65,7 +67,7 @@ export function MealTimeSheet({ visible, question, confirmLabel, onConfirm, onCl
   };
 
   return (
-    <BottomSheet visible={visible && Platform.OS !== 'android'} onClose={onClose}>
+    <BottomSheet visible={visible && Platform.OS !== 'android'} onClose={onClose} onDismissed={onDismissed}>
       <AppText variant="title" accessibilityRole="header">
         {question}
       </AppText>

@@ -20,6 +20,8 @@ export type SymptomLogInput = {
   /** Defaults to now. */
   loggedAt?: string;
   tz?: string;
+  /** The meal these symptoms followed. Set when creating; editing leaves the link as it was. */
+  foodLogId?: number | null;
 };
 
 export type SymptomLogWithDetails = SymptomLog & {
@@ -65,6 +67,7 @@ export function createSymptomLog(db: AppDb, input: SymptomLogInput): number {
         loggedAt: input.loggedAt ?? nowIso(),
         tz: input.tz ?? currentTimeZone(),
         notes: input.notes?.trim() || null,
+        foodLogId: input.foodLogId ?? null,
       })
       .returning({ id: symptomLogs.id })
       .get();

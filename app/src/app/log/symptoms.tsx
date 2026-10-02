@@ -27,6 +27,7 @@ import { BODY_ZONES, type ZoneKey, zoneLabel, zoneSymptoms } from '@/constants/b
 import { LIFESTYLE_TAGS, type LifestyleTagKey } from '@/constants/lifestyleTags';
 import { SYMPTOM_ITEMS, type SymptomKey } from '@/constants/symptomItems';
 import { useDb } from '@/db/DatabaseProvider';
+import { getFoodLog } from '@/db/repositories/food';
 import { createSymptomLog, getSymptomLog, updateSymptomLog } from '@/db/repositories/symptoms';
 import { playChing } from '@/lib/ching';
 import { friendlyMessages } from '@/lib/errors';
@@ -47,7 +48,7 @@ export default function LogSymptomsScreen() {
   const db = useDb();
   const toast = useToast();
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; afterFood?: string }>();
   const editingId = params.id ? Number(params.id) : undefined;
 
   const existing = useMemo(() => {
@@ -60,6 +61,20 @@ export default function LogSymptomsScreen() {
       return undefined;
     }
   }, [db, editingId]);
+
+  // Set when opened from the "Any symptoms?" question: these symptoms followed that meal.
+  const afterMeal = useMemo(() => {
+    const id = params.afterFood ? Number(params.afterFood) : NaN;
+    if (editingId !== undefined || !Number.isInteger(id)) return undefined;
+    try {
+      const meal = getFoodLog(db, id);
+      return meal ? { id: meal.id, name: meal.mealName } : undefined;
+    } catch (error) {
+      // The symptoms can still be logged, just without the link.
+      logger.error('getFoodLog', error);
+      return undefined;
+    }
+  }, [db, params.afterFood, editingId]);
 
   const [selected, setSelected] = useState<Set<SymptomKey>>(() => new Set(existing?.items.map((i) => i.key)));
   const [tags, setTags] = useState<Set<LifestyleTagKey>>(() => new Set(existing?.tags ?? []));
@@ -135,7 +150,7 @@ export default function LogSymptomsScreen() {
   const save = () => {
     // Keep the canonical symptom order rather than tap order.
     const items = SYMPTOM_ITEMS.filter((item) => selected.has(item.key)).map((item) => ({ key: item.key }));
-    const input = { items, tags: [...tags], notes: note };
+    const input = { items, tags: [...tags], notes: note, foodLogId: afterMeal?.id };
     try {
       if (editingId !== undefined) updateSymptomLog(db, editingId, input);
       else createSymptomLog(db, input);
@@ -195,7 +210,7 @@ export default function LogSymptomsScreen() {
             ) : step === 1 ? (
               <>
                 <AppText color="inkSoft" style={styles.subtitle}>
-                  Where are you feeling it? Tap a spot.
+                  {afterMeal ? `After ${afterMeal.name}. ` : ''}Where are you feeling it? Tap a spot.
                 </AppText>
                 <BodyMap counts={counts} onZonePress={setZone} />
               </>

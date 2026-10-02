@@ -18,6 +18,7 @@ import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
+import { SymptomPromptSheet } from '@/components/SymptomPromptSheet';
 import { Screen } from '@/components/Screen';
 import { SwipeNav } from '@/components/SwipeNav';
 import { TagChip } from '@/components/TagChip';
@@ -26,6 +27,7 @@ import { useToast } from '@/components/Toast';
 import { COMMON_MEDICATIONS, findCommonMedication } from '@/constants/commonMedications';
 import { MEDICATION_TYPES, type MedicationType } from '@/constants/medicationTypes';
 import { useDb } from '@/db/DatabaseProvider';
+import { openSymptoms, useSymptomPrompt } from '@/hooks/useSymptomPrompt';
 import {
   archiveMedication,
   createMedication,
@@ -105,6 +107,7 @@ export default function MedicationScreen() {
   const [justLogged, setJustLogged] = useState<ReadonlySet<number>>(new Set());
   // The medication whose Log was tapped, while the "When did you take this?" sheet is open (iPhone).
   const [logging, setLogging] = useState<Medication | null>(null);
+  const symptomPrompt = useSymptomPrompt();
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
   // The medication tapped in the list: shown in a sheet first; its fields open after Edit.
@@ -209,6 +212,7 @@ export default function MedicationScreen() {
     playChing();
     // An earlier dose doesn't show under "Taken today", so the toast says when it was logged for.
     toast(at ? `${med.name} logged for ${formatMealTime(at, new Date())}` : `${med.name} logged`);
+    symptomPrompt.show({ subtitle: `${med.name} logged` });
     setJustLogged((current) => new Set(current).add(med.id));
     clearTimeout(timers.current.get(med.id));
     timers.current.set(
@@ -500,6 +504,14 @@ export default function MedicationScreen() {
             if (med) logOnce(med, at);
           }}
           onClose={() => setLogging(null)}
+          onDismissed={symptomPrompt.flush}
+        />
+        <SymptomPromptSheet
+          visible={symptomPrompt.visible}
+          subtitle={symptomPrompt.prompt?.subtitle ?? ''}
+          onHide={symptomPrompt.hide}
+          onLog={() => openSymptoms()}
+          onSkip={() => {}}
         />
 
         {/* Like a saved food: the medication first; Edit opens its fields. */}

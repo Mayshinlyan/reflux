@@ -11,12 +11,14 @@ import { Button } from '@/components/Button';
 import { FoodLoading } from '@/components/FoodLoading';
 import { MealResultCard } from '@/components/MealResultCard';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
+import { SymptomPromptSheet } from '@/components/SymptomPromptSheet';
 import { PortionSelect } from '@/components/PortionSelect';
 import { Screen } from '@/components/Screen';
 import { SwipeNav } from '@/components/SwipeNav';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { useDb } from '@/db/DatabaseProvider';
+import { openSymptoms, useSymptomPrompt } from '@/hooks/useSymptomPrompt';
 import {
   createFoodLog,
   createUncheckedMeal,
@@ -104,6 +106,7 @@ export function FoodFlow({
   const [notice, setNotice] = useState<string | null>(null);
   // Which save is waiting on "When did you eat this?" (the time sheet on iPhone).
   const [askingWhen, setAskingWhen] = useState<'ate' | 'unchecked' | null>(null);
+  const symptomPrompt = useSymptomPrompt();
   // "Save to My foods" on the result: also keep the meal for one-tap logging from the Food list.
   const [keep, setKeep] = useState(false);
   const saving = useRef(false);
@@ -283,8 +286,8 @@ export function FoodFlow({
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (diaryId !== null) playChing();
     toast(savedMessage);
-    // A diary entry lands on Today, even from the Food list; a My foods save returns to where it began.
-    if (diaryId !== null) router.dismissTo('/');
+    // A diary entry asks about symptoms, then lands on Today (even from the Food list); a My foods save returns to where it began.
+    if (diaryId !== null) symptomPrompt.show({ subtitle: `${analysis.mealName} logged`, foodLogId: diaryId });
     else router.back();
   };
 
@@ -321,10 +324,16 @@ export function FoodFlow({
   const saveUnchecked = (eatenAt: Date | null = null) => {
     if (!trimmed || busy || saving.current) return;
     saving.current = true;
+    let mealId: number | null = null;
     try {
       // Only offered for a food described in words: for My foods it is added by name.
       if (addsToList) createSavedFood(db, trimmed);
-      else createUncheckedMeal(db, { source: 'text', inputText: trimmed, loggedAt: eatenAt?.toISOString() });
+      else
+        mealId = createUncheckedMeal(db, {
+          source: 'text',
+          inputText: trimmed,
+          loggedAt: eatenAt?.toISOString(),
+        });
     } catch {
       saving.current = false;
       // Code only: a raw error could echo the food text.
@@ -335,8 +344,8 @@ export function FoodFlow({
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (!addsToList) playChing();
     toast(addsToList ? `${trimmed} added to My foods` : copy.savedUnchecked);
-    if (addsToList) router.back();
-    else router.dismissTo('/');
+    if (mealId !== null) symptomPrompt.show({ subtitle: `${trimmed} logged`, foodLogId: mealId });
+    else router.back();
   };
 
   /**
@@ -562,6 +571,17 @@ export function FoodFlow({
             else if (action === 'unchecked') saveUnchecked(at);
           }}
           onClose={() => setAskingWhen(null)}
+          onDismissed={symptomPrompt.flush}
+        />
+        <SymptomPromptSheet
+          visible={symptomPrompt.visible}
+          subtitle={symptomPrompt.prompt?.subtitle ?? ''}
+          onHide={symptomPrompt.hide}
+          onLog={() => {
+            router.dismissTo('/');
+            openSymptoms(symptomPrompt.prompt?.foodLogId);
+          }}
+          onSkip={() => router.dismissTo('/')}
         />
       </Screen>
     </SwipeNav>
