@@ -29,6 +29,13 @@
       "when": 1790868375888,
       "tag": "0003_good_verdict",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790911023719,
+      "tag": "0004_food_portion",
+      "breakpoints": true
     }
   ]
 }

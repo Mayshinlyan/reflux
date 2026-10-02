@@ -96,6 +96,8 @@ export function FoodFlow({
   const [correction, setCorrection] = useState('');
   // How much was eaten; sent with every check and kept for "Update verdict".
   const [portion, setPortion] = useState<Portion>('regular');
+  // The portion the result on screen was checked with, stored with the meal.
+  const [sentPortion, setSentPortion] = useState<Portion>('regular');
   const [preparing, setPreparing] = useState(false);
   // True while "Update verdict" re-checks the food with the user's comment.
   const [correcting, setCorrecting] = useState(false);
@@ -135,13 +137,14 @@ export function FoodFlow({
         photoUri: storedPhoto,
         analysis,
         meta,
+        portion: sentPortion,
       });
     } catch {
       if (storedPhoto) deletePhoto(storedPhoto);
       // Code only. Not fatal: "I ate this" then writes the diary entry straight from the result.
       logger.error('saveFoodCheck', new AppError('INTERNAL'));
     }
-  }, [state, analyzed, db, myFood]);
+  }, [state, analyzed, sentPortion, db, myFood]);
 
   // My foods checks add to the list; an unchecked save then means "by name", not the diary.
   const addsToList = Boolean(myFood);
@@ -157,6 +160,7 @@ export function FoodFlow({
     setUpdated(null);
     setAnalyzed(target);
     setDetails(notes);
+    setSentPortion(portion);
     const extra = {
       ...(notes ? { details: notes } : {}),
       ...(portion !== 'regular' ? { portion } : {}),
@@ -260,6 +264,7 @@ export function FoodFlow({
           photoUri: storedPhoto,
           analysis,
           meta,
+          portion: sentPortion,
           loggedAt: eatenAt?.toISOString(),
         });
       }
@@ -324,7 +329,13 @@ export function FoodFlow({
     try {
       // Only offered for a food described in words: for My foods it is added by name.
       if (addsToList) createSavedFood(db, trimmed);
-      else createUncheckedMeal(db, { source: 'text', inputText: trimmed, loggedAt: eatenAt?.toISOString() });
+      else
+        createUncheckedMeal(db, {
+          source: 'text',
+          inputText: trimmed,
+          portion,
+          loggedAt: eatenAt?.toISOString(),
+        });
     } catch {
       saving.current = false;
       // Code only: a raw error could echo the food text.
