@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lt } from 'drizzle-orm';
+import { and, asc, eq, gte, lt, sql } from 'drizzle-orm';
 
 import { MEDICATION_TYPE_KEYS, type MedicationType } from '@/constants/medicationTypes';
 import { currentTimeZone, nowIso } from '@/lib/time';
@@ -44,7 +44,7 @@ export function archiveMedication(db: AppDb, id: number): void {
 export function listMedications(db: AppDb, options: { includeArchived?: boolean } = {}): Medication[] {
   const query = db.select().from(medications);
   return (options.includeArchived ? query : query.where(eq(medications.active, true)))
-    .orderBy(asc(medications.name))
+    .orderBy(asc(sql`lower(${medications.name})`), asc(medications.id))
     .all();
 }
 
