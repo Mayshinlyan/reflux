@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Camera, Images, type LucideIcon } from 'lucide-react-native';
+import { Camera, Check, Images, type LucideIcon } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -13,7 +13,6 @@ import { MealResultCard } from '@/components/MealResultCard';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
 import { SwipeNav } from '@/components/SwipeNav';
-import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { useDb } from '@/db/DatabaseProvider';
@@ -55,7 +54,7 @@ const copy = {
   savedUnchecked: 'Saved without a verdict',
   saved: 'Added to your food diary',
   savedAndKept: 'Added to your food diary and My foods',
-  keepLabel: 'Save to My foods',
+  keepLabel: 'Also save to My foods',
   keepOnlyLabel: 'Save to My foods only',
 } as const;
 
@@ -409,6 +408,9 @@ export function FoodFlow({
                   />
                 )}
                 {shown && <MealResultCard analysis={shown} />}
+                <AppText variant="caption" color="inkSoft" style={styles.disclaimer}>
+                  For tracking only, not medical advice. Food results are AI-generated.
+                </AppText>
                 <View style={styles.correction}>
                   <TextField
                     label="Is this right? Tell us more"
@@ -419,18 +421,13 @@ export function FoodFlow({
                     maxLength={MAX_TEXT}
                     returnKeyType="done"
                   />
-                  <AppText variant="caption" color="inkSoft">
-                    {copy.correctionNote}
-                  </AppText>
+                  {/* Only once there's a comment: that's when the main button turns into Update verdict. */}
+                  {hasComment && (
+                    <AppText variant="caption" color="inkSoft">
+                      {copy.correctionNote}
+                    </AppText>
+                  )}
                 </View>
-                {!myFood && (
-                  <View style={styles.keep}>
-                    <TagChip label={copy.keepLabel} selected={keep} onPress={() => setKeep((on) => !on)} />
-                  </View>
-                )}
-                <AppText variant="caption" color="inkSoft" style={styles.disclaimer}>
-                  For tracking only, not medical advice. Food results are AI-generated.
-                </AppText>
               </>
             ) : busy ? (
               <FoodLoading
@@ -520,6 +517,11 @@ export function FoodFlow({
           {/* Outside the scroll area so Save is always on screen, however long the result is. */}
           {showResult && (
             <View style={styles.footer}>
+              {/* Only beside "I ate this", the one save it changes. The Food list has its own "Save to My
+                foods only" button, so it isn't offered there. */}
+              {!myFood && !fromList && !hasComment && (
+                <KeepCheckbox checked={keep} onPress={() => setKeep((on) => !on)} />
+              )}
               {/* A comment turns the main button into "Update verdict", so what gets saved is always what's shown. */}
               {hasComment ? (
                 <Button label={copy.updateLabel} onPress={() => void updateVerdict()} />
@@ -578,11 +580,46 @@ function IconButton({
   );
 }
 
+/**
+ * "Also save to My foods": a checkbox row above "I ate this". Ticked = filled box with a tick, so the
+ * state shows in shape as well as colour. The whole row is the touch target.
+ */
+function KeepCheckbox({ checked, onPress }: { checked: boolean; onPress: () => void }) {
+  const colors = useColors();
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityLabel={copy.keepLabel}
+      accessibilityState={{ checked }}
+      onPress={onPress}
+      style={({ pressed }) => [styles.keep, { opacity: pressed ? 0.6 : 1 }]}>
+      <View
+        style={[
+          styles.box,
+          checked
+            ? { backgroundColor: colors.cta, borderColor: colors.cta }
+            : { backgroundColor: colors.surface, borderColor: colors.inkSoft },
+        ]}>
+        {checked && <Check size={14} color={colors.ctaInk} strokeWidth={3} />}
+      </View>
+      <AppText variant="caption">{copy.keepLabel}</AppText>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingBottom: space.s3 },
-  disclaimer: { textAlign: 'center', marginVertical: space.s1 },
-  keep: { flexDirection: 'row', marginTop: space.s2 },
+  disclaimer: { textAlign: 'center', marginBottom: space.s1 },
+  keep: { minHeight: minTouchTarget, flexDirection: 'row', alignItems: 'center', gap: space.s1 },
+  box: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   iconButton: {
     width: minTouchTarget,
     height: minTouchTarget,

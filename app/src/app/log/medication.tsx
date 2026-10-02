@@ -15,6 +15,7 @@ import {
 
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
+import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
@@ -77,11 +78,17 @@ function loadTakenToday(db: AppDb): TakenToday {
   return taken;
 }
 
+/** "Taken today 8:02 AM (2×)", or "Not taken today". */
+const takenTodayLabel = (today: { count: number; lastAt: string; tz: string } | undefined) =>
+  today
+    ? `Taken today ${formatTime(today.lastAt, today.tz)}${today.count > 1 ? ` (${today.count}×)` : ''}`
+    : 'Not taken today';
+
 const doseLabel = (med: Pick<Medication, 'name' | 'defaultDose'>) =>
   med.defaultDose ? `${med.name} ${med.defaultDose}` : med.name;
 
 /**
- * "My medications": one tap logs a saved medication; tap a medication to edit or remove it;
+ * "My medications": one tap logs a saved medication; tap a medication to see it, then edit or remove it;
  * "Log a new medication" saves a new one. Reached from Log → Medication and from Settings.
  */
 export default function MedicationScreen() {
@@ -100,6 +107,8 @@ export default function MedicationScreen() {
   const [logging, setLogging] = useState<Medication | null>(null);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
+  // The medication tapped in the list: shown in a sheet first; its fields open after Edit.
+  const [viewing, setViewing] = useState<Medication | null>(null);
   const [form, setForm] = useState<Form | null>(null);
   const [name, setName] = useState('');
   const [type, setType] = useState<MedicationType>('ppi');
@@ -234,32 +243,26 @@ export default function MedicationScreen() {
     reload();
   };
 
-  const confirmRemove = () => {
-    if (form?.mode !== 'edit') return;
-    const id = form.id;
-    Alert.alert(
-      `Remove ${trimmedName || 'this medication'}?`,
-      'It leaves your list, but past logs stay in Your Logs.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            try {
-              archiveMedication(db, id);
-            } catch (error) {
-              logger.error('archiveMedication', error);
-              Alert.alert("Couldn't remove", friendlyMessages.INTERNAL);
-              return;
-            }
-            toast('Removed from your list');
-            setForm(null);
-            reload();
-          },
+  const confirmRemove = (med: Medication) => {
+    Alert.alert(`Remove ${med.name}?`, 'It leaves your list, but past logs stay in Your Logs.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          try {
+            archiveMedication(db, med.id);
+          } catch (error) {
+            logger.error('archiveMedication', error);
+            Alert.alert("Couldn't remove", friendlyMessages.INTERNAL);
+            return;
+          }
+          toast('Removed from your list');
+          setViewing(null);
+          reload();
         },
-      ],
-    );
+      },
+    ]);
   };
 
   if (form !== null) {
@@ -406,11 +409,6 @@ export default function MedicationScreen() {
                 trimmedName.length === 0 ? 'Choose a medication or enter a name first' : undefined
               }
             />
-            {form.mode === 'edit' && (
-              <View style={styles.secondary}>
-                <Button label="Remove from my list" variant="quietDanger" onPress={confirmRemove} />
-              </View>
-            )}
           </View>
         </KeyboardAvoidingView>
       </Screen>
@@ -418,7 +416,7 @@ export default function MedicationScreen() {
   }
 
   return (
-    <SwipeNav {...medicationSwipe} enabled={logging === null}>
+    <SwipeNav {...medicationSwipe} enabled={logging === null && viewing === null}>
       <Screen>
         <ScrollView contentContainerStyle={styles.content}>
           <BackHeader title="Log medication" />
@@ -444,10 +442,11 @@ export default function MedicationScreen() {
                     style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={manage ? `Edit ${doseLabel(med)}` : `Log ${doseLabel(med)}`}
+                      accessibilityLabel={manage ? doseLabel(med) : `Log ${doseLabel(med)}`}
+                      accessibilityHint={manage ? 'Shows its details' : undefined}
                       accessibilityState={{ disabled: done && !manage }}
                       disabled={done && !manage}
-                      onPress={() => (manage ? openEdit(med) : askWhen(med))}
+                      onPress={() => (manage ? setViewing(med) : askWhen(med))}
                       style={styles.info}>
                       <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
                         <Pill size={18} color={colors.clayInk} strokeWidth={2.2} />
@@ -458,9 +457,7 @@ export default function MedicationScreen() {
                         </AppText>
                         <AppText variant="caption" color="inkSoft">
                           {medicationTypeLabel(med.type)}
-                          {today
-                            ? ` · Taken today ${formatTime(today.lastAt, today.tz)}${today.count > 1 ? ` (${today.count}×)` : ''}`
-                            : ''}
+                          {today ? ` · ${takenTodayLabel(today)}` : ''}
                         </AppText>
                       </View>
                     </Pressable>
@@ -504,6 +501,37 @@ export default function MedicationScreen() {
           }}
           onClose={() => setLogging(null)}
         />
+
+        {/* Like a saved food: the medication first; Edit opens its fields. */}
+        <BottomSheet visible={viewing !== null} onClose={() => setViewing(null)}>
+          {viewing && (
+            <>
+              <AppText variant="title" accessibilityRole="header">
+                {doseLabel(viewing)}
+              </AppText>
+              <AppText color="inkSoft" style={styles.sheetMeta}>
+                {medicationTypeLabel(viewing.type)}
+                {' · '}
+                {takenTodayLabel(taken.get(viewing.id))}
+              </AppText>
+              <Button
+                label="Edit"
+                onPress={() => {
+                  const med = viewing;
+                  setViewing(null);
+                  openEdit(med);
+                }}
+              />
+              <View style={styles.secondary}>
+                <Button
+                  label="Remove from my list"
+                  variant="quietDanger"
+                  onPress={() => confirmRemove(viewing)}
+                />
+              </View>
+            </>
+          )}
+        </BottomSheet>
       </Screen>
     </SwipeNav>
   );
@@ -570,4 +598,5 @@ const styles = StyleSheet.create({
   types: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1, marginBottom: space.s2 },
   footer: { paddingTop: space.s1, paddingBottom: space.s2 },
   secondary: { marginTop: space.s1 },
+  sheetMeta: { marginTop: 4, marginBottom: space.s2 },
 });

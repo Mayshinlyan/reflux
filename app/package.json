@@ -74,6 +74,10 @@
   "private": true,
   "main": "expo-router/entry",
   "overrides": {
-    "@grpc/grpc-js": "^1.14.5"
+    "@grpc/grpc-js": "^1.14.5",
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.25.0"
+    },
+    "uuid": "^11.1.1"
   }
 }

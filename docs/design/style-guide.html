@@ -439,6 +439,21 @@
             </div>
 
             <div class="device__group">
+              <div class="device__group-label">Checkbox row — an optional extra for the button right below it</div>
+              <div class="stack" style="gap:4px">
+                <label style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;color:var(--ink)">
+                  <span style="width:20px;height:20px;border-radius:6px;border:1.5px solid var(--ink-soft);background:var(--surface);flex:none"></span>
+                  Also save to My foods
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;color:var(--ink)">
+                  <span style="width:20px;height:20px;border-radius:6px;border:1.5px solid var(--cta);background:var(--cta);flex:none;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--cta-ink)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                  Also save to My foods
+                </label>
+              </div>
+              <p class="caption-s" style="margin-top:10px">Sits directly above the primary button it changes. 20px box, 6px corners: empty with an ink-soft border = off, filled CTA with a white tick = on (shape and colour, never colour alone). Caption-size label; the whole row is the 44pt touch target. Hidden when the screen already has a dedicated button for the same thing.</p>
+            </div>
+
+            <div class="device__group">
               <div class="device__group-label">Floating menu — appears over the element you tapped, not a separate sheet</div>
               <div class="float-demo">
                 <button class="float-avatar" type="button">
