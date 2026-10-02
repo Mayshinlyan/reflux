@@ -4,7 +4,7 @@ import { AppState } from 'react-native';
 
 import { relayBaseUrl } from '@/lib/config';
 import { AppError, isRelayErrorCode } from '@/lib/errors';
-import type { AnalysisMeta, MealAnalysis } from '@/types/analysis';
+import type { AnalysisMeta, MealAnalysis, Portion } from '@/types/analysis';
 
 import { getIdToken } from './firebase';
 
@@ -13,6 +13,8 @@ export type AnalysisResult = MealAnalysis & { meta: AnalysisMeta };
 export type AnalyzeInput = ({ text: string } | { photo: { uri: string; mimeType?: string } }) & {
   /** Optional context from the user (what the food is, a correction). The relay caps it at 300 characters. */
   details?: string;
+  /** Left out for a regular portion. */
+  portion?: Portion;
 };
 
 // Longer than the relay's 30 s Claude timeout, so the relay's own AI_TIMEOUT wins when it can.
@@ -72,7 +74,11 @@ export async function analyzeFood(input: AnalyzeInput, signal?: AbortSignal): Pr
   const buildBody = (): string | FormData => {
     if ('text' in input) {
       headers['Content-Type'] = 'application/json';
-      return JSON.stringify({ text: input.text, ...(input.details ? { details: input.details } : {}) });
+      return JSON.stringify({
+        text: input.text,
+        ...(input.details ? { details: input.details } : {}),
+        ...(input.portion ? { portion: input.portion } : {}),
+      });
     }
     // Expo's fetch rebuilds multipart bodies itself and only accepts a Blob-like value with
     // bytes (an expo-file-system File). The old React Native { uri, name, type } object throws
@@ -80,6 +86,7 @@ export async function analyzeFood(input: AnalyzeInput, signal?: AbortSignal): Pr
     const form = new FormData();
     form.append('photo', new File(input.photo.uri) as unknown as Blob);
     if (input.details) form.append('details', input.details);
+    if (input.portion) form.append('portion', input.portion);
     return form;
   };
 

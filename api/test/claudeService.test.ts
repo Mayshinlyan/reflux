@@ -2,7 +2,13 @@ import Anthropic from '@anthropic-ai/sdk';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CATEGORIES, ruleset } from '../src/config/ruleset.js';
-import { PROMPT_VERSION, SYSTEM_PROMPT, TOOL_NAME } from '../src/prompts/foodAnalysisPrompt.js';
+import {
+  PROMPT_VERSION,
+  photoUserMessage,
+  SYSTEM_PROMPT,
+  TOOL_NAME,
+  textUserMessage,
+} from '../src/prompts/foodAnalysisPrompt.js';
 import {
   createClaudeService,
   createUnavailableClaudeService,
@@ -229,6 +235,14 @@ describe('modelParams', () => {
     const params = modelParams('claude-haiku-4-5-20251001');
     expect(params.toolChoice).toEqual({ type: 'tool', name: TOOL_NAME });
     expect(params.extra).toEqual({ temperature: 0.2 });
+  });
+
+  it('tells the model a user-stated portion, only when it is not regular', () => {
+    expect(SYSTEM_PROMPT).toContain('<portion>');
+    expect(textUserMessage('soup', undefined, 'large')).toContain('<portion>large</portion>');
+    expect(photoUserMessage(undefined, 'small')).toContain('<portion>small</portion>');
+    expect(textUserMessage('soup', undefined, 'regular')).not.toContain('<portion>');
+    expect(textUserMessage('soup')).not.toContain('<portion>');
   });
 
   it('exposes the prompt version used in meta', () => {

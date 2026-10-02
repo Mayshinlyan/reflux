@@ -74,6 +74,16 @@ describe('analyzeFood', () => {
     expect(JSON.parse(init.body)).toEqual({ text: 'mint tea' });
   });
 
+  it('sends the portion only when given', async () => {
+    fetchMock.mockImplementation(() => json(200, analysis)); // a fresh Response per call: a body reads once
+
+    await analyzeFood({ text: 'pasta', portion: 'large' });
+    await analyzeFood({ photo: { uri: 'file:///meal.jpg' }, portion: 'small' });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ text: 'pasta', portion: 'large' });
+    expect(fetchMock.mock.calls[1][1].body.get('portion')).toBe('small');
+  });
+
   it('sends a photo as multipart without forcing a content type', async () => {
     fetchMock.mockReturnValue(json(200, analysis));
 
