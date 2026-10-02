@@ -36,6 +36,13 @@
       "when": 1790914562747,
       "tag": "0004_tearful_black_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1790916639323,
+      "tag": "0005_nosy_saracen",
+      "breakpoints": true
     }
   ]
 }
