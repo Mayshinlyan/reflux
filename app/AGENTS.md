@@ -34,6 +34,11 @@ Run lint and typecheck before declaring any task done.
 Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
 Docs: https://docs.expo.dev/eas/index.md
 
+## Worktrees
+
+- A new worktree has no `app/.env` (it is git-ignored). Always copy it in right after creating the worktree: `cp <main checkout>/app/.env <worktree>/app/.env`. Without it the app fails with a misleading `AUTH_FAILED`.
+- At the end of a job that used a worktree, always show its full absolute path and the commands to run the server, e.g. `cd <worktree path>/app && npx expo start --clear`.
+
 ## Rules
 
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
