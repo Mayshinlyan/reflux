@@ -442,6 +442,15 @@ describe('medications', () => {
     ]);
   });
 
+  it('lists medications A to Z regardless of case', () => {
+    const { db } = createTestDb();
+    createMedication(db, { name: 'Tums', type: 'antacid' });
+    createMedication(db, { name: 'allergy pill', type: 'other' });
+    createMedication(db, { name: 'Famotidine', type: 'h2_blocker' });
+
+    expect(listMedications(db).map((med) => med.name)).toEqual(['allergy pill', 'Famotidine', 'Tums']);
+  });
+
   it('hides archived medications from my meds but keeps them available', () => {
     const { db } = createTestDb();
     const tums = createMedication(db, { name: 'Tums', type: 'antacid' });
