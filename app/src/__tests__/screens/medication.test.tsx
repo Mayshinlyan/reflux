@@ -15,6 +15,7 @@ let mockDb: AppDb;
 let closeDb: () => void;
 const mockBack = jest.fn();
 const mockToast = jest.fn();
+let mockParams: Record<string, string> = {};
 
 jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
@@ -23,6 +24,7 @@ jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 jest.mock('expo-router', () => ({
   router: { back: () => mockBack(), canGoBack: () => true, replace: jest.fn() },
   useNavigation: () => ({ setOptions: jest.fn() }),
+  useLocalSearchParams: () => mockParams,
   useFocusEffect: (effect: () => void | (() => void)) => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('react').useEffect(effect, [effect]);
@@ -71,6 +73,8 @@ beforeEach(() => {
   closeDb = () => sqlite.close();
   mockBack.mockClear();
   mockToast.mockClear();
+  // Most tests are of Settings > My medications; "from Log" tests clear this.
+  mockParams = { manage: '1' };
 });
 afterEach(() => {
   jest.useRealTimers();
@@ -86,6 +90,20 @@ describe('Medications: logging', () => {
     await render(<MedicationScreen />);
     expect(screen.getByText('Log medication')).toBeTruthy();
     expect(screen.getByRole('header', { name: 'Quick Log' })).toBeTruthy();
+  });
+
+  it('from Log, tapping a medication asks when it was taken, with no Log button', async () => {
+    mockParams = {};
+    const id = seedOmeprazole();
+    await render(<MedicationScreen />);
+
+    expect(screen.getAllByRole('button', { name: 'Log Omeprazole 20mg' })).toHaveLength(1);
+    expect(screen.queryByText('Log', { exact: true })).toBeNull();
+    await press('button', 'Log Omeprazole 20mg');
+    expect(screen.getByText('When did you take this?')).toBeTruthy();
+    await press('button', 'Log it');
+
+    expect(listMedicationLogs(mockDb, ALL_TIME)).toEqual([expect.objectContaining({ medicationId: id })]);
   });
 
   it('asks when it was taken before logging, and logs right now when the time is left alone', async () => {

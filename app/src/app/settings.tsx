@@ -124,8 +124,14 @@ export default function SettingsScreen() {
               setSheet('pet');
             }}
           />
-          <SettingsRow label="My foods" onPress={() => router.push('/log/food')} />
-          <SettingsRow label="My medications" onPress={() => router.push('/log/medication')} />
+          <SettingsRow
+            label="My foods"
+            onPress={() => router.push({ pathname: '/log/food', params: { manage: '1' } })}
+          />
+          <SettingsRow
+            label="My medications"
+            onPress={() => router.push({ pathname: '/log/medication', params: { manage: '1' } })}
+          />
 
           <SectionTitle>Your data</SectionTitle>
           <AppText variant="caption" color="inkSoft" style={styles.note}>

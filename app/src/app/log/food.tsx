@@ -9,18 +9,19 @@ import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
 /**
- * The Food screen: "My foods" with one-tap Log, like Medications. With nothing saved yet it is the
- * photo/text check instead, as it is for `?check=1` ("Log a new food" on the list, which can also save the
+ * The Food screen: the saved foods, tap one to log it. `?manage=1` (Settings > My foods) edits them instead.
+ * With nothing saved yet it is the photo/text check instead, as it is for `?check=1` ("Log a new food" on the list, which can also save the
  * result to My foods) and `?camera=1` (Scan on Today, straight to the camera). `?myFood=1&food=<id>`
  * re-checks a saved food ("Get a verdict" / "Check again"), saving the verdict to it and not the diary.
  */
 export default function LogFoodScreen() {
   const db = useDb();
-  const { camera, check, myFood, food } = useLocalSearchParams<{
+  const { camera, check, myFood, food, manage } = useLocalSearchParams<{
     camera?: string;
     check?: string;
     myFood?: string;
     food?: string;
+    manage?: string;
   }>();
   // Decided once on arrival, so deleting the last food doesn't swap the screen out from under the user.
   const [hasFoods] = useState(() => {
@@ -48,5 +49,5 @@ export default function LogFoodScreen() {
   if (target || camera === '1' || check === '1' || !hasFoods) {
     return <FoodFlow openCamera={camera === '1'} myFood={target} fromList={check === '1'} />;
   }
-  return <FoodList />;
+  return <FoodList manage={manage === '1'} />;
 }

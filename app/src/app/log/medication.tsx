@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useFocusEffect, useNavigation } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import { ChevronDown, ChevronUp, Pill } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -96,6 +96,8 @@ export default function MedicationScreen() {
   const db = useDb();
   const toast = useToast();
   const navigation = useNavigation();
+  // From Settings > My medications: tap to edit, with a Log button. From Log: tap to log.
+  const manage = useLocalSearchParams<{ manage?: string }>().manage === '1';
 
   const [meds, setMeds] = useState<Medication[]>([]);
   const [taken, setTaken] = useState<TakenToday>(new Map());
@@ -440,9 +442,11 @@ export default function MedicationScreen() {
                     style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={doseLabel(med)}
-                      accessibilityHint="Shows its details"
-                      onPress={() => setViewing(med)}
+                      accessibilityLabel={manage ? doseLabel(med) : `Log ${doseLabel(med)}`}
+                      accessibilityHint={manage ? 'Shows its details' : undefined}
+                      accessibilityState={{ disabled: done && !manage }}
+                      disabled={done && !manage}
+                      onPress={() => (manage ? setViewing(med) : askWhen(med))}
                       style={styles.info}>
                       <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
                         <Pill size={18} color={colors.clayInk} strokeWidth={2.2} />
@@ -457,23 +461,25 @@ export default function MedicationScreen() {
                         </AppText>
                       </View>
                     </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
-                      accessibilityState={{ disabled: done }}
-                      disabled={done}
-                      onPress={() => askWhen(med)}
-                      style={({ pressed }) => [
-                        styles.logButton,
-                        {
-                          backgroundColor: done ? colors.sageInk : colors.sageTint,
-                          opacity: pressed ? 0.8 : 1,
-                        },
-                      ]}>
-                      <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
-                        {done ? 'Logged ✓' : 'Log'}
-                      </AppText>
-                    </Pressable>
+                    {manage ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
+                        accessibilityState={{ disabled: done }}
+                        disabled={done}
+                        onPress={() => askWhen(med)}
+                        style={({ pressed }) => [
+                          styles.logButton,
+                          {
+                            backgroundColor: done ? colors.sageInk : colors.sageTint,
+                            opacity: pressed ? 0.8 : 1,
+                          },
+                        ]}>
+                        <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
+                          {done ? 'Logged ✓' : 'Log'}
+                        </AppText>
+                      </Pressable>
+                    ) : null}
                   </View>
                 );
               })}
