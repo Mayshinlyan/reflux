@@ -289,7 +289,11 @@ describe('Medications: editing and removing', () => {
     logMedication(mockDb, id);
     await render(<MedicationScreen />);
 
-    await press('button', 'Edit Omeprazole 20mg');
+    // Tapping it shows the medication first; the fields open after Edit.
+    await press('button', 'Omeprazole 20mg');
+    expect(screen.getByRole('header', { name: 'Omeprazole 20mg' })).toBeTruthy();
+    expect(screen.queryByLabelText('Name')).toBeNull();
+    await press('button', 'Edit');
     expect(screen.getByLabelText('Name').props.value).toBe('Omeprazole');
     expect(screen.getByLabelText('Dose').props.value).toBe('20mg');
     await fireEvent.changeText(screen.getByLabelText('Name'), 'Omeprazole (generic)');
@@ -307,7 +311,7 @@ describe('Medications: editing and removing', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     await render(<MedicationScreen />);
 
-    await press('button', 'Edit Omeprazole 20mg');
+    await press('button', 'Omeprazole 20mg');
     await press('button', 'Remove from my list');
     expect(alert).toHaveBeenLastCalledWith(
       'Remove Omeprazole?',
@@ -329,7 +333,7 @@ describe('Medications: editing and removing', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     await render(<MedicationScreen />);
 
-    await press('button', 'Edit Omeprazole 20mg');
+    await press('button', 'Omeprazole 20mg');
     await press('button', 'Remove from my list');
     pressAlertButton(alert, 'Cancel');
 
