@@ -133,15 +133,28 @@ describe('Food screen: which view', () => {
 describe('Food screen: My foods', () => {
   it('has a "Log food" title and a "Quick Log" heading', async () => {
     createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
+    await render(<FoodList manage />);
     expect(screen.getByText('Log food')).toBeTruthy();
     expect(screen.getByRole('header', { name: 'Quick Log' })).toBeTruthy();
+  });
+
+  it('from Log, tapping a food asks when it was eaten, with no Log button', async () => {
+    createSavedFood(mockDb, 'Oatmeal');
+    await render(<FoodList />);
+
+    expect(screen.getAllByRole('button', { name: 'Log Oatmeal' })).toHaveLength(1);
+    expect(screen.queryByText('Log', { exact: true })).toBeNull();
+    await press('Log Oatmeal');
+    expect(screen.getByText('When did you eat this?')).toBeTruthy();
+    await press('Log it');
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
   });
 
   it('asks when it was eaten before logging, and logs right now when the time is left alone', async () => {
     jest.useFakeTimers();
     createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
+    await render(<FoodList manage />);
 
     await press('Log Oatmeal');
     expect(screen.getByText('When did you eat this?')).toBeTruthy();
@@ -162,7 +175,7 @@ describe('Food screen: My foods', () => {
 
   it('logs a food at the chosen time, which does not count as eaten today', async () => {
     createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
+    await render(<FoodList manage />);
 
     await logAtBreakfast('Oatmeal');
 
@@ -174,7 +187,7 @@ describe('Food screen: My foods', () => {
 
   it('never logs a time that has not happened yet', async () => {
     createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
+    await render(<FoodList manage />);
 
     await press('Log Oatmeal');
     await act(() => mockWheel?.onValueChange({}, new Date(Date.now() + 60 * 60 * 1000)));
@@ -186,14 +199,14 @@ describe('Food screen: My foods', () => {
 
   it('"Log a new food" opens the check', async () => {
     createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
+    await render(<FoodList manage />);
     await press('+ Log a new food');
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/log/food', params: { check: '1' } });
   });
 
   it('opens the food screen to get a verdict for a saved food', async () => {
     const id = createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
+    await render(<FoodList manage />);
 
     await press('Edit Oatmeal');
     await press('Get a verdict');
@@ -226,7 +239,7 @@ describe('Food screen: My foods', () => {
       meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
     });
     createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
+    await render(<FoodList manage />);
 
     await press('Edit Mint tea');
     expect(screen.getByText('Mint is a common trigger.')).toBeTruthy();
@@ -254,14 +267,14 @@ describe('Food screen: My foods', () => {
     };
     const openTea = async () => {
       saveCheckedFood(mockDb, { source: 'text', inputText: 'mint tea', analysis: tea, meta });
-      await render(<FoodList />);
+      await render(<FoodList manage />);
       await press('Edit Mint tea');
       await press('Edit');
     };
 
     it('shows the verdict first, and the edit fields only after Edit', async () => {
       saveCheckedFood(mockDb, { source: 'text', inputText: 'mint tea', analysis: tea, meta });
-      await render(<FoodList />);
+      await render(<FoodList manage />);
       await press('Edit Mint tea');
 
       expect(screen.getByText('Mint is a common trigger.')).toBeTruthy();
@@ -330,7 +343,7 @@ describe('Food screen: My foods', () => {
 
     it('lets you set the verdict by hand in edit mode only, keeping the AI reasoning', async () => {
       saveCheckedFood(mockDb, { source: 'text', inputText: 'mint tea', analysis: tea, meta });
-      await render(<FoodList />);
+      await render(<FoodList manage />);
       await press('Edit Mint tea');
       expect(screen.queryByRole('radio', { name: 'OK' })).toBeNull();
 
@@ -448,7 +461,7 @@ describe('Food screen: My foods', () => {
 
   it('renames a food', async () => {
     createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
+    await render(<FoodList manage />);
 
     await press('Edit Oatmeal');
     await press('Edit');
@@ -460,7 +473,7 @@ describe('Food screen: My foods', () => {
 
   it("won't save a blank name", async () => {
     createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
+    await render(<FoodList manage />);
     await press('Edit Oatmeal');
     await press('Edit');
     await fireEvent.changeText(screen.getByLabelText('Name'), '   ');
@@ -470,7 +483,7 @@ describe('Food screen: My foods', () => {
   it('removes a food after confirming, and leaves past meals alone', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
+    await render(<FoodList manage />);
     await press('Log Oatmeal');
     await press('Log it');
 
@@ -489,7 +502,7 @@ describe('Food screen: My foods', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     createSavedFood(mockDb, 'Oatmeal');
     createSavedFood(mockDb, 'Mint tea');
-    await render(<FoodList />);
+    await render(<FoodList manage />);
 
     await press('Delete Oatmeal');
     expect(alert).toHaveBeenLastCalledWith('Remove Oatmeal?', expect.any(String), expect.any(Array));
@@ -503,7 +516,7 @@ describe('Food screen: My foods', () => {
   it('keeps the food when the swipe delete is cancelled', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
+    await render(<FoodList manage />);
 
     await press('Delete Oatmeal');
     await act(async () => pressAlertButton(alert, 'Cancel'));
@@ -515,7 +528,7 @@ describe('Food screen: My foods', () => {
   it('offers Delete to screen readers, which cannot swipe', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
+    await render(<FoodList manage />);
 
     await fireEvent(screen.getByRole('button', { name: 'Edit Oatmeal' }), 'accessibilityAction', {
       nativeEvent: { actionName: 'delete' },
@@ -527,7 +540,7 @@ describe('Food screen: My foods', () => {
   });
 
   it('explains what to do once the last food is removed', async () => {
-    await render(<FoodList />);
+    await render(<FoodList manage />);
     expect(screen.getByText(/Add the foods you eat often/)).toBeTruthy();
   });
 });

@@ -94,7 +94,10 @@ describe('Settings', () => {
     await press('button', 'Your Logs');
     await press('button', 'My medications');
 
-    expect(mockPush.mock.calls).toEqual([['/history'], ['/log/medication']]);
+    expect(mockPush.mock.calls).toEqual([
+      ['/history'],
+      [{ pathname: '/log/medication', params: { manage: '1' } }],
+    ]);
   });
 });
 

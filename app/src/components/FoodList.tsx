@@ -76,12 +76,13 @@ function loadEatenToday(db: AppDb): EatenToday {
 }
 
 /**
- * "Log food" when there are saved foods: "Quick Log" as cards. Log asks when it was eaten (now,
- * or earlier in the past week), then logs it with the verdict it was saved with, no new analysis. Tap a food
- * to rename, re-check or remove it, or swipe it left to delete. "Log a new food" checks one from a photo or a
- * description; the result can be logged as eaten, saved to this list, or both.
+ * The saved foods as "Quick Log" cards. From Log, tapping a card asks when it was eaten (now, or earlier in
+ * the past week), then logs it with the verdict it was saved with, no new analysis. From Settings > My foods
+ * (`manage`), tapping a card opens it to rename, re-check or remove, a Log button logs it, and a left swipe
+ * deletes it. "Log a new food" checks one from a photo or a description; the result can be logged as eaten,
+ * saved to this list, or both.
  */
-export function FoodList() {
+export function FoodList({ manage = false }: { manage?: boolean }) {
   const colors = useColors();
   const db = useDb();
   const toast = useToast();
@@ -360,47 +361,41 @@ export function FoodList() {
               {foods.map((food) => {
                 const today = eaten.get(food.mealName.toLowerCase());
                 const done = justLogged.has(food.id);
-                return (
-                  <SwipeToDelete
-                    key={food.id}
-                    label={food.mealName}
-                    style={styles.row}
-                    onDelete={() => confirmRemove(food.id, food.mealName)}>
-                    <View
-                      style={[
-                        styles.card,
-                        { backgroundColor: colors.surface, borderColor: colors.hairline },
-                      ]}>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Edit ${food.mealName}`}
-                        // Swiping isn't possible with a screen reader, so offer Delete from its actions menu.
-                        accessibilityActions={[{ name: 'delete', label: 'Delete' }]}
-                        onAccessibilityAction={(event) => {
-                          if (event.nativeEvent.actionName === 'delete')
-                            confirmRemove(food.id, food.mealName);
-                        }}
-                        onPress={() => openEdit(food)}
-                        style={styles.info}>
-                        {food.photoUri ? (
-                          <Image source={{ uri: food.photoUri }} style={styles.icon} contentFit="cover" />
-                        ) : (
-                          <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                            <Utensils size={18} color={colors.clayInk} strokeWidth={2.2} />
-                          </View>
-                        )}
-                        <View style={styles.text}>
-                          <AppText style={styles.foodName} numberOfLines={2}>
-                            {food.mealName}
-                          </AppText>
-                          <AppText variant="caption" color="inkSoft">
-                            {food.overallVerdict ? VERDICT_LABELS[food.overallVerdict] : 'No verdict'}
-                            {today
-                              ? ` · Eaten today ${formatTime(today.lastAt, today.tz)}${today.count > 1 ? ` (${today.count}×)` : ''}`
-                              : ''}
-                          </AppText>
+                const card = (
+                  <View
+                    style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={manage ? `Edit ${food.mealName}` : `Log ${food.mealName}`}
+                      accessibilityState={{ disabled: done && !manage }}
+                      disabled={done && !manage}
+                      // Swiping isn't possible with a screen reader, so offer Delete from its actions menu.
+                      accessibilityActions={manage ? [{ name: 'delete', label: 'Delete' }] : undefined}
+                      onAccessibilityAction={(event) => {
+                        if (event.nativeEvent.actionName === 'delete') confirmRemove(food.id, food.mealName);
+                      }}
+                      onPress={() => (manage ? openEdit(food) : askWhen(food))}
+                      style={styles.info}>
+                      {food.photoUri ? (
+                        <Image source={{ uri: food.photoUri }} style={styles.icon} contentFit="cover" />
+                      ) : (
+                        <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
+                          <Utensils size={18} color={colors.clayInk} strokeWidth={2.2} />
                         </View>
-                      </Pressable>
+                      )}
+                      <View style={styles.text}>
+                        <AppText style={styles.foodName} numberOfLines={2}>
+                          {food.mealName}
+                        </AppText>
+                        <AppText variant="caption" color="inkSoft">
+                          {food.overallVerdict ? VERDICT_LABELS[food.overallVerdict] : 'No verdict'}
+                          {today
+                            ? ` · Eaten today ${formatTime(today.lastAt, today.tz)}${today.count > 1 ? ` (${today.count}×)` : ''}`
+                            : ''}
+                        </AppText>
+                      </View>
+                    </Pressable>
+                    {manage ? (
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={done ? `${food.mealName} logged` : `Log ${food.mealName}`}
@@ -418,8 +413,21 @@ export function FoodList() {
                           {done ? 'Logged ✓' : 'Log'}
                         </AppText>
                       </Pressable>
-                    </View>
+                    ) : null}
+                  </View>
+                );
+                return manage ? (
+                  <SwipeToDelete
+                    key={food.id}
+                    label={food.mealName}
+                    style={styles.row}
+                    onDelete={() => confirmRemove(food.id, food.mealName)}>
+                    {card}
                   </SwipeToDelete>
+                ) : (
+                  <View key={food.id} style={styles.row}>
+                    {card}
+                  </View>
                 );
               })}
             </>
