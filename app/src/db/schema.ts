@@ -84,6 +84,8 @@ export const foodLogs = sqliteTable(
     analysis: text('analysis', { mode: 'json' }),
     /** JSON: { model, promptVersion, rulesetVersion } — which AI produced this result. */
     analysisMeta: text('analysis_meta', { mode: 'json' }),
+    /** How much was eaten, as sent with the check. Null is a regular portion. */
+    portion: text('portion', { enum: ['small', 'regular', 'large'] }),
     loggedAt: text('logged_at').notNull(),
     tz: text('tz').notNull(),
     ...timestamps,

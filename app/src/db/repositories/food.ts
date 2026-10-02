@@ -1,7 +1,8 @@
 import { and, asc, eq, gte, lt } from 'drizzle-orm';
 
 import { currentTimeZone, nowIso } from '@/lib/time';
-import type { AnalysisMeta, MealAnalysis } from '@/types/analysis';
+import { effectiveVerdict, withUserVerdict } from '@/lib/verdict';
+import type { AnalysisMeta, AppVerdict, MealAnalysis, Portion } from '@/types/analysis';
 
 import { type FoodLog, foodLogs } from '../schema';
 import type { AppDb } from '../types';
@@ -13,6 +14,8 @@ export type FoodLogInput = {
   photoUri?: string | null;
   analysis: MealAnalysis;
   meta: AnalysisMeta;
+  /** As sent with the check; a regular portion is stored as null. */
+  portion?: Portion;
   loggedAt?: string;
   tz?: string;
 };
@@ -24,6 +27,8 @@ export type StoredFoodLog = Omit<FoodLog, 'analysis' | 'analysisMeta'> & {
 };
 
 const toStored = (row: FoodLog) => row as StoredFoodLog;
+
+const storedPortion = (portion?: Portion) => (portion && portion !== 'regular' ? portion : null);
 
 export function createFoodLog(db: AppDb, input: FoodLogInput): number {
   if (!input.analysis.isFood) throw new Error('Only food analyses can be saved');
@@ -38,6 +43,7 @@ export function createFoodLog(db: AppDb, input: FoodLogInput): number {
       overallVerdict: input.analysis.overall.verdict,
       analysis: input.analysis,
       analysisMeta: input.meta,
+      portion: storedPortion(input.portion),
       loggedAt: input.loggedAt ?? nowIso(),
       tz: input.tz ?? currentTimeZone(),
     })
@@ -50,6 +56,7 @@ export type UncheckedMealInput = {
   /** What the user typed. For a photo it is empty and the meal is named "Meal". */
   inputText?: string | null;
   photoUri?: string | null;
+  portion?: Portion;
   loggedAt?: string;
   tz?: string;
 };
@@ -71,6 +78,7 @@ export function createUncheckedMeal(db: AppDb, input: UncheckedMealInput): numbe
       overallVerdict: null,
       analysis: null,
       analysisMeta: null,
+      portion: storedPortion(input.portion),
       loggedAt: input.loggedAt ?? nowIso(),
       tz: input.tz ?? currentTimeZone(),
     })
@@ -136,29 +144,46 @@ export function promoteCheckToDiary(db: AppDb, id: number, eatenAt: string = now
   if (updated.length === 0) throw new Error(`Food check ${id} not found`);
 }
 
+export const MAX_MEAL_NAME = 100;
+
+export type FoodLogEdit = {
+  name: string;
+  /** When it was eaten; the time zone becomes the current one. Omitted keeps the stored time. */
+  loggedAt?: string;
+  portion?: Portion;
+  /** A verdict from checking the meal again (e.g. for a new portion), replacing the stored one. */
+  check?: { analysis: MealAnalysis; meta: AnalysisMeta };
+  /** The verdict the user chose, applied over the AI's. Needs a stored verdict. */
+  verdict?: AppVerdict;
+};
+
 /**
- * "Log again": saves a copy of a meal as a new diary entry eaten now. It reuses the stored analysis
- * (and photo file) so the relay is never called, which means the verdict is the one from the first time.
+ * Saves edits to a diary meal from History. Like a saved food's edit: a new check replaces the verdict, a
+ * verdict chosen by hand sits on top of the AI's, and `overallVerdict` always holds the one that applies.
  */
-export function relogFood(db: AppDb, id: number): number {
-  const source = getFoodLog(db, id);
-  if (!source) throw new Error(`Food log ${id} not found`);
-  return db
-    .insert(foodLogs)
-    .values({
-      entryType: 'diary',
-      source: source.source,
-      inputText: source.inputText,
-      photoUri: source.photoUri,
-      mealName: source.mealName,
-      overallVerdict: source.overallVerdict,
-      analysis: source.analysis,
-      analysisMeta: source.analysisMeta,
-      loggedAt: nowIso(),
-      tz: currentTimeZone(),
-    })
-    .returning({ id: foodLogs.id })
-    .get().id;
+export function updateFoodLog(db: AppDb, id: number, edit: FoodLogEdit): void {
+  const mealName = edit.name.trim().slice(0, MAX_MEAL_NAME);
+  if (!mealName) throw new Error('A meal needs a name');
+  const existing = getFoodLog(db, id);
+  if (!existing || existing.entryType !== 'diary') throw new Error(`Diary meal ${id} not found`);
+  const values: Partial<FoodLog> = { mealName, updatedAt: nowIso() };
+  if (edit.loggedAt !== undefined) {
+    values.loggedAt = edit.loggedAt;
+    values.tz = currentTimeZone();
+  }
+  if (edit.portion !== undefined) values.portion = storedPortion(edit.portion);
+  let analysis = existing.analysis;
+  if (edit.check) {
+    if (!edit.check.analysis.isFood) throw new Error('Only food analyses can be saved');
+    analysis = edit.check.analysis;
+    values.analysisMeta = edit.check.meta;
+  }
+  if (edit.verdict !== undefined && analysis) analysis = withUserVerdict(analysis, edit.verdict);
+  if (analysis !== existing.analysis) {
+    values.analysis = analysis;
+    if (analysis) values.overallVerdict = effectiveVerdict(analysis);
+  }
+  db.update(foodLogs).set(values).where(eq(foodLogs.id, id)).run();
 }
 
 export function deleteFoodLog(db: AppDb, id: number): void {

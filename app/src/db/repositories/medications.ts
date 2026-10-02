@@ -84,26 +84,15 @@ export function listMedicationLogs(db: AppDb, range: { from: string; to: string 
     .all();
 }
 
-/**
- * "Log again" from History: copies a past dose (name, type, dose) as a new log taken now. It copies the
- * log itself rather than the saved medication, so it still works if that medication was edited or removed.
- */
-export function relogMedication(db: AppDb, logId: number): number {
-  const source = db.select().from(medicationLogs).where(eq(medicationLogs.id, logId)).get();
-  if (!source) throw new Error(`Medication log ${logId} not found`);
-  return db
-    .insert(medicationLogs)
-    .values({
-      medicationId: source.medicationId,
-      name: source.name,
-      type: source.type,
-      doseText: source.doseText,
-      takenAt: nowIso(),
-      tz: currentTimeZone(),
-      notes: null,
-    })
+/** Fixes when a past dose was taken, from History. The time zone becomes the current one. */
+export function updateMedicationLogTime(db: AppDb, logId: number, takenAt: string): void {
+  const updated = db
+    .update(medicationLogs)
+    .set({ takenAt, tz: currentTimeZone(), updatedAt: nowIso() })
+    .where(eq(medicationLogs.id, logId))
     .returning({ id: medicationLogs.id })
-    .get().id;
+    .all();
+  if (updated.length === 0) throw new Error(`Medication log ${logId} not found`);
 }
 
 export function deleteMedicationLog(db: AppDb, id: number): void {
