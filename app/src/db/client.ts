@@ -3,7 +3,13 @@ import { migrate } from 'drizzle-orm/expo-sqlite/migrator';
 import { backupDatabaseAsync, openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
 
 import migrations from '../../drizzle/migrations';
-import { backupThenMigrate, hasPending, type MigrationOutcome, withForeignKeysOff } from './migrate';
+import {
+  backupThenMigrate,
+  dropStalePortionColumn,
+  hasPending,
+  type MigrationOutcome,
+  withForeignKeysOff,
+} from './migrate';
 import * as schema from './schema';
 
 export const DATABASE_NAME = 'reflux.db';
@@ -62,11 +68,16 @@ export async function initDatabase(): Promise<MigrationOutcome> {
       }
       await copyDatabase(raw, BACKUP_NAMES[0]);
     },
-    migrate: () =>
-      withForeignKeysOff(
-        { exec: (statement) => raw.execSync(statement), all: (statement) => raw.getAllSync(statement) },
-        () => migrate(db, migrations),
-      ),
+    migrate: () => {
+      const conn = {
+        exec: (statement: string) => raw.execSync(statement),
+        all: (statement: string) => raw.getAllSync(statement),
+      };
+      return withForeignKeysOff(conn, () => {
+        dropStalePortionColumn(conn, migrations.journal, lastAppliedMigration(raw));
+        return migrate(db, migrations);
+      });
+    },
     restore: async () => {
       const backup = openDatabaseSync(BACKUP_NAMES[0]);
       try {
