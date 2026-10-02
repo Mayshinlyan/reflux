@@ -14,6 +14,7 @@ export const SYMPTOM_ITEMS = [
   { key: 'cough', label: 'Nagging cough', rsi: true },
   { key: 'lump', label: 'Lump in throat', rsi: true },
   { key: 'heartburn', label: 'Heartburn', rsi: true },
+  { key: 'burping', label: 'Burping', rsi: false },
   { key: 'stomach_pain', label: 'Stomach pain', rsi: false },
   { key: 'feeling_full', label: 'Feeling full', rsi: false },
   { key: 'constipation', label: 'Constipation', rsi: false },

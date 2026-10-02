@@ -77,6 +77,12 @@ const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.00
 const allRows = () => mockDb.select().from(foodLogs).all();
 const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('What did you eat?'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
+/** Answers the "Any symptoms?" question that follows a saved meal. */
+const skipSymptoms = async () => {
+  await fireEvent.press(await screen.findByRole('button', { name: 'Not now' }));
+  // The sheet closes first, then the screen leaves.
+  await waitFor(() => expect(mockBack).toHaveBeenCalled());
+};
 /** "I ate this" now asks when first; leaving the wheel alone saves it as eaten right now. */
 const ateThis = async () => {
   await press('I ate this');
@@ -127,6 +133,7 @@ describe('Food screen: checks and "I ate this"', () => {
     expect(diary[0].analysis?.items[0].matchedTriggers[0]?.category).toBe('mint');
     expect(allRows()).toHaveLength(1); // the check itself was promoted, not copied
     expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
+    await skipSymptoms();
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
@@ -240,6 +247,7 @@ describe('Food screen: saving without a verdict', () => {
       },
     ]);
     expect(mockToast).toHaveBeenCalledWith('Saved without a verdict');
+    await skipSymptoms();
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 

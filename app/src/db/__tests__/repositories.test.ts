@@ -149,6 +149,23 @@ describe('symptom logs', () => {
     expect(getSymptomLog(db, id)).toMatchObject({ items: [{ key: 'mucus' }], tags: [] });
   });
 
+  it('links symptoms to the meal they followed, and keeps them when that meal is deleted', () => {
+    const { db } = createTestDb();
+    const mealId = createUncheckedMeal(db, { source: 'text', inputText: 'rice' });
+    const id = createSymptomLog(db, { items: [{ key: 'burping' }], foodLogId: mealId });
+
+    expect(getSymptomLog(db, id)?.foodLogId).toBe(mealId);
+    updateSymptomLog(db, id, { items: [{ key: 'burping' }, { key: 'feeling_full' }] });
+    expect(getSymptomLog(db, id)?.foodLogId).toBe(mealId);
+
+    deleteFoodLog(db, mealId);
+
+    expect(getSymptomLog(db, id)).toMatchObject({
+      foodLogId: null,
+      items: [{ key: 'burping' }, { key: 'feeling_full' }],
+    });
+  });
+
   it('deletes items and tags with the log (cascade)', () => {
     const { db } = createTestDb();
     const id = createSymptomLog(db, { items: [{ key: 'heartburn' }], tags: ['stress'] });

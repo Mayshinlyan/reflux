@@ -11,6 +11,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { MealResultCard } from '@/components/MealResultCard';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
+import { SymptomPromptSheet } from '@/components/SymptomPromptSheet';
 import { Screen } from '@/components/Screen';
 import { SwipeNav } from '@/components/SwipeNav';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
@@ -19,6 +20,7 @@ import { useToast } from '@/components/Toast';
 import { VERDICT_LABELS } from '@/components/VerdictBadge';
 import { VerdictSelect } from '@/components/VerdictSelect';
 import { useDb } from '@/db/DatabaseProvider';
+import { openSymptoms, useSymptomPrompt } from '@/hooks/useSymptomPrompt';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
 import {
   listSavedFoods,
@@ -94,6 +96,7 @@ export function FoodList({ manage = false }: { manage?: boolean }) {
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   // The food whose Log was tapped, while the "When did you eat this?" sheet is open (iPhone).
   const [logging, setLogging] = useState<StoredSavedFood | null>(null);
+  const symptomPrompt = useSymptomPrompt();
 
   const [editing, setEditing] = useState<StoredSavedFood | null>(null);
   // What the sheet shows. Not cleared on close, so the sheet keeps its content while it slides away.
@@ -192,8 +195,9 @@ export function FoodList({ manage = false }: { manage?: boolean }) {
   const logOnce = (food: StoredSavedFood, at: Date | null) => {
     // `disabled` only applies after a re-render, so two taps in the same instant must be caught here.
     if (timers.current.has(food.id)) return;
+    let loggedId: number;
     try {
-      logSavedFood(db, food.id, at?.toISOString());
+      loggedId = logSavedFood(db, food.id, at?.toISOString());
     } catch (error) {
       logger.error('logSavedFood', error);
       Alert.alert("Couldn't log", friendlyMessages.INTERNAL);
@@ -203,6 +207,7 @@ export function FoodList({ manage = false }: { manage?: boolean }) {
     playChing();
     // An earlier meal doesn't show under "Eaten today", so the toast says when it was logged for.
     toast(at ? `${food.mealName} logged for ${formatMealTime(at, new Date())}` : `${food.mealName} logged`);
+    symptomPrompt.show({ subtitle: `${food.mealName} logged`, foodLogId: loggedId });
     setJustLogged((current) => new Set(current).add(food.id));
     timers.current.set(
       food.id,
@@ -447,6 +452,14 @@ export function FoodList({ manage = false }: { manage?: boolean }) {
             if (food) logOnce(food, at);
           }}
           onClose={() => setLogging(null)}
+          onDismissed={symptomPrompt.flush}
+        />
+        <SymptomPromptSheet
+          visible={symptomPrompt.visible}
+          subtitle={symptomPrompt.prompt?.subtitle ?? ''}
+          onHide={symptomPrompt.hide}
+          onLog={() => openSymptoms(symptomPrompt.prompt?.foodLogId)}
+          onSkip={() => {}}
         />
 
         <BottomSheet visible={editing !== null} onClose={closeForm} scrollToTopKey={changing}>

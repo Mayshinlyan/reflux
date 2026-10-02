@@ -31,10 +31,13 @@ export const symptomLogs = sqliteTable(
     loggedAt: text('logged_at').notNull(),
     tz: text('tz').notNull(),
     notes: text('notes'),
+    /** The meal this was logged right after (from the "Any symptoms?" prompt); cleared if that meal is deleted. */
+    foodLogId: integer('food_log_id').references(() => foodLogs.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (t) => [
     index('symptom_logs_logged_at_idx').on(t.loggedAt),
+    index('symptom_logs_food_log_idx').on(t.foodLogId),
     check('symptom_logs_kind_check', sql`${t.kind} in ('quick', 'checkin')`),
   ],
 );

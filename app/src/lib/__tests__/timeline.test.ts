@@ -4,7 +4,7 @@ import type { MedicationLog } from '@/db/schema';
 
 import { buildTimeline, groupSymptoms } from '../timeline';
 
-const base = { createdAt: '', updatedAt: '', notes: null };
+const base = { createdAt: '', updatedAt: '', notes: null, foodLogId: null };
 
 const symptom = (id: number, loggedAt: string, tz = 'Europe/London'): SymptomLogWithDetails => ({
   ...base,
