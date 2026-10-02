@@ -12,13 +12,13 @@ import { Button } from './Button';
 /**
  * Android has no inline wheel: the system date dialog, then the time dialog, then `onPicked`. Limited to the
  * past week; the time dialog can't be capped, so a later-today pick is pulled back to now. Cancelling either
- * dialog does nothing.
+ * dialog does nothing. `minimum` moves the earliest day back, for editing an older entry.
  */
-export function pickTimeAndroid(start: Date, onPicked: (at: Date) => void) {
+export function pickTimeAndroid(start: Date, onPicked: (at: Date) => void, minimum?: Date) {
   DateTimePickerAndroid.open({
     value: start,
     mode: 'date',
-    minimumDate: earliestMealTime(new Date()),
+    minimumDate: minimum ?? earliestMealTime(new Date()),
     maximumDate: new Date(),
     onValueChange: (_, day) =>
       DateTimePickerAndroid.open({

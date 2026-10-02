@@ -4,11 +4,19 @@ import { Alert, type AlertButton } from 'react-native';
 
 import HistoryScreen from '@/app/history';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { createFoodLog, createUncheckedMeal, listDiaryFoodLogs } from '@/db/repositories/food';
+import {
+  createFoodLog,
+  createUncheckedMeal,
+  getFoodLog,
+  listDiaryFoodLogs,
+  updateFoodLog,
+} from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
 import { listSavedFoods } from '@/db/repositories/savedFoods';
 import { createSymptomLog, getSymptomLog } from '@/db/repositories/symptoms';
+import { medicationLogs } from '@/db/schema';
 import type { AppDb } from '@/db/types';
+import { analyzeFood } from '@/services/relayClient';
 import { lightColors } from '@/theme';
 
 let mockDb: AppDb;
@@ -43,6 +51,17 @@ jest.mock('expo-image', () => {
     Image: (props: { accessibilityLabel?: string }) => <View accessibilityLabel={props.accessibilityLabel} />,
   };
 });
+jest.mock('@/services/relayClient', () => ({ analyzeFood: jest.fn() }));
+// The native wheel can't render here: the stand-in keeps its latest props so a test can "turn" it.
+let mockWheel: { value: Date; onValueChange: (event: unknown, date: Date) => void } | null = null;
+jest.mock('@react-native-community/datetimepicker', () => ({
+  __esModule: true,
+  default: (props: NonNullable<typeof mockWheel>) => {
+    mockWheel = props;
+    return null;
+  },
+  DateTimePickerAndroid: { open: jest.fn() },
+}));
 jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(() => Promise.resolve()),
   NotificationFeedbackType: { Success: 'success' },
@@ -433,32 +452,109 @@ describe('History: swipe to delete an entry', () => {
   });
 });
 
-describe('History: log a meal again', () => {
-  it('logs the meal again from its detail sheet', async () => {
-    seedMeal();
-    await render(<HistoryScreen />);
+describe('History: edit a meal', () => {
+  const analyze = analyzeFood as jest.Mock;
+  beforeEach(() => analyze.mockReset());
 
+  const openEdit = async () => {
     await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Log again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit' }));
+  };
 
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(2);
-    expect(screen.getAllByRole('button', { name: /^Meal: Steamed dim sum/ })).toHaveLength(2);
-  });
-
-  it('does not offer Log again on the row itself, so swiping right stays free', async () => {
-    seedMeal();
+  it('saves a new name and a verdict chosen by hand, with no AI call', async () => {
+    const id = seedMeal();
     await render(<HistoryScreen />);
+    await openEdit();
 
-    expect(screen.queryByRole('button', { name: 'Log Steamed dim sum again' })).toBeNull();
-    const row = screen.getByRole('button', { name: /^Meal: Steamed dim sum/ });
-    expect(row.props.accessibilityActions).toEqual([{ name: 'delete', label: 'Delete' }]);
+    await fireEvent.changeText(screen.getByDisplayValue('Steamed dim sum'), 'Dumplings');
+    await fireEvent.press(screen.getByRole('button', { name: 'Verdict, Caution' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'OK' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    expect(analyze).not.toHaveBeenCalled();
+    expect(getFoodLog(mockDb, id)).toMatchObject({ mealName: 'Dumplings', overallVerdict: 'good' });
+    expect(mockToast).toHaveBeenLastCalledWith('Changes saved');
+    // Back to the entry, now showing the change.
+    expect(screen.getByRole('header', { name: 'Dumplings' })).toBeTruthy();
   });
 
-  it('does not offer Log again on symptom entries', async () => {
+  it('re-checks the meal for a new portion and saves the new verdict', async () => {
+    const id = seedMeal();
+    const analysis = getFoodLog(mockDb, id)!.analysis!;
+    analyze.mockResolvedValue({
+      ...analysis,
+      overall: { ...analysis.overall, verdict: 'trigger' },
+      meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
+    });
+    await render(<HistoryScreen />);
+    await openEdit();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Large' }));
+    await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Save' })));
+
+    expect(analyze).toHaveBeenCalledWith({ text: 'dim sum', portion: 'large' });
+    expect(getFoodLog(mockDb, id)).toMatchObject({ portion: 'large', overallVerdict: 'trigger' });
+  });
+
+  it('keeps a verdict the user set earlier over the re-check for a new portion', async () => {
+    const id = seedMeal();
+    updateFoodLog(mockDb, id, { name: 'Steamed dim sum', verdict: 'good' });
+    const analysis = getFoodLog(mockDb, id)!.analysis!;
+    analyze.mockResolvedValue({
+      ...analysis,
+      overall: { verdict: 'trigger', confidence: 'high', reasoning: 'Big portion.' },
+      meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
+    });
+    await render(<HistoryScreen />);
+    await openEdit();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Large' }));
+    await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Save' })));
+
+    expect(getFoodLog(mockDb, id)).toMatchObject({ portion: 'large', overallVerdict: 'good' });
+    expect(getFoodLog(mockDb, id)?.analysis?.overall).toMatchObject({
+      verdict: 'trigger',
+      userVerdict: 'good',
+    });
+  });
+
+  it('keeps the edits and saves nothing when the re-check fails', async () => {
+    const id = seedMeal();
+    analyze.mockRejectedValue(new Error('offline'));
+    await render(<HistoryScreen />);
+    await openEdit();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Small' }));
+    await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Save' })));
+
+    expect(getFoodLog(mockDb, id)?.portion).toBeNull();
+    expect(screen.getByRole('button', { name: 'Portion, Small' })).toBeTruthy();
+  });
+
+  it('cancels back to the entry without saving', async () => {
+    const id = seedMeal();
+    await render(<HistoryScreen />);
+    await openEdit();
+
+    await fireEvent.changeText(screen.getByDisplayValue('Steamed dim sum'), 'Dumplings');
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(getFoodLog(mockDb, id)?.mealName).toBe('Steamed dim sum');
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
+  });
+
+  it('no longer offers Log again, on meals or anywhere else', async () => {
+    seedMeal();
     seedFullEntry();
     await render(<HistoryScreen />);
 
-    expect(screen.queryByRole('button', { name: /again$/ })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
+    expect(screen.queryByRole('button', { name: /again/ })).toBeNull();
+    const row = screen.getByRole('button', { name: /^Meal: Steamed dim sum/ });
+    expect(row.props.accessibilityActions).toEqual([{ name: 'delete', label: 'Delete' }]);
   });
 });
 
@@ -504,20 +600,22 @@ describe('History: meals saved without a verdict', () => {
   });
 });
 
-describe('History: log a medication again', () => {
-  const seedDose = () => {
+describe('History: edit a medication', () => {
+  it('moves the dose to the time chosen on the wheel', async () => {
     const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
     logMedication(mockDb, id);
-  };
-
-  it('logs the dose again from its detail sheet', async () => {
-    seedDose();
     await render(<HistoryScreen />);
 
     await fireEvent.press(screen.getByRole('button', { name: /^Medication: Omeprazole 20 mg/ }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Log again' }));
+    expect(screen.queryByRole('button', { name: /again/ })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit' }));
+    await fireEvent.press(screen.getByRole('button', { name: /^Taken, / }));
+    const earlier = new Date(Date.now() - 2 * 3_600_000);
+    await act(async () => mockWheel!.onValueChange(null, earlier));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
-    expect(screen.getAllByRole('button', { name: /^Medication: Omeprazole 20 mg/ })).toHaveLength(2);
+    expect(mockDb.select().from(medicationLogs).all()[0].takenAt).toBe(earlier.toISOString());
+    expect(mockToast).toHaveBeenLastCalledWith('Changes saved');
   });
 });
 

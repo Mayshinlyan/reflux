@@ -6,6 +6,7 @@ import m0001 from './0001_unchecked_meals.sql';
 import m0002 from './0002_my_foods.sql';
 import m0003 from './0003_good_verdict.sql';
 import m0004 from './0004_tearful_black_queen.sql';
+import m0005 from './0005_nosy_saracen.sql';
 
   export default {
     journal,
@@ -14,7 +15,8 @@ import m0004 from './0004_tearful_black_queen.sql';
 m0001,
 m0002,
 m0003,
-m0004
+m0004,
+m0005
     }
   }
   
