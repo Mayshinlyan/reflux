@@ -1,3 +1,4 @@
+import { Gaegu_400Regular, Gaegu_700Bold } from '@expo-google-fonts/gaegu';
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
@@ -28,6 +29,8 @@ SplashScreen.preventAutoHideAsync();
 
 function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
+    Gaegu_400Regular,
+    Gaegu_700Bold,
     Nunito_400Regular,
     Nunito_600SemiBold,
     Nunito_700Bold,

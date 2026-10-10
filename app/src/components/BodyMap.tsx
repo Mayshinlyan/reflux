@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { MAP_ZONES, TORSO_IMAGE, type ZoneKey, zoneLabel } from '@/constants/bodyZones';
-import { space, typography, useColors } from '@/theme';
+import { fontFamily, space, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -138,8 +138,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { ...typography.label, fontFamily: 'Nunito_800ExtraBold', fontSize: 12, lineHeight: 16 },
+  badgeText: { ...typography.label, fontFamily: fontFamily.extrabold, fontSize: 12, lineHeight: 16 },
   leader: { position: 'absolute', height: 2, top: -1 },
   label: { position: 'absolute', right: 0, marginTop: -space.s2, minHeight: 32, justifyContent: 'center' },
-  labelText: { ...typography.bodyEm, fontSize: 15, lineHeight: 20, fontFamily: 'Nunito_700Bold' },
+  labelText: { ...typography.bodyEm, fontSize: 15, lineHeight: 20, fontFamily: fontFamily.bold },
 });

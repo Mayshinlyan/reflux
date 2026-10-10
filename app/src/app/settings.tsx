@@ -20,7 +20,7 @@ import { BEDTIME_OPTIONS, formatClock } from '@/lib/clock';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { deleteAllPhotos } from '@/services/photoStore';
-import { minTouchTarget, space, useColors } from '@/theme';
+import { fontFamily, minTouchTarget, space, useColors } from '@/theme';
 
 const MAX_PET_NAME = 24;
 
@@ -136,7 +136,7 @@ export default function SettingsScreen() {
           <SectionTitle>Your data</SectionTitle>
           <AppText variant="caption" color="inkSoft" style={styles.note}>
             Everything you log stays on this phone. Food descriptions and photos are sent to be analyzed, and
-            are not kept by Reflux.
+            are not kept by a day in my belly.
           </AppText>
           <Button label="Delete all my data" variant="quietDanger" onPress={confirmDeleteAll} />
         </ScrollView>
@@ -163,7 +163,7 @@ export default function SettingsScreen() {
                 <AppText
                   style={[
                     styles.optionText,
-                    selected && { color: colors.clayInk, fontFamily: 'Nunito_800ExtraBold' },
+                    selected && { color: colors.clayInk, fontFamily: fontFamily.extrabold },
                   ]}>
                   {formatClock(option)}
                 </AppText>

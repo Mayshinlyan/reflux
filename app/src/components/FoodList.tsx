@@ -46,7 +46,7 @@ import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import type { AppVerdict } from '@/types/analysis';
-import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
+import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
 
 /** How long a row says "Logged ✓" (and ignores taps) after a one-tap log, so a double-tap can't log twice. */
 const LOGGED_FLASH_MS = 2500;
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
   },
   icon: { width: 38, height: 38, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   text: { flex: 1, minWidth: 0 },
-  foodName: { ...typography.bodyEm, fontSize: 15, lineHeight: 20, fontFamily: 'Nunito_700Bold' },
+  foodName: { ...typography.bodyEm, fontSize: 15, lineHeight: 20, fontFamily: fontFamily.bold },
   logButton: {
     minWidth: 76,
     minHeight: minTouchTarget,
@@ -595,9 +595,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logText: { ...typography.label, fontSize: 14, fontFamily: 'Nunito_800ExtraBold' },
+  logText: { ...typography.label, fontSize: 14, fontFamily: fontFamily.extrabold },
   add: { minHeight: minTouchTarget, justifyContent: 'center', paddingVertical: space.s1 },
-  addText: { ...typography.bodyEm, fontSize: 15, fontFamily: 'Nunito_700Bold' },
+  addText: { ...typography.bodyEm, fontSize: 15, fontFamily: fontFamily.bold },
   sheetTitle: { marginBottom: space.s1 },
   sheetPhoto: {
     width: '100%',

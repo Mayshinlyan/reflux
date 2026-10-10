@@ -34,7 +34,7 @@ import { foodSwipe } from '@/lib/logSwipe';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
-import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
+import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
 import type { Portion } from '@/types/analysis';
 
 const MAX_TEXT = 200;
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
   footer: { gap: space.s1, paddingTop: space.s1 },
   correction: { marginTop: space.s2 },
   link: { minHeight: minTouchTarget, alignItems: 'center', justifyContent: 'center' },
-  linkText: { ...typography.bodyEm, fontSize: 15, fontFamily: 'Nunito_700Bold' },
+  linkText: { ...typography.bodyEm, fontSize: 15, fontFamily: fontFamily.bold },
   photo: { width: '100%', height: 200, borderRadius: radius.lg, marginBottom: space.s1 },
   error: { borderRadius: radius.md, padding: space.s2, marginBottom: space.s2 },
 });
