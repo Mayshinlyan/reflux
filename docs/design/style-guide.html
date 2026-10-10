@@ -1,14 +1,14 @@
-<title>Reflux Design System</title>
+<title>a day in my belly design system</title>
 <style>
   :root{
-    --bg:#FBF7F2; --surface:#FFFFFF; --surface-2:#F6F1EA;
-    --ink:#2E2A26; --ink-soft:#635A52; --hairline:#EDE6DD;
-    --clay:#C8664A; --clay-ink:#8A4531; --clay-tint:#F3E3DC;
-    --sage:#8BA888; --sage-ink:#4F6B4C; --sage-tint:#EAF0E8;
+    --bg:#FAF1DE; --surface:#FFFBF3; --surface-2:#ECDAB9;
+    --ink:#3A2F25; --ink-soft:#75675A; --hairline:#EBDCC2;
+    --clay:#C8664A; --clay-ink:#8A4531; --clay-tint:#F3D3C0;
+    --sage:#8E9A6D; --sage-ink:#55612F; --sage-tint:#D8E0B6;
     --good:#5E8F63; --good-ink:#2F5A3A; --good-tint:#D3E8D6;
-    --honey:#D9A441; --honey-ink:#8A5F1E; --honey-tint:#FBF1DE;
-    --red:#C4553D; --red-ink:#8B3B29; --red-tint:#F7E5DF;
-    --cta:#B2543A; --cta-ink:#FFFFFF;
+    --honey:#D9A441; --honey-ink:#855A1A; --honey-tint:#F8E3B2;
+    --red:#C4553D; --red-ink:#8B3B29; --red-tint:#F5D9CF;
+    --cta:#5F6B3A; --cta-ink:#FAF1DE;
     --r-sm:10px; --r-md:16px; --r-lg:20px; --r-pill:999px;
     --s1:8px; --s2:16px; --s3:24px; --s4:32px; --s5:48px;
     color-scheme: light;
@@ -18,7 +18,7 @@
       --bg:#1F1B18; --surface:#2A2521; --surface-2:#332D28;
       --ink:#F3ECE4; --ink-soft:#B3A89D; --hairline:#3D362F;
       --clay:#E08260; --clay-ink:#F2C4B0; --clay-tint:#3A2620;
-      --sage:#A3C29E; --sage-ink:#C9DDC5; --sage-tint:#263427;
+      --sage:#A9B58A; --sage-ink:#C9DDC5; --sage-tint:#263427;
     --good:#6FB07A; --good-ink:#BFE6C4; --good-tint:#1E3A26;
       --good:#6FB07A; --good-ink:#BFE6C4; --good-tint:#1E3A26;
       --honey:#E8BD6A; --honey-ink:#F0D39A; --honey-tint:#3A2E14;
@@ -30,7 +30,7 @@
     --bg:#1F1B18; --surface:#2A2521; --surface-2:#332D28;
     --ink:#F3ECE4; --ink-soft:#B3A89D; --hairline:#3D362F;
     --clay:#E08260; --clay-ink:#F2C4B0; --clay-tint:#3A2620;
-    --sage:#A3C29E; --sage-ink:#C9DDC5; --sage-tint:#263427;
+    --sage:#A9B58A; --sage-ink:#C9DDC5; --sage-tint:#263427;
     --honey:#E8BD6A; --honey-ink:#F0D39A; --honey-tint:#3A2E14;
     --red:#DD7A62; --red-ink:#F0AC98; --red-tint:#3A2018;
     color-scheme: dark;
@@ -104,7 +104,12 @@
   .type-row:last-child{border-bottom:none}
   .type-sample{flex:1;min-width:220px}
   .type-label{font-size:12.5px;color:var(--ink-soft);min-width:150px;font-weight:700}
-  .display{font-size:28px;font-weight:800;letter-spacing:-0.01em}
+  .gaegu{font-family:'Gaegu',cursive;letter-spacing:-0.03em}
+  .hero{font-family:'Gaegu',cursive;font-size:46px;line-height:50px;font-weight:700;letter-spacing:-0.03em}
+  .display{font-family:'Gaegu',cursive;font-size:38px;line-height:42px;font-weight:700;letter-spacing:-0.03em}
+  .voice{font-family:'Gaegu',cursive;font-size:22px;line-height:26px;font-weight:400;letter-spacing:-0.03em}
+  .voice-s{font-family:'Gaegu',cursive;font-size:20px;line-height:24px;font-weight:400;letter-spacing:-0.03em}
+  .section-l{font-size:18px;line-height:24px;font-weight:600}
   .title-l{font-size:20px;font-weight:700}
   .body-l{font-size:17px;font-weight:400;line-height:1.5}
   .body-em{font-size:17px;font-weight:600}
@@ -319,7 +324,7 @@
 </style>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Gaegu:wght@400;700&display=swap" rel="stylesheet">
 
 <div class="wrap">
 
@@ -336,8 +341,8 @@
         </defs>
       </svg>
       <div class="brand-text">
-        <h1>Reflux</h1>
-        <p class="lede">A calm, warm design language for tracking reflux without the clinical chill.</p>
+        <h1>a day in my belly</h1>
+        <p class="lede">A cozy, calm design language for logging what your belly had today. Source of truth: the "Belly" design system in Figma.</p>
       </div>
     </div>
     <button class="theme-toggle" id="themeToggle" type="button">
@@ -349,11 +354,15 @@
   <div class="principles">
     <div class="principle">
       <h3>Warm, not clinical</h3>
-      <p>Cream and terracotta instead of medical teal. This is a food app first.</p>
+      <p>Cream, cocoa and olive instead of medical teal. This is a food app first.</p>
     </div>
     <div class="principle">
       <h3>One CTA color</h3>
-      <p>Clay is spent on a single primary action per screen. Sage means calm and selected.</p>
+      <p>Olive is spent on a single primary action per screen. Sage and clay tints mean selected.</p>
+    </div>
+    <div class="principle">
+      <h3>No outlines</h3>
+      <p>Containers are filled, never stroked. Selection is a different tint, not a border. Unselected chips are surface; chips inside cards are surface 2.</p>
     </div>
     <div class="principle">
       <h3>Icon and label, always</h3>
@@ -371,14 +380,14 @@
       <p>Surface tokens set the quiet base. Brand and semantic tokens carry meaning — each verdict color has a deeper "ink" variant for text and a light "tint" for fills, so contrast holds wherever it's used.</p>
     </div>
     <div class="swatch-grid">
-      <div class="swatch"><div class="chip" style="background:var(--bg)"></div><div class="meta"><div class="name">Background</div><div class="hex">#FBF7F2</div><div class="use">App canvas</div></div></div>
-      <div class="swatch"><div class="chip" style="background:var(--surface);border-bottom:1px solid var(--hairline)"></div><div class="meta"><div class="name">Surface</div><div class="hex">#FFFFFF</div><div class="use">Cards, sheets</div></div></div>
-      <div class="swatch"><div class="chip" style="background:var(--ink)"></div><div class="meta"><div class="name">Ink</div><div class="hex">#2E2A26</div><div class="use">Primary text</div></div></div>
-      <div class="swatch"><div class="chip" style="background:var(--ink-soft)"></div><div class="meta"><div class="name">Ink soft</div><div class="hex">#7A716A</div><div class="use">Secondary text</div></div></div>
-      <div class="swatch"><div class="chip" style="background:var(--clay)"></div><div class="meta"><div class="name">Clay</div><div class="hex">#C8664A</div><div class="use">Icons, marks, selected borders</div></div></div>
-      <div class="swatch"><div class="chip" style="background:var(--cta)"></div><div class="meta"><div class="name">CTA (deep clay)</div><div class="hex">#B2543A</div><div class="use">Solid buttons — 4.9:1 with white text</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--bg)"></div><div class="meta"><div class="name">Background</div><div class="hex">#FAF1DE</div><div class="use">App canvas</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--surface);border-bottom:1px solid var(--hairline)"></div><div class="meta"><div class="name">Surface</div><div class="hex">#FFFBF3</div><div class="use">Cards, rows, inputs, unselected pills, tab bar</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--ink)"></div><div class="meta"><div class="name">Ink</div><div class="hex">#3A2F25</div><div class="use">Primary text</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--ink-soft)"></div><div class="meta"><div class="name">Ink soft</div><div class="hex">#75675A</div><div class="use">Secondary text</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--clay)"></div><div class="meta"><div class="name">Clay</div><div class="hex">#C8664A</div><div class="use">Accents, marks, selected tag text</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--cta)"></div><div class="meta"><div class="name">Olive (primary)</div><div class="hex">#5F6B3A</div><div class="use">Primary button, active dots, today</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--good)"></div><div class="meta"><div class="name">Deep green</div><div class="hex">#5E8F63</div><div class="use">"OK", a verdict you set yourself</div></div></div>
-      <div class="swatch"><div class="chip" style="background:var(--sage)"></div><div class="meta"><div class="name">Sage</div><div class="hex">#8BA888</div><div class="use">Selected state, "Likely OK"</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--sage)"></div><div class="meta"><div class="name">Sage</div><div class="hex">#8E9A6D</div><div class="use">Selected state, "Likely OK"</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--honey)"></div><div class="meta"><div class="name">Honey</div><div class="hex">#D9A441</div><div class="use">"Caution"</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--red)"></div><div class="meta"><div class="name">Clay red</div><div class="hex">#C4553D</div><div class="use">"Likely trigger"</div></div></div>
     </div>
@@ -387,10 +396,14 @@
   <section>
     <div class="section-head">
       <h2>Type</h2>
-      <p>One family, Nunito, rounded and unforced. Weight and size carry the hierarchy — never an accented word or an all-caps label.</p>
+      <p>Gaegu speaks, Nunito works. Gaegu is the voice: headlines, greetings and short warm lines, always 20pt or larger. Nunito does the work: labels, rows, chips, buttons, times and data. Never an all-caps label.</p>
     </div>
     <div class="comp-block">
-      <div class="type-row"><span class="type-label">Display · 28 / 800</span><div class="type-sample"><span class="display">Good morning, Maya</span></div></div>
+      <div class="type-row"><span class="type-label">Hero · 46 / 700 · Gaegu</span><div class="type-sample"><span class="hero">Good evening, May</span></div></div>
+      <div class="type-row"><span class="type-label">Display · 38 / 700 · Gaegu</span><div class="type-sample"><span class="display">Good morning, Maya</span></div></div>
+      <div class="type-row"><span class="type-label">Voice · 22 / 400 · Gaegu</span><div class="type-sample"><span class="voice">Log your meals, one cozy day at a time.</span></div></div>
+      <div class="type-row"><span class="type-label">Voice small · 20 / 400 · Gaegu</span><div class="type-sample"><span class="voice-s">What did your belly enjoy?</span></div></div>
+      <div class="type-row"><span class="type-label">Section · 18 / 600</span><div class="type-sample"><span class="section-l">Anything else?</span></div></div>
       <div class="type-row"><span class="type-label">Title · 20 / 700</span><div class="type-sample"><span class="title-l">Today's meals</span></div></div>
       <div class="type-row"><span class="type-label">Body · 17 / 400</span><div class="type-sample"><span class="body-l">Grilled salmon with steamed rice and green beans.</span></div></div>
       <div class="type-row"><span class="type-label">Body emphasis · 17 / 600</span><div class="type-sample"><span class="body-em">Likely to trigger symptoms</span></div></div>
@@ -747,7 +760,8 @@
   <section>
     <div class="section-head">
       <h2>Icons</h2>
-      <p>Lucide-style line icons only — 2px stroke, round joins, no fills, never emoji as a functional icon.</p>
+      <p>Lucide line icons only (<code>lucide-react-native</code>): 24px, 2px stroke, round caps and joins, no fills, never emoji as a functional icon. Ink by default, ink soft for secondary, always paired with a label. The drawings below are the earlier set; the app uses the Lucide names in the table.</p>
+      <p class="caption-s" style="margin-top:12px">Figma → Lucide: Today <code>Sun</code> · Check <code>CircleCheck</code> · History <code>CalendarDays</code> · Settings <code>Settings</code> · Add <code>Plus</code> · Medication <code>Pill</code> · Bedtime <code>Moon</code> · Privacy <code>Lock</code> · Chevron down / right <code>ChevronDown</code> / <code>ChevronRight</code> · Checkmark <code>Check</code> · Pencil <code>Pencil</code> · Meal <code>Utensils</code> · Back <code>ChevronLeft</code> · Close <code>X</code> · More <code>Ellipsis</code> · Profile <code>User</code> · Trash <code>Trash</code> · Pulse <code>Activity</code>. Verdict icons stay the custom reflux-line set.</p>
     </div>
     <div class="icon-grid">
       <div class="icon-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg><span>Today</span></div>
@@ -809,7 +823,7 @@
 
   var current = 'light';
   try {
-    var saved = localStorage.getItem('reflux-style-guide-theme');
+    var saved = localStorage.getItem('belly-style-guide-theme');
     if (saved === 'dark' || saved === 'light') current = saved;
     else current = systemPrefersDark() ? 'dark' : 'light';
   } catch(e) { current = systemPrefersDark() ? 'dark' : 'light'; }
@@ -818,7 +832,7 @@
   btn.addEventListener('click', function(){
     current = current === 'dark' ? 'light' : 'dark';
     apply(current);
-    try { localStorage.setItem('reflux-style-guide-theme', current); } catch(e){}
+    try { localStorage.setItem('belly-style-guide-theme', current); } catch(e){}
   });
 
   var cardsBtn = document.getElementById('viewCardsBtn');

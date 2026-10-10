@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { radius, space, useColors } from '@/theme';
+import { fontFamily, radius, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -51,5 +51,5 @@ const styles = StyleSheet.create({
   wrap: { marginTop: space.s2 },
   segments: { flexDirection: 'row', gap: 6 },
   segment: { flex: 1, height: 6, borderRadius: radius.pill },
-  caption: { textAlign: 'center', marginTop: space.s1, fontFamily: 'Nunito_700Bold' },
+  caption: { textAlign: 'center', marginTop: space.s1, fontFamily: fontFamily.bold },
 });

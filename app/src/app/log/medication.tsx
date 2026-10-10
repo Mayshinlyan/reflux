@@ -46,7 +46,7 @@ import { medicationSwipe } from '@/lib/logSwipe';
 import { formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { medicationTypeLabel } from '@/lib/timeline';
-import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
+import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
 
 const MAX_NAME = 60;
 const MAX_DOSE = 40;
@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
   },
   icon: { width: 38, height: 38, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   text: { flex: 1, minWidth: 0 },
-  medName: { ...typography.bodyEm, fontSize: 15, lineHeight: 20, fontFamily: 'Nunito_700Bold' },
+  medName: { ...typography.bodyEm, fontSize: 15, lineHeight: 20, fontFamily: fontFamily.bold },
   logButton: {
     minWidth: 76,
     minHeight: minTouchTarget,
@@ -585,9 +585,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logText: { ...typography.label, fontSize: 14, fontFamily: 'Nunito_800ExtraBold' },
+  logText: { ...typography.label, fontSize: 14, fontFamily: fontFamily.extrabold },
   add: { minHeight: minTouchTarget, justifyContent: 'center', paddingVertical: space.s1 },
-  addText: { ...typography.bodyEm, fontSize: 15, fontFamily: 'Nunito_700Bold' },
+  addText: { ...typography.bodyEm, fontSize: 15, fontFamily: fontFamily.bold },
   fieldLabel: { marginBottom: space.s1 },
   picker: {
     flexDirection: 'row',
@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
   options: { borderWidth: 1, borderRadius: radius.lg, marginTop: 6, paddingBottom: 4, overflow: 'hidden' },
   groupLabel: { paddingHorizontal: 16, paddingTop: space.s1, paddingBottom: 2 },
   option: { minHeight: minTouchTarget, justifyContent: 'center', paddingHorizontal: 16 },
-  optionText: { fontSize: 15, fontFamily: 'Nunito_700Bold' },
+  optionText: { fontSize: 15, fontFamily: fontFamily.bold },
   notListed: { borderTopWidth: 1, marginTop: 6 },
   spacer: { height: space.s2 },
   typeNote: { marginBottom: space.s2 },

@@ -1,18 +1,20 @@
 {
   "expo": {
-    "name": "Reflux",
-    "slug": "reflux",
+    "name": "a day in my belly",
+    "slug": "a-day-in-my-belly",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "reflux",
+    "scheme": "adayinmybelly",
     "userInterfaceStyle": "light",
     "ios": {
+      "bundleIdentifier": "com.mayshinlyan.adayinmybelly",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.mayshinlyan.adayinmybelly",
       "adaptiveIcon": {
-        "backgroundColor": "#FBF7F2",
+        "backgroundColor": "#FAF1DE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -28,17 +30,17 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FBF7F2",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#F9EFD9",
+          "image": "./assets/images/splash-image.png",
+          "imageWidth": 280
         }
       ],
       "expo-sqlite",
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Reflux uses the camera to photograph meals so it can check them for reflux triggers. Photos stay on your phone.",
-          "photosPermission": "Reflux reads a meal photo you choose so it can check it for reflux triggers."
+          "cameraPermission": "a day in my belly uses the camera to photograph meals so it can check them for reflux triggers. Photos stay on your phone.",
+          "photosPermission": "a day in my belly reads a meal photo you choose so it can check it for reflux triggers."
         }
       ],
       "@react-native-community/datetimepicker",
@@ -55,6 +57,6 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "backgroundColor": "#FBF7F2"
+    "backgroundColor": "#FAF1DE"
   }
 }
