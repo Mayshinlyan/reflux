@@ -13,14 +13,13 @@ function contrast(a: string, b: string): number {
 }
 
 // Every text-on-background pairing the app uses. WCAG AA for body text is 4.5:1.
-// Known gap: Figma's inkSoft (#75675A) on surface2 (#ECDAB9) is 3.98:1 in the light palette,
-// so that pairing is left out until the design is changed. Avoid it for small text.
 const PAIRS: [text: keyof Palette, background: keyof Palette][] = [
   ['ink', 'bg'],
   ['ink', 'surface'],
   ['ink', 'surface2'],
   ['inkSoft', 'bg'],
   ['inkSoft', 'surface'],
+  ['inkSoft', 'surface2'],
   ['clayInk', 'bg'],
   ['clayInk', 'clayTint'],
   ['sageInk', 'bg'],

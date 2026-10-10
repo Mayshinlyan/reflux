@@ -12,7 +12,8 @@ export const lightColors = {
   surface: '#FFFBF3',
   surface2: '#ECDAB9',
   ink: '#3A2F25',
-  inkSoft: '#75675A',
+  // Figma has #75675A (3.98:1 on surface2); darkened so it clears WCAG AA everywhere.
+  inkSoft: '#65574A',
   hairline: '#EBDCC2',
   clay: '#C8664A',
   clayInk: '#8A4531',
