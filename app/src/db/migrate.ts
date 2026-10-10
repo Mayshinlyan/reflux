@@ -84,3 +84,24 @@ export function hasPending(journal: Journal, lastAppliedAt: number | null): bool
   if (lastAppliedAt === null) return journal.entries.length > 0;
   return journal.entries.some((entry) => entry.when > lastAppliedAt);
 }
+
+/**
+ * An earlier build added `food_logs.portion` as its own migration (0004_food_portion), which was
+ * later renumbered to 0005. A phone that ran the earlier build already has the column but not the
+ * 0005 record, so 0005 would fail with a duplicate column. Dropping the stray column first lets 0005
+ * add it back. Only happens while 0005 is still pending, so a normal install is never touched.
+ */
+export const PORTION_MIGRATION_TAG = '0005_nosy_saracen';
+
+export function dropStalePortionColumn(
+  conn: PragmaConnection,
+  journal: { entries: { tag: string; when: number }[] },
+  lastAppliedAt: number | null,
+): void {
+  const portion = journal.entries.find((entry) => entry.tag === PORTION_MIGRATION_TAG);
+  if (!portion || lastAppliedAt === null || lastAppliedAt >= portion.when) return;
+  const columns = conn.all('PRAGMA table_info(food_logs)') as { name: string }[];
+  if (columns.some((column) => column.name === 'portion')) {
+    conn.exec('ALTER TABLE food_logs DROP COLUMN portion');
+  }
+}

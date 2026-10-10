@@ -9,6 +9,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 
 import {
   backupThenMigrate,
+  dropStalePortionColumn,
   hasPending,
   MigrationError,
   type MigrationSteps,
@@ -388,5 +389,58 @@ describe('drizzle/migrations.js (the bundle the phone uses)', () => {
     for (const [, tag] of imports) {
       expect(fs.existsSync(path.join(MIGRATIONS_FOLDER, `${tag}.sql`))).toBe(true);
     }
+  });
+});
+
+describe('a phone that ran the earlier portion migration', () => {
+  /** The shape of that phone: migrations 0000-0003 plus a `portion` column recorded as the old 0004. */
+  function legacyDb() {
+    const sqlite = new Database(':memory:');
+    const db = drizzle(sqlite, { schema });
+    migrate(db, { migrationsFolder: firstMigrations(4) });
+    sqlite.exec('ALTER TABLE food_logs ADD portion text');
+    sqlite
+      .prepare('INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)')
+      .run('old', 1790911023719);
+    return { sqlite, db };
+  }
+  const lastApplied = (sqlite: Database.Database) =>
+    (sqlite.prepare('SELECT MAX(created_at) AS last FROM __drizzle_migrations').get() as { last: number })
+      .last;
+  const conn = (sqlite: Database.Database) => ({
+    exec: (sql: string) => void sqlite.exec(sql),
+    all: (sql: string) => sqlite.prepare(sql).all(),
+  });
+  const journal = JSON.parse(
+    fs.readFileSync(path.join(MIGRATIONS_FOLDER, 'meta', '_journal.json'), 'utf8'),
+  ) as { entries: { tag: string; when: number }[] };
+
+  it('would fail on a duplicate column without the fix', () => {
+    const { sqlite, db } = legacyDb();
+    expect(() => migrate(db, { migrationsFolder: MIGRATIONS_FOLDER })).toThrow();
+    sqlite.close();
+  });
+
+  it('migrates cleanly and ends with the portion column once the stray one is dropped', () => {
+    const { sqlite, db } = legacyDb();
+
+    dropStalePortionColumn(conn(sqlite), journal, lastApplied(sqlite));
+    migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+
+    const columns = sqlite.prepare('PRAGMA table_info(food_logs)').all() as { name: string }[];
+    expect(columns.filter((column) => column.name === 'portion')).toHaveLength(1);
+    sqlite.close();
+  });
+
+  it('leaves a fully migrated database alone', () => {
+    const { db, sqlite } = createTestDb();
+    sqlite.exec(
+      "INSERT INTO food_logs (entry_type, source, meal_name, logged_at, tz, portion) VALUES ('diary', 'text', 'Toast', '2026-09-29T08:00:00.000Z', 'UTC', 'large')",
+    );
+
+    dropStalePortionColumn(conn(sqlite), journal, lastApplied(sqlite));
+
+    expect(sqlite.prepare('SELECT portion FROM food_logs').get()).toEqual({ portion: 'large' });
+    expect(db).toBeTruthy();
   });
 });
