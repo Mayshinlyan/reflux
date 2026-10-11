@@ -1,7 +1,7 @@
 import { BadgeCheck, CircleAlert, CircleCheck, TriangleAlert } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 
-import { radius, space, verdictColors, useColors } from '@/theme';
+import { radius, verdictColors, useColors } from '@/theme';
 import type { AppVerdict } from '@/types/analysis';
 
 import { AppText } from './AppText';
@@ -31,7 +31,7 @@ export function VerdictBadge({ verdict }: { verdict: AppVerdict }) {
       style={[styles.badge, { backgroundColor: colors[bg] }]}
       accessible
       accessibilityLabel={VERDICT_LABELS[verdict]}>
-      <Icon size={14} color={colors[fg]} strokeWidth={2.4} />
+      <Icon size={16} color={colors[fg]} strokeWidth={2.4} />
       <AppText variant="label" style={{ color: colors[fg] }}>
         {VERDICT_LABELS[verdict]}
       </AppText>
@@ -44,9 +44,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: space.s1,
+    gap: 7,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderRadius: radius.pill,
   },
 });

@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { radius, space, typography, useColors } from '@/theme';
+import { radius, shadow, space, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -45,11 +45,9 @@ export function CircleActionButton({
           {
             width: size,
             height: size,
+            // Filled, no outline; the one soft-lift shadow lifts it off the page.
             backgroundColor: primary ? colors.cta : colors.surface,
-            borderColor: primary ? colors.cta : colors.hairline,
-            borderWidth: menu ? 0 : 1.5,
-            shadowColor: primary ? colors.cta : colors.ink,
-            shadowOpacity: menu ? 0.28 : primary ? 0.45 : 0.18,
+            boxShadow: shadow.softLift,
           },
         ]}>
         <Icon
@@ -58,11 +56,7 @@ export function CircleActionButton({
           strokeWidth={2.2}
         />
       </View>
-      <AppText
-        style={[
-          menu ? styles.menuLabel : styles.label,
-          menu && { backgroundColor: colors.surface, shadowColor: colors.ink },
-        ]}>
+      <AppText style={[menu ? styles.menuLabel : styles.label, menu && { backgroundColor: colors.surface }]}>
         {label}
       </AppText>
     </Pressable>
@@ -75,9 +69,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 5,
   },
   label: typography.label,
   menuLabel: {
@@ -87,9 +78,5 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: radius.pill,
     overflow: 'hidden',
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
   },
 });

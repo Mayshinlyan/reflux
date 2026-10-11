@@ -1,31 +1,38 @@
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, type LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet } from 'react-native';
 
-import { minTouchTarget, radius, space, useColors } from '@/theme';
+import { minTouchTarget, radius, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
-type Props = { label: string; value?: string; onPress: () => void };
+type Props = {
+  label: string;
+  value?: string;
+  onPress: () => void;
+  /** Optional leading icon (Figma "List row"). */
+  icon?: LucideIcon;
+  /** Red label and icon, for destructive rows; the chevron is dropped. */
+  danger?: boolean;
+};
 
-/** A tappable row on the Settings screen (the mockup's `.settings-row`). */
-export function SettingsRow({ label, value, onPress }: Props) {
+/** A tappable row on the Settings screen: a filled `surface` card, no outline. */
+export function SettingsRow({ label, value, onPress, icon: Icon, danger = false }: Props) {
   const colors = useColors();
+  const color = danger ? colors.redInk : colors.ink;
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={value ? `${label}, ${value}` : label}
-      style={({ pressed }) => [
-        styles.row,
-        { backgroundColor: colors.surface, borderColor: colors.hairline, opacity: pressed ? 0.85 : 1 },
-      ]}>
-      <AppText style={styles.label}>{label}</AppText>
+      style={({ pressed }) => [styles.row, { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 }]}>
+      {Icon && <Icon size={22} color={color} strokeWidth={2} />}
+      <AppText style={[styles.label, { color }]}>{label}</AppText>
       {value ? (
         <AppText variant="caption" color="inkSoft">
           {value}
         </AppText>
       ) : null}
-      <ChevronRight size={18} color={colors.inkSoft} strokeWidth={2} />
+      {!danger && <ChevronRight size={18} color={colors.inkSoft} strokeWidth={2} />}
     </Pressable>
   );
 }
@@ -34,12 +41,11 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.s1,
+    gap: 12,
     minHeight: Math.max(minTouchTarget, 52),
-    borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: space.s2,
-    marginBottom: space.s1,
+    paddingHorizontal: 14,
+    marginBottom: 8,
   },
   label: { flex: 1, fontSize: 16 },
 });

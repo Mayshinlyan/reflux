@@ -18,11 +18,12 @@ type Props = {
   accessibilityHint?: string;
 };
 
-const VARIANTS: Record<Variant, { bg: ColorToken; border: ColorToken; text: ColorToken }> = {
-  primary: { bg: 'cta', border: 'cta', text: 'ctaInk' },
-  secondary: { bg: 'surface', border: 'hairline', text: 'ink' },
-  danger: { bg: 'redTint', border: 'redTint', text: 'redInk' },
-  quietDanger: { bg: 'surface', border: 'surface', text: 'redInk' },
+// Filled, never outlined: secondary is a `surface2` fill, danger a `redTint` fill.
+const VARIANTS: Record<Variant, { bg: ColorToken | 'transparent'; text: ColorToken }> = {
+  primary: { bg: 'cta', text: 'ctaInk' },
+  secondary: { bg: 'surface2', text: 'ink' },
+  danger: { bg: 'redTint', text: 'redInk' },
+  quietDanger: { bg: 'transparent', text: 'redInk' },
 };
 
 export function Button({
@@ -35,7 +36,7 @@ export function Button({
 }: Props) {
   const colors = useColors();
   // Disabled buttons use the mockup's muted fill rather than fading, so the label stays readable.
-  const style = disabled ? { bg: 'surface2', border: 'surface2', text: 'inkSoft' } : VARIANTS[variant];
+  const style = disabled ? ({ bg: 'surface2', text: 'inkSoft' } as const) : VARIANTS[variant];
   return (
     <Pressable
       accessibilityRole="button"
@@ -47,13 +48,12 @@ export function Button({
       style={({ pressed }) => [
         styles.base,
         {
-          backgroundColor: colors[style.bg as ColorToken],
-          borderColor: colors[style.border as ColorToken],
+          backgroundColor: style.bg === 'transparent' ? 'transparent' : colors[style.bg],
           opacity: pressed ? 0.85 : 1,
         },
       ]}>
-      {Icon && <Icon size={18} color={colors[style.text as ColorToken]} strokeWidth={2.4} />}
-      <AppText variant="button" style={{ color: colors[style.text as ColorToken] }}>
+      {Icon && <Icon size={18} color={colors[style.text]} strokeWidth={2.4} />}
+      <AppText variant="button" style={{ color: colors[style.text] }}>
         {label}
       </AppText>
     </Pressable>
@@ -62,10 +62,10 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: Math.max(minTouchTarget, 52),
+    minHeight: Math.max(minTouchTarget, 48),
     borderRadius: radius.pill,
-    borderWidth: 1,
-    paddingHorizontal: space.s3,
+    paddingHorizontal: 22,
+    paddingVertical: 13,
     flexDirection: 'row',
     gap: space.s1,
     alignItems: 'center',

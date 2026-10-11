@@ -1,7 +1,7 @@
 import { Minus } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { minTouchTarget, radius, typography, useColors } from '@/theme';
+import { radius, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -13,14 +13,17 @@ type Props = {
   readOnly?: boolean;
   /** Shows a minus button on the chip that calls this (used to remove a symptom from a saved entry). */
   onRemove?: () => void;
+  /** Set when the chip sits inside a `surface` card: it then rests on `surface2` so it stays visible. */
+  onCard?: boolean;
 };
 
 /** A symptom you either have or don't: tap to toggle. There is no severity rating. */
-export function SymptomChip({ label, selected, onToggle, readOnly, onRemove }: Props) {
+export function SymptomChip({ label, selected, onToggle, readOnly, onRemove, onCard }: Props) {
   const colors = useColors();
-  const colorStyle = selected
-    ? { backgroundColor: colors.sageTint, borderColor: colors.sage }
-    : { backgroundColor: colors.surface, borderColor: colors.hairline };
+  // Filled, never outlined: selected = sage tint, otherwise surface (surface2 on a card).
+  const colorStyle = {
+    backgroundColor: selected ? colors.sageTint : onCard ? colors.surface2 : colors.surface,
+  };
 
   // The label and the minus are separate accessibility elements, so a screen reader can reach
   // both ("Heartburn" and the button "Remove Heartburn").
@@ -34,8 +37,11 @@ export function SymptomChip({ label, selected, onToggle, readOnly, onRemove }: P
           accessibilityRole="button"
           accessibilityLabel={`Remove ${label}`}
           onPress={onRemove}
-          hitSlop={8}
-          style={({ pressed }) => [styles.minus, { opacity: pressed ? 0.6 : 1 }]}>
+          hitSlop={10}
+          style={({ pressed }) => [
+            styles.minus,
+            { backgroundColor: colors.surface, opacity: pressed ? 0.6 : 1 },
+          ]}>
           <Minus size={16} color={colors.sageInk} strokeWidth={2.8} />
         </Pressable>
       </View>
@@ -51,7 +57,12 @@ export function SymptomChip({ label, selected, onToggle, readOnly, onRemove }: P
       } as const);
 
   return (
-    <Pressable disabled={readOnly} onPress={onToggle} {...roleProps} style={[styles.chip, colorStyle]}>
+    <Pressable
+      disabled={readOnly}
+      onPress={onToggle}
+      {...roleProps}
+      hitSlop={3}
+      style={[styles.chip, colorStyle]}>
       <AppText style={[styles.label, { color: selected ? colors.sageInk : colors.ink }]}>{label}</AppText>
     </Pressable>
   );
@@ -60,20 +71,18 @@ export function SymptomChip({ label, selected, onToggle, readOnly, onRemove }: P
 const styles = StyleSheet.create({
   chip: {
     justifyContent: 'center',
-    minHeight: minTouchTarget,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    minHeight: 38,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: radius.pill,
-    borderWidth: 1.5,
   },
-  label: { ...typography.bodyEm, fontSize: 15, lineHeight: 20 },
-  removable: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 6, paddingVertical: 6 },
+  label: { ...typography.bodyEm, fontSize: 14.5, lineHeight: 20 },
+  removable: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 4, paddingVertical: 3 },
   minus: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFFB3',
   },
 });

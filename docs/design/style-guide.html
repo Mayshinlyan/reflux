@@ -118,7 +118,7 @@
 
   /* ---------- components ---------- */
   .comp-block{
-    background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r-lg);
+    background:var(--surface); border-radius:var(--r-lg);
     padding:var(--s3); margin-bottom:var(--s2);
   }
   .comp-label{font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:14px}
@@ -127,11 +127,11 @@
   .btn{
     font-family:inherit;font-weight:700;font-size:15px;
     border-radius:var(--r-pill);padding:13px 22px;border:none;cursor:pointer;
-    display:inline-flex;align-items:center;gap:8px;min-height:44px;
+    display:inline-flex;align-items:center;gap:8px;min-height:48px;
   }
   .btn-primary{background:var(--cta);color:var(--cta-ink)}
-  .btn-secondary{background:transparent;color:var(--ink);border:1.5px solid var(--hairline)}
-  .btn-danger{background:transparent;color:var(--red-ink);border:1.5px solid var(--red)}
+  .btn-secondary{background:var(--surface-2);color:var(--ink)}
+  .btn-danger{background:var(--red-tint);color:var(--red-ink)}
 
   .badge{
     display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:13.5px;
@@ -173,12 +173,22 @@
   .device__group-label{font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:12px}
 
   .tabbar{
-    flex:none;display:flex;justify-content:space-around;align-items:center;
-    padding:10px 0 16px;background:var(--surface);border-top:1px solid var(--hairline);
+    flex:none;display:flex;gap:4px;align-items:center;height:60px;padding:8px;
+    margin:0 18px 16px;background:var(--surface);border-radius:var(--r-pill);
+    box-shadow:0 6px 16px -6px rgba(46,42,38,.18);
   }
-  .tabbar__item{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink-soft);font-size:11px;font-weight:700;background:none;border:none;font-family:inherit}
-  .tabbar__item svg{width:22px;height:22px}
-  .tabbar__item.active{color:var(--cta)}
+  .tabbar__item{flex:1;height:44px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-pill);color:var(--ink);background:none;border:none;font-family:inherit}
+  .tabbar__item svg{width:24px;height:24px}
+  .tabbar__item.active{background:var(--surface-2)}
+  .tabbar__item.log{background:var(--cta);color:var(--cta-ink)}
+  .topbar{display:flex;align-items:center;justify-content:space-between;height:44px;position:relative}
+  .topbar__btn{width:44px;height:44px;border-radius:50%;background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:center;border:none}
+  .topbar__btn svg{width:22px;height:22px}
+  .topbar__title{position:absolute;left:0;right:0;text-align:center;font-weight:700;font-size:20px;pointer-events:none}
+  .action-menu{width:232px;background:var(--surface);border-radius:var(--r-lg);padding:8px;box-shadow:0 6px 16px -6px rgba(46,42,38,.18)}
+  .action-menu__item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;font-weight:600;font-size:17px;color:var(--ink)}
+  .action-menu__item.danger{color:var(--red-ink)}
+  .action-menu__item svg{width:20px;height:20px}
   .fab{
     position:absolute;right:18px;bottom:78px;width:52px;height:52px;border-radius:50%;
     background:var(--cta);color:var(--cta-ink);display:flex;align-items:center;justify-content:center;
@@ -201,23 +211,25 @@
 
   .chip{
     display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14.5px;
-    padding:10px 16px;border-radius:var(--r-pill);border:1.5px solid var(--hairline);
-    background:var(--surface);color:var(--ink);min-height:44px;
+    padding:8px 14px;border-radius:var(--r-pill);
+    background:var(--surface);color:var(--ink);min-height:38px;
   }
-  .chip.selected{background:var(--sage-tint);border-color:var(--sage);color:var(--sage-ink)}
+  .chip.on-card{background:var(--surface-2)}
+  .chip.selected{background:var(--sage-tint);color:var(--sage-ink)}
   .chip .dots{display:flex;gap:4px;margin-left:2px}
   .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--hairline)}
   .chip .dot.on{background:var(--sage-ink)}
 
   .tag{
     display:inline-flex;align-items:center;font-weight:600;font-size:13.5px;
-    padding:8px 14px;border-radius:var(--r-pill);border:1.5px solid var(--hairline);
-    background:var(--surface);color:var(--ink-soft);
+    padding:8px 14px;border-radius:var(--r-pill);min-height:38px;
+    background:var(--surface);color:var(--ink);
   }
-  .tag.selected{background:var(--clay-tint);border-color:var(--clay);color:var(--clay-ink)}
+  .tag.on-card{background:var(--surface-2)}
+  .tag.selected{background:var(--clay-tint);color:var(--clay-ink)}
 
   .meal-card{
-    background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-lg);
+    background:var(--surface);border-radius:var(--r-lg);
     padding:0;overflow:hidden;max-width:360px;
   }
   .meal-card__photo{width:100%;aspect-ratio:16/10;display:block;background:var(--surface-2)}
@@ -231,7 +243,7 @@
   /* list view */
   .meal-row{
     display:flex;align-items:center;gap:12px;background:var(--surface);
-    border:1px solid var(--hairline);border-radius:var(--r-md);padding:10px 14px;max-width:520px;
+    border-radius:var(--r-md);padding:8px 12px;max-width:520px;
   }
   .meal-row + .meal-row{margin-top:8px}
   .meal-row__thumb{width:44px;height:44px;border-radius:var(--r-sm);flex:none;overflow:hidden;background:var(--surface-2)}
@@ -241,10 +253,9 @@
   .photo-tile{position:relative;width:100%;max-width:320px;aspect-ratio:16/10;border-radius:var(--r-lg);overflow:hidden;background:var(--surface-2)}
   .photo-tile > img{width:100%;height:100%;object-fit:cover;display:block}
   /* dropdown: one row with the current value, opening in place to the choices */
-  .select{width:100%;max-width:320px;background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-md);overflow:hidden}
+  .select{width:100%;max-width:320px;background:var(--surface);border-radius:var(--r-md);overflow:hidden}
   .select__row{display:flex;align-items:center;justify-content:space-between;min-height:52px;padding:0 14px}
-  .select__row + .select__row{border-top:1px solid var(--hairline)}
-  .select__row > svg{width:20px;height:20px;color:var(--ink-soft)}
+    .select__row > svg{width:20px;height:20px;color:var(--ink-soft)}
   .select__option{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:15px}
   .select__option svg{width:18px;height:18px}
   .select__row > svg.select__check{width:18px;height:18px}
@@ -268,12 +279,12 @@
   .stacked-actions{display:flex;gap:28px}
   .stacked-btn{font-family:inherit;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px}
   .stacked-btn .icon-circle{
-    width:58px;height:58px;border-radius:50%;background:var(--surface);border:1.5px solid var(--hairline);
+    width:58px;height:58px;border-radius:50%;background:var(--surface);
     color:var(--ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px -6px rgba(46,42,38,.18);
   }
   .stacked-btn .icon-circle svg{width:22px;height:22px}
   .stacked-btn span{font-size:13px;font-weight:700;color:var(--ink)}
-  .stacked-btn.primary .icon-circle{background:var(--cta);color:var(--cta-ink);border-color:var(--cta);box-shadow:0 8px 18px -6px rgba(178,84,58,.5)}
+  .stacked-btn.primary .icon-circle{background:var(--cta);color:var(--cta-ink)}
 
   .float-demo{position:relative;width:160px;height:160px;margin:0 auto}
   .float-avatar{width:100%;height:100%;border-radius:50%;background:var(--sage-tint);color:var(--sage-ink);display:flex;align-items:center;justify-content:center;border:none;cursor:pointer}
@@ -287,8 +298,8 @@
 
   .med-row{
     display:flex;align-items:center;justify-content:space-between;gap:12px;
-    background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-md);
-    padding:14px 16px;max-width:360px;
+    background:var(--surface);border-radius:var(--r-md);
+    padding:10px 12px;max-width:360px;
   }
   .med-row .info{display:flex;align-items:center;gap:12px}
   .med-icon{width:38px;height:38px;border-radius:var(--r-sm);background:var(--clay-tint);color:var(--clay-ink);display:flex;align-items:center;justify-content:center;flex:none}
@@ -304,7 +315,7 @@
   .icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:var(--s2)}
   .icon-cell{
     display:flex;flex-direction:column;align-items:center;gap:8px;
-    padding:16px 8px;border:1px solid var(--hairline);border-radius:var(--r-md);background:var(--surface);
+    padding:16px 8px;border-radius:var(--r-md);background:var(--surface);
   }
   .icon-cell svg{width:24px;height:24px;color:var(--ink)}
   .icon-cell span{font-size:12px;color:var(--ink-soft);text-align:center}
@@ -313,7 +324,7 @@
   .scale-row{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}
   .scale-item{display:flex;flex-direction:column;align-items:center;gap:8px}
   .space-block{background:var(--clay-tint);border-radius:4px}
-  .radius-block{background:var(--sage-tint);width:64px;height:64px;border:1.5px solid var(--sage)}
+  .radius-block{background:var(--sage-tint);width:64px;height:64px}
   .scale-item span{font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 
   footer{
@@ -491,6 +502,25 @@
             </div>
 
             <div class="device__group">
+              <div class="device__group-label">Top bar — back circle, centered title, optional circle on the right</div>
+              <div class="topbar">
+                <button class="topbar__btn" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+                <span class="topbar__title">Title</span>
+                <button class="topbar__btn" type="button" aria-label="More"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+              </div>
+              <p class="caption-s" style="margin-top:10px">44pt filled surface circles, no outline. Title is Nunito bold 20, centered on the bar.</p>
+            </div>
+
+            <div class="device__group">
+              <div class="device__group-label">Action menu — a floating card of icon + label rows</div>
+              <div class="action-menu">
+                <div class="action-menu__item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/></svg>Edit entry</div>
+                <div class="action-menu__item danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Delete entry</div>
+              </div>
+              <p class="caption-s" style="margin-top:10px">Surface card, 20 radius, soft lift shadow. Destructive rows use red ink. Hover and press fill with surface 2.</p>
+            </div>
+
+            <div class="device__group">
               <div class="device__group-label">Verdict badges</div>
               <div class="row">
                 <span class="badge badge-good">
@@ -517,7 +547,7 @@
             </div>
 
             <div class="device__group">
-              <div class="device__group-label">Symptom chip — default and selected with severity</div>
+              <div class="device__group-label">Symptom chip — default and selected (chips inside a white card use surface 2: class on-card)</div>
               <div class="row">
                 <span class="chip">Hoarse voice</span>
                 <span class="chip">Trouble swallowing</span>
@@ -702,26 +732,23 @@
           </div>
         </div>
 
-        <div class="tabbar">
-          <button class="tabbar__item active" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>
-            Today
+        <div class="tabbar" role="tablist">
+          <button class="tabbar__item log" type="button" aria-label="Log">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg>
           </button>
-          <button class="tabbar__item" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13.5" r="3.3"/></svg>
-            Check
+          <button class="tabbar__item active" type="button" role="tab" aria-selected="true" aria-label="Today">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-2.93 1.41-1.41m11.32-11.32 1.41-1.41M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41"/></svg>
           </button>
-          <button class="tabbar__item" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
-            History
+          <button class="tabbar__item" type="button" role="tab" aria-selected="false" aria-label="History">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/></svg>
           </button>
-        </div>
-        <div class="fab">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          <button class="tabbar__item" type="button" role="tab" aria-selected="false" aria-label="You">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+          </button>
         </div>
       </div>
     </div>
-    <p class="caption-s" style="text-align:center;margin-top:10px">The tab bar and add button stay fixed; the content above scrolls beneath them, same as the real app.</p>
+    <p class="caption-s" style="text-align:center;margin-top:10px">The floating tab bar stays fixed; the content above scrolls beneath it. Log is always olive; the current tab rests on surface 2.</p>
 
     <div class="verdict-detail" style="margin-top:var(--s4)">
       <div class="verdict-detail__item">
