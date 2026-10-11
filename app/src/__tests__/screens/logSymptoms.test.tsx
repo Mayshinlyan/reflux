@@ -46,12 +46,11 @@ jest.mock('@react-native-community/datetimepicker', () => ({
 
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 
-const press = async (role: 'button' | 'checkbox' | 'tab', name: string) =>
+const press = async (role: 'button' | 'checkbox', name: string) =>
   fireEvent.press(screen.getByRole(role, { name }));
 
-/** Opens an area tab and taps the given symptoms. */
-async function chooseIn(area: string, symptoms: string[]) {
-  await press('tab', area);
+/** Taps the given symptoms (every area is on the screen at once). */
+async function choose(...symptoms: string[]) {
   for (const symptom of symptoms) await press('checkbox', symptom);
 }
 
@@ -79,17 +78,15 @@ describe('Log symptoms screen: pick, then details', () => {
   it('chooses symptoms across areas, then saves them with contributors and a note', async () => {
     await render(<LogSymptomsScreen />);
 
-    // Pick: the first area is open, nothing is chosen, so Next is disabled.
+    // Pick: nothing is chosen, so Next is disabled.
     expect(screen.getByText('What are you feeling?')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Next' }).props.accessibilityState).toMatchObject({
       disabled: true,
     });
-    expect(screen.queryByText('Heartburn')).toBeNull();
 
-    await chooseIn('Chest', ['Heartburn']);
-    await chooseIn('Tummy', ['Feeling full', 'Stomach pain']);
-    // A pick survives switching areas.
-    await press('tab', 'Chest');
+    await choose('Heartburn');
+    await choose('Feeling full', 'Stomach pain');
+    // Picks from different areas are all shown as chosen.
     expect(screen.getByRole('checkbox', { name: 'Heartburn' }).props.accessibilityState).toMatchObject({
       checked: true,
     });
@@ -117,7 +114,7 @@ describe('Log symptoms screen: pick, then details', () => {
 
   it('lets you skip the contributors and the note', async () => {
     await render(<LogSymptomsScreen />);
-    await chooseIn('Throat & voice', ['Hoarse voice']);
+    await choose('Hoarse voice');
     await press('button', 'Next');
     await press('button', 'Save');
 
@@ -128,11 +125,22 @@ describe('Log symptoms screen: pick, then details', () => {
     });
   });
 
-  it('shows only the open area’s symptoms', async () => {
+  it('shows every symptom at once, grouped under its body area', async () => {
     await render(<LogSymptomsScreen />);
-    await press('tab', 'Tummy');
 
+    for (const area of ['Throat & voice', 'Chest', 'Tummy']) expect(screen.getByText(area)).toBeTruthy();
+    expect(screen.queryByRole('tab')).toBeNull();
     expect(screen.getAllByRole('checkbox').map((el) => el.props.accessibilityLabel)).toEqual([
+      'Hoarse voice',
+      'Throat clearing',
+      'Excess mucus',
+      'Trouble swallowing',
+      'Lump in throat',
+      'Heartburn',
+      'Burping',
+      'Breathing trouble',
+      'Cough after eating',
+      'Nagging cough',
       'Stomach pain',
       'Feeling full',
       'Constipation',
@@ -141,7 +149,7 @@ describe('Log symptoms screen: pick, then details', () => {
 
   it('goes back to the picks without leaving, keeping what was chosen', async () => {
     await render(<LogSymptomsScreen />);
-    await chooseIn('Chest', ['Heartburn']);
+    await choose('Heartburn');
     await press('button', 'Next');
     await press('checkbox', 'Stress');
     await fireEvent.changeText(screen.getByLabelText('Note'), 'kept');
@@ -166,7 +174,7 @@ describe('Log symptoms screen: the meal they followed', () => {
   const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
   const toDetails = async () => {
-    await chooseIn('Chest', ['Heartburn']);
+    await choose('Heartburn');
     await press('button', 'Next');
   };
 
@@ -237,7 +245,7 @@ describe('Log symptoms screen: editing', () => {
     mockParams = { id: String(id) };
     await render(<LogSymptomsScreen />);
 
-    // Opens on the entry's own area, with its symptom already chosen.
+    // Opens with the entry's symptom already chosen.
     expect(screen.getByRole('checkbox', { name: 'Nagging cough' }).props.accessibilityState).toMatchObject({
       checked: true,
     });
@@ -323,7 +331,7 @@ describe('Log symptoms screen: logging on an earlier day (from the week strip)',
   };
 
   const saveHeartburn = async () => {
-    await chooseIn('Chest', ['Heartburn']);
+    await choose('Heartburn');
     await press('button', 'Next');
     await press('button', 'Save');
   };
@@ -332,7 +340,7 @@ describe('Log symptoms screen: logging on an earlier day (from the week strip)',
     const earlier = day(2);
     mockParams = { date: earlier.key };
     await render(<LogSymptomsScreen />);
-    await chooseIn('Chest', ['Heartburn']);
+    await choose('Heartburn');
     await press('button', 'Next');
     expect(screen.getByText(/12:00 PM$/)).toBeTruthy();
     await press('button', 'Save');

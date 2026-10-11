@@ -24,7 +24,7 @@ import { TimePill } from '@/components/TimePill';
 import { TimelineItem } from '@/components/TimelineItem';
 import { useToast } from '@/components/Toast';
 import { VerdictBadge } from '@/components/VerdictBadge';
-import { BODY_ZONES, type ZoneKey, zoneLabel, zoneSymptoms } from '@/constants/bodyZones';
+import { BODY_ZONES } from '@/constants/bodyZones';
 import { LIFESTYLE_TAGS, type LifestyleTagKey } from '@/constants/lifestyleTags';
 import { SYMPTOM_ITEMS, type SymptomKey } from '@/constants/symptomItems';
 import { useDb } from '@/db/DatabaseProvider';
@@ -55,7 +55,7 @@ export function symptomsTitle(labels: string[]): string {
 }
 
 /**
- * Symptom log in two steps: (1) choose an area, then tap what applies, (2) details: when, what might have
+ * Symptom log in two steps: (1) tap what applies, grouped by body area, (2) details: when, what might have
  * contributed, the meal it followed and a note. With `?id=`, edits that entry.
  */
 export default function LogSymptomsScreen() {
@@ -101,10 +101,6 @@ export default function LogSymptomsScreen() {
   /** The meal the user unlinked, so a different meal (after a time change) starts linked again. */
   const [unlinkedId, setUnlinkedId] = useState<number | null>(null);
   const [step, setStep] = useState(1);
-  const [zone, setZone] = useState<ZoneKey>(() => {
-    const first = existing?.items[0]?.key;
-    return BODY_ZONES.find((z) => first && z.symptoms.includes(first))?.key ?? BODY_ZONES[0].key;
-  });
   const scroll = useRef<ScrollView>(null);
 
   const goBack = useCallback(() => {
@@ -234,32 +230,23 @@ export default function LogSymptomsScreen() {
                   What are you feeling?
                 </AppText>
                 <AppText color="inkSoft" style={styles.subtitle}>
-                  Choose an area, then tap what applies.
+                  Tap everything that applies.
                 </AppText>
-                <View accessibilityRole="tablist" style={styles.chips}>
-                  {BODY_ZONES.map((z) => (
-                    <TagChip
-                      key={z.key}
-                      role="filter"
-                      label={z.label}
-                      selected={zone === z.key}
-                      onPress={() => setZone(z.key)}
-                    />
-                  ))}
-                </View>
-                <View style={styles.section}>
-                  <AppText variant="section">{zoneLabel(zone)}</AppText>
-                  <View style={styles.chips}>
-                    {zoneSymptoms(zone).map((key) => (
-                      <SymptomChip
-                        key={key}
-                        label={symptomLabel(key)}
-                        selected={selected.has(key)}
-                        onToggle={() => toggleSymptom(key)}
-                      />
-                    ))}
+                {BODY_ZONES.map((z) => (
+                  <View key={z.key} style={styles.section}>
+                    <AppText variant="section">{z.label}</AppText>
+                    <View style={styles.chips}>
+                      {z.symptoms.map((key) => (
+                        <SymptomChip
+                          key={key}
+                          label={symptomLabel(key)}
+                          selected={selected.has(key)}
+                          onToggle={() => toggleSymptom(key)}
+                        />
+                      ))}
+                    </View>
                   </View>
-                </View>
+                ))}
               </>
             ) : (
               <>
