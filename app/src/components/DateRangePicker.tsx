@@ -114,7 +114,8 @@ function PickerBody({ firstDayKey, todayKey, counts, initial, onApply, onClose }
         <View style={styles.reset}>
           <Button label="Reset" variant="secondary" onPress={() => setSelection(EMPTY_SELECTION)} />
         </View>
-        <View style={styles.apply}>
+        {/* No width: like Figma, the button is only as wide as its text, pushed to the right. */}
+        <View>
           <Button label={applyLabel} disabled={!period} onPress={() => period && onApply(period)} />
         </View>
       </View>
@@ -221,7 +222,8 @@ const styles = StyleSheet.create({
   weekdays: { flexDirection: 'row', marginTop: space.s1 },
   weekday: { flex: 1, textAlign: 'center' },
   months: { paddingBottom: space.s2 },
-  monthTitle: { paddingTop: 12, paddingBottom: space.s1 },
+  // Room above each title: under the weekday row and between months, so a month never runs into the next one.
+  monthTitle: { paddingTop: 40, paddingBottom: 12 },
   week: { flexDirection: 'row' },
   cell: { flex: 1, height: CELL_HEIGHT, alignItems: 'center', justifyContent: 'center' },
   future: { opacity: 0.35 },
@@ -229,7 +231,6 @@ const styles = StyleSheet.create({
   circle: { position: 'absolute', width: 40, height: 40, borderRadius: radius.pill },
   date: { fontSize: 17, lineHeight: 24 },
   dot: { position: 'absolute', bottom: 7, width: 5, height: 5, borderRadius: 3 },
-  footer: { flexDirection: 'row', gap: 12, paddingTop: space.s2 },
+  footer: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingTop: space.s2 },
   reset: { width: 112 },
-  apply: { flex: 1 },
 });
