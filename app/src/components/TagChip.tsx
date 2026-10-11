@@ -17,14 +17,17 @@ type Props = {
   readOnly?: boolean;
   /** Shows a minus button on the chip that calls this (used to remove a tag from a saved entry). */
   onRemove?: () => void;
+  /** Set when the tag sits inside a `surface` card: it then rests on `surface2` so it stays visible. */
+  onCard?: boolean;
 };
 
 /** Small pill for lifestyle tags and filter rows. Selected = clay tint, per the style guide. */
-export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, onRemove }: Props) {
+export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, onRemove, onCard }: Props) {
   const colors = useColors();
-  const colorStyle = selected
-    ? { backgroundColor: colors.clayTint, borderColor: colors.clay }
-    : { backgroundColor: colors.surface, borderColor: colors.hairline };
+  // Filled, never outlined: selected = clay tint, otherwise surface (surface2 on a card).
+  const colorStyle = {
+    backgroundColor: selected ? colors.clayTint : onCard ? colors.surface2 : colors.surface,
+  };
 
   // The label and the minus are separate accessibility elements, so a screen reader can reach
   // both ("Stress" and the button "Remove Stress").
@@ -38,8 +41,11 @@ export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, o
           accessibilityRole="button"
           accessibilityLabel={`Remove ${label}`}
           onPress={onRemove}
-          hitSlop={8}
-          style={({ pressed }) => [styles.minus, { opacity: pressed ? 0.6 : 1 }]}>
+          hitSlop={10}
+          style={({ pressed }) => [
+            styles.minus,
+            { backgroundColor: colors.surface, opacity: pressed ? 0.6 : 1 },
+          ]}>
           <Minus size={16} color={colors.clayInk} strokeWidth={2.8} />
         </Pressable>
       </View>
@@ -58,9 +64,7 @@ export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, o
       }
       hitSlop={4}
       style={[styles.tag, colorStyle]}>
-      <AppText
-        numberOfLines={1}
-        style={[styles.label, { color: selected ? colors.clayInk : colors.inkSoft }]}>
+      <AppText numberOfLines={1} style={[styles.label, { color: selected ? colors.clayInk : colors.ink }]}>
         {label}
       </AppText>
     </Pressable>
@@ -71,21 +75,20 @@ const styles = StyleSheet.create({
   tag: {
     // A long name stays one line and ends in "…" instead of growing into a tall pill.
     maxWidth: '100%',
-    minHeight: 40,
+    minHeight: 38,
     justifyContent: 'center',
     paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: radius.pill,
-    borderWidth: 1.5,
   },
   label: { ...typography.label, fontSize: 14, fontFamily: typography.bodyEm.fontFamily },
   // Same size as the removable symptom chips so the two rows line up.
-  removable: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 6, paddingVertical: 6 },
+  removable: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 4, paddingVertical: 3 },
   minus: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFFB3',
   },
 });

@@ -26,10 +26,10 @@ export function PortionSelect({ value, onChange }: { value: Portion; onChange: (
       <AppText variant="label" color="inkSoft" style={styles.label}>
         Portion
       </AppText>
-      <View style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+      <View style={[styles.box, { backgroundColor: colors.surface }]}>
         {open ? (
           <View accessibilityRole="radiogroup" accessibilityLabel="Portion">
-            {CHOICES.map((choice, index) => (
+            {CHOICES.map((choice) => (
               <Pressable
                 key={choice.value}
                 accessibilityRole="radio"
@@ -39,7 +39,7 @@ export function PortionSelect({ value, onChange }: { value: Portion; onChange: (
                   onChange(choice.value);
                   setOpen(false);
                 }}
-                style={[styles.row, index > 0 && { borderTopWidth: 1, borderTopColor: colors.hairline }]}>
+                style={styles.row}>
                 <AppText style={[styles.optionText, { color: colors.ink }]}>{choice.label}</AppText>
                 {choice.value === value && <Check size={18} color={colors.inkSoft} strokeWidth={2.4} />}
               </Pressable>
@@ -64,7 +64,7 @@ export function PortionSelect({ value, onChange }: { value: Portion; onChange: (
 const styles = StyleSheet.create({
   wrap: { marginBottom: space.s2 },
   label: { marginBottom: space.s1 },
-  box: { borderWidth: 1, borderRadius: radius.md, overflow: 'hidden' },
+  box: { borderRadius: radius.md, overflow: 'hidden' },
   row: {
     minHeight: Math.max(minTouchTarget, 52),
     paddingHorizontal: 14,

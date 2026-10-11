@@ -294,8 +294,8 @@ describe('History: symptom entry', () => {
 
     // Filled terracotta, like the app's other primary buttons, and clearly labelled.
     expect(backgroundOf('Edit entry')).toBe(lightColors.cta);
-    // Delete does not compete with it: no tinted fill, just red text on the sheet.
-    expect(backgroundOf('Delete')).toBe(lightColors.surface);
+    // Delete does not compete with it: no fill at all, just red text on the sheet.
+    expect(backgroundOf('Delete')).toBe('transparent');
   });
 });
 

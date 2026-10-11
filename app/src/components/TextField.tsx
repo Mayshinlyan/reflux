@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { StyleSheet, TextInput, type TextInputProps, View } from 'react-native';
 
 import { radius, space, typography, useColors } from '@/theme';
@@ -28,7 +28,9 @@ type Props = Pick<
 /** A labelled single-line text input in the app's style (the mockup's `.field-label` + input). */
 export function TextField({ label, hint, hideLabel = false, accessory, ...input }: Props) {
   const colors = useColors();
-  const box = { backgroundColor: colors.surface, borderColor: colors.hairline };
+  const [focused, setFocused] = useState(false);
+  // Filled, no outline; the focused ring is the one functional stroke.
+  const box = { backgroundColor: colors.surface, borderColor: focused ? colors.clay : 'transparent' };
   return (
     <View style={styles.wrap}>
       {!hideLabel && (
@@ -39,6 +41,8 @@ export function TextField({ label, hint, hideLabel = false, accessory, ...input 
       <View style={[styles.box, box]}>
         <TextInput
           {...input}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           accessibilityLabel={label}
           placeholderTextColor={colors.inkSoft}
           style={[styles.input, input.multiline && styles.multiline, { color: colors.ink }]}
@@ -51,15 +55,15 @@ export function TextField({ label, hint, hideLabel = false, accessory, ...input 
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: space.s2 },
-  label: { marginBottom: space.s1 },
-  box: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: radius.md },
+  label: { marginBottom: 6 },
+  box: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: radius.md },
   input: {
     ...typography.body,
-    fontSize: 16,
+    fontSize: 15,
     flex: 1,
-    minHeight: 52,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    minHeight: 50,
+    paddingHorizontal: 12.5,
+    paddingVertical: 11.5,
   },
   multiline: { minHeight: 88, textAlignVertical: 'top' },
   accessory: { flexDirection: 'row', alignItems: 'center', paddingRight: 4 },

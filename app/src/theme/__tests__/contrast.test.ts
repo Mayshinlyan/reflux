@@ -27,6 +27,14 @@ const PAIRS: [text: keyof Palette, background: keyof Palette][] = [
   ['honeyInk', 'honeyTint'],
   ['redInk', 'redTint'],
   ['ctaInk', 'cta'],
+  // Filled, outline-free components put these on each other.
+  ['ink', 'clayTint'],
+  ['ink', 'sageTint'],
+  ['goodInk', 'goodTint'],
+  ['redInk', 'surface'],
+  ['redInk', 'surface2'],
+  ['clayInk', 'surface'],
+  ['sageInk', 'surface'],
 ];
 
 describe.each([
