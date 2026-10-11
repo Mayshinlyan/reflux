@@ -1,6 +1,8 @@
 import { TRIGGER_LABELS } from '@/constants/triggerLabels';
 import type { MealAnalysis } from '@/types/analysis';
 
+import { plainText } from './plainText';
+
 const MAX_REASONS = 4;
 
 /**
@@ -8,7 +10,7 @@ const MAX_REASONS = 4;
  * the meal is late. Falls back to the first item's reasoning if the overall one is empty.
  */
 export function verdictReasons(analysis: MealAnalysis, { late }: { late: boolean }): string[] {
-  const text = analysis.overall.reasoning.trim() || analysis.items[0]?.reasoning.trim() || '';
+  const text = plainText(analysis.overall.reasoning.trim() || analysis.items[0]?.reasoning.trim() || '');
   const sentences = (text.match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g) ?? [])
     .map((sentence) => sentence.trim())
     .filter(Boolean);

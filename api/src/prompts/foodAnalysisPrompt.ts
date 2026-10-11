@@ -1,7 +1,7 @@
 import { CATEGORIES, ruleset } from '../config/ruleset.js';
 import type { Portion } from '../schemas.js';
 
-export const PROMPT_VERSION = 'food-analysis-v4';
+export const PROMPT_VERSION = 'food-analysis-v5';
 export const TOOL_NAME = 'report_meal_analysis';
 
 function rulesetSection(): string {
@@ -35,6 +35,7 @@ Rules:
 - For a photo, describe only what is visibly food or drink. If the image has no food or drink, treat it as not food.
 - Never give medication, supplement, dosing or treatment advice, and never diagnose. Only talk about foods and the ruleset categories.
 - Use only category names from the ruleset. Do not invent categories. Evidence must quote a concrete ingredient or preparation from the meal.
+- The category names are internal codes for the category field only. In every text field (meal name, item and overall reasoning, evidence) write plain words instead, such as "large portion" or "high fat", and never a code with underscores.
 - Keep it short: at most 8 items, item reasoning under 300 characters, overall reasoning under 400 characters. Plain text only, no markdown.
 - Ingredients: list the main ingredients only, usually 3 to 6 and at most 8 per item. Include an ingredient when it is a prominent part of the item, or when it matches a ruleset category even in a small amount (for example garlic, chili, tomato, mint, coffee, citrus, cream, fried batter). Skip trace items such as salt, water, cooking oil and small garnishes unless they are the trigger. Always list every ingredient that matches a category, even if that goes past 8, because your reasoning cites it. Put the category-matching ingredients first, then the rest by prominence.
 - When you are guessing the ingredients of a described dish or a photo, do not pad the list with more guesses: keep it short and set confidence to low.

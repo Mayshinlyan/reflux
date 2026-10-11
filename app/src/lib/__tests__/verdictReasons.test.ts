@@ -16,6 +16,15 @@ const analysis = (reasoning: string, categories: ('spicy' | 'acidic')[][] = []):
 });
 
 describe('verdictReasons', () => {
+  it('never shows an internal trigger code', () => {
+    const reasons = verdictReasons(
+      analysis('A large portion could add a large_portion effect. Cheese brings high_fat.'),
+      { late: false },
+    );
+
+    expect(reasons).toEqual(['A large portion could add a large portion effect.', 'Cheese brings high-fat.']);
+  });
+
   it('splits the overall reasoning into sentences', () => {
     expect(verdictReasons(analysis('Chili can irritate. Salsa is acidic.'), { late: false })).toEqual([
       'Chili can irritate.',
