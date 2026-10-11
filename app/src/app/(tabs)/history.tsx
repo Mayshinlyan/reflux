@@ -174,7 +174,8 @@ export default function HistoryScreen() {
               />
               <RangeStepper
                 label={label}
-                onPressLabel={openCalendar}
+                // A week or month moves only with the arrows; the calendar opens from all time or a picked range.
+                onPressLabel={stepping ? undefined : openCalendar}
                 arrows={stepping}
                 unit={kind === 'month' ? 'month' : 'week'}
                 canBack={period.startKey > firstDay}

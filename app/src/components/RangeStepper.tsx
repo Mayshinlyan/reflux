@@ -6,9 +6,10 @@ import { radius, useColors } from '@/theme';
 import { AppText } from './AppText';
 
 type Props = {
-  /** The dates shown, e.g. "Oct 4 – 10". Tapping it opens the calendar. */
+  /** The dates shown, e.g. "Oct 4 – 10". */
   label: string;
-  onPressLabel: () => void;
+  /** Makes the dates a button that opens the calendar. Leave it out and they are plain text. */
+  onPressLabel?: () => void;
   /** Hide both arrows, for all time and a range picked by hand. */
   arrows?: boolean;
   onBack?: () => void;
@@ -22,7 +23,7 @@ type Props = {
 
 const SIZE = 32;
 
-/** Figma "Range stepper": `‹ Oct 4 – 10 ›` on a `surface` pill. The arrows step, the dates open the calendar. */
+/** Figma "Range stepper": `‹ Oct 4 – 10 ›` on a `surface` pill. The arrows step; the dates open the calendar only if asked to. */
 export function RangeStepper({
   label,
   onPressLabel,
@@ -53,14 +54,21 @@ export function RangeStepper({
           <ChevronLeft size={20} color={colors.ink} strokeWidth={2.2} />
         </Pressable>
       )}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityHint="Opens the calendar to pick dates"
-        onPress={onPressLabel}
-        style={styles.label}>
-        <AppText variant="label">{label}</AppText>
-      </Pressable>
+      {onPressLabel ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          accessibilityHint="Opens the calendar to pick dates"
+          onPress={onPressLabel}
+          style={styles.label}>
+          <AppText variant="label">{label}</AppText>
+        </Pressable>
+      ) : (
+        // A week or month changes only with the arrows, so its dates are plain text.
+        <View style={styles.label}>
+          <AppText variant="label">{label}</AppText>
+        </View>
+      )}
       {arrows && (
         <Pressable
           accessibilityRole="button"

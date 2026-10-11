@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   type CalendarMonth,
@@ -18,7 +19,6 @@ import { fontFamily, radius, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { Button } from './Button';
-import { Screen } from './Screen';
 import { TopBar } from './TopBar';
 
 type Props = {
@@ -53,6 +53,7 @@ export function DateRangePicker(props: Props) {
 
 function PickerBody({ firstDayKey, todayKey, counts, initial, onApply, onClose }: Props) {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const [selection, setSelection] = useState<Selection>(
     initial ? { start: initial.startKey, end: initial.endKey } : EMPTY_SELECTION,
   );
@@ -65,7 +66,16 @@ function PickerBody({ firstDayKey, todayKey, counts, initial, onApply, onClose }
   const applyLabel = period ? `See ${total} ${total === 1 ? 'entry' : 'entries'}` : 'See entries';
 
   return (
-    <Screen>
+    // Not `Screen`: inside a Modal its safe-area view reports no insets, which put the top bar under the camera.
+    <View
+      style={[
+        styles.page,
+        {
+          backgroundColor: colors.bg,
+          paddingTop: insets.top + space.s2,
+          paddingBottom: Math.max(insets.bottom, space.s2),
+        },
+      ]}>
       <TopBar close title="Select dates" onBack={onClose} />
       <View style={styles.weekdays}>
         {WEEKDAYS.map((letter, index) => (
@@ -108,7 +118,7 @@ function PickerBody({ firstDayKey, todayKey, counts, initial, onApply, onClose }
           <Button label={applyLabel} disabled={!period} onPress={() => period && onApply(period)} />
         </View>
       </View>
-    </Screen>
+    </View>
   );
 }
 
@@ -207,6 +217,7 @@ function Day({
 }
 
 const styles = StyleSheet.create({
+  page: { flex: 1, paddingHorizontal: space.s3 },
   weekdays: { flexDirection: 'row', marginTop: space.s1 },
   weekday: { flex: 1, textAlign: 'center' },
   months: { paddingBottom: space.s2 },

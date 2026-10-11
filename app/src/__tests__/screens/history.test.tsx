@@ -131,7 +131,20 @@ describe('History: the week', () => {
     await render(<HistoryScreen />);
 
     expect(screen.getByRole('tab', { name: 'Week' }).props.accessibilityState.selected).toBe(true);
-    expect(screen.getByRole('button', { name: 'Oct 4 – 10' })).toBeTruthy();
+    expect(screen.getByText('Oct 4 – 10')).toBeTruthy();
+  });
+
+  it('keeps the dates of a week or month as plain text, moved only by the arrows', async () => {
+    await render(<HistoryScreen />);
+
+    expect(screen.queryByRole('button', { name: 'Oct 4 – 10' })).toBeNull();
+    await fireEvent.press(screen.getByText('Oct 4 – 10'));
+    expect(screen.queryByRole('header', { name: 'Select dates' })).toBeNull();
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
+    expect(screen.queryByRole('button', { name: 'October' })).toBeNull();
+    await fireEvent.press(screen.getByText('October'));
+    expect(screen.queryByRole('header', { name: 'Select dates' })).toBeNull();
   });
 
   it('shows a verdict badge on a meal row, in the new words', async () => {
@@ -246,14 +259,14 @@ describe('History: stepping through weeks and months', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Previous week' }));
 
-    expect(screen.getByRole('button', { name: 'Sep 27 – Oct 3' })).toBeTruthy();
+    expect(screen.getByText('Sep 27 – Oct 3')).toBeTruthy();
     expect(screen.getByText('Old pasta')).toBeTruthy();
     expect(screen.queryByText('Spicy chicken tacos')).toBeNull();
     expect(screen.getByText('1 meal')).toBeTruthy();
     expect(screen.getByText('Thursday, Oct 1')).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Next week' }));
-    expect(screen.getByRole('button', { name: 'Oct 4 – 10' })).toBeTruthy();
+    expect(screen.getByText('Oct 4 – 10')).toBeTruthy();
     expect(screen.getByText('Spicy chicken tacos')).toBeTruthy();
   });
 
@@ -290,12 +303,12 @@ describe('History: stepping through weeks and months', () => {
 
     await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
 
-    expect(screen.getByRole('button', { name: 'October' })).toBeTruthy();
+    expect(screen.getByText('October')).toBeTruthy();
     // The list renders in batches, so the month is checked by its numbers: last week's meal is in it too.
     expect(screen.getByText('5 meals')).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Previous month' }));
-    expect(screen.getByRole('button', { name: 'September' })).toBeTruthy();
+    expect(screen.getByText('September')).toBeTruthy();
     expect(screen.getByText('September lunch')).toBeTruthy();
     expect(screen.getByText('1 meal')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Previous month' }).props.accessibilityState.disabled).toBe(
@@ -309,7 +322,7 @@ describe('History: stepping through weeks and months', () => {
     await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
     await fireEvent.press(screen.getByRole('tab', { name: 'Week' }));
 
-    expect(screen.getByRole('button', { name: 'Oct 4 – 10' })).toBeTruthy();
+    expect(screen.getByText('Oct 4 – 10')).toBeTruthy();
   });
 
   it('names the three segments for a screen reader: Week, Month and All time', async () => {
@@ -348,7 +361,11 @@ describe('History: all time', () => {
 });
 
 describe('History: the calendar', () => {
-  const openCalendar = async () => fireEvent.press(screen.getByRole('button', { name: 'Oct 4 – 10' }));
+  // The calendar opens from the dates of all time (or of a range picked by hand), not of a week or month.
+  const openCalendar = async () => {
+    await fireEvent.press(screen.getByRole('tab', { name: 'All time' }));
+    await fireEvent.press(screen.getByHintText('Opens the calendar to pick dates'));
+  };
 
   it('opens when the dates are tapped, naming the entries on each day', async () => {
     seedWeek();
@@ -440,9 +457,10 @@ describe('History: the calendar', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'October 8, 2 entries' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
 
+    // Still on all time, with the dates unchanged.
     expect(screen.queryByRole('header', { name: 'Select dates' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Oct 4 – 10' })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: 'Week' }).props.accessibilityState.selected).toBe(true);
+    expect(screen.getByRole('button', { name: 'Oct 1 – 10' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'All time' }).props.accessibilityState.selected).toBe(true);
   });
 
   it('opens on the range already picked, and can be re-picked from there', async () => {
