@@ -2,51 +2,63 @@ import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AccessibilityInfo,
   Alert,
   BackHandler,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
-import { BodyMap } from '@/components/BodyMap';
 import { Button } from '@/components/Button';
+import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
-import { StepTracker } from '@/components/StepTracker';
 import { SwipeNav } from '@/components/SwipeNav';
 import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
+import { TextField } from '@/components/TextField';
+import { TimePill } from '@/components/TimePill';
+import { TimelineItem } from '@/components/TimelineItem';
 import { useToast } from '@/components/Toast';
-import { BODY_ZONES, type ZoneKey, zoneLabel, zoneSymptoms } from '@/constants/bodyZones';
+import { VerdictBadge } from '@/components/VerdictBadge';
+import { BODY_ZONES } from '@/constants/bodyZones';
 import { LIFESTYLE_TAGS, type LifestyleTagKey } from '@/constants/lifestyleTags';
 import { SYMPTOM_ITEMS, type SymptomKey } from '@/constants/symptomItems';
 import { useDb } from '@/db/DatabaseProvider';
-import { getFoodLog } from '@/db/repositories/food';
+import { getFoodLog, listDiaryFoodLogs, type StoredFoodLog } from '@/db/repositories/food';
 import { createSymptomLog, getSymptomLog, updateSymptomLog } from '@/db/repositories/symptoms';
 import { playChing } from '@/lib/ching';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { symptomsSwipe } from '@/lib/logSwipe';
-import { dayToLoggedAt } from '@/lib/mealTime';
+import { dayToLoggedAt, formatClockTime, formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
-import { radius, space, typography, useColors } from '@/theme';
+import { space } from '@/theme';
 
 const MAX_NOTE_LENGTH = 1000;
-const TOTAL_STEPS = 3;
-const STEP_CAPTIONS = ['Where it bothers you', 'Anything else', 'Add a note'] as const;
+/** A meal this recent before the symptoms is offered as the one they followed. */
+const LINK_WINDOW_MS = 3 * 60 * 60 * 1000;
+
+const symptomLabel = (key: SymptomKey) => SYMPTOM_ITEMS.find((item) => item.key === key)?.label ?? key;
+
+/** "Heartburn", "Heartburn and burping", "Heartburn, burping and 2 more". */
+export function symptomsTitle(labels: string[]): string {
+  if (labels.length === 0) return 'Symptoms';
+  const lower = (label: string) => label.charAt(0).toLowerCase() + label.slice(1);
+  if (labels.length === 1) return labels[0];
+  if (labels.length === 2) return `${labels[0]} and ${lower(labels[1])}`;
+  const more = labels.length - 2;
+  return `${labels[0]}, ${lower(labels[1])} and ${more} more`;
+}
 
 /**
- * Symptom log in three short steps: (1) tap the body area and choose symptoms, (2) tag
- * anything else going on, (3) an optional note, then save. With `?id=`, edits that entry.
+ * Symptom log in two steps: (1) tap what applies, grouped by body area, (2) details: when, what might have
+ * contributed, the meal it followed and a note. With `?id=`, edits that entry.
  */
 export default function LogSymptomsScreen() {
-  const colors = useColors();
   const db = useDb();
   const toast = useToast();
   const navigation = useNavigation();
@@ -64,13 +76,12 @@ export default function LogSymptomsScreen() {
     }
   }, [db, editingId]);
 
-  // Set when opened from the "Any symptoms?" question: these symptoms followed that meal.
+  // Set when opened with ?afterFood=: these symptoms followed that meal.
   const afterMeal = useMemo(() => {
     const id = params.afterFood ? Number(params.afterFood) : NaN;
     if (editingId !== undefined || !Number.isInteger(id)) return undefined;
     try {
-      const meal = getFoodLog(db, id);
-      return meal ? { id: meal.id, name: meal.mealName } : undefined;
+      return getFoodLog(db, id);
     } catch (error) {
       // The symptoms can still be logged, just without the link.
       logger.error('getFoodLog', error);
@@ -78,42 +89,39 @@ export default function LogSymptomsScreen() {
     }
   }, [db, params.afterFood, editingId]);
 
-  // Set when opened from a day in the week strip: the entry is saved on that earlier day, at noon.
-  const loggedAt = useMemo(
-    () => (editingId === undefined && params.date ? dayToLoggedAt(params.date, new Date()) : null),
-    [editingId, params.date],
-  );
-
   const [selected, setSelected] = useState<Set<SymptomKey>>(() => new Set(existing?.items.map((i) => i.key)));
   const [tags, setTags] = useState<Set<LifestyleTagKey>>(() => new Set(existing?.tags ?? []));
   const [note, setNote] = useState(existing?.notes ?? '');
+  /** When it started. Null means "now, as of saving"; a week-strip day starts at noon of that day. */
+  const [at, setAt] = useState<Date | null>(() => {
+    if (existing) return new Date(existing.loggedAt);
+    return params.date ? dayToLoggedAt(params.date, new Date()) : null;
+  });
+  const [timeOpen, setTimeOpen] = useState(false);
+  /** The meal the user unlinked, so a different meal (after a time change) starts linked again. */
+  const [unlinkedId, setUnlinkedId] = useState<number | null>(null);
   const [step, setStep] = useState(1);
-  /** The body area whose symptom list is open (instead of the step content), if any. */
-  const [zone, setZone] = useState<ZoneKey | null>(null);
   const scroll = useRef<ScrollView>(null);
 
-  const inner = zone !== null || step > 1;
-
   const goBack = useCallback(() => {
-    if (zone !== null) setZone(null);
-    else if (step > 1) setStep(step - 1);
+    if (step > 1) setStep(step - 1);
     else router.back();
-  }, [zone, step]);
+  }, [step]);
 
-  // Back walks through the inner steps first, so leaving never drops a half-finished log by accident.
+  // Back walks to the first step before leaving, so a half-finished log isn't dropped by accident.
   useFocusEffect(
     useCallback(() => {
       const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-        if (!inner) return false;
+        if (step === 1) return false;
         goBack();
         return true;
       });
       return () => subscription.remove();
-    }, [inner, goBack]),
+    }, [step, goBack]),
   );
   useEffect(() => {
-    navigation.setOptions({ gestureEnabled: !inner });
-  }, [navigation, inner]);
+    navigation.setOptions({ gestureEnabled: step === 1 });
+  }, [navigation, step]);
 
   const firstRender = useRef(true);
   useEffect(() => {
@@ -122,27 +130,37 @@ export default function LogSymptomsScreen() {
       return;
     }
     scroll.current?.scrollTo({ y: 0, animated: false });
-    if (zone === null) {
-      AccessibilityInfo.announceForAccessibility(
-        `Step ${step} of ${TOTAL_STEPS}. ${STEP_CAPTIONS[step - 1] ?? ''}`,
-      );
-    }
-  }, [step, zone]);
+  }, [step]);
 
-  const counts = useMemo(
-    () =>
-      Object.fromEntries(
-        BODY_ZONES.map((z) => [z.key, z.symptoms.filter((key) => selected.has(key)).length]),
-      ) as Record<ZoneKey, number>,
-    [selected],
-  );
+  // Keep the canonical symptom order rather than tap order.
+  const picked = useMemo(() => SYMPTOM_ITEMS.filter((item) => selected.has(item.key)), [selected]);
+
+  // The meal these symptoms followed: the one named in the link, else the latest one just before them.
+  const [openedAt] = useState(() => Date.now());
+  const atTime = at?.getTime() ?? null;
+  const candidate = useMemo<StoredFoodLog | undefined>(() => {
+    if (editingId !== undefined) return undefined;
+    if (afterMeal) return afterMeal;
+    const end = atTime ?? openedAt;
+    try {
+      const meals = listDiaryFoodLogs(db, {
+        from: new Date(end - LINK_WINDOW_MS).toISOString(),
+        to: new Date(end + 1).toISOString(),
+      });
+      return meals[meals.length - 1];
+    } catch (error) {
+      logger.error('listDiaryFoodLogs', error);
+      return undefined;
+    }
+  }, [db, editingId, afterMeal, atTime, openedAt]);
+  const unlinked = candidate !== undefined && candidate.id === unlinkedId;
+  const linked = candidate && !unlinked ? candidate : undefined;
 
   const toggleSymptom = (key: SymptomKey) => {
     Haptics.selectionAsync().catch(() => {});
     setSelected((current) => {
       const next = new Set(current);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (!next.delete(key)) next.add(key);
       return next;
     });
   };
@@ -150,20 +168,24 @@ export default function LogSymptomsScreen() {
   const toggleTag = (key: LifestyleTagKey) =>
     setTags((current) => {
       const next = new Set(current);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (!next.delete(key)) next.add(key);
       return next;
     });
 
+  const pickTime = () => {
+    if (Platform.OS === 'android') pickTimeAndroid(at ?? new Date(), setAt);
+    else setTimeOpen(true);
+  };
+
   const save = () => {
-    // Keep the canonical symptom order rather than tap order.
-    const items = SYMPTOM_ITEMS.filter((item) => selected.has(item.key)).map((item) => ({ key: item.key }));
+    // An entry being edited keeps its time (and time zone) unless the time pill was used.
+    const timeChanged = at !== null && !(existing && at.getTime() === new Date(existing.loggedAt).getTime());
     const input = {
-      items,
+      items: picked.map((item) => ({ key: item.key })),
       tags: [...tags],
       notes: note,
-      foodLogId: afterMeal?.id,
-      ...(loggedAt ? { loggedAt: loggedAt.toISOString(), tz: currentTimeZone() } : {}),
+      foodLogId: linked?.id,
+      ...(timeChanged && at ? { loggedAt: at.toISOString(), tz: currentTimeZone() } : {}),
     };
     try {
       if (editingId !== undefined) updateSymptomLog(db, editingId, input);
@@ -179,153 +201,131 @@ export default function LogSymptomsScreen() {
     router.back();
   };
 
-  const next = () => (step < TOTAL_STEPS ? setStep(step + 1) : save());
-
   if (editingId !== undefined && !existing) {
     return (
       <Screen>
-        <BackHeader title="Edit symptoms" />
+        <BackHeader />
         <AppText color="inkSoft">This entry no longer exists.</AppText>
       </Screen>
     );
   }
 
-  const title = zone !== null ? zoneLabel(zone) : editingId !== undefined ? 'Edit symptoms' : 'Log symptoms';
-
   // Swiping between log screens is only for a fresh, untouched log, so it can't drop a half-finished one.
-  const pristine = editingId === undefined && !inner && selected.size === 0 && tags.size === 0 && !note;
+  const pristine = editingId === undefined && step === 1 && selected.size === 0;
+  const now = new Date();
 
   return (
     <SwipeNav {...symptomsSwipe} enabled={pristine}>
       <Screen style={styles.screen}>
-        <BackHeader title={title} onBack={goBack} />
-        {loggedAt && (
-          <AppText variant="label" color="inkSoft" style={styles.dayLine}>
-            Logging for{' '}
-            {loggedAt.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-          </AppText>
-        )}
+        <BackHeader onBack={goBack} />
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
             ref={scroll}
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
-            {zone !== null ? (
+            {step === 1 ? (
               <>
-                <AppText color="inkSoft" style={styles.subtitle}>
-                  Tap anything that applies.
-                </AppText>
-                <View style={styles.chips}>
-                  {zoneSymptoms(zone).map((key) => (
-                    <SymptomChip
-                      key={key}
-                      label={SYMPTOM_ITEMS.find((item) => item.key === key)?.label ?? key}
-                      selected={selected.has(key)}
-                      onToggle={() => toggleSymptom(key)}
-                    />
-                  ))}
-                </View>
-              </>
-            ) : step === 1 ? (
-              <>
-                <AppText color="inkSoft" style={styles.subtitle}>
-                  {afterMeal ? `After ${afterMeal.name}. ` : ''}Where are you feeling it? Tap a spot.
-                </AppText>
-                <BodyMap counts={counts} onZonePress={setZone} />
-              </>
-            ) : step === 2 ? (
-              <>
-                <AppText variant="title" accessibilityRole="header">
-                  Anything else going on?
+                <AppText variant="display" accessibilityRole="header">
+                  What are you feeling?
                 </AppText>
                 <AppText color="inkSoft" style={styles.subtitle}>
-                  Optional. Tap anything that fits.
+                  Tap everything that applies.
                 </AppText>
-                <View style={styles.chips}>
-                  {LIFESTYLE_TAGS.map((tag) => (
-                    <TagChip
-                      key={tag.key}
-                      label={tag.label}
-                      selected={tags.has(tag.key)}
-                      onPress={() => toggleTag(tag.key)}
-                    />
-                  ))}
-                </View>
+                {BODY_ZONES.map((z) => (
+                  <View key={z.key} style={styles.section}>
+                    <AppText variant="section">{z.label}</AppText>
+                    <View style={styles.chips}>
+                      {z.symptoms.map((key) => (
+                        <SymptomChip
+                          key={key}
+                          label={symptomLabel(key)}
+                          selected={selected.has(key)}
+                          onToggle={() => toggleSymptom(key)}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                ))}
               </>
             ) : (
               <>
-                <AppText variant="title" accessibilityRole="header">
-                  Note (optional)
+                <AppText variant="display" accessibilityRole="header">
+                  {symptomsTitle(picked.map((item) => item.label))}
                 </AppText>
-                <AppText color="inkSoft" style={styles.subtitle}>
-                  Anything worth remembering about this?
-                </AppText>
-                <TextInput
-                  value={note}
-                  onChangeText={setNote}
-                  placeholder="Anything worth remembering about this…"
-                  placeholderTextColor={colors.inkSoft}
-                  multiline
-                  maxLength={MAX_NOTE_LENGTH}
-                  accessibilityLabel="Note"
-                  style={[
-                    styles.note,
-                    { backgroundColor: colors.surface, borderColor: colors.hairline, color: colors.ink },
-                  ]}
-                />
+                <View style={styles.timeRow}>
+                  <TimePill label={formatMealTime(at, now)} onPress={pickTime} />
+                </View>
+                <View style={styles.section}>
+                  <AppText variant="section">What might have contributed?</AppText>
+                  <View style={styles.chips}>
+                    {LIFESTYLE_TAGS.map((tag) => (
+                      <TagChip
+                        key={tag.key}
+                        label={tag.label}
+                        selected={tags.has(tag.key)}
+                        onPress={() => toggleTag(tag.key)}
+                      />
+                    ))}
+                  </View>
+                </View>
+                {candidate && (
+                  <View style={styles.section}>
+                    <AppText variant="section">Linked meal</AppText>
+                    <View style={unlinked ? styles.dimmed : undefined}>
+                      <TimelineItem
+                        kind="food"
+                        title={candidate.mealName}
+                        time={formatClockTime(new Date(candidate.loggedAt))}
+                        onPress={() => setUnlinkedId(unlinked ? null : candidate.id)}
+                        side={candidate.overallVerdict && <VerdictBadge verdict={candidate.overallVerdict} />}
+                      />
+                    </View>
+                    <AppText variant="caption" color="inkSoft">
+                      {unlinked ? 'Not linked. Tap to link.' : 'Tap to unlink.'}
+                    </AppText>
+                  </View>
+                )}
+                <View style={styles.section}>
+                  <AppText variant="section">Note</AppText>
+                  <TextField
+                    label="Note"
+                    hideLabel
+                    value={note}
+                    onChangeText={setNote}
+                    placeholder="How did it feel?"
+                    maxLength={MAX_NOTE_LENGTH}
+                    multiline
+                  />
+                </View>
               </>
             )}
           </ScrollView>
 
           <View style={styles.footer}>
-            {zone !== null ? (
-              <Button label="Done" onPress={() => setZone(null)} />
+            {step === 1 ? (
+              <Button
+                label="Next"
+                onPress={() => setStep(2)}
+                disabled={selected.size === 0}
+                accessibilityHint={selected.size === 0 ? 'Choose at least one symptom first' : undefined}
+              />
             ) : (
-              <>
-                {editingId !== undefined ? (
-                  // Editing: change one thing and save from wherever you are. Next is still there
-                  // if you want to look at the other steps.
-                  <>
-                    <Button
-                      label="Save changes"
-                      onPress={save}
-                      disabled={selected.size === 0}
-                      accessibilityHint={
-                        selected.size === 0 ? 'Choose at least one symptom first' : undefined
-                      }
-                    />
-                    {step < TOTAL_STEPS && (
-                      <View style={styles.secondary}>
-                        <Button
-                          label="Next"
-                          variant="secondary"
-                          onPress={() => setStep(step + 1)}
-                          disabled={step === 1 && selected.size === 0}
-                        />
-                      </View>
-                    )}
-                  </>
-                ) : (
-                  <Button
-                    label={step < TOTAL_STEPS ? 'Next' : 'Save entry'}
-                    onPress={next}
-                    disabled={step === 1 && selected.size === 0}
-                    accessibilityHint={
-                      step === 1 && selected.size === 0 ? 'Choose at least one symptom first' : undefined
-                    }
-                  />
-                )}
-                <StepTracker
-                  step={step}
-                  total={TOTAL_STEPS}
-                  caption={STEP_CAPTIONS[step - 1] ?? ''}
-                  label="Log symptoms progress"
-                />
-              </>
+              <Button label={editingId !== undefined ? 'Save changes' : 'Save'} onPress={save} />
             )}
           </View>
         </KeyboardAvoidingView>
+
+        <MealTimeSheet
+          visible={timeOpen}
+          question="When did this start?"
+          confirmLabel="Set time"
+          onConfirm={(picked_) => {
+            setTimeOpen(false);
+            setAt(picked_);
+          }}
+          onClose={() => setTimeOpen(false)}
+        />
       </Screen>
     </SwipeNav>
   );
@@ -334,21 +334,11 @@ export default function LogSymptomsScreen() {
 const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
   flex: { flex: 1 },
-  content: { paddingBottom: space.s3, flexGrow: 1 },
-  dayLine: { marginBottom: space.s1 },
-  subtitle: { fontSize: 15, lineHeight: 21, marginTop: 4, marginBottom: 18 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
-  note: {
-    ...typography.body,
-    fontSize: 15,
-    minHeight: 120,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 12,
-    textAlignVertical: 'top',
-  },
+  content: { paddingBottom: space.s3, flexGrow: 1, gap: space.s3 },
+  subtitle: { fontSize: 15, lineHeight: 21, marginTop: -space.s1 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
+  section: { gap: 12 },
+  timeRow: { flexDirection: 'row' },
+  dimmed: { opacity: 0.45 },
   footer: { paddingTop: space.s1, paddingBottom: space.s2 },
-  secondary: { marginTop: space.s1 },
 });

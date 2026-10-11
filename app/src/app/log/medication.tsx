@@ -18,16 +18,15 @@ import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
-import { SymptomPromptSheet } from '@/components/SymptomPromptSheet';
 import { Screen } from '@/components/Screen';
 import { SwipeNav } from '@/components/SwipeNav';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
+import { TimePill } from '@/components/TimePill';
 import { useToast } from '@/components/Toast';
 import { COMMON_MEDICATIONS, findCommonMedication } from '@/constants/commonMedications';
 import { MEDICATION_TYPES, type MedicationType } from '@/constants/medicationTypes';
 import { useDb } from '@/db/DatabaseProvider';
-import { openSymptoms, useSymptomPrompt } from '@/hooks/useSymptomPrompt';
 import {
   archiveMedication,
   createMedication,
@@ -50,6 +49,7 @@ import { fontFamily, minTouchTarget, radius, space, typography, useColors } from
 
 const MAX_NAME = 60;
 const MAX_DOSE = 40;
+const MAX_NOTE = 500;
 /** How long a row says "Logged ✓" (and ignores taps) after a one-tap log, so a double-tap can't log twice. */
 const LOGGED_FLASH_MS = 2500;
 const DAY_MS = 86_400_000;
@@ -105,9 +105,13 @@ export default function MedicationScreen() {
   const [taken, setTaken] = useState<TakenToday>(new Map());
   const [loadFailed, setLoadFailed] = useState(false);
   const [justLogged, setJustLogged] = useState<ReadonlySet<number>>(new Set());
-  // The medication whose Log was tapped, while the "When did you take this?" sheet is open (iPhone).
-  const [logging, setLogging] = useState<Medication | null>(null);
-  const symptomPrompt = useSymptomPrompt();
+  // The medication opened for details (time, dose, note) before logging it, and what has been set so far.
+  const [detail, setDetail] = useState<Medication | null>(null);
+  const [takenAt, setTakenAt] = useState<Date | null>(null);
+  const [timeOpen, setTimeOpen] = useState(false);
+  const [detailDose, setDetailDose] = useState('');
+  const [detailCustom, setDetailCustom] = useState(false);
+  const [detailNote, setDetailNote] = useState('');
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
   // The medication tapped in the list: shown in a sheet first; its fields open after Edit.
@@ -139,21 +143,25 @@ export default function MedicationScreen() {
     return () => pending.forEach((timer) => clearTimeout(timer));
   }, []);
 
-  // Back closes an open form before it leaves the screen.
-  const closeForm = useCallback(() => setForm(null), []);
+  // Back closes an open form or details page before it leaves the screen.
+  const closeForm = useCallback(() => {
+    if (form !== null) setForm(null);
+    else setDetail(null);
+  }, [form]);
+  const inner = form !== null || detail !== null;
   useFocusEffect(
     useCallback(() => {
       const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-        if (form === null) return false;
+        if (!inner) return false;
         closeForm();
         return true;
       });
       return () => subscription.remove();
-    }, [form, closeForm]),
+    }, [inner, closeForm]),
   );
   useEffect(() => {
-    navigation.setOptions({ gestureEnabled: form === null });
-  }, [navigation, form]);
+    navigation.setOptions({ gestureEnabled: !inner });
+  }, [navigation, inner]);
 
   const openAdd = () => {
     setName('');
@@ -191,28 +199,45 @@ export default function MedicationScreen() {
   const chosen = pick === null || pick === NOT_LISTED ? undefined : findCommonMedication(pick);
   const pickerLabel = pick === null ? 'Choose a medication' : chosen ? chosen.name : 'Not listed';
 
-  /** Log was tapped: ask when it was taken first. */
-  const askWhen = (med: Medication) => {
-    if (Platform.OS === 'android') pickTimeAndroid(new Date(), (at) => logOnce(med, at));
-    else setLogging(med);
+  const openDetail = (med: Medication) => {
+    const common = findCommonMedication(med.name);
+    setDetail(med);
+    setTakenAt(null);
+    setDetailDose(med.defaultDose ?? '');
+    setDetailCustom(Boolean(med.defaultDose) && !common?.doses.includes(med.defaultDose ?? ''));
+    setDetailNote('');
   };
 
-  /** Logs the dose at `at`, or right now when `at` is null. */
-  const logOnce = (med: Medication, at: Date | null) => {
-    // `disabled` only applies after a re-render, so two taps in the same instant must be caught here.
-    if (timers.current.has(med.id)) return;
+  const pickTime = () => {
+    if (Platform.OS === 'android') pickTimeAndroid(takenAt ?? new Date(), setTakenAt);
+    else setTimeOpen(true);
+  };
+
+  /** Logs the dose now, or with the dose, time and note set on its details page. */
+  const logDose = (
+    med: Medication,
+    extras?: { at: Date | null; doseText?: string; notes?: string },
+  ): boolean => {
+    // `disabled` only applies after a re-render, so two taps in the same instant on a Log pill must be
+    // caught here. A dose logged from its details page was chosen deliberately, so it is never dropped.
+    if (!extras && timers.current.has(med.id)) return false;
     try {
-      logMedication(db, med.id, at ? { takenAt: at.toISOString() } : {});
+      logMedication(db, med.id, {
+        ...(extras?.at ? { takenAt: extras.at.toISOString() } : {}),
+        doseText: extras?.doseText,
+        notes: extras?.notes,
+      });
     } catch (error) {
       logger.error('logMedication', error);
       Alert.alert("Couldn't log", friendlyMessages.INTERNAL);
-      return;
+      return false;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     playChing();
     // An earlier dose doesn't show under "Taken today", so the toast says when it was logged for.
-    toast(at ? `${med.name} logged for ${formatMealTime(at, new Date())}` : `${med.name} logged`);
-    symptomPrompt.show({ subtitle: `${med.name} logged` });
+    toast(
+      extras?.at ? `${med.name} logged for ${formatMealTime(extras.at, new Date())}` : `${med.name} logged`,
+    );
     setJustLogged((current) => new Set(current).add(med.id));
     clearTimeout(timers.current.get(med.id));
     timers.current.set(
@@ -227,6 +252,7 @@ export default function MedicationScreen() {
       }, LOGGED_FLASH_MS),
     );
     reload();
+    return true;
   };
 
   const trimmedName = name.trim();
@@ -419,11 +445,112 @@ export default function MedicationScreen() {
     );
   }
 
+  if (detail !== null) {
+    const common = findCommonMedication(detail.name);
+    return (
+      <Screen style={styles.screen}>
+        <BackHeader onBack={closeForm} />
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView
+            contentContainerStyle={styles.detailContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <AppText variant="display" accessibilityRole="header">
+              {detail.name}
+            </AppText>
+            <View style={styles.timeRow}>
+              <TimePill label={formatMealTime(takenAt, new Date())} onPress={pickTime} />
+              <View style={[styles.typeBadge, { backgroundColor: colors.surface }]}>
+                <AppText style={styles.typeBadgeText}>{medicationTypeLabel(detail.type)}</AppText>
+              </View>
+            </View>
+            <View style={styles.section}>
+              <AppText variant="section">Dose</AppText>
+              {common && (
+                <View accessibilityRole="radiogroup" style={styles.types}>
+                  {common.doses.map((option) => (
+                    <TagChip
+                      key={option}
+                      role="radio"
+                      label={option}
+                      selected={!detailCustom && detailDose === option}
+                      onPress={() => {
+                        // Tapping the chosen dose again clears it.
+                        setDetailDose(detailDose === option && !detailCustom ? '' : option);
+                        setDetailCustom(false);
+                      }}
+                    />
+                  ))}
+                  <TagChip
+                    role="radio"
+                    label="Other"
+                    selected={detailCustom}
+                    onPress={() => {
+                      setDetailCustom(true);
+                      setDetailDose('');
+                    }}
+                  />
+                </View>
+              )}
+              {(!common || detailCustom) && (
+                <TextField
+                  label="Dose"
+                  hideLabel
+                  value={detailDose}
+                  onChangeText={setDetailDose}
+                  placeholder="e.g. 20mg"
+                  maxLength={MAX_DOSE}
+                />
+              )}
+            </View>
+            <View style={styles.section}>
+              <AppText variant="section">Note</AppText>
+              <TextField
+                label="Note"
+                hideLabel
+                value={detailNote}
+                onChangeText={setDetailNote}
+                placeholder="e.g. Taken with breakfast"
+                maxLength={MAX_NOTE}
+              />
+            </View>
+          </ScrollView>
+          <View style={styles.footer}>
+            <Button
+              label="Log dose"
+              onPress={() => {
+                // Stay on the page (keeping what was typed) if the dose could not be saved.
+                if (logDose(detail, { at: takenAt, doseText: detailDose, notes: detailNote }))
+                  setDetail(null);
+              }}
+            />
+          </View>
+        </KeyboardAvoidingView>
+        <MealTimeSheet
+          visible={timeOpen}
+          question="When did you take this?"
+          confirmLabel="Set time"
+          onConfirm={(at) => {
+            setTimeOpen(false);
+            setTakenAt(at);
+          }}
+          onClose={() => setTimeOpen(false)}
+        />
+      </Screen>
+    );
+  }
+
   return (
-    <SwipeNav {...medicationSwipe} enabled={logging === null && viewing === null}>
-      <Screen>
-        <ScrollView contentContainerStyle={styles.content}>
-          <BackHeader title="Log medication" />
+    <SwipeNav {...medicationSwipe} enabled={viewing === null}>
+      <Screen style={styles.screen}>
+        <BackHeader />
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <AppText variant="display" accessibilityRole="header">
+            {manage ? 'My medications' : 'Which medication?'}
+          </AppText>
+          <AppText color="inkSoft" style={styles.subtitle}>
+            {manage ? 'Tap a medication to see it.' : 'Tap to log a dose now.'}
+          </AppText>
           {loadFailed && meds.length === 0 ? (
             <AppText color="inkSoft" style={styles.empty}>
               {`${friendlyMessages.INTERNAL} Your medications are still on this phone.`}
@@ -433,86 +560,55 @@ export default function MedicationScreen() {
               Add the medications you take, then log each one with a single tap.
             </AppText>
           ) : (
-            <>
-              <AppText variant="label" color="inkSoft" accessibilityRole="header" style={styles.heading}>
-                Quick Log
-              </AppText>
-              {meds.map((med) => {
-                const today = taken.get(med.id);
-                const done = justLogged.has(med.id);
-                return (
-                  <View
-                    key={med.id}
-                    style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={manage ? doseLabel(med) : `Log ${doseLabel(med)}`}
-                      accessibilityHint={manage ? 'Shows its details' : undefined}
-                      accessibilityState={{ disabled: done && !manage }}
-                      disabled={done && !manage}
-                      onPress={() => (manage ? setViewing(med) : askWhen(med))}
-                      style={styles.info}>
-                      <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                        <Pill size={18} color={colors.clayInk} strokeWidth={2.2} />
-                      </View>
-                      <View style={styles.text}>
-                        <AppText style={styles.medName} numberOfLines={2}>
-                          {doseLabel(med)}
-                        </AppText>
-                        <AppText variant="caption" color="inkSoft">
-                          {medicationTypeLabel(med.type)}
-                          {today ? ` · ${takenTodayLabel(today)}` : ''}
-                        </AppText>
-                      </View>
-                    </Pressable>
-                    {manage ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
-                        accessibilityState={{ disabled: done }}
-                        disabled={done}
-                        onPress={() => askWhen(med)}
-                        style={({ pressed }) => [
-                          styles.logButton,
-                          {
-                            backgroundColor: done ? colors.sageInk : colors.sageTint,
-                            opacity: pressed ? 0.8 : 1,
-                          },
-                        ]}>
-                        <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
-                          {done ? 'Logged ✓' : 'Log'}
-                        </AppText>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                );
-              })}
-            </>
+            meds.map((med) => {
+              const today = taken.get(med.id);
+              const done = justLogged.has(med.id);
+              return (
+                <View key={med.id} style={[styles.card, { backgroundColor: colors.surface }]}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={doseLabel(med)}
+                    accessibilityHint={manage ? 'Shows its details' : 'Opens time, dose and note'}
+                    onPress={() => (manage ? setViewing(med) : openDetail(med))}
+                    style={styles.info}>
+                    <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
+                      <Pill size={18} color={colors.clayInk} strokeWidth={2.2} />
+                    </View>
+                    <View style={styles.text}>
+                      <AppText style={styles.medName} numberOfLines={2}>
+                        {doseLabel(med)}
+                      </AppText>
+                      <AppText variant="caption" color="inkSoft">
+                        {medicationTypeLabel(med.type)}
+                        {today ? ` · ${takenTodayLabel(today)}` : ''}
+                      </AppText>
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
+                    accessibilityState={{ disabled: done }}
+                    disabled={done}
+                    onPress={() => logDose(med)}
+                    style={({ pressed }) => [
+                      styles.logButton,
+                      {
+                        backgroundColor: done ? colors.sageInk : colors.sageTint,
+                        opacity: pressed ? 0.8 : 1,
+                      },
+                    ]}>
+                    <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
+                      {done ? 'Logged ✓' : 'Log'}
+                    </AppText>
+                  </Pressable>
+                </View>
+              );
+            })
           )}
-          <Pressable accessibilityRole="button" onPress={openAdd} style={styles.add}>
-            <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Log a new medication</AppText>
-          </Pressable>
         </ScrollView>
-
-        <MealTimeSheet
-          visible={logging !== null}
-          question="When did you take this?"
-          confirmLabel="Log it"
-          onConfirm={(at) => {
-            const med = logging;
-            setLogging(null);
-            if (med) logOnce(med, at);
-          }}
-          onClose={() => setLogging(null)}
-          onDismissed={symptomPrompt.flush}
-        />
-        <SymptomPromptSheet
-          visible={symptomPrompt.visible}
-          subtitle={symptomPrompt.prompt?.subtitle ?? ''}
-          onHide={symptomPrompt.hide}
-          onLog={() => openSymptoms()}
-          onSkip={() => {}}
-        />
+        <View style={styles.footer}>
+          <Button label="Add a medication" variant="secondary" onPress={openAdd} />
+        </View>
 
         {/* Like a saved food: the medication first; Edit opens its fields. */}
         <BottomSheet visible={viewing !== null} onClose={() => setViewing(null)}>
@@ -552,14 +648,18 @@ export default function MedicationScreen() {
 const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
   flex: { flex: 1 },
-  content: { paddingBottom: space.s4 },
+  content: { paddingBottom: space.s3 },
+  detailContent: { paddingBottom: space.s3, gap: space.s3 },
+  subtitle: { fontSize: 15, lineHeight: 21, marginTop: 4, marginBottom: space.s3 },
   empty: { marginBottom: space.s2, lineHeight: 24 },
-  heading: { marginBottom: space.s1 },
+  timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  typeBadge: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill },
+  typeBadgeText: { ...typography.label, fontSize: 13 },
+  section: { gap: 12 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.s1,
-    borderWidth: 1,
     borderRadius: radius.lg,
     paddingVertical: space.s1,
     paddingLeft: space.s1,
@@ -586,8 +686,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logText: { ...typography.label, fontSize: 14, fontFamily: fontFamily.extrabold },
-  add: { minHeight: minTouchTarget, justifyContent: 'center', paddingVertical: space.s1 },
-  addText: { ...typography.bodyEm, fontSize: 15, fontFamily: fontFamily.bold },
   fieldLabel: { marginBottom: space.s1 },
   picker: {
     flexDirection: 'row',
