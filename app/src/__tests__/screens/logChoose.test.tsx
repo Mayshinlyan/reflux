@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import LogChooseScreen from '@/app/log/index';
 import { lightColors } from '@/theme';
 
+let mockParams: { date?: string } = {};
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
 
@@ -16,9 +17,11 @@ jest.mock('expo-router', () => ({
     back: () => mockBack(),
     canGoBack: () => true,
   },
+  useLocalSearchParams: () => mockParams,
 }));
 
 beforeEach(() => {
+  mockParams = {};
   mockReplace.mockClear();
   mockBack.mockClear();
 });
@@ -44,6 +47,21 @@ describe('Log: choose a type', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Medication' }));
 
     expect(mockReplace.mock.calls).toEqual([['/log/food'], ['/log/symptoms'], ['/log/medication']]);
+  });
+
+  it('hands a day from the week strip on to Symptoms, and only to Symptoms', async () => {
+    mockParams = { date: '2026-10-08' };
+    await render(<LogChooseScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Symptoms' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Food' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Medication' }));
+
+    expect(mockReplace.mock.calls).toEqual([
+      [{ pathname: '/log/symptoms', params: { date: '2026-10-08' } }],
+      ['/log/food'],
+      ['/log/medication'],
+    ]);
   });
 
   it('tints each tile and closes with the X', async () => {

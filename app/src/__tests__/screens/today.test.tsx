@@ -141,13 +141,13 @@ describe('Today: an empty day', () => {
     });
   });
 
-  it('opens Log symptoms for the day tapped in the week strip', async () => {
+  it('opens the Log page for the day tapped in the week strip', async () => {
     await render(<TodayScreen />);
 
     await fireEvent.press(screen.getByLabelText(/^Today, /));
 
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/log/symptoms',
+      pathname: '/log',
       params: { date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) },
     });
   });

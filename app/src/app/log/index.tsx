@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Activity, Pill, Utensils, X } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 
@@ -11,10 +11,12 @@ import { space } from '@/theme';
 const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
 /**
- * Log: choose a type (Figma "03a"). Opened from the belly or the Log button; each big tile replaces this
- * screen with its flow, so closing that flow returns to where you were.
+ * Log: choose a type (Figma "03a"). Opened from the belly, the Log button or a day in the week strip; each
+ * big tile replaces this screen with its flow, so closing that flow returns to where you were. A `date` from
+ * the week strip is handed on to Symptoms; Food and Medication have their own "when" pickers.
  */
 export default function LogChooseScreen() {
+  const { date } = useLocalSearchParams<{ date?: string }>();
   return (
     <Screen>
       <TopBar hideBack right={<TopBarButton icon={X} label="Close" onPress={close} />} />
@@ -33,7 +35,9 @@ export default function LogChooseScreen() {
             label="Symptoms"
             icon={Activity}
             tint="clayTint"
-            onPress={() => router.replace('/log/symptoms')}
+            onPress={() =>
+              router.replace(date ? { pathname: '/log/symptoms', params: { date } } : '/log/symptoms')
+            }
           />
         </View>
         <View style={styles.row}>

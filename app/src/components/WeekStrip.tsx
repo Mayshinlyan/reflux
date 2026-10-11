@@ -28,7 +28,7 @@ export function WeekStrip({ days, loggedDays, onPressDay }: Props) {
             style={styles.day}
             accessibilityRole="button"
             accessibilityLabel={`${day.isToday ? 'Today, ' : ''}${day.name} ${day.date}${logged ? ', has entries' : ''}`}
-            accessibilityHint={future ? undefined : 'Log symptoms for this day'}
+            accessibilityHint={future ? undefined : 'Opens the Log page for this day'}
             accessibilityState={{ disabled: future }}
             disabled={future}
             onPress={() => onPressDay(day.key)}>

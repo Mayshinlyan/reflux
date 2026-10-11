@@ -55,7 +55,7 @@ export default function TodayScreen() {
         <WeekStrip
           days={week}
           loggedDays={loggedDays}
-          onPressDay={(date) => router.push({ pathname: '/log/symptoms', params: { date } })}
+          onPressDay={(date) => router.push({ pathname: '/log', params: { date } })}
         />
 
         <View style={[styles.ring, empty && styles.ringEmpty]}>
