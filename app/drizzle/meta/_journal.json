@@ -43,6 +43,13 @@
       "when": 1790916639323,
       "tag": "0005_nosy_saracen",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791687922180,
+      "tag": "0006_food_details",
+      "breakpoints": true
     }
   ]
 }

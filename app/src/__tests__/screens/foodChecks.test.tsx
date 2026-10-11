@@ -16,7 +16,10 @@ const mockBack = jest.fn();
 const mockToast = jest.fn();
 let mockParams: { camera?: string } = {};
 
-jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
+jest.mock('@/db/DatabaseProvider', () => ({
+  useDb: () => mockDb,
+  useSettings: () => ({ settings: { bedtime: '22:30', lateMealWindowMinutes: 180 } }),
+}));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 jest.mock('@/services/relayClient', () => ({ analyzeFood: jest.fn() }));
@@ -38,9 +41,44 @@ jest.mock('@/components/FoodLoading', () => {
   const { Text } = require('react-native');
   return { FoodLoading: ({ source }: { source: string }) => <Text>{`loading:${source}`}</Text> };
 });
+// The real sheet is a native Modal, which never reports that it closed; this one does, as the picker waits for it.
+jest.mock('@/components/BottomSheet', () => {
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const { useEffect, useRef } = require('react');
+  const { Pressable, View } = require('react-native');
+  /* eslint-enable @typescript-eslint/no-require-imports */
+  return {
+    BottomSheet: ({
+      visible,
+      onClose,
+      onDismissed,
+      children,
+    }: {
+      visible: boolean;
+      onClose: () => void;
+      onDismissed?: () => void;
+      children: unknown;
+    }) => {
+      const wasVisible = useRef(false);
+      useEffect(() => {
+        if (wasVisible.current && !visible) onDismissed?.();
+        wasVisible.current = visible;
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only a change of `visible` counts
+      }, [visible]);
+      return visible ? (
+        <View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} />
+          {children}
+        </View>
+      ) : null;
+    },
+  };
+});
 jest.mock('expo-router', () => ({
   router: { back: () => mockBack(), dismissTo: () => mockBack(), canGoBack: () => true, replace: jest.fn() },
   useLocalSearchParams: () => mockParams,
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  useFocusEffect: (effect: () => void) => require('react').useEffect(effect, [effect]),
 }));
 jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(() => Promise.resolve()),
@@ -75,18 +113,26 @@ const chamomile = {
 
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 const allRows = () => mockDb.select().from(foodLogs).all();
-const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('What did you eat?'), value);
+const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('Describe it'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
-/** Answers the "Any symptoms?" question that follows a saved meal. */
-const skipSymptoms = async () => {
-  await fireEvent.press(await screen.findByRole('button', { name: 'Not now' }));
-  // The sheet closes first, then the screen leaves.
-  await waitFor(() => expect(mockBack).toHaveBeenCalled());
-};
-/** "I ate this" now asks when first; leaving the wheel alone saves it as eaten right now. */
+/** "I ate this" opens the details; Save there logs it as eaten right now. */
 const ateThis = async () => {
   await press('I ate this');
-  await press('Save');
+  await press('Done');
+};
+/** The photo card opens a sheet to take a photo or choose one. */
+const takePhoto = async () => {
+  await press('Take or choose a photo');
+  await fireEvent.press(screen.getByRole('button', { name: 'Take a photo' }));
+};
+const choosePhoto = async () => {
+  await press('Take or choose a photo');
+  await fireEvent.press(screen.getByRole('button', { name: 'Choose a photo' }));
+};
+/** The correction lives in a sheet behind "Not quite right? Tell us more". */
+const tellUs = async (value: string) => {
+  await press('Not quite right? Tell us more');
+  await fireEvent.changeText(screen.getByLabelText('Tell us more'), value);
 };
 
 beforeEach(() => {
@@ -107,10 +153,9 @@ describe('Food screen: checks and "I ate this"', () => {
   it('"mint tea" → Caution citing mint → "I ate this" puts it in the diary with no second relay call', async () => {
     analyze.mockResolvedValue(mintTea);
     await render(<LogFoodScreen />);
-    expect(screen.getByText('Log food')).toBeTruthy();
 
     await type('mint tea');
-    await press('Analyze meal');
+    await press('Check this meal');
 
     expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
     expect(screen.getAllByText('Caution').length).toBeGreaterThan(0);
@@ -132,22 +177,24 @@ describe('Food screen: checks and "I ate this"', () => {
     });
     expect(diary[0].analysis?.items[0].matchedTriggers[0]?.category).toBe('mint');
     expect(allRows()).toHaveLength(1); // the check itself was promoted, not copied
-    expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
-    await skipSymptoms();
+    expect(mockToast).toHaveBeenCalledWith('Added to your food diary', { top: true });
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the check, outside the diary, after "Not now"', async () => {
+  it('keeps the check, outside the diary, when going back from the verdict', async () => {
     analyze.mockResolvedValue(mintTea);
     await render(<LogFoodScreen />);
     await type('mint tea');
-    await press('Analyze meal');
+    await press('Check this meal');
     await screen.findByText('Mint is a common trigger.');
 
-    await press('Not now');
+    await press('Back');
 
+    // Back walks to the capture step, with what was typed still there; nothing is saved to the diary.
+    expect(screen.getByLabelText('Describe it').props.value).toBe('mint tea');
     expect(allRows()).toMatchObject([{ mealName: 'Mint tea', entryType: 'check' }]);
-    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it('opens the camera straight away when reached from Scan, once', async () => {
@@ -157,7 +204,7 @@ describe('Food screen: checks and "I ate this"', () => {
 
     await waitFor(() => expect(pick).toHaveBeenCalledWith('camera', expect.any(Function)));
     // Cancelling leaves the full screen to choose from, without re-opening the camera.
-    expect(await screen.findByRole('button', { name: 'Choose a photo' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Take or choose a photo' })).toBeTruthy();
     expect(pick).toHaveBeenCalledTimes(1);
   });
 
@@ -170,10 +217,10 @@ describe('Food screen: checks and "I ate this"', () => {
     analyze.mockResolvedValueOnce(mintTea).mockResolvedValueOnce(chamomile);
     await render(<LogFoodScreen />);
     await type('herbal tea');
-    await press('Analyze meal');
+    await press('Check this meal');
     await screen.findByText('Mint is a common trigger.');
 
-    await fireEvent.changeText(screen.getByLabelText('Is this right? Tell us more'), 'it was chamomile');
+    await tellUs('it was chamomile');
     await press('Update verdict');
     await screen.findByText('Chamomile is usually gentle.');
     expect(allRows()).toMatchObject([{ entryType: 'check', mealName: 'Chamomile tea' }]);
@@ -192,9 +239,9 @@ describe('Food screen: checks and "I ate this"', () => {
     analyze.mockResolvedValue(mintTea);
     await render(<LogFoodScreen />);
 
-    await press('Take a photo');
+    await takePhoto();
     await screen.findByLabelText('Anything we should know?');
-    await press('Analyze meal');
+    await press('Check this meal');
     await screen.findByText('Mint is a common trigger.');
     await ateThis();
 
@@ -212,9 +259,9 @@ describe('Food screen: checks and "I ate this"', () => {
     analyze.mockResolvedValue(mintTea);
     await render(<LogFoodScreen />);
 
-    await press('Choose a photo');
+    await choosePhoto();
     await screen.findByLabelText('Anything we should know?');
-    await press('Analyze meal');
+    await press('Check this meal');
     await screen.findByText('Mint is a common trigger.');
     expect(allRows()).toHaveLength(0);
 
@@ -228,11 +275,11 @@ describe('Food screen: checks and "I ate this"', () => {
 describe('Food screen: saving without a verdict', () => {
   it('saves a typed meal as a diary entry with no verdict and never calls the relay', async () => {
     await render(<LogFoodScreen />);
-    expect(screen.queryByRole('button', { name: 'Save without a verdict' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Log without checking' })).toBeNull();
 
     await type('  grilled fish  ');
-    await press('Save without a verdict');
-    await press('Save');
+    await press('Log without checking');
+    await press('Done');
 
     expect(analyze).not.toHaveBeenCalled();
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
@@ -246,18 +293,17 @@ describe('Food screen: saving without a verdict', () => {
         analysisMeta: null,
       },
     ]);
-    expect(mockToast).toHaveBeenCalledWith('Saved without a verdict');
-    await skipSymptoms();
+    expect(mockToast).toHaveBeenCalledWith('Saved without a verdict', { top: true });
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
   it('offers only the check after a photo is taken, not saving it unchecked or swapping the photo', async () => {
     pick.mockResolvedValue({ status: 'ok', photo: { uri: 'file:///cache/prepared.jpg' } });
     await render(<LogFoodScreen />);
-    await press('Choose a photo');
+    await choosePhoto();
 
-    expect(screen.getByRole('button', { name: 'Analyze meal' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Save without a verdict' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Check this meal' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Log without checking' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Choose a different photo' })).toBeNull();
     expect(analyze).not.toHaveBeenCalled();
     expect(store).not.toHaveBeenCalled();
@@ -267,11 +313,11 @@ describe('Food screen: saving without a verdict', () => {
     analyze.mockRejectedValue(new AppError('OFFLINE'));
     await render(<LogFoodScreen />);
     await type('rice and beans');
-    await press('Analyze meal');
+    await press('Check this meal');
     expect(await screen.findByText(friendlyMessages.OFFLINE)).toBeTruthy();
 
-    await press('Save without a verdict');
-    await press('Save');
+    await press('Log without checking');
+    await press('Done');
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
       { inputText: 'rice and beans', overallVerdict: null },

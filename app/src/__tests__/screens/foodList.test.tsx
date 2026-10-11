@@ -108,10 +108,18 @@ describe('Food screen: which view', () => {
     expect(screen.getByText('check flow camera=false')).toBeTruthy();
   });
 
-  it('shows My foods when some are saved', async () => {
+  it('goes to the check even when some foods are saved (they show as Quick log there)', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<LogFoodScreen />);
-    expect(screen.getByRole('button', { name: 'Log Oatmeal' })).toBeTruthy();
+    expect(screen.getByText('check flow camera=false')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Log Oatmeal' })).toBeNull();
+  });
+
+  it('shows the saved foods to manage for "See all" (manage=1)', async () => {
+    createSavedFood(mockDb, 'Oatmeal');
+    mockParams = { manage: '1' };
+    await render(<LogFoodScreen />);
+    expect(screen.getByRole('button', { name: 'Edit Oatmeal' })).toBeTruthy();
     expect(screen.queryByText(/check flow/)).toBeNull();
   });
 

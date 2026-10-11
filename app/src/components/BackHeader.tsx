@@ -12,15 +12,19 @@ import { TopBar } from './TopBar';
 export function BackHeader({
   title,
   onBack,
+  close,
   right,
 }: {
-  title: string;
+  /** Omit for a bare bar: just the back circle. */
+  title?: string;
   onBack?: () => void;
+  /** A close X instead of the back arrow. */
+  close?: boolean;
   right?: ReactNode;
 }) {
   return (
     <View style={styles.wrap}>
-      <TopBar title={title} onBack={onBack} right={right} />
+      <TopBar title={title} onBack={onBack} close={close} right={right} />
     </View>
   );
 }

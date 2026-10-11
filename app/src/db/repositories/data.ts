@@ -3,6 +3,7 @@ import { count, eq, ne } from 'drizzle-orm';
 import {
   appSettings,
   foodLogs,
+  foodLogTags,
   medicationLogs,
   medications,
   savedFoods,
@@ -24,6 +25,7 @@ export function deleteAllData(db: AppDb): void {
     tx.delete(symptomLogItems).run();
     tx.delete(symptomLogTags).run();
     tx.delete(symptomLogs).run();
+    tx.delete(foodLogTags).run();
     tx.delete(foodLogs).run();
     tx.delete(medicationLogs).run();
     tx.delete(medications).run();
