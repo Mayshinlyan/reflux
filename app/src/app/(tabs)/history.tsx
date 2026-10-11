@@ -1,240 +1,152 @@
-import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
-import { BookmarkPlus, Pencil } from 'lucide-react-native';
-import { useCallback, useRef, useState } from 'react';
-import { Alert, ScrollView, SectionList, StyleSheet, View } from 'react-native';
-
-import type { ReactNode } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { SectionList, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
-import { BottomSheet } from '@/components/BottomSheet';
-import { Button } from '@/components/Button';
-import { EntryEditForm } from '@/components/EntryEditForm';
 import { TAB_BAR_CLEARANCE } from '@/components/FloatingTabBar';
-import { LateMealBadge } from '@/components/LateMealBadge';
-import { MealResultCard } from '@/components/MealResultCard';
+import { HistorySummary } from '@/components/HistorySummary';
+import { RangeSheet } from '@/components/RangeSheet';
 import { Screen } from '@/components/Screen';
-import { SymptomChip } from '@/components/SymptomChip';
-import { TagChip } from '@/components/TagChip';
+import { SegmentedControl } from '@/components/SegmentedControl';
+import { Select } from '@/components/Select';
+import { TimePill } from '@/components/TimePill';
 import { TimelineItem } from '@/components/TimelineItem';
-import { useToast } from '@/components/Toast';
 import { VerdictBadge } from '@/components/VerdictBadge';
-import type { LifestyleTagKey } from '@/constants/lifestyleTags';
-import type { SymptomKey } from '@/constants/symptomItems';
-import { useDb, useSettings } from '@/db/DatabaseProvider';
-import { deleteFoodLog, getFoodLog, listDiaryFoodLogs } from '@/db/repositories/food';
-import { saveFoodFromLog } from '@/db/repositories/savedFoods';
-import { deleteMedicationLog, listMedicationLogs } from '@/db/repositories/medications';
-import {
-  deleteSymptomLog,
-  listSymptomLogs,
-  removeSymptomFromLog,
-  removeTagFromLog,
-} from '@/db/repositories/symptoms';
+import { useDb } from '@/db/DatabaseProvider';
+import { listDiaryFoodLogs } from '@/db/repositories/food';
+import { listMedicationLogs } from '@/db/repositories/medications';
+import { listSymptomLogs } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
+import { useDeleteEntry } from '@/hooks/useDeleteEntry';
 import { friendlyMessages } from '@/lib/errors';
-import { dayLabel, localDayKey } from '@/lib/localDay';
+import { summarize } from '@/lib/historySummary';
+import { localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
-import { isLateMeal } from '@/lib/mealTiming';
 import {
-  buildTimeline,
-  groupSymptoms,
-  medicationTypeLabel,
-  symptomLabel,
-  tagLabel,
-  type TimelineEntry,
-  type TimelineFilter,
-  type TimelineSection,
-} from '@/lib/timeline';
-import { radius, space, useColors } from '@/theme';
+  inPeriod,
+  loadWindow,
+  type Period,
+  periodLabel,
+  periodOf,
+  recentPeriods,
+  type RangeMode,
+} from '@/lib/range';
+import { currentTimeZone } from '@/lib/time';
+import { buildTimeline, type TimelineEntry, type TimelineFilter, type TimelineSection } from '@/lib/timeline';
+import { space } from '@/theme';
 
-const FILTERS: { key: TimelineFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'symptom', label: 'Symptoms' },
-  { key: 'food', label: 'Food' },
-  { key: 'medication', label: 'Medications' },
+const MODES: { value: RangeMode; label: string }[] = [
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
 ];
 
-/** How far back History loads. Older entries stay on the phone; paging comes later. */
-const HISTORY_DAYS = 90;
+const FILTERS: { value: TimelineFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'symptom', label: 'Symptoms' },
+  { value: 'food', label: 'Food' },
+  { value: 'medication', label: 'Medications' },
+];
 
-function loadSections(db: AppDb, filter: TimelineFilter): TimelineSection[] {
-  const now = new Date();
-  // Pad both ends by a day so entries logged in far-off zones aren't clipped.
-  const range = {
-    from: new Date(now.getTime() - (HISTORY_DAYS + 1) * 86_400_000).toISOString(),
-    to: new Date(now.getTime() + 86_400_000).toISOString(),
-  };
+/** How many weeks or months the range sheet offers. */
+const CHOICE_COUNT: Record<RangeMode, number> = { week: 26, month: 12 };
+
+const todayKeyNow = () => localDayKey(new Date().toISOString(), currentTimeZone());
+
+/** Everything logged in the period, by day. Loads a day either side so other zones aren't clipped, then trims. */
+function loadPeriod(db: AppDb, period: Period): TimelineSection[] {
+  const range = loadWindow(period);
   return buildTimeline(
     {
       symptoms: listSymptomLogs(db, range),
       food: listDiaryFoodLogs(db, range),
       medications: listMedicationLogs(db, range),
     },
-    filter,
-    now,
-  );
+    'all',
+    new Date(),
+  ).filter((section) => inPeriod(period, section.dayKey));
 }
-
-type SymptomEntry = Extract<TimelineEntry, { kind: 'symptom' }>;
 
 export default function HistoryScreen() {
   const db = useDb();
-  const toast = useToast();
-  const { settings } = useSettings();
-  /** Computed on read, so changing bedtime in Settings updates every past meal. */
-  const isLate = (entry: TimelineEntry) =>
-    entry.kind === 'food' && isLateMeal(entry.at, entry.tz, settings.bedtime, settings.lateMealWindowMinutes);
+  const [mode, setMode] = useState<RangeMode>('week');
+  const [period, setPeriod] = useState<Period>(() => periodOf('week', todayKeyNow()));
   const [filter, setFilter] = useState<TimelineFilter>('all');
+  const [choosing, setChoosing] = useState(false);
   const [sections, setSections] = useState<TimelineSection[]>([]);
-  const [selected, setSelected] = useState<TimelineEntry | null>(null);
-  // A meal or dose being edited in place, in its open sheet.
-  const [editing, setEditing] = useState(false);
+  const [todayKey, setTodayKey] = useState(todayKeyNow);
   const [loadFailed, setLoadFailed] = useState(false);
-  /** An entry waiting to open in the editor once the detail sheet has finished closing. */
-  const pendingEdit = useRef<TimelineEntry | null>(null);
 
   const reload = useCallback(() => {
     try {
-      const fresh = loadSections(db, filter);
-      setSections(fresh);
-      // Keep an open entry sheet in step with the data (e.g. after removing a symptom from it).
-      setSelected((current) =>
-        current
-          ? (fresh
-              .flatMap((section) => section.entries)
-              .find((entry) => entry.kind === current.kind && entry.id === current.id) ?? null)
-          : null,
-      );
+      setSections(loadPeriod(db, period));
+      setTodayKey(todayKeyNow());
       setLoadFailed(false);
     } catch (error) {
       logger.error('loadHistory', error);
       // Say so, rather than showing "Nothing here yet" and making it look like data is gone.
       setLoadFailed(true);
     }
-  }, [db, filter]);
+  }, [db, period]);
 
   // Reload whenever History comes back into view (e.g. after editing an entry).
   useFocusEffect(reload);
 
-  const confirmDelete = (entry: TimelineEntry) => {
-    Alert.alert('Delete this entry?', "It will be removed from this phone. This can't be undone.", [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          try {
-            if (entry.kind === 'symptom') deleteSymptomLog(db, entry.id);
-            if (entry.kind === 'food') deleteFoodLog(db, entry.id);
-            if (entry.kind === 'medication') deleteMedicationLog(db, entry.id);
-          } catch (error) {
-            logger.error('deleteEntry', error);
-            Alert.alert("Couldn't delete", friendlyMessages.INTERNAL);
-            return;
-          }
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-          pendingEdit.current = null;
-          setSelected(null);
-          toast('Entry deleted');
-          reload();
-        },
-      },
-    ]);
+  const confirmDelete = useDeleteEntry(reload);
+
+  const summary = useMemo(
+    () =>
+      summarize(
+        sections.flatMap((section) => section.entries),
+        (entry) => localDayKey(entry.at, entry.tz),
+      ),
+    [sections],
+  );
+  const shown = useMemo(
+    () =>
+      filter === 'all'
+        ? sections
+        : sections
+            .map((section) => ({
+              ...section,
+              entries: section.entries.filter((entry) => entry.kind === filter),
+            }))
+            .filter((section) => section.entries.length > 0),
+    [sections, filter],
+  );
+
+  const changeMode = (next: RangeMode) => {
+    setMode(next);
+    setPeriod(periodOf(next, todayKey));
   };
 
-  /** Saves a meal to "My foods" for one-tap logging and closes the sheet so the toast is visible (it sits under a modal). Saving it twice is a no-op. */
-  const saveFood = (entry: TimelineEntry) => {
-    if (entry.kind !== 'food') return;
-    let created: boolean;
-    try {
-      ({ created } = saveFoodFromLog(db, entry.id));
-    } catch (error) {
-      logger.error('saveFood', error);
-      Alert.alert("Couldn't save", friendlyMessages.INTERNAL);
-      return;
-    }
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    pendingEdit.current = null;
-    setSelected(null);
-    toast(created ? 'Saved to My foods' : 'Already in My foods');
-  };
-
-  /** Asks "Remove X?" and, if confirmed, runs `remove` and refreshes the list and the open sheet. */
-  const confirmRemove = (label: string, operation: string, remove: () => void) => {
-    Alert.alert(`Remove ${label}?`, 'It will be taken off this entry.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => {
-          try {
-            remove();
-          } catch (error) {
-            logger.error(operation, error);
-            Alert.alert("Couldn't remove", friendlyMessages.INTERNAL);
-            return;
-          }
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-          reload();
-        },
-      },
-    ]);
-  };
-  const confirmRemoveSymptom = (entry: SymptomEntry, key: SymptomKey) =>
-    confirmRemove(symptomLabel(key), 'removeSymptom', () => removeSymptomFromLog(db, entry.id, key));
-  const confirmRemoveTag = (entry: SymptomEntry, tag: LifestyleTagKey) =>
-    confirmRemove(tagLabel(tag), 'removeTag', () => removeTagFromLog(db, entry.id, tag));
-
-  // Open the editor only after the sheet has finished sliding away, so the new screen
-  // doesn't push in underneath a closing modal.
-  // A meal or dose is edited in the sheet itself.
-  const edit = (entry: TimelineEntry) => {
-    if (entry.kind !== 'symptom') return setEditing(true);
-    pendingEdit.current = entry;
-    setSelected(null);
-  };
-  const closeSheet = () => {
-    pendingEdit.current = null;
-    setSelected(null);
-    setEditing(false);
-  };
-  const editSaved = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    setEditing(false);
-    reload();
-  };
-  const openPendingEdit = () => {
-    const entry = pendingEdit.current;
-    pendingEdit.current = null;
-    if (entry) router.push({ pathname: '/log/symptoms', params: { id: String(entry.id) } });
-  };
+  const open = (entry: TimelineEntry) =>
+    router.push({ pathname: '/entry', params: { kind: entry.kind, id: String(entry.id) } });
 
   return (
     <Screen edges={['top', 'left', 'right']} style={styles.screen}>
-      <AppText variant="display" accessibilityRole="header" style={styles.title}>
-        History
-      </AppText>
-      <View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-          {FILTERS.map((option) => (
-            <TagChip
-              key={option.key}
-              role="filter"
-              label={option.label}
-              selected={filter === option.key}
-              onPress={() => setFilter(option.key)}
-            />
-          ))}
-        </ScrollView>
-      </View>
-
       <SectionList
-        sections={sections.map((section) => ({ ...section, data: section.entries }))}
+        sections={shown.map((section) => ({ ...section, data: section.entries }))}
         keyExtractor={(entry) => `${entry.kind}-${entry.id}`}
+        ListHeaderComponent={
+          <View>
+            <AppText variant="display" accessibilityRole="header" style={styles.title}>
+              History
+            </AppText>
+            <View style={styles.controls}>
+              <SegmentedControl options={MODES} value={mode} onChange={changeMode} />
+              <TimePill label={periodLabel(mode, period, todayKey)} onPress={() => setChoosing(true)} />
+            </View>
+            <HistorySummary summary={summary} />
+            <View style={styles.entriesHead}>
+              <AppText variant="section" accessibilityRole="header">
+                Entries
+              </AppText>
+              <Select options={FILTERS} value={filter} onChange={setFilter} label="Show" />
+            </View>
+          </View>
+        }
         renderSectionHeader={({ section }) => (
-          <AppText variant="label" color="inkSoft" accessibilityRole="header" style={styles.dayLabel}>
+          <AppText accessibilityRole="header" style={styles.dayLabel}>
             {section.label}
           </AppText>
         )}
@@ -244,18 +156,16 @@ export default function HistoryScreen() {
             title={item.title}
             time={item.meta}
             side={
-              item.kind === 'food' ? (
-                <View style={styles.badges}>
-                  {item.log.overallVerdict && <VerdictBadge verdict={item.log.overallVerdict} />}
-                  {isLate(item) && <LateMealBadge />}
-                </View>
+              item.kind === 'food' && item.log.overallVerdict ? (
+                <VerdictBadge verdict={item.log.overallVerdict} />
               ) : undefined
             }
-            onPress={() => setSelected(item)}
+            onPress={() => open(item)}
             onDelete={() => confirmDelete(item)}
           />
         )}
         stickySectionHeadersEnabled={false}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -266,210 +176,46 @@ export default function HistoryScreen() {
               {loadFailed
                 ? `${friendlyMessages.INTERNAL} Your entries are still on this phone.`
                 : filter === 'all'
-                  ? 'Tap Log below to add your first entry.'
-                  : 'Nothing of this kind in the last three months.'}
+                  ? `Nothing logged this ${mode}. Tap Log below to add an entry.`
+                  : `Nothing of this kind this ${mode}.`}
             </AppText>
           </View>
         }
       />
 
-      <BottomSheet visible={selected !== null} onClose={closeSheet} onDismissed={openPendingEdit}>
-        {selected && editing && selected.kind !== 'symptom' ? (
-          <EntryEditForm
-            key={`${selected.kind}-${selected.id}`}
-            {...(selected.kind === 'food'
-              ? { kind: 'food' as const, log: selected.log }
-              : { kind: 'medication' as const, log: selected.log })}
-            onSaved={editSaved}
-            onCancel={() => setEditing(false)}
-          />
-        ) : (
-          selected && (
-            <EntryDetail
-              entry={selected}
-              late={isLate(selected)}
-              onEdit={edit}
-              onSaveFood={saveFood}
-              onDelete={confirmDelete}
-              onRemoveSymptom={confirmRemoveSymptom}
-              onRemoveTag={confirmRemoveTag}
-            />
-          )
-        )}
-      </BottomSheet>
+      <RangeSheet
+        visible={choosing}
+        title={`Choose a ${mode}`}
+        choices={recentPeriods(mode, todayKey, CHOICE_COUNT[mode])}
+        current={period}
+        onPick={(next) => {
+          setPeriod(next);
+          setChoosing(false);
+        }}
+        onClose={() => setChoosing(false)}
+      />
     </Screen>
   );
 }
 
-function EntryDetail({
-  entry,
-  late,
-  onEdit,
-  onSaveFood,
-  onDelete,
-  onRemoveSymptom,
-  onRemoveTag,
-}: {
-  entry: TimelineEntry;
-  late: boolean;
-  onEdit: (entry: TimelineEntry) => void;
-  onSaveFood: (entry: TimelineEntry) => void;
-  onDelete: (entry: TimelineEntry) => void;
-  onRemoveSymptom: (entry: SymptomEntry, key: SymptomKey) => void;
-  onRemoveTag: (entry: SymptomEntry, tag: LifestyleTagKey) => void;
-}) {
-  const colors = useColors();
-  const db = useDb();
-  const when = `${dayLabel(localDayKey(entry.at, entry.tz))} · ${entry.time}`;
-  // Symptoms logged from the "Any symptoms?" question after a meal say which meal.
-  const afterMeal =
-    entry.kind === 'symptom' && entry.log.foodLogId !== null
-      ? getFoodLog(db, entry.log.foodLogId)
-      : undefined;
-  return (
-    <View>
-      {entry.kind === 'symptom' && (
-        <>
-          <AppText variant="title" accessibilityRole="header">
-            Symptom entry
-          </AppText>
-          <AppText variant="caption" color="inkSoft" style={styles.when}>
-            {afterMeal ? `${when} · After ${afterMeal.mealName}` : when}
-          </AppText>
-          {groupSymptoms(entry.log.items).map((group) => (
-            <DetailSection key={group.zone} title={`${group.label} · ${group.keys.length}`}>
-              <View style={styles.chips}>
-                {group.keys.map((key) => (
-                  <SymptomChip
-                    key={key}
-                    label={symptomLabel(key)}
-                    selected
-                    readOnly
-                    // An entry needs at least one symptom, so the only one has no minus.
-                    onRemove={entry.log.items.length > 1 ? () => onRemoveSymptom(entry, key) : undefined}
-                  />
-                ))}
-              </View>
-            </DetailSection>
-          ))}
-          {entry.log.items.length === 1 && (
-            <AppText variant="caption" color="inkSoft" style={styles.onlyHint}>
-              This is the only symptom, so it can&apos;t be removed. Delete the entry instead.
-            </AppText>
-          )}
-          {entry.log.tags.length > 0 && (
-            <DetailSection title="Anything else going on">
-              <View style={styles.chips}>
-                {entry.log.tags.map((tag) => (
-                  <TagChip
-                    key={tag}
-                    label={tagLabel(tag)}
-                    selected
-                    readOnly
-                    onRemove={() => onRemoveTag(entry, tag)}
-                  />
-                ))}
-              </View>
-            </DetailSection>
-          )}
-          {entry.log.notes ? (
-            <DetailSection title="Your note">
-              <View style={[styles.noteCard, { backgroundColor: colors.surface2 }]}>
-                <AppText style={styles.noteText}>{entry.log.notes}</AppText>
-              </View>
-            </DetailSection>
-          ) : null}
-        </>
-      )}
-      {entry.kind === 'food' && (
-        <>
-          <AppText variant="title" accessibilityRole="header">
-            {entry.log.mealName}
-          </AppText>
-          <AppText variant="caption" color="inkSoft" style={styles.when}>
-            {when} · {entry.log.source === 'photo' ? 'photo' : 'typed'}
-          </AppText>
-          {late && (
-            <View style={styles.detailBadge}>
-              <LateMealBadge />
-            </View>
-          )}
-          {entry.log.photoUri && (
-            <Image
-              source={{ uri: entry.log.photoUri }}
-              style={styles.mealPhoto}
-              contentFit="cover"
-              accessibilityLabel="Your meal photo"
-            />
-          )}
-          {entry.log.analysis ? (
-            <MealResultCard analysis={entry.log.analysis} showTitle={false} />
-          ) : (
-            <AppText color="inkSoft">Saved without a verdict.</AppText>
-          )}
-        </>
-      )}
-      {entry.kind === 'medication' && (
-        <>
-          <AppText variant="title" accessibilityRole="header">
-            {entry.title}
-          </AppText>
-          <AppText variant="caption" color="inkSoft" style={styles.when}>
-            {medicationTypeLabel(entry.log.type)} · {when}
-          </AppText>
-        </>
-      )}
-
-      <View style={styles.actions}>
-        <Button
-          label={entry.kind === 'symptom' ? 'Edit entry' : 'Edit'}
-          icon={Pencil}
-          onPress={() => onEdit(entry)}
-        />
-        {entry.kind === 'food' && (
-          <Button
-            label="Save to My foods"
-            variant="secondary"
-            icon={BookmarkPlus}
-            onPress={() => onSaveFood(entry)}
-          />
-        )}
-        <Button label="Delete" variant="quietDanger" onPress={() => onDelete(entry)} />
-      </View>
-    </View>
-  );
-}
-
-/** A small heading over a group of chips (or the note) in the entry detail. */
-function DetailSection({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <View style={styles.section}>
-      <AppText variant="label" color="inkSoft" accessibilityRole="header" style={styles.sectionTitle}>
-        {title}
-      </AppText>
-      {children}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  badges: { gap: 4, alignItems: 'flex-end' },
-  detailBadge: { marginBottom: space.s1 },
-  mealPhoto: { width: '100%', height: 180, borderRadius: radius.lg, marginBottom: space.s1 },
   screen: { paddingBottom: 0 },
-  filters: { gap: space.s1, paddingBottom: space.s1 },
+  title: { marginBottom: space.s2 },
+  controls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: space.s2,
+  },
+  entriesHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginTop: space.s3,
+  },
+  dayLabel: { marginTop: space.s2, marginBottom: 10 },
   list: { paddingBottom: TAB_BAR_CLEARANCE, flexGrow: 1 },
-  title: { marginBottom: space.s1 },
-  dayLabel: { marginTop: 20, marginBottom: 10 },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.s3 },
+  empty: { alignItems: 'center', paddingHorizontal: space.s3, paddingTop: space.s4 },
   emptyTitle: { marginBottom: space.s1 },
   emptyBody: { textAlign: 'center' },
-  when: { marginTop: 4, marginBottom: 14 },
-  onlyHint: { marginTop: space.s1 },
-  section: { marginTop: space.s2 },
-  sectionTitle: { marginBottom: space.s1 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
-  noteCard: { borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12 },
-  noteText: { fontSize: 15, lineHeight: 22 },
-  actions: { gap: space.s1, marginTop: space.s3 },
 });

@@ -6,7 +6,7 @@ import type { StoredFoodLog } from '@/db/repositories/food';
 import type { SymptomLogWithDetails } from '@/db/repositories/symptoms';
 import type { MedicationLog } from '@/db/schema';
 
-import { dayLabel, formatTime, localDayKey } from './localDay';
+import { formatTime, localDayKey, longDayLabel } from './localDay';
 
 export type TimelineKind = 'symptom' | 'food' | 'medication';
 export type TimelineFilter = 'all' | TimelineKind;
@@ -141,7 +141,7 @@ export function buildTimeline(
     const dayKey = localDayKey(entry.at, entry.tz);
     let section = sections.find((s) => s.dayKey === dayKey);
     if (!section) {
-      section = { dayKey, label: dayLabel(dayKey, now, deviceTz), entries: [] };
+      section = { dayKey, label: longDayLabel(dayKey, now, deviceTz), entries: [] };
       sections.push(section);
     }
     section.entries.push(entry);

@@ -205,3 +205,14 @@ export function saveCheckedFood(
     .get().id;
   return { id, created: true, mealName };
 }
+
+/** Whether a meal of this name is already in "My foods" (the same match `saveFoodFromLog` uses). */
+export function isFoodSaved(db: AppDb, mealName: string): boolean {
+  return (
+    db
+      .select({ id: savedFoods.id })
+      .from(savedFoods)
+      .where(sql`lower(${savedFoods.mealName}) = lower(${mealName})`)
+      .get() !== undefined
+  );
+}

@@ -7,10 +7,10 @@ import type { AppVerdict } from '@/types/analysis';
 import { AppText } from './AppText';
 
 export const VERDICT_LABELS: Record<AppVerdict, string> = {
-  good: 'OK',
-  ok: 'Likely OK',
+  good: 'Good',
+  ok: 'Okay',
   caution: 'Caution',
-  trigger: 'Likely trigger',
+  trigger: 'Avoid',
 };
 
 /** The icon for each verdict; it always travels with the label. */

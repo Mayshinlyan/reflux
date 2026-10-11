@@ -28,6 +28,7 @@ import {
 import {
   createSavedFood,
   getSavedFood,
+  isFoodSaved,
   listSavedFoods,
   logSavedFood,
   removeSavedFood,
@@ -42,8 +43,10 @@ import {
   deleteSymptomLog,
   getSymptomLog,
   listSymptomLogs,
+  listSymptomLogsForMeal,
   removeSymptomFromLog,
   removeTagFromLog,
+  setMealSymptoms,
   updateSymptomLog,
 } from '../repositories/symptoms';
 import {
@@ -288,6 +291,81 @@ describe('symptom logs', () => {
         .prepare("INSERT INTO symptom_log_items (symptom_log_id, item_key, score) VALUES (1, 'cough', 9)")
         .run(),
     ).toThrow(/CHECK/);
+  });
+});
+
+describe('symptoms after a meal', () => {
+  const MANAGED = ['heartburn', 'burping', 'hoarseness', 'stomach_pain'] as const;
+  const AT = '2026-09-28T20:30:00.000Z';
+  const meal = (db: ReturnType<typeof createTestDb>['db']) =>
+    createFoodLog(db, {
+      entryType: 'diary',
+      source: 'text',
+      analysis: mintTea,
+      meta,
+      loggedAt: '2026-09-28T19:45:00.000Z',
+    });
+
+  it('lists the logs linked to a meal and no others', () => {
+    const { db } = createTestDb();
+    const mealId = meal(db);
+    const linked = createSymptomLog(db, { items: [{ key: 'heartburn' }], foodLogId: mealId, loggedAt: AT });
+    createSymptomLog(db, { items: [{ key: 'cough' }], loggedAt: AT });
+
+    expect(listSymptomLogsForMeal(db, mealId).map((log) => log.id)).toEqual([linked]);
+  });
+
+  it('adds new symptoms in one linked log and takes unwanted ones off', () => {
+    const { db } = createTestDb();
+    const mealId = meal(db);
+    setMealSymptoms(db, mealId, ['heartburn', 'burping'], MANAGED, AT);
+    expect(listSymptomLogsForMeal(db, mealId)).toHaveLength(1);
+
+    setMealSymptoms(db, mealId, ['burping', 'hoarseness'], MANAGED, AT);
+    const keys = listSymptomLogsForMeal(db, mealId).flatMap((log) => log.items.map((item) => item.key));
+    expect(keys.sort()).toEqual(['burping', 'hoarseness']);
+  });
+
+  it('deletes a log left with nothing, and clears everything when none are wanted', () => {
+    const { db } = createTestDb();
+    const mealId = meal(db);
+    setMealSymptoms(db, mealId, ['heartburn'], MANAGED, AT);
+    setMealSymptoms(db, mealId, [], MANAGED, AT);
+
+    expect(listSymptomLogsForMeal(db, mealId)).toEqual([]);
+    expect(db.select().from(symptomLogs).all()).toHaveLength(0);
+  });
+
+  it('leaves symptoms the meal screen cannot show alone', () => {
+    const { db } = createTestDb();
+    const mealId = meal(db);
+    const id = createSymptomLog(db, {
+      items: [{ key: 'heartburn' }, { key: 'cough' }],
+      foodLogId: mealId,
+      loggedAt: AT,
+    });
+    setMealSymptoms(db, mealId, [], MANAGED, AT);
+
+    expect(getSymptomLog(db, id)?.items.map((item) => item.key)).toEqual(['cough']);
+  });
+
+  it('changes nothing when the selection is the same', () => {
+    const { db } = createTestDb();
+    const mealId = meal(db);
+    const id = createSymptomLog(db, { items: [{ key: 'heartburn' }], foodLogId: mealId, loggedAt: AT });
+    setMealSymptoms(db, mealId, ['heartburn'], MANAGED, AT);
+
+    expect(listSymptomLogsForMeal(db, mealId).map((log) => log.id)).toEqual([id]);
+  });
+});
+
+describe('isFoodSaved', () => {
+  it('matches a saved food by name, ignoring case', () => {
+    const { db } = createTestDb();
+    createSavedFood(db, 'Mint tea');
+
+    expect(isFoodSaved(db, 'mint TEA')).toBe(true);
+    expect(isFoodSaved(db, 'Oatmeal')).toBe(false);
   });
 });
 

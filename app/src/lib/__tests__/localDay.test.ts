@@ -1,4 +1,4 @@
-import { addDays, dayLabel, formatTime, localDayKey } from '../localDay';
+import { addDays, dayLabel, formatTime, localDayKey, longDayLabel } from '../localDay';
 
 describe('localDayKey', () => {
   it('uses the zone the entry was logged in', () => {
@@ -47,6 +47,20 @@ describe('dayLabel', () => {
     expect(dayLabel('2026-09-21', now, 'UTC')).toMatch(/21/);
     expect(dayLabel('2026-09-21', now, 'UTC')).not.toMatch(/2026/);
     expect(dayLabel('2025-12-31', now, 'UTC')).toMatch(/2025/);
+  });
+});
+
+describe('longDayLabel', () => {
+  const now = new Date('2026-10-10T10:00:00.000Z');
+
+  it('says Today and Yesterday, then the full weekday and date', () => {
+    expect(longDayLabel('2026-10-10', now, 'UTC')).toBe('Today');
+    expect(longDayLabel('2026-10-09', now, 'UTC')).toBe('Yesterday');
+    expect(longDayLabel('2026-10-08', now, 'UTC')).toBe('Thursday, Oct 8');
+  });
+
+  it('adds the year only for another year', () => {
+    expect(longDayLabel('2025-12-31', now, 'UTC')).toMatch(/Wednesday.*Dec 31.*2025/);
   });
 });
 
