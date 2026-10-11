@@ -44,6 +44,8 @@ jest.mock('@/components/FoodLoading', () => {
 jest.mock('expo-router', () => ({
   router: { back: () => mockBack(), dismissTo: () => mockBack(), canGoBack: () => true, replace: jest.fn() },
   useLocalSearchParams: () => mockParams,
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  useFocusEffect: (effect: () => void) => require('react').useEffect(effect, [effect]),
 }));
 jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(() => Promise.resolve()),
@@ -240,10 +242,10 @@ describe('Food screen: checks and "I ate this"', () => {
 describe('Food screen: saving without a verdict', () => {
   it('saves a typed meal as a diary entry with no verdict and never calls the relay', async () => {
     await render(<LogFoodScreen />);
-    expect(screen.queryByRole('button', { name: 'Save without a verdict' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Log without checking' })).toBeNull();
 
     await type('  grilled fish  ');
-    await press('Save without a verdict');
+    await press('Log without checking');
     await press('Save');
 
     expect(analyze).not.toHaveBeenCalled();
@@ -268,7 +270,7 @@ describe('Food screen: saving without a verdict', () => {
     await choosePhoto();
 
     expect(screen.getByRole('button', { name: 'Check this meal' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Save without a verdict' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Log without checking' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Choose a different photo' })).toBeNull();
     expect(analyze).not.toHaveBeenCalled();
     expect(store).not.toHaveBeenCalled();
@@ -281,7 +283,7 @@ describe('Food screen: saving without a verdict', () => {
     await press('Check this meal');
     expect(await screen.findByText(friendlyMessages.OFFLINE)).toBeTruthy();
 
-    await press('Save without a verdict');
+    await press('Log without checking');
     await press('Save');
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([

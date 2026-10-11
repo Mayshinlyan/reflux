@@ -16,6 +16,8 @@ type Props = {
   onPickPhoto: () => void;
   maxLength: number;
   notice?: ReactNode;
+  /** The Quick log row, between the heading and the photo card. */
+  quickLog?: ReactNode;
 };
 
 /** Figma "03b Food: capture": a heading, one big photo card, "or", and a text field. */
@@ -29,6 +31,7 @@ export function FoodCapture({
   onPickPhoto,
   maxLength,
   notice,
+  quickLog,
 }: Props) {
   const colors = useColors();
   return (
@@ -41,6 +44,7 @@ export function FoodCapture({
           Snap a photo or describe it. We&apos;ll check it for you.
         </AppText>
       </View>
+      {quickLog}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Take or choose a photo"

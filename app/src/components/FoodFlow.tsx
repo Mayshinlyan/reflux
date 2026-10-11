@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
@@ -12,6 +12,7 @@ import { FoodLoading } from '@/components/FoodLoading';
 import { FoodCapture } from '@/components/food/FoodCapture';
 import { FoodDetails, type MealDetailsState } from '@/components/food/FoodDetails';
 import { FoodVerdict } from '@/components/food/FoodVerdict';
+import { QuickLogRow } from '@/components/food/QuickLogRow';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
 import { SwipeNav } from '@/components/SwipeNav';
@@ -25,7 +26,14 @@ import {
   saveMealDetails,
   updateFoodCheck,
 } from '@/db/repositories/food';
-import { createSavedFood, saveCheckedFood, saveFoodFromLog } from '@/db/repositories/savedFoods';
+import {
+  createSavedFood,
+  listSavedFoods,
+  logSavedFood,
+  saveCheckedFood,
+  saveFoodFromLog,
+  type StoredSavedFood,
+} from '@/db/repositories/savedFoods';
 import { createSymptomLog } from '@/db/repositories/symptoms';
 import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
 import { playChing } from '@/lib/ching';
@@ -58,11 +66,12 @@ const copy = {
   analyzeLabel: 'Check this meal',
   saveLabel: 'I ate this',
   updateLabel: 'Update verdict',
-  saveUncheckedLabel: 'Save without a verdict',
+  saveUncheckedLabel: 'Log without checking',
   savedUnchecked: 'Saved without a verdict',
   saved: 'Added to your food diary',
   savedAndKept: 'Added to your food diary and My foods',
   keepOnlyLabel: 'Save to My foods only',
+  notEatingLabel: 'Not eating this',
 } as const;
 
 /** What was actually sent, so an edit while loading can't mismatch the saved entry. */
@@ -74,7 +83,8 @@ export type MyFoodTarget = { id?: number; name?: string };
 /**
  * The one food screen, for a meal just eaten or one being considered, in three steps (Figma 03b to 03d):
  * capture (a photo or a typed description) → verdict (the belly's mood, why, matched triggers) → details
- * (time, portion, lifestyle tags, symptoms, a note). Each result is kept as a check (outside the diary);
+ * (time, portion, lifestyle tags, symptoms, a note). Saved foods sit on top of the capture step as a Quick
+ * log row; tapping one skips straight to the details with its saved verdict. Each result is kept as a check (outside the diary);
  * "I ate this" opens the details, and Save promotes that check, reusing its analysis instead of calling
  * the relay again.
  * `openCamera` (the Scan shortcut on Today) opens the camera as soon as the screen appears.
@@ -109,7 +119,21 @@ export function FoodFlow({
   const [notice, setNotice] = useState<string | null>(null);
   const { settings } = useSettings();
   // The details step: which kind of save it is for (a checked meal, or one saved without a verdict).
-  const [detailsFor, setDetailsFor] = useState<'verdict' | 'unchecked' | null>(null);
+  const [detailsFor, setDetailsFor] = useState<'verdict' | 'unchecked' | 'saved' | null>(null);
+  // The saved food tapped in the Quick log row, while its details are open.
+  const [quickFood, setQuickFood] = useState<StoredSavedFood | null>(null);
+  // The Quick log row is for logging what was eaten, so My foods and the Food list's own check leave it out.
+  // Reloaded on focus, so foods edited or removed under "See all" are right when coming back.
+  const [savedFoods, setSavedFoods] = useState<StoredSavedFood[]>([]);
+  const loadSavedFoods = useCallback(() => {
+    if (myFood || fromList) return;
+    try {
+      setSavedFoods(listSavedFoods(db));
+    } catch {
+      setSavedFoods([]); // the check still works without the row
+    }
+  }, [db, myFood, fromList]);
+  useFocusEffect(loadSavedFoods);
   const [eatenAt, setEatenAt] = useState(() => new Date());
   const [details, setDetails] = useState<MealDetailsState>({
     portion: 'regular',
@@ -225,8 +249,8 @@ export function FoodFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on arrival; checkPhoto's state is fresh then
   }, [openCamera]);
 
-  /** "I ate this" / "Save without a verdict": on to the details (time, portion, extras), where Save is. */
-  const openDetails = (kind: 'verdict' | 'unchecked') => {
+  /** "I ate this" / "Log without checking" / a Quick log food: on to the details (time, portion, extras), where Save is. */
+  const openDetails = (kind: 'verdict' | 'unchecked' | 'saved') => {
     if (busy || saving.current) return;
     setEatenAt(new Date());
     setDetailsFor(kind);
@@ -397,6 +421,23 @@ export function FoodFlow({
     finishDiary(writeExtras(mealId) ? copy.savedUnchecked : EXTRAS_FAILED);
   };
 
+  /** Save on the details of a Quick log food: logs it with the verdict it was saved with, no relay call. */
+  const saveSaved = () => {
+    if (!quickFood || saving.current) return;
+    saving.current = true;
+    let mealId: number;
+    try {
+      mealId = logSavedFood(db, quickFood.id, eatenAt.toISOString());
+    } catch {
+      saving.current = false;
+      // Code only: a raw error could echo the food name.
+      logger.error('logSavedFood', new AppError('INTERNAL'));
+      toast("We couldn't save that. Please try again.");
+      return;
+    }
+    finishDiary(writeExtras(mealId) ? copy.saved : EXTRAS_FAILED);
+  };
+
   /**
    * "Update verdict": the AI re-checks the food with the user's comment and the new verdict is shown
    * (and stored on the check) before anything goes into the diary. Comments build on each other.
@@ -465,15 +506,34 @@ export function FoodFlow({
     setUpdated(null);
     reset();
   };
-  const onBack = detailsFor ? () => setDetailsFor(null) : showResult ? backToCapture : undefined;
+  const leaveDetails = () => {
+    setDetailsFor(null);
+    setQuickFood(null);
+  };
+  const onBack = detailsFor ? leaveDetails : showResult ? backToCapture : undefined;
   const onDetails = detailsFor !== null;
-  const detailsVerdict = detailsFor === 'verdict' && shown ? effectiveVerdict(shown) : undefined;
+  const detailsVerdict =
+    detailsFor === 'verdict' && shown
+      ? effectiveVerdict(shown)
+      : detailsFor === 'saved' && quickFood?.analysis
+        ? effectiveVerdict(quickFood.analysis)
+        : undefined;
+  const detailsName =
+    detailsFor === 'verdict' && shown
+      ? shown.mealName
+      : detailsFor === 'saved'
+        ? (quickFood?.mealName ?? '')
+        : trimmed;
+  const typed = trimmed.toLowerCase();
+  const quickFoods = savedFoods
+    .filter((food) => !typed || food.mealName.toLowerCase().includes(typed))
+    .map((food) => ({ id: food.id, name: food.mealName }));
 
   let body;
   if (onDetails) {
     body = (
       <FoodDetails
-        mealName={detailsFor === 'verdict' && shown ? shown.mealName : trimmed}
+        mealName={detailsName}
         verdict={detailsVerdict}
         whenLabel={formatMealTime(eatenAt, now)}
         onPickTime={pickTime}
@@ -535,6 +595,20 @@ export function FoodFlow({
         onPickPhoto={() => setChoosingPhoto(true)}
         maxLength={MAX_TEXT}
         notice={errorBanner}
+        quickLog={
+          quickFoods.length > 0 ? (
+            <QuickLogRow
+              foods={quickFoods}
+              onPick={(id) => {
+                const food = savedFoods.find((item) => item.id === id);
+                if (!food) return;
+                setQuickFood(food);
+                openDetails('saved');
+              }}
+              onSeeAll={() => router.push({ pathname: '/log/food', params: { manage: '1' } })}
+            />
+          ) : undefined
+        }
       />
     );
   }
@@ -544,7 +618,10 @@ export function FoodFlow({
   if (onDetails) {
     footer = (
       <View style={styles.footer}>
-        <Button label="Save" onPress={detailsFor === 'verdict' ? save : saveUnchecked} />
+        <Button
+          label="Save"
+          onPress={detailsFor === 'verdict' ? save : detailsFor === 'saved' ? saveSaved : saveUnchecked}
+        />
       </View>
     );
   } else if (showResult) {
@@ -555,10 +632,18 @@ export function FoodFlow({
           onPress={() => (myFood ? save() : openDetails('verdict'))}
         />
         <Button label="Not quite right? Tell us more" variant="secondary" onPress={() => setTelling(true)} />
-        {/* A quiet link, as the Food list's own way to keep a food without eating it now. */}
+        {/* Quiet links, for someone only checking a food. The Food list's own check keeps it instead. */}
         {fromList && (
           <Pressable accessibilityRole="button" onPress={saveOnly} style={styles.link}>
             <AppText style={[styles.linkText, { color: colors.clayInk }]}>{copy.keepOnlyLabel}</AppText>
+          </Pressable>
+        )}
+        {!fromList && !myFood && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+            style={styles.link}>
+            <AppText style={[styles.linkText, { color: colors.clayInk }]}>{copy.notEatingLabel}</AppText>
           </Pressable>
         )}
       </View>
@@ -592,7 +677,11 @@ export function FoodFlow({
           onBack={onBack}
         />
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+          <ScrollView
+            // A fresh scroll position for each step, so details don't open scrolled down from the verdict.
+            key={detailsFor ?? (showResult ? 'verdict' : busy ? 'busy' : 'capture')}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.content}>
             {body}
           </ScrollView>
           {footer}
