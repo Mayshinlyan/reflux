@@ -66,6 +66,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
+    "audit:check": "node scripts/audit-check.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "jest",
@@ -79,6 +80,8 @@
     "@esbuild-kit/core-utils": {
       "esbuild": "^0.25.0"
     },
-    "uuid": "^11.1.1"
+    "uuid": "^11.1.1",
+    "shell-quote": "^1.12.0",
+    "source-map-js": "^1.2.2"
   }
 }
