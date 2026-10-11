@@ -33,6 +33,8 @@ import { playChing } from '@/lib/ching';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { symptomsSwipe } from '@/lib/logSwipe';
+import { dayToLoggedAt } from '@/lib/mealTime';
+import { currentTimeZone } from '@/lib/time';
 import { radius, space, typography, useColors } from '@/theme';
 
 const MAX_NOTE_LENGTH = 1000;
@@ -48,7 +50,7 @@ export default function LogSymptomsScreen() {
   const db = useDb();
   const toast = useToast();
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ id?: string; afterFood?: string }>();
+  const params = useLocalSearchParams<{ id?: string; afterFood?: string; date?: string }>();
   const editingId = params.id ? Number(params.id) : undefined;
 
   const existing = useMemo(() => {
@@ -75,6 +77,12 @@ export default function LogSymptomsScreen() {
       return undefined;
     }
   }, [db, params.afterFood, editingId]);
+
+  // Set when opened from a day in the week strip: the entry is saved on that earlier day, at noon.
+  const loggedAt = useMemo(
+    () => (editingId === undefined && params.date ? dayToLoggedAt(params.date, new Date()) : null),
+    [editingId, params.date],
+  );
 
   const [selected, setSelected] = useState<Set<SymptomKey>>(() => new Set(existing?.items.map((i) => i.key)));
   const [tags, setTags] = useState<Set<LifestyleTagKey>>(() => new Set(existing?.tags ?? []));
@@ -150,7 +158,13 @@ export default function LogSymptomsScreen() {
   const save = () => {
     // Keep the canonical symptom order rather than tap order.
     const items = SYMPTOM_ITEMS.filter((item) => selected.has(item.key)).map((item) => ({ key: item.key }));
-    const input = { items, tags: [...tags], notes: note, foodLogId: afterMeal?.id };
+    const input = {
+      items,
+      tags: [...tags],
+      notes: note,
+      foodLogId: afterMeal?.id,
+      ...(loggedAt ? { loggedAt: loggedAt.toISOString(), tz: currentTimeZone() } : {}),
+    };
     try {
       if (editingId !== undefined) updateSymptomLog(db, editingId, input);
       else createSymptomLog(db, input);
@@ -185,6 +199,12 @@ export default function LogSymptomsScreen() {
     <SwipeNav {...symptomsSwipe} enabled={pristine}>
       <Screen style={styles.screen}>
         <BackHeader title={title} onBack={goBack} />
+        {loggedAt && (
+          <AppText variant="label" color="inkSoft" style={styles.dayLine}>
+            Logging for{' '}
+            {loggedAt.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+          </AppText>
+        )}
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
             ref={scroll}
@@ -315,6 +335,7 @@ const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
   flex: { flex: 1 },
   content: { paddingBottom: space.s3, flexGrow: 1 },
+  dayLine: { marginBottom: space.s1 },
   subtitle: { fontSize: 15, lineHeight: 21, marginTop: 4, marginBottom: 18 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
   note: {

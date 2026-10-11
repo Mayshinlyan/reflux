@@ -52,7 +52,11 @@ export default function TodayScreen() {
           </AppText>
         </View>
 
-        <WeekStrip days={week} loggedDays={loggedDays} />
+        <WeekStrip
+          days={week}
+          loggedDays={loggedDays}
+          onPressDay={(date) => router.push({ pathname: '/log/symptoms', params: { date } })}
+        />
 
         <View style={[styles.ring, empty && styles.ringEmpty]}>
           <HomeRing meals={meals} mood={mood} onPress={() => router.push('/log')} />

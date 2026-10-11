@@ -172,15 +172,21 @@
   .device__group:last-child{margin-bottom:0}
   .device__group-label{font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:12px}
 
+  .tabbar-row{flex:none;display:flex;gap:12px;align-items:center;margin:0 18px 16px}
   .tabbar{
-    flex:none;display:flex;gap:4px;align-items:center;height:60px;padding:8px;
-    margin:0 18px 16px;background:var(--surface);border-radius:var(--r-pill);
+    flex:1;display:flex;gap:4px;align-items:center;height:60px;padding:8px;
+    background:var(--surface);border-radius:var(--r-pill);
     box-shadow:0 6px 16px -6px rgba(46,42,38,.18);
   }
+  .tabbar__log{
+    flex:none;width:60px;height:60px;display:flex;align-items:center;justify-content:center;border:none;
+    border-radius:var(--r-pill);background:var(--cta);color:var(--cta-ink);font-family:inherit;
+    box-shadow:0 6px 16px -6px rgba(46,42,38,.18);
+  }
+  .tabbar__log svg{width:24px;height:24px}
   .tabbar__item{flex:1;height:44px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-pill);color:var(--ink);background:none;border:none;font-family:inherit}
   .tabbar__item svg{width:24px;height:24px}
   .tabbar__item.active{background:var(--surface-2)}
-  .tabbar__item.log{background:var(--cta);color:var(--cta-ink)}
   .topbar{display:flex;align-items:center;justify-content:space-between;height:44px;position:relative}
   .topbar__btn{width:44px;height:44px;border-radius:50%;background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:center;border:none}
   .topbar__btn svg{width:22px;height:22px}
@@ -373,7 +379,7 @@
     </div>
     <div class="principle">
       <h3>No outlines</h3>
-      <p>Containers are filled, never stroked. Selection is a different tint, not a border. Unselected chips are surface; chips inside cards are surface 2.</p>
+      <p>Containers are filled, never stroked. Selection is a different tint, not a border. Unselected chips are surface; chips inside cards are surface 2. One exception: form dropdowns (portion, verdict, eaten time) keep a 1px hairline edge so they show against the sheet they sit in.</p>
     </div>
     <div class="principle">
       <h3>Icon and label, always</h3>
@@ -732,10 +738,8 @@
           </div>
         </div>
 
+        <div class="tabbar-row">
         <div class="tabbar" role="tablist">
-          <button class="tabbar__item log" type="button" aria-label="Log">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg>
-          </button>
           <button class="tabbar__item active" type="button" role="tab" aria-selected="true" aria-label="Today">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-2.93 1.41-1.41m11.32-11.32 1.41-1.41M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41"/></svg>
           </button>
@@ -746,13 +750,28 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
           </button>
         </div>
+        <button class="tabbar__log" type="button" aria-label="Log">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg>
+        </button>
+        </div>
       </div>
     </div>
-    <p class="caption-s" style="text-align:center;margin-top:10px">The floating tab bar stays fixed; the content above scrolls beneath it. Log is always olive; the current tab rests on surface 2.</p>
+    <p class="caption-s" style="text-align:center;margin-top:10px">The floating tab bar stays fixed; the content above scrolls beneath it. The pill holds three tabs and the current one rests on surface 2. Log is its own olive circle beside the pill, so it reads as an action, not a fourth tab. It sits on the right, where the thumb rests.</p>
 
     <div class="section-sub" style="margin-top:var(--s4)">
       <h3>Today</h3>
-      <p class="caption-s">The belly is the mascot, not a pet. Its mood follows the latest meal&rsquo;s verdict; with no meal yet it is Happy. The home ring has one equal arc per meal today, clockwise from 12 o&rsquo;clock, each in its verdict colour (6&deg; gaps; one meal fills the ring). Empty, the whole ring is the way into Log food.</p>
+      <p class="caption-s">The belly is the mascot, not a pet. Its mood follows the latest meal&rsquo;s verdict; with no meal yet it is Happy. The home ring has one equal arc per meal today, clockwise from 12 o&rsquo;clock, each in its verdict colour (6&deg; gaps; one meal fills the ring). The whole ring is a button: the belly squashes and tilts under a finger, jiggles on a tap (a hop and a wobble, with a light haptic; none with Reduce Motion), then the Log page opens. On an empty day a speech bubble &ldquo;Tap me to log&rdquo; sits under the belly; once logged, the belly stays at 96 and the count (&ldquo;3 meals&rdquo;, Gaegu 28) goes smaller, with &ldquo;logged today&rdquo; under it.</p>
+      <div style="display:flex;flex-direction:column;align-items:center;width:max-content;margin-top:var(--s2)" role="img" aria-label="Speech bubble">
+        <span style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:8px solid var(--surface)"></span>
+        <span style="background:var(--surface);border-radius:999px;padding:6px 16px;font-family:'Gaegu',cursive;font-size:20px">Tap me to log</span>
+      </div>
+      <p class="caption-s" style="margin-top:8px">Speech bubble: a short Gaegu line in a surface pill with a small tail pointing at what is talking. No outline.</p>
+      <div style="display:flex;gap:var(--s3);flex-wrap:wrap;margin-top:var(--s3)" role="img" aria-label="Log tiles">
+        <span style="width:120px;height:120px;border-radius:999px;background:var(--honey-tint);display:flex;align-items:center;justify-content:center;font-weight:600">Food</span>
+        <span style="width:120px;height:120px;border-radius:999px;background:var(--clay-tint);display:flex;align-items:center;justify-content:center;font-weight:600">Symptoms</span>
+        <span style="width:120px;height:120px;border-radius:999px;background:var(--sage-tint);display:flex;align-items:center;justify-content:center;font-weight:600">Medication</span>
+      </div>
+      <p class="caption-s" style="margin-top:8px">Log tile: the Log page is three big round tinted tiles, an icon over a label with no subtext (Food honey, Symptoms clay, Medication sage; icons Utensils, Activity, Pill).</p>
       <div style="display:flex;gap:var(--s3);flex-wrap:wrap;align-items:center;margin-top:var(--s2)"><figure style="margin:0;text-align:center"><svg width="72" height="72" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="Belly">
 <path id="Vector" d="M54 11C47 11 43 17 38 24C21 44 10 60 10 80C10 101 32 111 60 111C88 111 110 101 110 80C110 60 95 46 79 27C69 14 62 11 54 11Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
@@ -817,7 +836,7 @@
 </svg></g></svg>
       </div>
       <div style="display:flex;max-width:354px;margin-top:var(--s3)" role="img" aria-label="Week strip"><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><span class="caption-s">S</span><span style="width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">4</span><span style="width:5px;height:5px;border-radius:999px;background:transparent"></span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><span class="caption-s">M</span><span style="width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">5</span><span style="width:5px;height:5px;border-radius:999px;background:var(--sage)"></span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><span class="caption-s">T</span><span style="width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">6</span><span style="width:5px;height:5px;border-radius:999px;background:var(--sage)"></span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><span class="caption-s">W</span><span style="width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">7</span><span style="width:5px;height:5px;border-radius:999px;background:transparent"></span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><span class="caption-s">T</span><span style="width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">8</span><span style="width:5px;height:5px;border-radius:999px;background:var(--sage)"></span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><span class="caption-s">F</span><span style="width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">9</span><span style="width:5px;height:5px;border-radius:999px;background:var(--sage)"></span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><span class="caption-s">S</span><span style="width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:var(--cta);color:var(--cta-ink)">10</span><span style="width:5px;height:5px;border-radius:999px;background:var(--sage)"></span></div></div>
-      <p class="caption-s" style="margin-top:8px">Week strip: Sunday to Saturday. Today is an olive circle; a small dot marks a day with entries. Diary rows (meal, symptoms, dose) are filled <code>surface</code> with no border; doses carry a &ldquo;Taken&rdquo; pill. Meals use <code>Utensils</code> as the thumbnail icon.</p>
+      <p class="caption-s" style="margin-top:8px">Week strip: Sunday to Saturday. Today is an olive circle; a small dot marks a day with entries. Tapping today or an earlier day opens Log symptoms for that day (saved at noon); later days are not tappable. Diary rows (meal, symptoms, dose) are filled <code>surface</code> with no border; doses carry a &ldquo;Taken&rdquo; pill. Meals use <code>Utensils</code> as the thumbnail icon.</p>
     </div>
 
     <div class="verdict-detail" style="margin-top:var(--s4)">

@@ -7,7 +7,7 @@ import type { AppDb } from '@/db/types';
 
 let mockDb: AppDb;
 let closeDb: () => void;
-let mockParams: { id?: string } = {};
+let mockParams: { id?: string; date?: string } = {};
 const mockBack = jest.fn();
 const mockChing = jest.fn();
 jest.mock('@/lib/ching', () => ({ playChing: () => mockChing() }));
@@ -295,5 +295,67 @@ describe('Log symptoms screen: editing', () => {
     mockParams = { id: '999' };
     await render(<LogSymptomsScreen />);
     expect(screen.getByText('This entry no longer exists.')).toBeTruthy();
+  });
+});
+
+describe('Log symptoms screen: logging on an earlier day (from the week strip)', () => {
+  /** The local calendar day `daysAgo` days back, as a "YYYY-MM-DD" key and as its parts. */
+  const day = (daysAgo: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    const key = [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0'),
+    ];
+    return { key: key.join('-'), year: d.getFullYear(), month: d.getMonth(), date: d.getDate() };
+  };
+
+  const saveHeartburn = async () => {
+    await chooseIn('Chest', ['Heartburn']);
+    await press('button', 'Next');
+    await press('button', 'Next');
+    await press('button', 'Save entry');
+  };
+
+  it('says which day it is for and saves the entry on that day, at noon', async () => {
+    const earlier = day(2);
+    mockParams = { date: earlier.key };
+    await render(<LogSymptomsScreen />);
+    expect(screen.getByText(/^Logging for /)).toBeTruthy();
+
+    await saveHeartburn();
+
+    const [log] = listSymptomLogs(mockDb, ALL_TIME);
+    expect(new Date(log!.loggedAt).getTime()).toBe(
+      new Date(earlier.year, earlier.month, earlier.date, 12, 0).getTime(),
+    );
+  });
+
+  it('treats today (or a day it cannot log on) as now', async () => {
+    for (const date of [day(0).key, day(-3).key, 'junk', day(30).key]) {
+      mockParams = { date };
+      await render(<LogSymptomsScreen />);
+      expect(screen.queryByText(/^Logging for /)).toBeNull();
+      await saveHeartburn();
+      await screen.unmount();
+    }
+
+    const logs = listSymptomLogs(mockDb, ALL_TIME);
+    expect(logs).toHaveLength(4);
+    for (const log of logs)
+      expect(Math.abs(Date.now() - new Date(log.loggedAt).getTime())).toBeLessThan(60_000);
+  });
+
+  it('does not move an entry being edited to another day', async () => {
+    const id = createSymptomLog(mockDb, { items: [{ key: 'heartburn' }] });
+    const before = getSymptomLog(mockDb, id)!.loggedAt;
+    mockParams = { id: String(id), date: day(2).key };
+    await render(<LogSymptomsScreen />);
+    expect(screen.queryByText(/^Logging for /)).toBeNull();
+
+    await press('button', 'Save changes');
+
+    expect(getSymptomLog(mockDb, id)!.loggedAt).toBe(before);
   });
 });
