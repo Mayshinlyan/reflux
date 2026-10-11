@@ -3,7 +3,7 @@ import { count } from 'drizzle-orm';
 
 import type { MealAnalysis } from '@/types/analysis';
 
-import { countLoggedEntries, deleteAllData } from '../repositories/data';
+import { countLoggedEntries, deleteAllData, earliestEntryDayKey } from '../repositories/data';
 import {
   createFoodLog,
   createUncheckedMeal,
@@ -356,6 +356,55 @@ describe('symptoms after a meal', () => {
     setMealSymptoms(db, mealId, ['heartburn'], MANAGED, AT);
 
     expect(listSymptomLogsForMeal(db, mealId).map((log) => log.id)).toEqual([id]);
+  });
+});
+
+describe('earliestEntryDayKey', () => {
+  it('is undefined when nothing is logged', () => {
+    const { db } = createTestDb();
+    expect(earliestEntryDayKey(db)).toBeUndefined();
+  });
+
+  it('is the oldest day across meals, symptoms and doses, in the zone each was logged in', () => {
+    const { db } = createTestDb();
+    createFoodLog(db, {
+      entryType: 'diary',
+      source: 'text',
+      analysis: mintTea,
+      meta,
+      loggedAt: '2026-09-20T12:00:00.000Z',
+      tz: 'UTC',
+    });
+    createSymptomLog(db, { items: [{ key: 'cough' }], loggedAt: '2026-09-10T12:00:00.000Z', tz: 'UTC' });
+    const medId = createMedication(db, { name: 'Omeprazole', type: 'ppi' });
+    logMedication(db, medId, { takenAt: '2026-09-15T12:00:00.000Z' });
+    // A check isn't a diary entry, however old.
+    createFoodLog(db, {
+      entryType: 'check',
+      source: 'text',
+      analysis: mintTea,
+      meta,
+      loggedAt: '2026-01-01T12:00:00.000Z',
+    });
+
+    expect(earliestEntryDayKey(db)).toBe('2026-09-10');
+  });
+
+  it('compares local days, so a late-evening entry in a far zone can be the earlier day', () => {
+    const { db } = createTestDb();
+    // 23:30 UTC on the 9th is already the 10th in Tokyo; 01:00 UTC on the 10th is still the 9th in LA.
+    createSymptomLog(db, {
+      items: [{ key: 'cough' }],
+      loggedAt: '2026-09-09T23:30:00.000Z',
+      tz: 'Asia/Tokyo',
+    });
+    createSymptomLog(db, {
+      items: [{ key: 'cough' }],
+      loggedAt: '2026-09-10T01:00:00.000Z',
+      tz: 'America/Los_Angeles',
+    });
+
+    expect(earliestEntryDayKey(db)).toBe('2026-09-09');
   });
 });
 

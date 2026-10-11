@@ -133,7 +133,7 @@ describe('Entry: a meal', () => {
     expect(screen.getByText('Large')).toBeTruthy();
     expect(screen.getByText('Saved to My foods')).toBeTruthy();
     expect(screen.getByText('No')).toBeTruthy();
-    expect(screen.getByText('Symptoms after this meal')).toBeTruthy();
+    expect(screen.getByText('Symptoms')).toBeTruthy();
     expect(screen.getByText('Heartburn')).toBeTruthy();
     expect(screen.getByText('Burping')).toBeTruthy();
     expect(screen.getByText('Logged at 9:40 PM')).toBeTruthy();
@@ -155,7 +155,7 @@ describe('Entry: a meal', () => {
     mockParams = { kind: 'food', id: String(id) };
     await render(<EntryScreen />);
 
-    expect(screen.queryByText('Symptoms after this meal')).toBeNull();
+    expect(screen.queryByText('Symptoms')).toBeNull();
     expect(screen.queryByText('Note')).toBeNull();
     expect(screen.queryByText('Late meal')).toBeNull();
     expect(screen.getByText('Regular')).toBeTruthy();

@@ -153,8 +153,10 @@ function Card({ title, children }: { title?: string; children: ReactNode }) {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.detailRow}>
-      <AppText>{label}</AppText>
-      <AppText color="inkSoft">{value}</AppText>
+      <AppText variant="small">{label}</AppText>
+      <AppText variant="small" color="inkSoft">
+        {value}
+      </AppText>
     </View>
   );
 }
@@ -184,7 +186,7 @@ function Tags({ labels }: { labels: string[] }) {
 function NoteCard({ notes }: { notes: string | null }) {
   return notes ? (
     <Card title="Note">
-      <AppText>{notes}</AppText>
+      <AppText variant="small">{notes}</AppText>
     </Card>
   ) : null;
 }
@@ -215,7 +217,7 @@ function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] 
         <DetailRow label="Saved to My foods" value={isFoodSaved(db, log.mealName) ? 'Yes' : 'No'} />
       </Card>
       {keys.length > 0 && first && (
-        <Card title="Symptoms after this meal">
+        <Card title="Symptoms">
           <View style={styles.chips}>
             {keys.map((key) => (
               <SymptomChip key={key} label={symptomLabel(key)} selected readOnly />

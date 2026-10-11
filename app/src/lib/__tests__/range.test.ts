@@ -1,11 +1,12 @@
 import {
   inPeriod,
+  isCurrent,
   loadWindow,
   periodLabel,
   periodOf,
-  recentPeriods,
   samePeriod,
   shiftPeriod,
+  spanLabel,
 } from '../range';
 
 describe('periodOf', () => {
@@ -61,20 +62,27 @@ describe('periodLabel', () => {
   });
 });
 
-describe('recentPeriods', () => {
-  it('lists this period first, then the ones before it with plain titles', () => {
-    const weeks = recentPeriods('week', '2026-10-10', 4);
-    expect(weeks.map((w) => [w.title, w.label])).toEqual([
-      ['This week', 'Oct 4 – 10'],
-      ['Last week', 'Sep 27 – Oct 3'],
-      ['2 weeks ago', 'Sep 20 – 26'],
-      ['3 weeks ago', 'Sep 13 – 19'],
-    ]);
-    expect(recentPeriods('month', '2026-10-10', 3).map((m) => [m.title, m.label])).toEqual([
-      ['This month', 'October'],
-      ['Last month', 'September'],
-      ['2 months ago', 'August'],
-    ]);
+describe('spanLabel', () => {
+  const today = '2026-10-10';
+
+  it('writes any span of days like a week: one month is short, two months name both', () => {
+    expect(spanLabel({ startKey: '2026-10-04', endKey: '2026-10-10' }, today)).toBe('Oct 4 – 10');
+    expect(spanLabel({ startKey: '2026-09-03', endKey: '2026-10-10' }, today)).toBe('Sep 3 – Oct 10');
+  });
+
+  it('writes one day as just that day, and adds the year for another year', () => {
+    expect(spanLabel({ startKey: '2026-10-10', endKey: '2026-10-10' }, today)).toBe('Oct 10');
+    expect(spanLabel({ startKey: '2025-03-02', endKey: '2026-10-10' }, today)).toBe(
+      'Mar 2 – Oct 10, 2025 – 2026',
+    );
+  });
+});
+
+describe('isCurrent', () => {
+  it('is true for a period that reaches today, so there is nothing to step forward to', () => {
+    expect(isCurrent(periodOf('week', '2026-10-10'), '2026-10-10')).toBe(true);
+    expect(isCurrent(periodOf('month', '2026-10-10'), '2026-10-10')).toBe(true);
+    expect(isCurrent(periodOf('week', '2026-10-03'), '2026-10-10')).toBe(false);
   });
 });
 

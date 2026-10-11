@@ -1,18 +1,20 @@
 import { router, useFocusEffect } from 'expo-router';
+import { Infinity as InfinityIcon } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { SectionList, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { DateRangePicker } from '@/components/DateRangePicker';
 import { TAB_BAR_CLEARANCE } from '@/components/FloatingTabBar';
 import { HistorySummary } from '@/components/HistorySummary';
-import { RangeSheet } from '@/components/RangeSheet';
+import { RangeStepper } from '@/components/RangeStepper';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Select } from '@/components/Select';
-import { TimePill } from '@/components/TimePill';
 import { TimelineItem } from '@/components/TimelineItem';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { useDb } from '@/db/DatabaseProvider';
+import { earliestEntryDayKey } from '@/db/repositories/data';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
 import { listMedicationLogs } from '@/db/repositories/medications';
 import { listSymptomLogs } from '@/db/repositories/symptoms';
@@ -24,21 +26,27 @@ import { localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
 import {
   inPeriod,
+  isCurrent,
   loadWindow,
   type Period,
   periodLabel,
   periodOf,
-  recentPeriods,
-  type RangeMode,
+  shiftPeriod,
+  spanLabel,
 } from '@/lib/range';
 import { currentTimeZone } from '@/lib/time';
 import { buildTimeline, type TimelineEntry, type TimelineFilter, type TimelineSection } from '@/lib/timeline';
 import { space } from '@/theme';
 
-const MODES: { value: RangeMode; label: string }[] = [
-  { value: 'week', label: 'Week' },
-  { value: 'month', label: 'Month' },
-];
+/** What History is showing: a week or month you can step through, everything so far, or dates picked by hand. */
+type Kind = 'week' | 'month' | 'all' | 'custom';
+
+/** The segments; a custom range has none selected. */
+const SEGMENTS = [
+  { value: 'week', label: 'W', accessibilityLabel: 'Week' },
+  { value: 'month', label: 'M', accessibilityLabel: 'Month' },
+  { value: 'all', label: 'All time', icon: InfinityIcon },
+] as const;
 
 const FILTERS: { value: TimelineFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -46,9 +54,6 @@ const FILTERS: { value: TimelineFilter; label: string }[] = [
   { value: 'food', label: 'Food' },
   { value: 'medication', label: 'Medications' },
 ];
-
-/** How many weeks or months the range sheet offers. */
-const CHOICE_COUNT: Record<RangeMode, number> = { week: 26, month: 12 };
 
 const todayKeyNow = () => localDayKey(new Date().toISOString(), currentTimeZone());
 
@@ -68,18 +73,28 @@ function loadPeriod(db: AppDb, period: Period): TimelineSection[] {
 
 export default function HistoryScreen() {
   const db = useDb();
-  const [mode, setMode] = useState<RangeMode>('week');
-  const [period, setPeriod] = useState<Period>(() => periodOf('week', todayKeyNow()));
+  const [kind, setKind] = useState<Kind>('week');
+  /** The week, month or hand-picked dates shown; for all time it is worked out from the first entry. */
+  const [span, setSpan] = useState<Period>(() => periodOf('week', todayKeyNow()));
   const [filter, setFilter] = useState<TimelineFilter>('all');
-  const [choosing, setChoosing] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [dayCounts, setDayCounts] = useState<ReadonlyMap<string, number>>(new Map());
   const [sections, setSections] = useState<TimelineSection[]>([]);
   const [todayKey, setTodayKey] = useState(todayKeyNow);
+  const [firstDayKey, setFirstDayKey] = useState<string | undefined>(undefined);
   const [loadFailed, setLoadFailed] = useState(false);
+
+  const firstDay = firstDayKey ?? todayKey;
+  const period = useMemo<Period>(
+    () => (kind === 'all' ? { startKey: firstDay, endKey: todayKey } : span),
+    [kind, span, firstDay, todayKey],
+  );
 
   const reload = useCallback(() => {
     try {
       setSections(loadPeriod(db, period));
       setTodayKey(todayKeyNow());
+      setFirstDayKey(earliestEntryDayKey(db));
       setLoadFailed(false);
     } catch (error) {
       logger.error('loadHistory', error);
@@ -114,13 +129,32 @@ export default function HistoryScreen() {
     [sections, filter],
   );
 
-  const changeMode = (next: RangeMode) => {
-    setMode(next);
-    setPeriod(periodOf(next, todayKey));
+  const stepping = kind === 'week' || kind === 'month';
+  const label =
+    kind === 'week' || kind === 'month' ? periodLabel(kind, period, todayKey) : spanLabel(period, todayKey);
+
+  const choose = (next: 'week' | 'month' | 'all') => {
+    setKind(next);
+    if (next !== 'all') setSpan(periodOf(next, todayKey));
+  };
+
+  // The calendar marks days with entries and counts them, so it needs every day, not just the shown ones.
+  const openCalendar = () => {
+    try {
+      const everything = loadPeriod(db, { startKey: firstDay, endKey: todayKey });
+      setDayCounts(new Map(everything.map((section) => [section.dayKey, section.entries.length])));
+    } catch (error) {
+      logger.error('loadCalendar', error);
+      setDayCounts(new Map());
+    }
+    setPicking(true);
   };
 
   const open = (entry: TimelineEntry) =>
     router.push({ pathname: '/entry', params: { kind: entry.kind, id: String(entry.id) } });
+
+  const where =
+    kind === 'week' || kind === 'month' ? `this ${kind}` : kind === 'custom' ? 'in these dates' : 'yet';
 
   return (
     <Screen edges={['top', 'left', 'right']} style={styles.screen}>
@@ -133,8 +167,21 @@ export default function HistoryScreen() {
               History
             </AppText>
             <View style={styles.controls}>
-              <SegmentedControl options={MODES} value={mode} onChange={changeMode} />
-              <TimePill label={periodLabel(mode, period, todayKey)} onPress={() => setChoosing(true)} />
+              <SegmentedControl
+                options={SEGMENTS}
+                value={kind === 'custom' ? null : kind}
+                onChange={choose}
+              />
+              <RangeStepper
+                label={label}
+                onPressLabel={openCalendar}
+                arrows={stepping}
+                unit={kind === 'month' ? 'month' : 'week'}
+                canBack={period.startKey > firstDay}
+                canForward={!isCurrent(period, todayKey)}
+                onBack={() => stepping && setSpan(shiftPeriod(kind, span, -1))}
+                onForward={() => stepping && setSpan(shiftPeriod(kind, span, 1))}
+              />
             </View>
             <HistorySummary summary={summary} />
             <View style={styles.entriesHead}>
@@ -146,7 +193,7 @@ export default function HistoryScreen() {
           </View>
         }
         renderSectionHeader={({ section }) => (
-          <AppText accessibilityRole="header" style={styles.dayLabel}>
+          <AppText variant="section" accessibilityRole="header" style={styles.dayLabel}>
             {section.label}
           </AppText>
         )}
@@ -176,23 +223,25 @@ export default function HistoryScreen() {
               {loadFailed
                 ? `${friendlyMessages.INTERNAL} Your entries are still on this phone.`
                 : filter === 'all'
-                  ? `Nothing logged this ${mode}. Tap Log below to add an entry.`
-                  : `Nothing of this kind this ${mode}.`}
+                  ? `Nothing logged ${where}. Tap Log below to add an entry.`
+                  : `Nothing of this kind ${where}.`}
             </AppText>
           </View>
         }
       />
 
-      <RangeSheet
-        visible={choosing}
-        title={`Choose a ${mode}`}
-        choices={recentPeriods(mode, todayKey, CHOICE_COUNT[mode])}
-        current={period}
-        onPick={(next) => {
-          setPeriod(next);
-          setChoosing(false);
+      <DateRangePicker
+        visible={picking}
+        firstDayKey={firstDay}
+        todayKey={todayKey}
+        counts={dayCounts}
+        initial={kind === 'custom' ? span : null}
+        onApply={(picked) => {
+          setKind('custom');
+          setSpan(picked);
+          setPicking(false);
         }}
-        onClose={() => setChoosing(false)}
+        onClose={() => setPicking(false)}
       />
     </Screen>
   );

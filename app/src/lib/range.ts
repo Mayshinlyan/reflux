@@ -8,7 +8,7 @@ export type RangeMode = 'week' | 'month';
 export type Period = { startKey: string; endKey: string };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
-const MONTH_NAMES = [
+export const MONTH_NAMES = [
   'January',
   'February',
   'March',
@@ -56,13 +56,25 @@ export function shiftPeriod(mode: RangeMode, period: Period, steps: number): Per
  * period isn't in the same year as `todayKey`.
  */
 export function periodLabel(mode: RangeMode, period: Period, todayKey: string): string {
+  if (mode === 'month') {
+    const start = parts(period.startKey);
+    const showYear =
+      start.year !== parts(todayKey).year || parts(period.endKey).year !== parts(todayKey).year;
+    return `${MONTH_NAMES[start.month]}${showYear ? ` ${start.year}` : ''}`;
+  }
+  return spanLabel(period, todayKey);
+}
+
+/**
+ * Any span of days as "Sep 27 – Oct 3" (or "Oct 4 – 10" inside one month), for weeks, all time and a range
+ * picked on the calendar. The year is added when the span isn't in the same year as `todayKey`.
+ */
+export function spanLabel(period: Period, todayKey: string): string {
   const start = parts(period.startKey);
   const end = parts(period.endKey);
   const showYear = start.year !== parts(todayKey).year || end.year !== parts(todayKey).year;
-  if (mode === 'month') {
-    return `${MONTH_NAMES[start.month]}${showYear ? ` ${start.year}` : ''}`;
-  }
   const from = `${MONTHS[start.month]} ${start.date}`;
+  const oneDay = period.startKey === period.endKey;
   const to =
     end.month === start.month && end.year === start.year ? `${end.date}` : `${MONTHS[end.month]} ${end.date}`;
   const year = showYear
@@ -70,26 +82,11 @@ export function periodLabel(mode: RangeMode, period: Period, todayKey: string): 
       ? `, ${start.year}`
       : `, ${start.year} – ${end.year}`
     : '';
-  return `${from} – ${to}${year}`;
+  return oneDay ? `${from}${year}` : `${from} – ${to}${year}`;
 }
 
-export type PeriodChoice = { period: Period; title: string; label: string };
-
-const ORDINAL = (mode: RangeMode, ago: number) =>
-  ago === 0
-    ? `This ${mode}`
-    : ago === 1
-      ? `Last ${mode}`
-      : `${ago} ${mode === 'week' ? 'weeks' : 'months'} ago`;
-
-/** The current period and the `count - 1` before it, newest first, for the range sheet. */
-export function recentPeriods(mode: RangeMode, todayKey: string, count: number): PeriodChoice[] {
-  const current = periodOf(mode, todayKey);
-  return Array.from({ length: count }, (_, ago) => {
-    const period = shiftPeriod(mode, current, -ago);
-    return { period, title: ORDINAL(mode, ago), label: periodLabel(mode, period, todayKey) };
-  });
-}
+/** Whether the period reaches today, so there is nothing later to step forward to. */
+export const isCurrent = (period: Period, todayKey: string) => period.endKey >= todayKey;
 
 export const samePeriod = (a: Period, b: Period) => a.startKey === b.startKey && a.endKey === b.endKey;
 

@@ -239,39 +239,53 @@ describe('History: the Entries filter', () => {
   });
 });
 
-describe('History: the range', () => {
-  it('opens a sheet of weeks with a check on the shown one', async () => {
-    await render(<HistoryScreen />);
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Oct 4 – 10' }));
-
-    expect(screen.getByRole('header', { name: 'Choose a week' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: 'This week, Oct 4 – 10' }).props.accessibilityState).toEqual({
-      checked: true,
-    });
-    expect(screen.getByRole('radio', { name: 'Last week, Sep 27 – Oct 3' }).props.accessibilityState).toEqual(
-      {
-        checked: false,
-      },
-    );
-  });
-
-  it('shows an earlier week once picked, with its entries and numbers', async () => {
+describe('History: stepping through weeks and months', () => {
+  it('steps back to an earlier week and forward again', async () => {
     seedWeek();
     await render(<HistoryScreen />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Oct 4 – 10' }));
-    await fireEvent.press(screen.getByRole('radio', { name: 'Last week, Sep 27 – Oct 3' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous week' }));
 
     expect(screen.getByRole('button', { name: 'Sep 27 – Oct 3' })).toBeTruthy();
     expect(screen.getByText('Old pasta')).toBeTruthy();
     expect(screen.queryByText('Spicy chicken tacos')).toBeNull();
     expect(screen.getByText('1 meal')).toBeTruthy();
     expect(screen.getByText('Thursday, Oct 1')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Next week' }));
+    expect(screen.getByRole('button', { name: 'Oct 4 – 10' })).toBeTruthy();
+    expect(screen.getByText('Spicy chicken tacos')).toBeTruthy();
   });
 
-  it('switches to the month: the whole of October, labelled by name', async () => {
+  it('dims the forward arrow on the current week, and the back arrow at the first entry', async () => {
     seedWeek();
+    await render(<HistoryScreen />);
+
+    expect(screen.getByRole('button', { name: 'Next week' }).props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Previous week' }).props.accessibilityState.disabled).toBe(
+      false,
+    );
+
+    // The week with the first entry (1 Oct) is as far back as it goes.
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous week' }));
+    expect(screen.getByRole('button', { name: 'Previous week' }).props.accessibilityState.disabled).toBe(
+      true,
+    );
+    expect(screen.getByRole('button', { name: 'Next week' }).props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('has nowhere to step with nothing logged', async () => {
+    await render(<HistoryScreen />);
+
+    expect(screen.getByRole('button', { name: 'Previous week' }).props.accessibilityState.disabled).toBe(
+      true,
+    );
+    expect(screen.getByRole('button', { name: 'Next week' }).props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('switches to the month, labelled by name, and steps by month', async () => {
+    seedWeek();
+    seedMeal('September lunch', 'ok', at(20, 12, 8));
     await render(<HistoryScreen />);
 
     await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
@@ -280,11 +294,13 @@ describe('History: the range', () => {
     // The list renders in batches, so the month is checked by its numbers: last week's meal is in it too.
     expect(screen.getByText('5 meals')).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'October' }));
-    expect(screen.getByRole('header', { name: 'Choose a month' })).toBeTruthy();
-    await fireEvent.press(screen.getByRole('radio', { name: 'Last month, September' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous month' }));
     expect(screen.getByRole('button', { name: 'September' })).toBeTruthy();
-    expect(screen.getByText('0 meals')).toBeTruthy();
+    expect(screen.getByText('September lunch')).toBeTruthy();
+    expect(screen.getByText('1 meal')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Previous month' }).props.accessibilityState.disabled).toBe(
+      true,
+    );
   });
 
   it('goes back to this week when switching back from the month', async () => {
@@ -294,6 +310,155 @@ describe('History: the range', () => {
     await fireEvent.press(screen.getByRole('tab', { name: 'Week' }));
 
     expect(screen.getByRole('button', { name: 'Oct 4 – 10' })).toBeTruthy();
+  });
+
+  it('names the three segments for a screen reader: Week, Month and All time', async () => {
+    await render(<HistoryScreen />);
+
+    expect(screen.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual([
+      'Week',
+      'Month',
+      'All time',
+    ]);
+  });
+});
+
+describe('History: all time', () => {
+  it('shows everything from the first entry to today, with no arrows', async () => {
+    seedWeek();
+    seedMeal('September lunch', 'ok', at(20, 12, 8));
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'All time' }));
+
+    expect(screen.getByRole('tab', { name: 'All time' }).props.accessibilityState.selected).toBe(true);
+    expect(screen.getByRole('button', { name: 'Sep 20 – Oct 10' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Previous week' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Next week' })).toBeNull();
+    expect(screen.getByText('6 meals')).toBeTruthy();
+  });
+
+  it('says nothing is logged yet when it is empty', async () => {
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'All time' }));
+
+    expect(screen.getByText(/Nothing logged yet/)).toBeTruthy();
+  });
+});
+
+describe('History: the calendar', () => {
+  const openCalendar = async () => fireEvent.press(screen.getByRole('button', { name: 'Oct 4 – 10' }));
+
+  it('opens when the dates are tapped, naming the entries on each day', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+
+    await openCalendar();
+
+    expect(screen.getByRole('header', { name: 'Select dates' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'October 2026' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'October 10, 3 entries' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'October 9, 1 entry' })).toBeTruthy();
+    // A day with nothing logged is just its date.
+    expect(screen.getByRole('button', { name: 'October 5' })).toBeTruthy();
+  });
+
+  it('cannot pick a day after today', async () => {
+    await render(<HistoryScreen />);
+
+    await openCalendar();
+
+    expect(screen.getByRole('button', { name: 'October 11' }).props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'October 10' }).props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('shows the range picked, counts its entries, and applies it', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+    await openCalendar();
+
+    expect(screen.getByRole('button', { name: 'See entries' }).props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(screen.getByRole('button', { name: 'October 8, 2 entries' }));
+    // The start alone is one day.
+    expect(screen.getByRole('button', { name: 'See 2 entries' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'October 10, 3 entries' }));
+    expect(screen.getByRole('button', { name: 'See 6 entries' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'See 6 entries' }));
+
+    // Back on History: the range, no arrows, no segment selected, and its numbers.
+    expect(screen.queryByRole('header', { name: 'Select dates' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Oct 8 – 10' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Previous week' })).toBeNull();
+    for (const tab of screen.getAllByRole('tab')) {
+      expect(tab.props.accessibilityState.selected).toBe(false);
+    }
+    expect(screen.getByText('4 meals')).toBeTruthy();
+    expect(screen.getByText('Spicy chicken tacos')).toBeTruthy();
+  });
+
+  it('treats the earlier of two taps as the start', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+    await openCalendar();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'October 10, 3 entries' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'October 9, 1 entry' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'See 4 entries' }));
+
+    expect(screen.getByRole('button', { name: 'Oct 9 – 10' })).toBeTruthy();
+  });
+
+  it('writes a single picked day as that day', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+    await openCalendar();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'October 9, 1 entry' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'See 1 entry' }));
+
+    expect(screen.getByRole('button', { name: 'Oct 9' })).toBeTruthy();
+    expect(screen.getByText('Grilled salmon')).toBeTruthy();
+  });
+
+  it('clears the picks on Reset', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+    await openCalendar();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'October 8, 2 entries' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Reset' }));
+
+    expect(screen.getByRole('button', { name: 'See entries' }).props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('closes with the X and leaves History as it was', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+    await openCalendar();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'October 8, 2 entries' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+
+    expect(screen.queryByRole('header', { name: 'Select dates' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Oct 4 – 10' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Week' }).props.accessibilityState.selected).toBe(true);
+  });
+
+  it('opens on the range already picked, and can be re-picked from there', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+    await openCalendar();
+    await fireEvent.press(screen.getByRole('button', { name: 'October 8, 2 entries' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'October 9, 1 entry' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'See 3 entries' }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Oct 8 – 9' }));
+
+    expect(screen.getByRole('button', { name: 'See 3 entries' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'October 8, 2 entries' }).props.accessibilityState.selected,
+    ).toBe(true);
   });
 });
 
