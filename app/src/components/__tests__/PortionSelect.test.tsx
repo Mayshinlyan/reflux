@@ -28,6 +28,16 @@ describe('PortionSelect', () => {
     expect(box).toHaveStyle({ borderWidth: 1, borderColor: lightColors.hairline });
   });
 
+  it('draws a hairline between the options when open, but not above the first', async () => {
+    await render(<PortionSelect value="regular" onChange={jest.fn()} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
+
+    const [small, regular, large] = screen.getAllByRole('radio');
+    expect(small).not.toHaveStyle({ borderTopWidth: 1 });
+    expect(regular).toHaveStyle({ borderTopWidth: 1, borderTopColor: lightColors.hairline });
+    expect(large).toHaveStyle({ borderTopWidth: 1, borderTopColor: lightColors.hairline });
+  });
+
   it('reports the choice and closes', async () => {
     const onChange = jest.fn();
     await render(<PortionSelect value="regular" onChange={onChange} />);

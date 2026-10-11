@@ -29,6 +29,18 @@ describe('VerdictSelect', () => {
     expect(box).toHaveStyle({ borderWidth: 1, borderColor: lightColors.hairline });
   });
 
+  it('draws a hairline between the options when open, but not above the first', async () => {
+    await render(<VerdictSelect value="caution" onChange={jest.fn()} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Verdict, Caution' }));
+
+    const options = screen.getAllByRole('radio');
+    expect(options).toHaveLength(4);
+    expect(options[0]).not.toHaveStyle({ borderTopWidth: 1 });
+    for (const option of options.slice(1)) {
+      expect(option).toHaveStyle({ borderTopWidth: 1, borderTopColor: lightColors.hairline });
+    }
+  });
+
   it('reports the choice and closes', async () => {
     const onChange = jest.fn();
     await render(<VerdictSelect value="caution" onChange={onChange} />);

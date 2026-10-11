@@ -33,7 +33,7 @@ export function VerdictSelect({
       <View style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
         {open ? (
           <View accessibilityRole="radiogroup" accessibilityLabel="Verdict">
-            {CHOICES.map((choice) => (
+            {CHOICES.map((choice, index) => (
               <Pressable
                 key={choice}
                 accessibilityRole="radio"
@@ -43,7 +43,8 @@ export function VerdictSelect({
                   onChange(choice);
                   setOpen(false);
                 }}
-                style={styles.row}>
+                // A hairline between the options, as in Figma.
+                style={[styles.row, index > 0 && { borderTopWidth: 1, borderTopColor: colors.hairline }]}>
                 <VerdictOption verdict={choice} />
                 {choice === value && <Check size={18} color={colors.inkSoft} strokeWidth={2.4} />}
               </Pressable>
