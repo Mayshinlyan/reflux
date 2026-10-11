@@ -49,7 +49,7 @@ describe('Log: choose a type', () => {
     expect(mockReplace.mock.calls).toEqual([['/log/food'], ['/log/symptoms'], ['/log/medication']]);
   });
 
-  it('hands a day from the week strip on to Symptoms, and only to Symptoms', async () => {
+  it('hands a day from the week strip on to every flow', async () => {
     mockParams = { date: '2026-10-08' };
     await render(<LogChooseScreen />);
 
@@ -59,8 +59,8 @@ describe('Log: choose a type', () => {
 
     expect(mockReplace.mock.calls).toEqual([
       [{ pathname: '/log/symptoms', params: { date: '2026-10-08' } }],
-      ['/log/food'],
-      ['/log/medication'],
+      [{ pathname: '/log/food', params: { date: '2026-10-08' } }],
+      [{ pathname: '/log/medication', params: { date: '2026-10-08' } }],
     ]);
   });
 

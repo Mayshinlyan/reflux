@@ -11,10 +11,12 @@ type Props = {
   loggedDays: ReadonlySet<string>;
   /** Tapping today or an earlier day; later days can't be logged yet. */
   onPressDay: (dayKey: string) => void;
+  /** The day just tapped, shown with a soft circle while Log is on its way. */
+  pickedKey?: string | null;
 };
 
-/** Figma "Week strip": this week, Sunday to Saturday. Today is an olive circle; a dot marks a day with entries. */
-export function WeekStrip({ days, loggedDays, onPressDay }: Props) {
+/** Figma "Week strip": this week, Sunday to Saturday. Today is an olive circle, the tapped day a soft one; a sage dot marks a day with entries. */
+export function WeekStrip({ days, loggedDays, onPressDay, pickedKey }: Props) {
   const colors = useColors();
   const todayKey = days.find((day) => day.isToday)?.key ?? '';
   return (
@@ -22,6 +24,7 @@ export function WeekStrip({ days, loggedDays, onPressDay }: Props) {
       {days.map((day) => {
         const logged = loggedDays.has(day.key);
         const future = day.key > todayKey;
+        const picked = !day.isToday && day.key === pickedKey;
         return (
           <Pressable
             key={day.key}
@@ -35,7 +38,12 @@ export function WeekStrip({ days, loggedDays, onPressDay }: Props) {
             <AppText variant="caption" color="inkSoft">
               {day.letter}
             </AppText>
-            <View style={[styles.date, day.isToday && { backgroundColor: colors.cta }]}>
+            <View
+              style={[
+                styles.date,
+                day.isToday && { backgroundColor: colors.cta },
+                picked && { backgroundColor: colors.surface2 },
+              ]}>
               <AppText variant="label" style={day.isToday ? { color: colors.ctaInk } : undefined}>
                 {day.date}
               </AppText>

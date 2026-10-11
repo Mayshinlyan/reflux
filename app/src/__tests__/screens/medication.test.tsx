@@ -505,6 +505,47 @@ describe('Medications: logging an earlier dose', () => {
     expect(times[1]).not.toBe(yesterdayMorning().toISOString());
   });
 
+  describe('for a day tapped in the week strip', () => {
+    const noonYesterday = () => {
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12, 0);
+    };
+    const yesterdayKey = () => {
+      const day = noonYesterday();
+      return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+    };
+
+    it('logs the Log pill at noon of that day, and still ignores a double tap', async () => {
+      mockParams = { date: yesterdayKey() };
+      seedOmeprazole();
+      await render(<MedicationScreen />);
+
+      const button = screen.getByRole('button', { name: 'Log Omeprazole 20mg' });
+
+      // Both taps land before React can re-render the button away.
+      await act(async () => {
+        void fireEvent.press(button);
+        void fireEvent.press(button);
+      });
+
+      const logs = listMedicationLogs(mockDb, ALL_TIME);
+      expect(logs).toHaveLength(1);
+      expect(logs[0].takenAt).toBe(noonYesterday().toISOString());
+      expect(mockToast).toHaveBeenCalledWith('Omeprazole logged for Yesterday, 12:00 PM');
+    });
+
+    it('starts the details page on that day', async () => {
+      mockParams = { date: yesterdayKey() };
+      seedOmeprazole();
+      await render(<MedicationScreen />);
+
+      await press('button', 'Omeprazole 20mg');
+      await press('button', 'Log dose');
+
+      expect(listMedicationLogs(mockDb, ALL_TIME)[0].takenAt).toBe(noonYesterday().toISOString());
+    });
+  });
+
   it('never logs a time that has not happened yet', async () => {
     seedOmeprazole();
     await render(<MedicationScreen />);
