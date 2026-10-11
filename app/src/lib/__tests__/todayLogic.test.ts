@@ -1,4 +1,5 @@
 import { bellyMoodFor } from '../belly';
+import { MAX_TILT_X_DEG, MAX_TILT_Y_DEG, tiltFromTouch } from '../bellyMotion';
 import { arcPath, ringSegments } from '../ringSegments';
 import { weekOf } from '../week';
 
@@ -60,5 +61,18 @@ describe('weekOf', () => {
     expect(weekOf('2026-11-01').map((day) => day.date)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(weekOf('2026-11-03')[0]?.key).toBe('2026-11-01');
     expect(weekOf('2026-10-31')[0]?.key).toBe('2026-10-25');
+  });
+});
+
+describe('tiltFromTouch', () => {
+  it('does not tilt when the touch is in the middle or the size is unknown', () => {
+    expect(tiltFromTouch(130, 130, 260, 260)).toEqual({ rotateX: 0, rotateY: 0 });
+    expect(tiltFromTouch(10, 10, 0, 0)).toEqual({ rotateX: 0, rotateY: 0 });
+  });
+
+  it('tilts away from the touched edge, up to the maximum', () => {
+    expect(tiltFromTouch(260, 130, 260, 260).rotateY).toBe(MAX_TILT_Y_DEG);
+    expect(tiltFromTouch(130, 0, 260, 260).rotateX).toBe(MAX_TILT_X_DEG);
+    expect(tiltFromTouch(500, 500, 260, 260).rotateY).toBe(MAX_TILT_Y_DEG);
   });
 });

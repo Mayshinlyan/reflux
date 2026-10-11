@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import TodayScreen from '@/app/(tabs)/index';
 import { createTestDb } from '@/db/__tests__/testDb';
@@ -10,6 +10,7 @@ import type { AppVerdict } from '@/types/analysis';
 let mockDb: AppDb;
 let closeDb: () => void;
 let mockOnboardingDone = true;
+let mockReduceMotion = true;
 const mockPush = jest.fn();
 const mockRedirect = jest.fn();
 
@@ -18,6 +19,16 @@ jest.mock('@/db/DatabaseProvider', () => ({
   useSettings: () => ({
     settings: { onboardingDone: mockOnboardingDone, bedtime: '22:30', lateMealWindowMinutes: 180 },
   }),
+}));
+// Reanimated's native runtime can't load in Jest; use its mocks (which lack useReducedMotion).
+jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/lib/module/mock'));
+jest.mock('react-native-reanimated', () => ({
+  ...jest.requireActual('react-native-reanimated/mock'),
+  useReducedMotion: () => mockReduceMotion,
+}));
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light' },
 }));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -41,6 +52,7 @@ beforeEach(() => {
   mockDb = db;
   closeDb = () => sqlite.close();
   mockOnboardingDone = true;
+  mockReduceMotion = true;
   mockPush.mockClear();
   mockRedirect.mockClear();
 });
@@ -72,17 +84,61 @@ describe('Today: an empty day', () => {
       screen.getAllByLabelText(/^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday) \d+/),
     ).toHaveLength(6);
     expect(screen.getAllByLabelText(/^Today, /)).toHaveLength(1);
-    expect(screen.getByText("What's on your plate?")).toBeTruthy();
+    expect(screen.getByText('Tap me to log')).toBeTruthy();
     expect(screen.getByLabelText('Belly feels happy')).toBeTruthy();
     expect(screen.queryByText('Today')).toBeNull();
   });
 
-  it('opens Log food when the ring is tapped', async () => {
+  it('opens the Log page at once when the belly is tapped and Reduce Motion is on', async () => {
     await render(<TodayScreen />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Log a meal' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
-    expect(mockPush).toHaveBeenCalledWith('/log/food');
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith('/log');
+  });
+
+  describe('with motion on', () => {
+    beforeEach(() => {
+      mockReduceMotion = false;
+      jest.useFakeTimers();
+    });
+    afterEach(() => jest.useRealTimers());
+
+    it('lets the belly jiggle first, then opens the Log page', async () => {
+      await render(<TodayScreen />);
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
+      expect(mockPush).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.advanceTimersByTime(400);
+      });
+      expect(mockPush).toHaveBeenCalledTimes(1);
+      expect(mockPush).toHaveBeenCalledWith('/log');
+    });
+
+    it('ignores a second tap while the jiggle is playing', async () => {
+      await render(<TodayScreen />);
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
+      await act(async () => {
+        jest.advanceTimersByTime(400);
+      });
+
+      expect(mockPush).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not open Log if the screen goes away mid-jiggle', async () => {
+      await render(<TodayScreen />);
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
+      await screen.unmount();
+      jest.advanceTimersByTime(400);
+
+      expect(mockPush).not.toHaveBeenCalled();
+    });
   });
 
   it('has no pet, coins or old Log menu', async () => {
@@ -113,7 +169,7 @@ describe('Today: after logging', () => {
     expect(screen.getByText('logged today')).toBeTruthy();
     expect(screen.getByText('3 entries')).toBeTruthy();
     expect(screen.getByText('Taken')).toBeTruthy();
-    expect(screen.queryByText("What's on your plate?")).toBeNull();
+    expect(screen.queryByText('Tap me to log')).toBeNull();
     const rows = screen.getAllByRole('button').map((button) => button.props.accessibilityLabel as string);
     expect(
       rows.filter((label) => /^(Meal|Medication):/.test(label ?? '')).map((label) => label.split(',')[0]),

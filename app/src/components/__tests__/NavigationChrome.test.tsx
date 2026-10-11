@@ -38,6 +38,18 @@ describe('FloatingTabBar', () => {
     expect(screen.getByRole('tab', { name: 'You' })).toHaveStyle({ backgroundColor: lightColors.surface2 });
   });
 
+  it('keeps Log outside the tab pill: three tabs, plus Log as a separate button', async () => {
+    await render(<FloatingTabBar active="today" onSelect={jest.fn()} />);
+
+    expect(screen.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual([
+      'Today',
+      'History',
+      'You',
+    ]);
+    expect(screen.queryByRole('tab', { name: 'Log' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Log' })).toBeTruthy();
+  });
+
   it('keeps Log as the olive primary action whichever tab is current', async () => {
     await render(<FloatingTabBar active="history" onSelect={jest.fn()} />);
 

@@ -30,7 +30,7 @@ export function VerdictSelect({
       <AppText variant="label" color="inkSoft" style={styles.label}>
         Verdict
       </AppText>
-      <View style={[styles.box, { backgroundColor: colors.surface }]}>
+      <View style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
         {open ? (
           <View accessibilityRole="radiogroup" accessibilityLabel="Verdict">
             {CHOICES.map((choice) => (
@@ -81,7 +81,8 @@ function VerdictOption({ verdict }: { verdict: AppVerdict }) {
 const styles = StyleSheet.create({
   wrap: { marginBottom: space.s2 },
   label: { marginBottom: space.s1 },
-  box: { borderRadius: radius.md, overflow: 'hidden' },
+  // A hairline edge like the Eaten field, so the dropdown shows against the sheet it sits in.
+  box: { borderWidth: 1, borderRadius: radius.md, overflow: 'hidden' },
   // Matches the text fields above it (52 high, 14 in).
   row: {
     minHeight: Math.max(minTouchTarget, 52),

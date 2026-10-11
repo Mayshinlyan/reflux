@@ -24,7 +24,7 @@ function greeting(now: Date): string {
 
 /**
  * Today: a greeting, this week, and a ring with one arc per meal logged today, the belly in the middle.
- * With nothing logged the ring is the way in ("Log a meal"); after that today's entries list below it.
+ * Tapping the belly opens the Log page; after logging, today's entries list below the ring.
  * First launch redirects to Welcome.
  */
 export default function TodayScreen() {
@@ -55,7 +55,7 @@ export default function TodayScreen() {
         <WeekStrip days={week} loggedDays={loggedDays} />
 
         <View style={[styles.ring, empty && styles.ringEmpty]}>
-          <HomeRing meals={meals} mood={mood} onPressEmpty={() => router.push('/log/food')} />
+          <HomeRing meals={meals} mood={mood} onPress={() => router.push('/log')} />
         </View>
 
         {!empty && (

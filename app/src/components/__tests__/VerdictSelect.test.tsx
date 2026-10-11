@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import { lightColors } from '@/theme';
+
 import { VerdictSelect } from '../VerdictSelect';
 
 describe('VerdictSelect', () => {
@@ -18,6 +20,13 @@ describe('VerdictSelect', () => {
     expect(screen.getByRole('radio', { name: 'Caution' }).props.accessibilityState).toEqual({
       checked: true,
     });
+  });
+
+  it('has a hairline border like the Eaten field, so it shows against the sheet', async () => {
+    await render(<VerdictSelect value="caution" onChange={jest.fn()} />);
+
+    const box = screen.getByRole('button', { name: 'Verdict, Caution' }).parent!;
+    expect(box).toHaveStyle({ borderWidth: 1, borderColor: lightColors.hairline });
   });
 
   it('reports the choice and closes', async () => {

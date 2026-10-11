@@ -26,7 +26,7 @@ export function PortionSelect({ value, onChange }: { value: Portion; onChange: (
       <AppText variant="label" color="inkSoft" style={styles.label}>
         Portion
       </AppText>
-      <View style={[styles.box, { backgroundColor: colors.surface }]}>
+      <View style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
         {open ? (
           <View accessibilityRole="radiogroup" accessibilityLabel="Portion">
             {CHOICES.map((choice) => (
@@ -64,7 +64,8 @@ export function PortionSelect({ value, onChange }: { value: Portion; onChange: (
 const styles = StyleSheet.create({
   wrap: { marginBottom: space.s2 },
   label: { marginBottom: space.s1 },
-  box: { borderRadius: radius.md, overflow: 'hidden' },
+  // A hairline edge like the Eaten field, so the dropdown shows against the sheet it sits in.
+  box: { borderWidth: 1, borderRadius: radius.md, overflow: 'hidden' },
   row: {
     minHeight: Math.max(minTouchTarget, 52),
     paddingHorizontal: 14,
