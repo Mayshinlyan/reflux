@@ -22,6 +22,7 @@ import { createTestDb, MIGRATIONS_FOLDER } from './testDb';
 
 const EXPECTED_TABLES = [
   'app_settings',
+  'food_log_tags',
   'food_logs',
   'medication_logs',
   'medications',

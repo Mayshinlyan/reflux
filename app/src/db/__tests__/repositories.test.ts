@@ -10,7 +10,9 @@ import {
   deleteFoodLog,
   getFoodLog,
   listDiaryFoodLogs,
+  listMealTags,
   promoteCheckToDiary,
+  saveMealDetails,
   updateFoodCheck,
   updateFoodLog,
 } from '../repositories/food';
@@ -47,6 +49,7 @@ import {
 import {
   appSettings,
   foodLogs,
+  foodLogTags,
   medicationLogs,
   medications,
   savedFoods,
@@ -345,6 +348,48 @@ describe('food logs', () => {
     promoteCheckToDiary(db, id);
     expect(() => updateFoodCheck(db, id, { analysis: mintTea, meta })).toThrow();
     expect(getFoodLog(db, id)?.mealName).toBe('Chamomile tea');
+  });
+
+  it('saves details after a verdict: time, portion, tags and note, replacing earlier tags', () => {
+    const { db } = createTestDb();
+    const id = createFoodLog(db, { entryType: 'check', source: 'text', analysis: mintTea, meta });
+    promoteCheckToDiary(db, id);
+
+    saveMealDetails(db, id, {
+      loggedAt: '2026-09-28T19:45:00.000Z',
+      portion: 'large',
+      tags: ['stress', 'large_meal', 'stress'],
+      notes: '  felt heavy  ',
+    });
+    expect(getFoodLog(db, id)).toMatchObject({
+      loggedAt: '2026-09-28T19:45:00.000Z',
+      portion: 'large',
+      notes: 'felt heavy',
+    });
+    expect(listMealTags(db, id).sort()).toEqual(['large_meal', 'stress']);
+
+    saveMealDetails(db, id, { portion: 'regular', tags: [], notes: '' });
+    expect(getFoodLog(db, id)).toMatchObject({
+      loggedAt: '2026-09-28T19:45:00.000Z',
+      portion: null,
+      notes: null,
+    });
+    expect(listMealTags(db, id)).toEqual([]);
+  });
+
+  it('refuses unknown tags and missing meals when saving details', () => {
+    const { db } = createTestDb();
+    const id = createFoodLog(db, { entryType: 'diary', source: 'text', analysis: mintTea, meta });
+    expect(() => saveMealDetails(db, id, { tags: ['nope' as never] })).toThrow();
+    expect(() => saveMealDetails(db, 999, {})).toThrow();
+  });
+
+  it('deletes meal tags with the meal (cascade)', () => {
+    const { db } = createTestDb();
+    const id = createFoodLog(db, { entryType: 'diary', source: 'text', analysis: mintTea, meta });
+    saveMealDetails(db, id, { tags: ['alcohol'] });
+    deleteFoodLog(db, id);
+    expect(db.select({ n: count() }).from(foodLogTags).get()?.n).toBe(0);
   });
 
   it('refuses to save non-food results and deletes meals', () => {
@@ -773,7 +818,14 @@ describe('delete all data', () => {
       loggedAt: '2026-09-28T20:20:00.000Z',
       tz: 'Europe/London',
     });
-    createFoodLog(db, { entryType: 'diary', source: 'text', inputText: 'mint tea', analysis: mintTea, meta });
+    const taggedId = createFoodLog(db, {
+      entryType: 'diary',
+      source: 'text',
+      inputText: 'mint tea',
+      analysis: mintTea,
+      meta,
+    });
+    saveMealDetails(db, taggedId, { tags: ['stress'], notes: 'heavy' });
     createFoodLog(db, {
       entryType: 'check',
       source: 'photo',
@@ -790,9 +842,16 @@ describe('delete all data', () => {
     setSetting(db, 'petSeenStage', 2);
   };
   const rows = (db: ReturnType<typeof createTestDb>['db']) =>
-    [symptomLogs, symptomLogItems, symptomLogTags, foodLogs, medications, medicationLogs, savedFoods].map(
-      (table) => db.select({ n: count() }).from(table).get()?.n,
-    );
+    [
+      symptomLogs,
+      symptomLogItems,
+      symptomLogTags,
+      foodLogs,
+      foodLogTags,
+      medications,
+      medicationLogs,
+      savedFoods,
+    ].map((table) => db.select({ n: count() }).from(table).get()?.n);
 
   it('removes every log, check, medication and its history', () => {
     const { db } = createTestDb();
@@ -801,7 +860,7 @@ describe('delete all data', () => {
 
     deleteAllData(db);
 
-    expect(rows(db)).toEqual([0, 0, 0, 0, 0, 0, 0]);
+    expect(rows(db)).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
   });
 
   it('resets the pet and bedtime but keeps onboarding done', () => {

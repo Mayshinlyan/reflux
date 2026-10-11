@@ -1,10 +1,11 @@
 import { and, asc, eq, gte, lt } from 'drizzle-orm';
 
+import { LIFESTYLE_TAG_KEYS, type LifestyleTagKey } from '@/constants/lifestyleTags';
 import { currentTimeZone, nowIso } from '@/lib/time';
 import { effectiveVerdict, withUserVerdict } from '@/lib/verdict';
 import type { AnalysisMeta, AppVerdict, MealAnalysis, Portion } from '@/types/analysis';
 
-import { type FoodLog, foodLogs } from '../schema';
+import { type FoodLog, foodLogs, foodLogTags } from '../schema';
 import type { AppDb } from '../types';
 
 export type FoodLogInput = {
@@ -184,6 +185,60 @@ export function updateFoodLog(db: AppDb, id: number, edit: FoodLogEdit): void {
     if (analysis) values.overallVerdict = effectiveVerdict(analysis);
   }
   db.update(foodLogs).set(values).where(eq(foodLogs.id, id)).run();
+}
+
+const MAX_NOTES_LENGTH = 1000;
+
+export type MealDetails = {
+  /** When it was eaten; the time zone becomes the current one. Omitted keeps the stored time. */
+  loggedAt?: string;
+  portion?: Portion;
+  tags?: LifestyleTagKey[];
+  notes?: string | null;
+};
+
+/**
+ * The details step after a verdict: when it was eaten, how much, lifestyle tags and a note. Replaces the
+ * meal's tags, so an empty list clears them. Works on diary meals and checks alike (a check is promoted
+ * separately).
+ */
+export function saveMealDetails(db: AppDb, id: number, details: MealDetails): void {
+  const tags = [...new Set(details.tags ?? [])];
+  for (const tag of tags) if (!LIFESTYLE_TAG_KEYS.includes(tag)) throw new Error(`Unknown tag: ${tag}`);
+  const values: Partial<FoodLog> = {
+    notes: details.notes?.trim().slice(0, MAX_NOTES_LENGTH) || null,
+    updatedAt: nowIso(),
+  };
+  if (details.loggedAt !== undefined) {
+    values.loggedAt = details.loggedAt;
+    values.tz = currentTimeZone();
+  }
+  if (details.portion !== undefined) values.portion = storedPortion(details.portion);
+  db.transaction((tx) => {
+    const updated = tx
+      .update(foodLogs)
+      .set(values)
+      .where(eq(foodLogs.id, id))
+      .returning({ id: foodLogs.id })
+      .all();
+    if (updated.length === 0) throw new Error(`Food log ${id} not found`);
+    tx.delete(foodLogTags).where(eq(foodLogTags.foodLogId, id)).run();
+    if (tags.length > 0) {
+      tx.insert(foodLogTags)
+        .values(tags.map((tagKey) => ({ foodLogId: id, tagKey })))
+        .run();
+    }
+  });
+}
+
+/** The lifestyle tags on a meal. */
+export function listMealTags(db: AppDb, id: number): LifestyleTagKey[] {
+  return db
+    .select({ tagKey: foodLogTags.tagKey })
+    .from(foodLogTags)
+    .where(eq(foodLogTags.foodLogId, id))
+    .all()
+    .map((row) => row.tagKey as LifestyleTagKey);
 }
 
 export function deleteFoodLog(db: AppDb, id: number): void {

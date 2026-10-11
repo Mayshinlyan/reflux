@@ -17,15 +17,26 @@ const CHOICES: { value: Portion; label: string }[] = [
  * How much was eaten. Same dropdown as the verdict one: closed, it is one row with the current choice;
  * open, that row becomes the list in place, with a check on the current choice. Choosing one closes it.
  */
-export function PortionSelect({ value, onChange }: { value: Portion; onChange: (portion: Portion) => void }) {
+export function PortionSelect({
+  value,
+  onChange,
+  hideLabel = false,
+}: {
+  value: Portion;
+  onChange: (portion: Portion) => void;
+  /** When the screen already has its own "Portion" heading above. */
+  hideLabel?: boolean;
+}) {
   const colors = useColors();
   const [open, setOpen] = useState(false);
   const current = CHOICES.find((choice) => choice.value === value) ?? CHOICES[1];
   return (
     <View style={styles.wrap}>
-      <AppText variant="label" color="inkSoft" style={styles.label}>
-        Portion
-      </AppText>
+      {!hideLabel && (
+        <AppText variant="label" color="inkSoft" style={styles.label}>
+          Portion
+        </AppText>
+      )}
       <View style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
         {open ? (
           <View accessibilityRole="radiogroup" accessibilityLabel="Portion">

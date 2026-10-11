@@ -22,3 +22,11 @@ export const BELLY_MOOD_LABEL: Record<BellyMood, string> = {
   caution: 'Belly feels cautious',
   avoid: 'Belly feels unwell',
 };
+
+/** The big Gaegu line on the verdict screen. */
+export const BELLY_VERDICT_HEADLINE: Record<AppVerdict, string> = {
+  good: 'Your belly should be happy with this.',
+  ok: 'Your belly should be happy with this.',
+  caution: 'Your belly might not love this.',
+  trigger: "Your belly probably won't like this.",
+};

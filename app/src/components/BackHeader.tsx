@@ -14,7 +14,8 @@ export function BackHeader({
   onBack,
   right,
 }: {
-  title: string;
+  /** Omit for a bare bar: just the back circle. */
+  title?: string;
   onBack?: () => void;
   right?: ReactNode;
 }) {

@@ -839,6 +839,18 @@
       <p class="caption-s" style="margin-top:8px">Week strip: Sunday to Saturday. Today is an olive circle; a small dot marks a day with entries. Tapping today or an earlier day opens the Log page for that day; choosing Symptoms there logs for that day (saved at noon), while Food and Medication use their own &ldquo;when&rdquo; pickers. Later days are not tappable. Diary rows (meal, symptoms, dose) are filled <code>surface</code> with no border; doses carry a &ldquo;Taken&rdquo; pill. Meals use <code>Utensils</code> as the thumbnail icon.</p>
     </div>
 
+    <div class="section-sub" style="margin-top:var(--s4)">
+      <h3>Food flow</h3>
+      <p class="caption-s">Three calm steps, each its own screen with only a back circle on top: <strong>capture</strong> (Gaegu display &ldquo;What did you eat?&rdquo;, a 200pt <code>surface 2</code> photo card with a camera icon, &ldquo;or&rdquo;, then a &ldquo;Describe it&rdquo; field; the olive &ldquo;Check this meal&rdquo; button sits in the footer and stays disabled until something is typed), <strong>verdict</strong> and <strong>details</strong>. Back walks the steps in reverse.</p>
+      <div style="background:var(--surface);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:354px;margin-top:var(--s2)" role="img" aria-label="Why we think so card">
+        <span style="font-weight:600;font-size:18px">Why we think so</span>
+        <span style="display:flex;gap:12px"><span style="width:6px;height:6px;border-radius:999px;background:var(--honey);margin-top:10px;flex:none"></span><span>Chili can irritate the throat and stomach.</span></span>
+        <span style="display:flex;gap:12px"><span style="width:6px;height:6px;border-radius:999px;background:var(--honey);margin-top:10px;flex:none"></span><span>Eaten close to bedtime.</span></span>
+      </div>
+      <p class="caption-s" style="margin-top:8px">Verdict: the belly at 80 in the verdict&rsquo;s mood, the verdict badge, a Gaegu hero line in the belly&rsquo;s voice (&ldquo;Your belly might not love this.&rdquo;), the meal and time as a caption, then a <code>surface</code> &ldquo;Why we think so&rdquo; card of short bullets (a 6pt honey dot each) and &ldquo;Matched triggers&rdquo; as read-only tags (the matched categories, plus &ldquo;Late meal&rdquo; near bedtime). No per-item breakdown. Footer: olive &ldquo;I ate this&rdquo; and a <code>surface 2</code> &ldquo;Not quite right? Tell us more&rdquo;, which opens a sheet to correct the verdict.</p>
+      <p class="caption-s" style="margin-top:8px">Details: badge, Gaegu hero meal name, the time pill (tap to change), then Portion (the dropdown), &ldquo;Anything else?&rdquo; (lifestyle tags), &ldquo;Any symptoms? (optional)&rdquo; (a few symptom chips), Note and &ldquo;Also save to My foods&rdquo;, with one olive Save in the footer. Sections are 18/24 semibold titles with 32pt between them. Picked symptoms become a symptom log linked to the meal.</p>
+    </div>
+
     <div class="verdict-detail" style="margin-top:var(--s4)">
       <div class="verdict-detail__item">
         <div class="verdict-detail__icon" style="background:var(--good-tint);color:var(--good-ink)">

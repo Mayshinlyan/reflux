@@ -87,8 +87,10 @@ export const foodLogs = sqliteTable(
     analysis: text('analysis', { mode: 'json' }),
     /** JSON: { model, promptVersion, rulesetVersion } — which AI produced this result. */
     analysisMeta: text('analysis_meta', { mode: 'json' }),
-    /** How much was eaten, as sent with the check. Null is a regular portion. */
+    /** How much was eaten, chosen on the details step. Null is a regular portion. */
     portion: text('portion', { enum: ['small', 'regular', 'large'] }),
+    /** A free-text note from the details step ("How did it feel?"). */
+    notes: text('notes'),
     loggedAt: text('logged_at').notNull(),
     tz: text('tz').notNull(),
     ...timestamps,
@@ -101,6 +103,19 @@ export const foodLogs = sqliteTable(
     check('food_logs_source_check', sql`${t.source} in ('photo', 'text')`),
     check('food_logs_verdict_check', sql`${t.overallVerdict} in ('good', 'ok', 'caution', 'trigger')`),
   ],
+);
+
+/** Lifestyle factors tagged on a meal (stress, large meal...). Same keys as `symptom_log_tags`. */
+export const foodLogTags = sqliteTable(
+  'food_log_tags',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    foodLogId: integer('food_log_id')
+      .notNull()
+      .references(() => foodLogs.id, { onDelete: 'cascade' }),
+    tagKey: text('tag_key').notNull(),
+  },
+  (t) => [uniqueIndex('food_log_tags_log_tag_uq').on(t.foodLogId, t.tagKey)],
 );
 
 const MEDICATION_TYPE_SQL = sql`('ppi', 'h2_blocker', 'antacid', 'alginate', 'other')`;
