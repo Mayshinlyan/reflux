@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { mainIngredients } from '@/lib/ingredients';
+import { plainText } from '@/lib/plainText';
 import { effectiveVerdict } from '@/lib/verdict';
 import { minTouchTarget, radius, space, useColors } from '@/theme';
 import type { MealAnalysis, MealItem } from '@/types/analysis';
@@ -34,7 +35,7 @@ export function MealResultCard({
             {`Set by you. The AI said ${VERDICT_LABELS[analysis.overall.verdict]}.`}
           </AppText>
         )}
-        <AppText color="inkSoft">{analysis.overall.reasoning}</AppText>
+        <AppText color="inkSoft">{plainText(analysis.overall.reasoning)}</AppText>
       </View>
       {analysis.items.map((item, index) => (
         <View
@@ -48,7 +49,7 @@ export function MealResultCard({
           </View>
           <IngredientLine ingredients={item.ingredients} />
           <AppText variant="caption" color="inkSoft">
-            {item.reasoning}
+            {plainText(item.reasoning)}
           </AppText>
         </View>
       ))}

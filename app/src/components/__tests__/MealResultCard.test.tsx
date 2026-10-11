@@ -41,6 +41,19 @@ describe('MealResultCard verdict set by the user', () => {
   });
 });
 
+describe('MealResultCard internal codes', () => {
+  it('shows plain words, never a trigger code, in the overall and item reasoning', async () => {
+    const coded = analysis([ingredient('pork')]);
+    coded.overall.reasoning = 'A very large portion adds a large_portion effect.';
+    coded.items[0].reasoning = 'Pork is high_fat.';
+    await render(<MealResultCard analysis={coded} />);
+
+    expect(screen.getByText('A very large portion adds a large portion effect.')).toBeTruthy();
+    expect(screen.getByText('Pork is high-fat.')).toBeTruthy();
+    expect(screen.queryByText(/_/)).toBeNull();
+  });
+});
+
 describe('MealResultCard ingredients', () => {
   it('shows a short main-ingredients line with the trigger ones kept, and hides the rest', async () => {
     const long = ['pork', 'shrimp', 'mushroom', 'wrapper', 'ginger', 'sesame', 'scallion'].map((n) =>

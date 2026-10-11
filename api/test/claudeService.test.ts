@@ -245,6 +245,11 @@ describe('modelParams', () => {
     expect(textUserMessage('soup')).not.toContain('<portion>');
   });
 
+  it('keeps internal category codes out of the text the user reads', () => {
+    expect(SYSTEM_PROMPT).toContain('internal codes for the category field only');
+    expect(SYSTEM_PROMPT).toContain('never a code with underscores');
+  });
+
   it('exposes the prompt version used in meta', () => {
     expect(PROMPT_VERSION).toMatch(/^food-analysis-v\d+$/);
   });
