@@ -41,6 +41,39 @@ jest.mock('@/components/FoodLoading', () => {
   const { Text } = require('react-native');
   return { FoodLoading: ({ source }: { source: string }) => <Text>{`loading:${source}`}</Text> };
 });
+// The real sheet is a native Modal, which never reports that it closed; this one does, as the picker waits for it.
+jest.mock('@/components/BottomSheet', () => {
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const { useEffect, useRef } = require('react');
+  const { Pressable, View } = require('react-native');
+  /* eslint-enable @typescript-eslint/no-require-imports */
+  return {
+    BottomSheet: ({
+      visible,
+      onClose,
+      onDismissed,
+      children,
+    }: {
+      visible: boolean;
+      onClose: () => void;
+      onDismissed?: () => void;
+      children: unknown;
+    }) => {
+      const wasVisible = useRef(false);
+      useEffect(() => {
+        if (wasVisible.current && !visible) onDismissed?.();
+        wasVisible.current = visible;
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only a change of `visible` counts
+      }, [visible]);
+      return visible ? (
+        <View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} />
+          {children}
+        </View>
+      ) : null;
+    },
+  };
+});
 jest.mock('expo-router', () => ({
   router: { back: () => mockBack(), dismissTo: () => mockBack(), canGoBack: () => true, replace: jest.fn() },
   useLocalSearchParams: () => mockParams,

@@ -144,6 +144,8 @@ export function FoodFlow({
   });
   const [pickingTime, setPickingTime] = useState(false);
   const [choosingPhoto, setChoosingPhoto] = useState(false);
+  // The picker opens only once the sheet has finished closing: iOS can't present it over a closing modal.
+  const pendingPhoto = useRef<PhotoSource | null>(null);
   const [telling, setTelling] = useState(false);
   const saving = useRef(false);
   const alive = useRef(true);
@@ -686,7 +688,14 @@ export function FoodFlow({
           </ScrollView>
           {footer}
         </KeyboardAvoidingView>
-        <BottomSheet visible={choosingPhoto} onClose={() => setChoosingPhoto(false)}>
+        <BottomSheet
+          visible={choosingPhoto}
+          onClose={() => setChoosingPhoto(false)}
+          onDismissed={() => {
+            const source = pendingPhoto.current;
+            pendingPhoto.current = null;
+            if (source) void checkPhoto(source);
+          }}>
           <AppText variant="title" accessibilityRole="header">
             Add a photo
           </AppText>
@@ -694,16 +703,16 @@ export function FoodFlow({
             <Button
               label="Take a photo"
               onPress={() => {
+                pendingPhoto.current = 'camera';
                 setChoosingPhoto(false);
-                void checkPhoto('camera');
               }}
             />
             <Button
               label="Choose a photo"
               variant="secondary"
               onPress={() => {
+                pendingPhoto.current = 'library';
                 setChoosingPhoto(false);
-                void checkPhoto('library');
               }}
             />
           </View>
