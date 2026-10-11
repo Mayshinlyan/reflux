@@ -13,16 +13,18 @@ import { logger } from '@/lib/logger';
  * Quick log row on top. `?manage=1` (Settings > My foods, and "See all") lists the saved foods to edit or log
  * instead. `?check=1` ("+ Log a new food" there) is the same check, which can also save the result to My foods;
  * `?camera=1` (Scan on Today) opens the camera straight away. `?myFood=1&food=<id>` re-checks a saved food
- * ("Get a verdict" / "Check again"), saving the verdict to it and not the diary.
+ * ("Get a verdict" / "Check again"), saving the verdict to it and not the diary. `?date=` (a day tapped in
+ * Today's week strip) logs the meal on that day.
  */
 export default function LogFoodScreen() {
   const db = useDb();
-  const { camera, check, myFood, food, manage } = useLocalSearchParams<{
+  const { camera, check, myFood, food, manage, date } = useLocalSearchParams<{
     camera?: string;
     check?: string;
     myFood?: string;
     food?: string;
     manage?: string;
+    date?: string;
   }>();
   const [target] = useState<MyFoodTarget | undefined>(() => {
     if (myFood !== '1') return undefined;
@@ -40,5 +42,5 @@ export default function LogFoodScreen() {
   });
 
   if (manage === '1' && !target) return <FoodList manage />;
-  return <FoodFlow openCamera={camera === '1'} myFood={target} fromList={check === '1'} />;
+  return <FoodFlow openCamera={camera === '1'} myFood={target} fromList={check === '1'} date={date} />;
 }

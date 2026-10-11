@@ -18,6 +18,20 @@ describe('WeekStrip', () => {
     expect(screen.getByText('30').parent).toHaveStyle({ backgroundColor: lightColors.cta });
   });
 
+  it('shows the picked day with a soft circle, never over today', async () => {
+    await render(
+      <WeekStrip days={days} loggedDays={new Set()} onPressDay={jest.fn()} pickedKey="2026-09-28" />,
+    );
+
+    expect(screen.getByText('28').parent).toHaveStyle({ backgroundColor: lightColors.surface2 });
+    expect(screen.getByText('29').parent).not.toHaveStyle({ backgroundColor: lightColors.surface2 });
+
+    await render(
+      <WeekStrip days={days} loggedDays={new Set()} onPressDay={jest.fn()} pickedKey="2026-09-30" />,
+    );
+    expect(screen.getAllByText('30').at(-1)?.parent).toHaveStyle({ backgroundColor: lightColors.cta });
+  });
+
   it('reports the day tapped, for today and earlier days', async () => {
     const onPressDay = jest.fn();
     await render(<WeekStrip days={days} loggedDays={new Set()} onPressDay={onPressDay} />);

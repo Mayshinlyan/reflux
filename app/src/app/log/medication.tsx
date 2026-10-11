@@ -42,7 +42,7 @@ import { friendlyMessages } from '@/lib/errors';
 import { formatTime, localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
 import { medicationSwipe } from '@/lib/logSwipe';
-import { formatMealTime } from '@/lib/mealTime';
+import { dayToLoggedAt, formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { medicationTypeLabel } from '@/lib/timeline';
 import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
@@ -99,7 +99,10 @@ export default function MedicationScreen() {
   const toast = useToast();
   const navigation = useNavigation();
   // From Settings > My medications: tap to edit, with a Log button. From Log: tap to log.
-  const manage = useLocalSearchParams<{ manage?: string }>().manage === '1';
+  const { manage: manageParam, date } = useLocalSearchParams<{ manage?: string; date?: string }>();
+  const manage = manageParam === '1';
+  // A day tapped in Today's week strip: doses are logged at noon of that earlier day instead of now.
+  const dayAt = date ? dayToLoggedAt(date, new Date()) : null;
 
   const [meds, setMeds] = useState<Medication[]>([]);
   const [taken, setTaken] = useState<TakenToday>(new Map());
@@ -202,7 +205,7 @@ export default function MedicationScreen() {
   const openDetail = (med: Medication) => {
     const common = findCommonMedication(med.name);
     setDetail(med);
-    setTakenAt(null);
+    setTakenAt(dayAt);
     setDetailDose(med.defaultDose ?? '');
     setDetailCustom(Boolean(med.defaultDose) && !common?.doses.includes(med.defaultDose ?? ''));
     setDetailNote('');
@@ -216,11 +219,11 @@ export default function MedicationScreen() {
   /** Logs the dose now, or with the dose, time and note set on its details page. */
   const logDose = (
     med: Medication,
-    extras?: { at: Date | null; doseText?: string; notes?: string },
+    extras?: { at: Date | null; doseText?: string; notes?: string; fromDetails?: boolean },
   ): boolean => {
     // `disabled` only applies after a re-render, so two taps in the same instant on a Log pill must be
     // caught here. A dose logged from its details page was chosen deliberately, so it is never dropped.
-    if (!extras && timers.current.has(med.id)) return false;
+    if (!extras?.fromDetails && timers.current.has(med.id)) return false;
     try {
       logMedication(db, med.id, {
         ...(extras?.at ? { takenAt: extras.at.toISOString() } : {}),
@@ -520,7 +523,9 @@ export default function MedicationScreen() {
               label="Log dose"
               onPress={() => {
                 // Stay on the page (keeping what was typed) if the dose could not be saved.
-                if (logDose(detail, { at: takenAt, doseText: detailDose, notes: detailNote }))
+                if (
+                  logDose(detail, { at: takenAt, doseText: detailDose, notes: detailNote, fromDetails: true })
+                )
                   setDetail(null);
               }}
             />
@@ -589,7 +594,7 @@ export default function MedicationScreen() {
                     accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
                     accessibilityState={{ disabled: done }}
                     disabled={done}
-                    onPress={() => logDose(med)}
+                    onPress={() => logDose(med, dayAt ? { at: dayAt } : undefined)}
                     style={({ pressed }) => [
                       styles.logButton,
                       {

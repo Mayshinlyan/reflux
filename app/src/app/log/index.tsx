@@ -8,12 +8,15 @@ import { Screen } from '@/components/Screen';
 import { TopBar, TopBarButton } from '@/components/TopBar';
 import { space } from '@/theme';
 
+const withDate = (pathname: '/log/food' | '/log/symptoms' | '/log/medication', date?: string) =>
+  date ? { pathname, params: { date } } : pathname;
+
 const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
 /**
  * Log: choose a type (Figma "03a"). Opened from the belly, the Log button or a day in the week strip; each
  * big tile replaces this screen with its flow, so closing that flow returns to where you were. A `date` from
- * the week strip is handed on to Symptoms; Food and Medication have their own "when" pickers.
+ * the week strip is handed on to each flow, which logs for that day.
  */
 export default function LogChooseScreen() {
   const { date } = useLocalSearchParams<{ date?: string }>();
@@ -29,15 +32,13 @@ export default function LogChooseScreen() {
             label="Food"
             icon={Utensils}
             tint="honeyTint"
-            onPress={() => router.replace('/log/food')}
+            onPress={() => router.replace(withDate('/log/food', date))}
           />
           <LogTile
             label="Symptoms"
             icon={Activity}
             tint="clayTint"
-            onPress={() =>
-              router.replace(date ? { pathname: '/log/symptoms', params: { date } } : '/log/symptoms')
-            }
+            onPress={() => router.replace(withDate('/log/symptoms', date))}
           />
         </View>
         <View style={styles.row}>
@@ -45,7 +46,7 @@ export default function LogChooseScreen() {
             label="Medication"
             icon={Pill}
             tint="sageTint"
-            onPress={() => router.replace('/log/medication')}
+            onPress={() => router.replace(withDate('/log/medication', date))}
           />
         </View>
       </View>

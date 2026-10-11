@@ -17,7 +17,7 @@ let closeDb: () => void;
 const mockBack = jest.fn();
 const mockPush = jest.fn();
 const mockToast = jest.fn();
-let mockParams: { camera?: string; myFood?: string; food?: string; check?: string } = {};
+let mockParams: { camera?: string; myFood?: string; food?: string; check?: string; date?: string } = {};
 
 jest.mock('@/db/DatabaseProvider', () => ({
   useDb: () => mockDb,
@@ -871,6 +871,20 @@ describe('Log food screen: when it was eaten (details)', () => {
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(meal.loggedAt).toBe(yesterdayBreakfast().toISOString());
     expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves at noon of the day tapped in the week strip', async () => {
+    const now = new Date();
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    const key = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+    mockParams = { date: key };
+    await checkMintTea();
+    await ateThis();
+
+    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
+    expect(meal.loggedAt).toBe(
+      new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 12, 0).toISOString(),
+    );
   });
 
   it('saves as eaten right now when the time is left alone', async () => {

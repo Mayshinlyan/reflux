@@ -41,7 +41,7 @@ import { playChing } from '@/lib/ching';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { foodSwipe } from '@/lib/logSwipe';
-import { formatMealTime } from '@/lib/mealTime';
+import { dayToLoggedAt, formatMealTime } from '@/lib/mealTime';
 import { isLateMeal } from '@/lib/mealTiming';
 import { currentTimeZone } from '@/lib/time';
 import { effectiveVerdict } from '@/lib/verdict';
@@ -96,15 +96,18 @@ export type MyFoodTarget = { id?: number; name?: string };
  * With `myFood`, the verdict is saved to "My foods" instead, and nothing goes into the diary.
  * `fromList` ("Log a new food" on the Food list) also offers saving the result to My foods only; saving
  * without a verdict still logs the meal to the diary.
+ * `date` (a day tapped in Today's week strip) logs the meal at noon of that earlier day instead of now.
  */
 export function FoodFlow({
   openCamera = false,
   myFood,
   fromList = false,
+  date,
 }: {
   openCamera?: boolean;
   myFood?: MyFoodTarget;
   fromList?: boolean;
+  date?: string;
 }) {
   const colors = useColors();
   const db = useDb();
@@ -140,7 +143,9 @@ export function FoodFlow({
     }
   }, [db, myFood, fromList]);
   useFocusEffect(loadSavedFoods);
-  const [eatenAt, setEatenAt] = useState(() => new Date());
+  /** When a meal logged straight away counts as eaten: now, or noon of the day picked in the week strip. */
+  const logTime = () => (date ? dayToLoggedAt(date, new Date()) : null) ?? new Date();
+  const [eatenAt, setEatenAt] = useState(logTime);
   const [details, setDetails] = useState<MealDetailsState>({
     portion: 'regular',
     tags: new Set(),
@@ -310,7 +315,7 @@ export function FoodFlow({
     if (!shown || !analyzed || saving.current) return;
     saving.current = true;
     const { meta, ...analysis } = shown;
-    const at = new Date();
+    const at = logTime();
     let storedPhoto: string | null = null;
     let savedMessage: string = copy.saved;
     let diaryId: number | null = null;
@@ -409,7 +414,7 @@ export function FoodFlow({
   const saveUnchecked = () => {
     if (!trimmed || busy || saving.current) return;
     saving.current = true;
-    const at = new Date();
+    const at = logTime();
     let mealId: number | null = null;
     try {
       if (addsToList) createSavedFood(db, trimmed);
@@ -439,7 +444,7 @@ export function FoodFlow({
   const logQuick = (food: StoredSavedFood) => {
     if (busy || saving.current) return;
     saving.current = true;
-    const at = new Date();
+    const at = logTime();
     let mealId: number;
     try {
       mealId = logSavedFood(db, food.id, at.toISOString());
@@ -520,9 +525,11 @@ export function FoodFlow({
     !myFood && !fromList && !openCamera && !analyzed && !text && !draft && !busy && logged === null;
 
   const now = new Date();
+  // The verdict is about the meal as it will be logged: now, or noon of the picked day.
+  const mealAt = logTime();
   const verdictLate =
     shown !== null &&
-    isLateMeal(now.toISOString(), currentTimeZone(), settings.bedtime, settings.lateMealWindowMinutes);
+    isLateMeal(mealAt.toISOString(), currentTimeZone(), settings.bedtime, settings.lateMealWindowMinutes);
   // Back walks the steps: details → verdict → capture, then leaves.
   const backToCapture = () => {
     setCorrection('');
@@ -551,7 +558,7 @@ export function FoodFlow({
       />
     );
   } else if (showResult && shown) {
-    body = <FoodVerdict analysis={shown} when={formatMealTime(now, now)} late={verdictLate} />;
+    body = <FoodVerdict analysis={shown} when={formatMealTime(mealAt, now)} late={verdictLate} />;
   } else if (busy) {
     body = (
       <FoodLoading

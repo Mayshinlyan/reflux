@@ -1,4 +1,5 @@
-import { Redirect, router } from 'expo-router';
+import { Redirect, router, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
@@ -14,6 +15,9 @@ import { useTodayData } from '@/hooks/useTodayData';
 import { bellyMoodFor } from '@/lib/belly';
 import { isLateMeal } from '@/lib/mealTiming';
 import { space } from '@/theme';
+
+/** How long the tapped day stays highlighted before Log opens (Figma 02c). */
+const PICK_HOLD_MS = 600;
 
 function greeting(now: Date): string {
   const hour = now.getHours();
@@ -31,6 +35,26 @@ export default function TodayScreen() {
   const { settings } = useSettings();
   const { week, loggedDays, entries, meals } = useTodayData();
   const now = new Date();
+  const [picked, setPicked] = useState<string | null>(null);
+  const pickTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Back from Log, the strip is plain again; leaving Today (another tab) drops a pending pick.
+  useFocusEffect(
+    useCallback(() => {
+      setPicked(null);
+      return () => clearTimeout(pickTimer.current);
+    }, []),
+  );
+
+  const pickDay = (date: string, today: string) => {
+    if (picked) return;
+    if (date === today) {
+      router.push({ pathname: '/log', params: { date } });
+      return;
+    }
+    setPicked(date);
+    pickTimer.current = setTimeout(() => router.push({ pathname: '/log', params: { date } }), PICK_HOLD_MS);
+  };
 
   if (!settings.onboardingDone) return <Redirect href="/welcome" />;
 
@@ -55,7 +79,8 @@ export default function TodayScreen() {
         <WeekStrip
           days={week}
           loggedDays={loggedDays}
-          onPressDay={(date) => router.push({ pathname: '/log', params: { date } })}
+          pickedKey={picked}
+          onPressDay={(date) => pickDay(date, week.find((day) => day.isToday)?.key ?? '')}
         />
 
         <View style={[styles.ring, empty && styles.ringEmpty]}>
