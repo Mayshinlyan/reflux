@@ -118,7 +118,7 @@ const press = async (name: string) => fireEvent.press(screen.getByRole('button',
 /** "I ate this" opens the details; Save there logs it as eaten right now. */
 const ateThis = async () => {
   await press('I ate this');
-  await press('Save');
+  await press('Done');
 };
 /** The photo card opens a sheet to take a photo or choose one. */
 const takePhoto = async () => {
@@ -177,7 +177,7 @@ describe('Food screen: checks and "I ate this"', () => {
     });
     expect(diary[0].analysis?.items[0].matchedTriggers[0]?.category).toBe('mint');
     expect(allRows()).toHaveLength(1); // the check itself was promoted, not copied
-    expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
+    expect(mockToast).toHaveBeenCalledWith('Added to your food diary', { top: true });
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
@@ -279,7 +279,7 @@ describe('Food screen: saving without a verdict', () => {
 
     await type('  grilled fish  ');
     await press('Log without checking');
-    await press('Save');
+    await press('Done');
 
     expect(analyze).not.toHaveBeenCalled();
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
@@ -293,7 +293,7 @@ describe('Food screen: saving without a verdict', () => {
         analysisMeta: null,
       },
     ]);
-    expect(mockToast).toHaveBeenCalledWith('Saved without a verdict');
+    expect(mockToast).toHaveBeenCalledWith('Saved without a verdict', { top: true });
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
@@ -317,7 +317,7 @@ describe('Food screen: saving without a verdict', () => {
     expect(await screen.findByText(friendlyMessages.OFFLINE)).toBeTruthy();
 
     await press('Log without checking');
-    await press('Save');
+    await press('Done');
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
       { inputText: 'rice and beans', overallVerdict: null },

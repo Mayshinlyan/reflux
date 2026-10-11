@@ -8,6 +8,7 @@ import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
+import { CheckboxRow } from '@/components/CheckboxRow';
 import { FoodLoading } from '@/components/FoodLoading';
 import { FoodCapture } from '@/components/food/FoodCapture';
 import { FoodDetails, type MealDetailsState } from '@/components/food/FoodDetails';
@@ -48,6 +49,7 @@ import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
+import type { AppVerdict } from '@/types/analysis';
 
 const MAX_TEXT = 200;
 const MAX_NOTE = 500;
@@ -73,6 +75,9 @@ const copy = {
   keepOnlyLabel: 'Save to My foods only',
   notEatingLabel: 'Not eating this',
 } as const;
+
+/** A meal just logged, which the details step adds to. */
+type LoggedMeal = { id: number; name: string; verdict?: AppVerdict };
 
 /** What was actually sent, so an edit while loading can't mismatch the saved entry. */
 type Analyzed = { source: 'text'; text: string } | { source: 'photo'; uri: string };
@@ -119,9 +124,10 @@ export function FoodFlow({
   const [notice, setNotice] = useState<string | null>(null);
   const { settings } = useSettings();
   // The details step: which kind of save it is for (a checked meal, or one saved without a verdict).
-  const [detailsFor, setDetailsFor] = useState<'verdict' | 'unchecked' | 'saved' | null>(null);
-  // The saved food tapped in the Quick log row, while its details are open.
-  const [quickFood, setQuickFood] = useState<StoredSavedFood | null>(null);
+  // The meal that was just logged (by "I ate this", "Log without checking" or a Quick log chip); the optional
+  // details are about it.
+  const [logged, setLogged] = useState<LoggedMeal | null>(null);
+  const finishing = useRef(false);
   // The Quick log row is for logging what was eaten, so My foods and the Food list's own check leave it out.
   // Reloaded on focus, so foods edited or removed under "See all" are right when coming back.
   const [savedFoods, setSavedFoods] = useState<StoredSavedFood[]>([]);
@@ -251,25 +257,31 @@ export function FoodFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on arrival; checkPhoto's state is fresh then
   }, [openCamera]);
 
-  /** "I ate this" / "Log without checking" / a Quick log food: on to the details (time, portion, extras), where Save is. */
-  const openDetails = (kind: 'verdict' | 'unchecked' | 'saved') => {
-    if (busy || saving.current) return;
-    setEatenAt(new Date());
-    setDetailsFor(kind);
-  };
-
   const pickTime = () => {
     if (Platform.OS === 'android') pickTimeAndroid(eatenAt, setEatenAt);
     else setPickingTime(true);
   };
 
+  /** A meal was just logged: the nudge and the toast, then the optional details open on it. */
+  const mealLogged = (meal: LoggedMeal, at: Date, message: string) => {
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    playChing();
+    toast(message, { top: true });
+    setEatenAt(at);
+    setLogged(meal);
+  };
+
   /**
-   * The extras from the details step, written after the meal itself: the portion, lifestyle tags and note on
-   * the meal, and any symptoms as a symptom log linked to it. Not fatal: the meal is already saved.
+   * "Done" on the details: the portion, lifestyle tags, note and time on the meal that is already logged,
+   * and any symptoms as a symptom log linked to it. Nothing is lost if the extras fail, the meal is saved.
    */
-  const writeExtras = (mealId: number): boolean => {
+  const done = () => {
+    if (!logged || finishing.current) return;
+    finishing.current = true;
+    let kept = true;
     try {
-      saveMealDetails(db, mealId, {
+      saveMealDetails(db, logged.id, {
+        loggedAt: eatenAt.toISOString(),
         portion: details.portion,
         tags: [...details.tags],
         notes: details.note,
@@ -277,31 +289,28 @@ export function FoodFlow({
       if (details.symptoms.size > 0) {
         createSymptomLog(db, {
           items: [...details.symptoms].map((key) => ({ key })),
-          foodLogId: mealId,
+          foodLogId: logged.id,
           loggedAt: eatenAt.toISOString(),
         });
       }
     } catch {
       // Code only: a raw error could echo the note.
       logger.error('saveMealDetails', new AppError('INTERNAL'));
-      return false;
+      kept = false;
     }
-    return true;
-  };
-
-  /** After a diary save: a nudge, the toast, and back to Today. */
-  const finishDiary = (message: string) => {
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    playChing();
-    toast(message);
+    if (!kept) toast(EXTRAS_FAILED);
     router.dismissTo('/');
   };
 
-  /** "Save" on the details (or "Save to My foods" for a My foods check): saves exactly the verdict on screen, with no further relay call. */
+  /**
+   * "I ate this" (or "Save to My foods" for a My foods check): logs exactly the verdict on screen, with no
+   * further relay call. A diary meal is logged right away, as of now, and the details open on it.
+   */
   const save = () => {
     if (!shown || !analyzed || saving.current) return;
     saving.current = true;
     const { meta, ...analysis } = shown;
+    const at = new Date();
     let storedPhoto: string | null = null;
     let savedMessage: string = copy.saved;
     let diaryId: number | null = null;
@@ -320,7 +329,7 @@ export function FoodFlow({
           ? `${saved.mealName} added to My foods`
           : `Updated ${saved.mealName} in My foods`;
       } else if (checkId.current !== null) {
-        promoteCheckToDiary(db, checkId.current, eatenAt.toISOString());
+        promoteCheckToDiary(db, checkId.current, at.toISOString());
         diaryId = checkId.current;
       } else {
         if (analyzed.source === 'photo') storedPhoto = savePhoto(analyzed.uri);
@@ -331,7 +340,7 @@ export function FoodFlow({
           photoUri: storedPhoto,
           analysis,
           meta,
-          loggedAt: eatenAt.toISOString(),
+          loggedAt: at.toISOString(),
         });
       }
     } catch {
@@ -343,17 +352,20 @@ export function FoodFlow({
       return;
     }
     if (diaryId !== null) {
-      const extrasKept = writeExtras(diaryId);
       if (details.keep) {
         try {
           saveFoodFromLog(db, diaryId);
-          if (extrasKept) savedMessage = copy.savedAndKept;
+          savedMessage = copy.savedAndKept;
         } catch {
           // Code only. Not fatal: the meal is in the diary, and can be saved from Your Logs later.
           logger.error('saveFoodFromLog', new AppError('INTERNAL'));
         }
       }
-      finishDiary(extrasKept ? savedMessage : EXTRAS_FAILED);
+      mealLogged(
+        { id: diaryId, name: analysis.mealName, verdict: effectiveVerdict(shown) },
+        at,
+        savedMessage,
+      );
       return;
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -391,12 +403,13 @@ export function FoodFlow({
   };
 
   /**
-   * Saves what was typed as a plain diary entry, with no relay call (works offline). For My foods it is
-   * added by name instead, which has no time or details.
+   * "Log without checking": what was typed becomes a plain diary entry, with no relay call (works offline), and
+   * the details open on it. For My foods it is added by name instead, which has no time or details.
    */
   const saveUnchecked = () => {
     if (!trimmed || busy || saving.current) return;
     saving.current = true;
+    const at = new Date();
     let mealId: number | null = null;
     try {
       if (addsToList) createSavedFood(db, trimmed);
@@ -404,8 +417,7 @@ export function FoodFlow({
         mealId = createUncheckedMeal(db, {
           source: 'text',
           inputText: trimmed,
-          portion: details.portion,
-          loggedAt: eatenAt.toISOString(),
+          loggedAt: at.toISOString(),
         });
     } catch {
       saving.current = false;
@@ -420,16 +432,17 @@ export function FoodFlow({
       router.back();
       return;
     }
-    finishDiary(writeExtras(mealId) ? copy.savedUnchecked : EXTRAS_FAILED);
+    mealLogged({ id: mealId, name: trimmed }, at, copy.savedUnchecked);
   };
 
-  /** Save on the details of a Quick log food: logs it with the verdict it was saved with, no relay call. */
-  const saveSaved = () => {
-    if (!quickFood || saving.current) return;
+  /** A Quick log chip: logs the food with the verdict it was saved with (no relay call), and opens the details. */
+  const logQuick = (food: StoredSavedFood) => {
+    if (busy || saving.current) return;
     saving.current = true;
+    const at = new Date();
     let mealId: number;
     try {
-      mealId = logSavedFood(db, quickFood.id, eatenAt.toISOString());
+      mealId = logSavedFood(db, food.id, at.toISOString());
     } catch {
       saving.current = false;
       // Code only: a raw error could echo the food name.
@@ -437,7 +450,15 @@ export function FoodFlow({
       toast("We couldn't save that. Please try again.");
       return;
     }
-    finishDiary(writeExtras(mealId) ? copy.saved : EXTRAS_FAILED);
+    mealLogged(
+      {
+        id: mealId,
+        name: food.mealName,
+        verdict: food.analysis ? effectiveVerdict(food.analysis) : undefined,
+      },
+      at,
+      copy.saved,
+    );
   };
 
   /**
@@ -496,7 +517,7 @@ export function FoodFlow({
   // The plain Food screen (nothing saved yet) joins the swipe between log screens, but only while it
   // is empty, so a stray drag can't drop a typed description or a photo.
   const swipeable =
-    !myFood && !fromList && !openCamera && !analyzed && !text && !draft && !busy && detailsFor === null;
+    !myFood && !fromList && !openCamera && !analyzed && !text && !draft && !busy && logged === null;
 
   const now = new Date();
   const verdictLate =
@@ -508,24 +529,9 @@ export function FoodFlow({
     setUpdated(null);
     reset();
   };
-  const leaveDetails = () => {
-    setDetailsFor(null);
-    setQuickFood(null);
-  };
-  const onBack = detailsFor ? leaveDetails : showResult ? backToCapture : undefined;
-  const onDetails = detailsFor !== null;
-  const detailsVerdict =
-    detailsFor === 'verdict' && shown
-      ? effectiveVerdict(shown)
-      : detailsFor === 'saved' && quickFood?.analysis
-        ? effectiveVerdict(quickFood.analysis)
-        : undefined;
-  const detailsName =
-    detailsFor === 'verdict' && shown
-      ? shown.mealName
-      : detailsFor === 'saved'
-        ? (quickFood?.mealName ?? '')
-        : trimmed;
+  // Once logged there is nothing to step back to: the X ends the flow, like Done.
+  const onBack = logged ? () => router.dismissTo('/') : showResult ? backToCapture : undefined;
+  const onDetails = logged !== null;
   const typed = trimmed.toLowerCase();
   const quickFoods = savedFoods
     .filter((food) => !typed || food.mealName.toLowerCase().includes(typed))
@@ -535,13 +541,12 @@ export function FoodFlow({
   if (onDetails) {
     body = (
       <FoodDetails
-        mealName={detailsName}
-        verdict={detailsVerdict}
+        mealName={logged?.name ?? ''}
+        verdict={logged?.verdict}
         whenLabel={formatMealTime(eatenAt, now)}
         onPickTime={pickTime}
         state={details}
         onChange={setDetails}
-        showKeep={detailsFor === 'verdict' && !myFood && !fromList}
         maxNote={MAX_NOTE}
       />
     );
@@ -603,9 +608,7 @@ export function FoodFlow({
               foods={quickFoods}
               onPick={(id) => {
                 const food = savedFoods.find((item) => item.id === id);
-                if (!food) return;
-                setQuickFood(food);
-                openDetails('saved');
+                if (food) logQuick(food);
               }}
               onSeeAll={() => router.push({ pathname: '/log/food', params: { manage: '1' } })}
             />
@@ -620,19 +623,21 @@ export function FoodFlow({
   if (onDetails) {
     footer = (
       <View style={styles.footer}>
-        <Button
-          label="Save"
-          onPress={detailsFor === 'verdict' ? save : detailsFor === 'saved' ? saveSaved : saveUnchecked}
-        />
+        <Button label="Done" onPress={done} />
       </View>
     );
   } else if (showResult) {
     footer = (
       <View style={styles.footer}>
-        <Button
-          label={myFood ? 'Save to My foods' : copy.saveLabel}
-          onPress={() => (myFood ? save() : openDetails('verdict'))}
-        />
+        {/* Ticked before "I ate this", which logs the meal straight away. */}
+        {!myFood && !fromList && (
+          <CheckboxRow
+            label="Also save to My foods"
+            checked={details.keep}
+            onToggle={() => setDetails((current) => ({ ...current, keep: !current.keep }))}
+          />
+        )}
+        <Button label={myFood ? 'Save to My foods' : copy.saveLabel} onPress={save} />
         <Button label="Not quite right? Tell us more" variant="secondary" onPress={() => setTelling(true)} />
         {/* Quiet links, for someone only checking a food. The Food list's own check keeps it instead. */}
         {fromList && (
@@ -660,10 +665,7 @@ export function FoodFlow({
         />
         {/* A quiet link: it's the fallback (offline, or no verdict wanted), not the main action. */}
         {trimmed !== '' && canSaveUnchecked && (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => (addsToList ? saveUnchecked() : openDetails('unchecked'))}
-            style={styles.link}>
+          <Pressable accessibilityRole="button" onPress={saveUnchecked} style={styles.link}>
             <AppText style={[styles.linkText, { color: colors.clayInk }]}>{copy.saveUncheckedLabel}</AppText>
           </Pressable>
         )}
@@ -677,11 +679,12 @@ export function FoodFlow({
         <BackHeader
           title={myFood ? (myFood.id === undefined ? 'Add a food' : 'Get a verdict') : undefined}
           onBack={onBack}
+          close={logged !== null}
         />
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
             // A fresh scroll position for each step, so details don't open scrolled down from the verdict.
-            key={detailsFor ?? (showResult ? 'verdict' : busy ? 'busy' : 'capture')}
+            key={logged ? 'logged' : showResult ? 'verdict' : busy ? 'busy' : 'capture'}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.content}>
             {body}
@@ -744,7 +747,7 @@ export function FoodFlow({
         <MealTimeSheet
           visible={pickingTime}
           question="When did you eat this?"
-          confirmLabel="Done"
+          confirmLabel="Set time"
           onConfirm={(at) => {
             setPickingTime(false);
             setEatenAt(at ?? new Date());

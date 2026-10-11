@@ -128,10 +128,10 @@ const result = {
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('Describe it'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
-/** "I ate this" opens the details; Save there logs it as eaten right now. */
+/** "I ate this" logs it as eaten right now and opens the details; Done there closes the flow. */
 const ateThis = async () => {
   await press('I ate this');
-  await press('Save');
+  await press('Done');
 };
 /** The photo card opens a sheet to take a photo or choose one. */
 const takePhoto = async () => {
@@ -181,13 +181,12 @@ describe('Log food screen: Save to My foods', () => {
   it('saves the checked meal to My foods too, with its verdict, when ticked', async () => {
     await checkMintTea();
 
-    await press('I ate this');
     await fireEvent.press(screen.getByRole('checkbox', { name: 'Also save to My foods' }));
-    await press('Save');
+    await ateThis();
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([{ mealName: 'Mint tea' }]);
     expect(listSavedFoods(mockDb)).toMatchObject([{ mealName: 'Mint tea', overallVerdict: 'caution' }]);
-    expect(mockToast).toHaveBeenCalledWith('Added to your food diary and My foods');
+    expect(mockToast).toHaveBeenCalledWith('Added to your food diary and My foods', { top: true });
   });
 
   it('leaves My foods alone when not ticked', async () => {
@@ -196,7 +195,7 @@ describe('Log food screen: Save to My foods', () => {
     await ateThis();
 
     expect(listSavedFoods(mockDb)).toHaveLength(0);
-    expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
+    expect(mockToast).toHaveBeenCalledWith('Added to your food diary', { top: true });
   });
 });
 
@@ -230,9 +229,8 @@ describe('Log food screen: "Add a food" from the Food list', () => {
     await press('Check this meal');
     await screen.findByText('Mint is a common trigger.');
 
-    await press('I ate this');
     expect(screen.queryByRole('checkbox', { name: 'Also save to My foods' })).toBeNull();
-    await press('Save');
+    await ateThis();
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
     expect(listSavedFoods(mockDb)).toHaveLength(0);
@@ -243,12 +241,12 @@ describe('Log food screen: "Add a food" from the Food list', () => {
     await typeFood('Banana bread');
 
     await press('Log without checking');
-    await press('Save');
+    await press('Done');
 
     expect(analyze).not.toHaveBeenCalled();
     expect(listDiaryFoodLogs(mockDb, ALL_TIME).map((food) => food.mealName)).toEqual(['Banana bread']);
     expect(listSavedFoods(mockDb)).toHaveLength(0);
-    expect(mockToast).toHaveBeenCalledWith('Saved without a verdict');
+    expect(mockToast).toHaveBeenCalledWith('Saved without a verdict', { top: true });
   });
 });
 
@@ -287,7 +285,7 @@ describe('Log food screen (text)', () => {
       analysisMeta: result.meta,
     });
     expect(logs[0].analysis).not.toHaveProperty('meta');
-    expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
+    expect(mockToast).toHaveBeenCalledWith('Added to your food diary', { top: true });
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
@@ -322,17 +320,16 @@ describe('Log food screen (text)', () => {
     expect(insideScroll(screen.getByText('Mint is a common trigger.'))).toBe(true);
   });
 
-  it('does not save twice on a double tap', async () => {
+  it('does not log twice on a double tap of "I ate this"', async () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
     await type('mint tea');
     await press('Check this meal');
     await screen.findByText('Mint is a common trigger.');
 
-    await press('I ate this');
-    const save = screen.getByRole('button', { name: 'Save' });
-    await fireEvent.press(save);
-    await fireEvent.press(save);
+    const ate = screen.getByRole('button', { name: 'I ate this' });
+    await fireEvent.press(ate);
+    await fireEvent.press(ate);
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
   });
@@ -400,12 +397,13 @@ describe('Log food screen (text)', () => {
     await screen.findByText('Mint is a common trigger.');
 
     await press('I ate this');
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1); // already logged, before any details
     await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
     await fireEvent.press(screen.getByRole('radio', { name: 'Large' }));
     await fireEvent.press(screen.getByRole('checkbox', { name: 'Stress' }));
     await fireEvent.press(screen.getByRole('checkbox', { name: 'Heartburn' }));
     await fireEvent.changeText(screen.getByLabelText('Note'), '  felt heavy ');
-    await press('Save');
+    await press('Done');
 
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(meal).toMatchObject({ portion: 'large', notes: 'felt heavy' });
@@ -572,7 +570,7 @@ describe('Log food screen (photo)', () => {
     await screen.findByText('Mint is a common trigger.');
 
     closeDb();
-    await ateThis();
+    await press('I ate this');
 
     // Saved with the check when the result arrived; that check still references it.
     expect(removePhoto).not.toHaveBeenCalled();
@@ -651,7 +649,7 @@ describe('Food screen (updating the verdict with a comment)', () => {
     await press('I ate this');
     await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
     await fireEvent.press(screen.getByRole('radio', { name: 'Small' }));
-    await press('Save');
+    await press('Done');
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)[0]).toMatchObject({ portion: 'small' });
   });
@@ -828,7 +826,7 @@ describe('Log food screen: when it was eaten (details)', () => {
   const setTime = async (date: Date) => {
     await fireEvent.press(timePill());
     await turnWheel(date);
-    await press('Done');
+    await press('Set time');
   };
   const checkMintTea = async () => {
     analyze.mockResolvedValue(result);
@@ -856,7 +854,7 @@ describe('Log food screen: when it was eaten (details)', () => {
     await checkMintTea();
     await press('I ate this');
 
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1); // logged as of now; the time can still change
     await fireEvent.press(timePill());
     expect(screen.getByText('When did you eat this?')).toBeTruthy();
     const now = new Date();
@@ -868,7 +866,7 @@ describe('Log food screen: when it was eaten (details)', () => {
     await checkMintTea();
     await press('I ate this');
     await setTime(yesterdayBreakfast());
-    await press('Save');
+    await press('Done');
 
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(meal.loggedAt).toBe(yesterdayBreakfast().toISOString());
@@ -885,27 +883,25 @@ describe('Log food screen: when it was eaten (details)', () => {
     expect(new Date(meal.loggedAt).getTime()).toBeLessThanOrEqual(Date.now());
   });
 
-  it('saves nothing if the time sheet is dismissed, and back returns to the verdict', async () => {
+  it('keeps the logged time if the time sheet is dismissed', async () => {
     await checkMintTea();
     await press('I ate this');
+    const [before] = listDiaryFoodLogs(mockDb, ALL_TIME);
     await fireEvent.press(timePill());
-    await fireEvent.press(screen.getByLabelText('Close', { includeHiddenElements: true }));
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    await fireEvent.press(screen.getAllByLabelText('Close', { includeHiddenElements: true })[0]);
+    await press('Done');
 
-    await press('Back');
-
-    expect(mockBack).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'I ate this' })).toBeTruthy();
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)[0].loggedAt).toBe(before.loggedAt);
   });
 
-  it('asks too for "Log without checking", and saves at the chosen time', async () => {
+  it('lets "Log without checking" change the time afterwards too', async () => {
     await render(<LogFoodScreen />);
     await type('toast and eggs');
 
     await press('Log without checking');
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
     await setTime(yesterdayBreakfast());
-    await press('Save');
+    await press('Done');
 
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(meal.mealName).toBe('toast and eggs');
@@ -917,7 +913,7 @@ describe('Log food screen: when it was eaten (details)', () => {
     await type('toast');
     await press('Log without checking');
     await setTime(new Date(Date.now() + 60 * 60 * 1000));
-    await press('Save');
+    await press('Done');
 
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(new Date(meal.loggedAt).getTime()).toBeLessThanOrEqual(Date.now());
@@ -964,39 +960,41 @@ describe('Log food screen: Quick log', () => {
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/food', params: { manage: '1' } });
   });
 
-  it('opens the details with the saved verdict, and Save logs it once with the extras', async () => {
+  it('logs the saved food right away with its saved verdict, then opens the details', async () => {
     const { id } = saveOatmeal();
     await render(<LogFoodScreen />);
 
-    await press('Oatmeal with banana');
-    expect(screen.getByRole('header', { name: 'Oatmeal with banana' })).toBeTruthy();
-    expect(screen.getByLabelText('Caution')).toBeTruthy();
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
-
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Stress' }));
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Heartburn' }));
-    const save = screen.getByRole('button', { name: 'Save' });
-    await fireEvent.press(save);
-    await fireEvent.press(save);
+    const chip = screen.getByRole('button', { name: 'Oatmeal with banana' });
+    await fireEvent.press(chip);
+    await fireEvent.press(chip);
 
     const meals = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(meals).toHaveLength(1);
     expect(meals[0]).toMatchObject({ mealName: 'Oatmeal with banana', overallVerdict: 'caution' });
+    expect(screen.getByRole('header', { name: /Logged!/ })).toBeTruthy();
+    expect(screen.getByLabelText('Caution')).toBeTruthy();
+    expect(mockToast).toHaveBeenCalledWith('Added to your food diary', { top: true });
+
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Stress' }));
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Heartburn' }));
+    const done = screen.getByRole('button', { name: 'Done' });
+    await fireEvent.press(done);
+    await fireEvent.press(done);
+
     expect(listMealTags(mockDb, meals[0].id)).toEqual(['stress']);
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]).toMatchObject({ foodLogId: meals[0].id });
     expect(listSavedFoods(mockDb).map((food) => food.id)).toEqual([id]);
     expect(analyze).not.toHaveBeenCalled();
-    expect(mockToast).toHaveBeenCalledWith('Added to your food diary');
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it("goes back from a saved food's details to the capture step", async () => {
+  it('ends the flow from the X on the details, keeping the meal that was logged', async () => {
     saveOatmeal();
     await render(<LogFoodScreen />);
     await press('Oatmeal with banana');
-    await press('Back');
-    expect(screen.getByLabelText('Describe it')).toBeTruthy();
-    expect(mockBack).not.toHaveBeenCalled();
+    await press('Close');
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
   it("has no Quick log in the Food list's own check or for My foods", async () => {

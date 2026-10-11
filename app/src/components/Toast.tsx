@@ -6,18 +6,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { radius, space, typography, useColors } from '@/theme';
 
-const ToastContext = createContext<(message: string) => void>(() => {});
+type ToastOptions = {
+  /** Show under the status bar, level with the top bar, for a screen whose bottom is busy. */
+  top?: boolean;
+};
+
+const ToastContext = createContext<(message: string, options?: ToastOptions) => void>(() => {});
 
 /** Shows a short confirmation ("Symptoms logged") near the bottom of the screen. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [message, setMessage] = useState<string | null>(null);
+  const [top, setTop] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const show = useCallback((next: string) => {
+  const show = useCallback((next: string, options?: ToastOptions) => {
     if (timer.current) clearTimeout(timer.current);
     setMessage(next);
+    setTop(Boolean(options?.top));
     AccessibilityInfo.announceForAccessibility(next);
     timer.current = setTimeout(() => setMessage(null), 2200);
   }, []);
@@ -33,7 +40,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={show}>
       {children}
       {message && (
-        <View pointerEvents="none" style={[styles.wrap, { bottom: insets.bottom + 96 }]}>
+        <View
+          pointerEvents="none"
+          style={[styles.wrap, top ? { top: insets.top + space.s2 } : { bottom: insets.bottom + 96 }]}>
           <Animated.View
             entering={FadeInDown.duration(200)}
             exiting={FadeOut.duration(200)}

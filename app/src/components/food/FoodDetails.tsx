@@ -1,7 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
-import { CheckboxRow } from '@/components/CheckboxRow';
 import { PortionSelect } from '@/components/PortionSelect';
 import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
@@ -24,19 +23,18 @@ export type MealDetailsState = {
   tags: Set<LifestyleTagKey>;
   symptoms: Set<SymptomKey>;
   note: string;
+  /** "Also save to My foods", ticked on the verdict before the meal is logged. */
   keep: boolean;
 };
 
 type Props = {
   mealName: string;
-  /** Absent for a meal saved without a verdict. */
+  /** Absent for a meal logged without a verdict. */
   verdict?: AppVerdict;
   whenLabel: string;
   onPickTime: () => void;
   state: MealDetailsState;
   onChange: (next: MealDetailsState) => void;
-  /** "Also save to My foods"; hidden where that is already its own button. */
-  showKeep: boolean;
   maxNote: number;
 };
 
@@ -46,25 +44,22 @@ const toggled = <T,>(set: Set<T>, value: T) => {
   return next;
 };
 
-/** Figma "03d Food: details": time, portion, lifestyle tags, symptoms and a note, after the verdict. */
-export function FoodDetails({
-  mealName,
-  verdict,
-  whenLabel,
-  onPickTime,
-  state,
-  onChange,
-  showKeep,
-  maxNote,
-}: Props) {
+/**
+ * Figma "03d Food: details": shown after the meal is already logged, so everything here is extra. The
+ * headline says so; the sections are plain nouns.
+ */
+export function FoodDetails({ mealName, verdict, whenLabel, onPickTime, state, onChange, maxNote }: Props) {
   return (
     <View style={styles.wrap}>
       <View style={styles.meal}>
-        {verdict && <VerdictBadge verdict={verdict} />}
-        <AppText variant="hero" accessibilityRole="header">
-          {mealName}
+        <AppText variant="display" accessibilityRole="header">
+          {'Logged!\nAnything to add?'}
         </AppText>
-        <TimePill label={whenLabel} onPress={onPickTime} />
+        <AppText variant="title">{mealName}</AppText>
+        <View style={styles.timeRow}>
+          <TimePill label={whenLabel} onPress={onPickTime} />
+          {verdict && <VerdictBadge verdict={verdict} />}
+        </View>
       </View>
       <View style={styles.section}>
         <AppText variant="section">Portion</AppText>
@@ -75,7 +70,7 @@ export function FoodDetails({
         />
       </View>
       <View style={styles.section}>
-        <AppText variant="section">Anything else?</AppText>
+        <AppText variant="section">Lifestyle</AppText>
         <View style={styles.chips}>
           {LIFESTYLE_TAGS.map((tag) => (
             <TagChip
@@ -88,7 +83,7 @@ export function FoodDetails({
         </View>
       </View>
       <View style={styles.section}>
-        <AppText variant="section">Any symptoms? (optional)</AppText>
+        <AppText variant="section">Symptoms</AppText>
         <View style={styles.chips}>
           {MEAL_SYMPTOMS.map((symptom) => (
             <SymptomChip
@@ -112,20 +107,14 @@ export function FoodDetails({
           returnKeyType="done"
         />
       </View>
-      {showKeep && (
-        <CheckboxRow
-          label="Also save to My foods"
-          checked={state.keep}
-          onToggle={() => onChange({ ...state, keep: !state.keep })}
-        />
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { gap: space.s4 },
-  meal: { gap: 16, alignItems: 'flex-start' },
+  meal: { gap: 16 },
+  timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   section: { gap: 12 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
 });

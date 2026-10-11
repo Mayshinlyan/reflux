@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ChevronLeft, type LucideIcon } from 'lucide-react-native';
+import { ChevronLeft, type LucideIcon, X } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -35,20 +35,22 @@ type Props = {
   onBack?: () => void;
   /** Hide the back button, for the root of a tab. */
   hideBack?: boolean;
+  /** A close X instead of the back arrow, for a screen that ends the flow rather than stepping back. */
+  close?: boolean;
   /** Control at the far end, usually a `TopBarButton`. */
   right?: ReactNode;
 };
 
 /** Figma "Top bar": a back circle, an optional centered title and an optional circle on the right. */
-export function TopBar({ title, onBack, hideBack = false, right }: Props) {
+export function TopBar({ title, onBack, hideBack = false, close = false, right }: Props) {
   return (
     <View style={styles.bar}>
       {hideBack ? (
         <View style={styles.spacer} />
       ) : (
         <TopBarButton
-          icon={ChevronLeft}
-          label="Back"
+          icon={close ? X : ChevronLeft}
+          label={close ? 'Close' : 'Back'}
           onPress={onBack ?? (() => (router.canGoBack() ? router.back() : router.replace('/')))}
         />
       )}
