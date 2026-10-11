@@ -1,5 +1,6 @@
 import {
   dayChoiceLabel,
+  dayToLoggedAt,
   earliestMealTime,
   formatClockTime,
   formatMealTime,
@@ -52,5 +53,20 @@ describe('formatMealTime', () => {
 describe('formatClockTime', () => {
   it('uses 12 for midnight', () => {
     expect(formatClockTime(new Date(2026, 8, 30, 0, 7))).toBe('12:07 AM');
+  });
+});
+
+describe('dayToLoggedAt', () => {
+  it('is noon on an earlier day this week', () => {
+    expect(dayToLoggedAt('2026-09-28', now)).toEqual(new Date(2026, 8, 28, 12, 0));
+    expect(dayToLoggedAt('2026-09-24', now)).toEqual(new Date(2026, 8, 24, 12, 0));
+  });
+
+  it('means "now" (null) for today, the future, junk, and days further back than the pickers allow', () => {
+    expect(dayToLoggedAt('2026-09-30', now)).toBeNull();
+    expect(dayToLoggedAt('2026-10-01', now)).toBeNull();
+    expect(dayToLoggedAt('2026-09-23', now)).toBeNull();
+    expect(dayToLoggedAt('nope', now)).toBeNull();
+    expect(dayToLoggedAt('2026-02-31', now)).toBeNull();
   });
 });

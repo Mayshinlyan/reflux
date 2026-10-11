@@ -45,3 +45,19 @@ export function formatMealTime(at: Date | null, now: Date): string {
   const days = Math.round((dayBefore(now, 0).getTime() - dayBefore(at, 0).getTime()) / 86_400_000);
   return `${dayChoiceLabel(Math.max(days, 0), now)}, ${formatClockTime(at)}`;
 }
+
+/**
+ * Noon on the local day `dayKey` ("YYYY-MM-DD"), for logging something on an earlier day without an exact
+ * time. Null means "just use now": for today, a future day, a malformed key, or a day further back than
+ * the pickers allow.
+ */
+export function dayToLoggedAt(dayKey: string, now: Date): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dayKey);
+  if (!match) return null;
+  const [year, month, date] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const day = new Date(year, month - 1, date);
+  if (day.getMonth() !== month - 1) return null; // e.g. 2026-02-31
+  if (day.getTime() >= dayBefore(now, 0).getTime()) return null;
+  if (day.getTime() < earliestMealTime(now).getTime()) return null;
+  return new Date(year, month - 1, date, 12, 0);
+}

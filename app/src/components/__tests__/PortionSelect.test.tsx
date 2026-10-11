@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import { lightColors } from '@/theme';
+
 import { PortionSelect } from '../PortionSelect';
 
 describe('PortionSelect', () => {
@@ -17,6 +19,23 @@ describe('PortionSelect', () => {
     expect(screen.getByRole('radio', { name: 'Regular' }).props.accessibilityState).toEqual({
       checked: true,
     });
+  });
+
+  it('has a hairline border like the Eaten field, so it shows against the sheet', async () => {
+    await render(<PortionSelect value="regular" onChange={jest.fn()} />);
+
+    const box = screen.getByRole('button', { name: 'Portion, Regular' }).parent!;
+    expect(box).toHaveStyle({ borderWidth: 1, borderColor: lightColors.hairline });
+  });
+
+  it('draws a hairline between the options when open, but not above the first', async () => {
+    await render(<PortionSelect value="regular" onChange={jest.fn()} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
+
+    const [small, regular, large] = screen.getAllByRole('radio');
+    expect(small).not.toHaveStyle({ borderTopWidth: 1 });
+    expect(regular).toHaveStyle({ borderTopWidth: 1, borderTopColor: lightColors.hairline });
+    expect(large).toHaveStyle({ borderTopWidth: 1, borderTopColor: lightColors.hairline });
   });
 
   it('reports the choice and closes', async () => {

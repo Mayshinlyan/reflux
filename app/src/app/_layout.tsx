@@ -56,10 +56,8 @@ function RootLayout() {
               headerShown: false,
               contentStyle: { backgroundColor: lightColors.bg },
             }}>
-            <Stack.Screen name="index" />
+            <Stack.Screen name="(tabs)" />
             <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
-            {/* Profile sits to the left of Today, so it slides in from the left. */}
-            <Stack.Screen name="settings" options={{ animation: 'slide_from_left' }} />
           </Stack>
         </ToastProvider>
       </DatabaseProvider>

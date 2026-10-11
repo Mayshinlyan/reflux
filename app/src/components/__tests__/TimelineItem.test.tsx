@@ -15,10 +15,10 @@ describe('TimelineItem icons', () => {
     <TimelineItem kind={kind} title="Something" time="8:00 AM" onPress={() => {}} side={<Text />} />
   );
 
-  it('uses the carrot for a meal, not the camera (the camera means Scan)', async () => {
+  it('uses the utensils for a meal, not the camera (the camera is for taking a photo)', async () => {
     await render(row('food'));
 
-    expect(screen.getByText('icon:Carrot')).toBeTruthy();
+    expect(screen.getByText('icon:Utensils')).toBeTruthy();
     expect(screen.queryByText('icon:Camera')).toBeNull();
   });
 

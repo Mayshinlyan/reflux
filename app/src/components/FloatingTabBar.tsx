@@ -5,6 +5,9 @@ import { radius, shadow, useColors } from '@/theme';
 
 export type TabKey = 'log' | 'today' | 'history' | 'you';
 
+/** Bottom space a tab screen leaves so its content scrolls clear of the floating bar (Figma: 130). */
+export const TAB_BAR_CLEARANCE = 130;
+
 const TABS: { key: TabKey; label: string; icon: LucideIcon }[] = [
   { key: 'log', label: 'Log', icon: Plus },
   { key: 'today', label: 'Today', icon: Sun },
@@ -19,42 +22,54 @@ type Props = {
 };
 
 /**
- * Figma "Tab bar floating": a `surface` pill with four icon buttons. Log is always the olive primary
- * action; the current tab rests on a `surface2` pill. Icon-only, so every button carries a label.
+ * Figma "Tab bar floating": a `surface` pill with three icon tabs (the current one rests on `surface2`),
+ * and the Log action as its own olive circle beside it so it reads as an action, not a fourth tab.
+ * Icon-only, so every button carries a label.
  */
 export function FloatingTabBar({ active, onSelect }: Props) {
   const colors = useColors();
+  const tabs = TABS.filter((tab) => tab.key !== 'log');
   return (
-    <View
-      accessibilityRole="tablist"
-      style={[styles.bar, { backgroundColor: colors.surface, boxShadow: shadow.softLift }]}>
-      {TABS.map(({ key, label, icon: Icon }) => {
-        const isLog = key === 'log';
-        const isActive = key === active;
-        return (
-          <Pressable
-            key={key}
-            accessibilityRole={isLog ? 'button' : 'tab'}
-            accessibilityLabel={label}
-            accessibilityState={isLog ? undefined : { selected: isActive }}
-            onPress={() => onSelect(key)}
-            style={({ pressed }) => [
-              styles.tab,
-              {
-                backgroundColor: isLog ? colors.cta : isActive ? colors.surface2 : 'transparent',
-                opacity: pressed ? 0.8 : 1,
-              },
-            ]}>
-            <Icon size={24} color={isLog ? colors.ctaInk : colors.ink} strokeWidth={2} />
-          </Pressable>
-        );
-      })}
+    <View style={styles.row}>
+      <View
+        accessibilityRole="tablist"
+        style={[styles.bar, { backgroundColor: colors.surface, boxShadow: shadow.softLift }]}>
+        {tabs.map(({ key, label, icon: Icon }) => {
+          const isActive = key === active;
+          return (
+            <Pressable
+              key={key}
+              accessibilityRole="tab"
+              accessibilityLabel={label}
+              accessibilityState={{ selected: isActive }}
+              onPress={() => onSelect(key)}
+              style={({ pressed }) => [
+                styles.tab,
+                { backgroundColor: isActive ? colors.surface2 : 'transparent', opacity: pressed ? 0.8 : 1 },
+              ]}>
+              <Icon size={24} color={colors.ink} strokeWidth={2} />
+            </Pressable>
+          );
+        })}
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Log"
+        onPress={() => onSelect('log')}
+        style={({ pressed }) => [
+          styles.log,
+          { backgroundColor: colors.cta, boxShadow: shadow.softLift, opacity: pressed ? 0.85 : 1 },
+        ]}>
+        <Plus size={24} color={colors.ctaInk} strokeWidth={2} />
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   bar: {
+    flex: 1,
     height: 60,
     flexDirection: 'row',
     alignItems: 'center',
@@ -69,4 +84,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  log: { width: 60, height: 60, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
 });
