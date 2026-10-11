@@ -5,6 +5,9 @@ import { radius, shadow, useColors } from '@/theme';
 
 export type TabKey = 'log' | 'today' | 'history' | 'you';
 
+/** Bottom space a tab screen leaves so its content scrolls clear of the floating bar (Figma: 130). */
+export const TAB_BAR_CLEARANCE = 130;
+
 const TABS: { key: TabKey; label: string; icon: LucideIcon }[] = [
   { key: 'log', label: 'Log', icon: Plus },
   { key: 'today', label: 'Today', icon: Sun },

@@ -2,7 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, type AlertButton } from 'react-native';
 
-import HistoryScreen from '@/app/history';
+import HistoryScreen from '@/app/(tabs)/history';
 import { createTestDb } from '@/db/__tests__/testDb';
 import {
   createFoodLog,

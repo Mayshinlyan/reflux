@@ -8,10 +8,10 @@ import { Alert, ScrollView, SectionList, StyleSheet, View } from 'react-native';
 import type { ReactNode } from 'react';
 
 import { AppText } from '@/components/AppText';
-import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { EntryEditForm } from '@/components/EntryEditForm';
+import { TAB_BAR_CLEARANCE } from '@/components/FloatingTabBar';
 import { LateMealBadge } from '@/components/LateMealBadge';
 import { MealResultCard } from '@/components/MealResultCard';
 import { Screen } from '@/components/Screen';
@@ -212,8 +212,10 @@ export default function HistoryScreen() {
   };
 
   return (
-    <Screen style={styles.screen}>
-      <BackHeader title="Your Logs" />
+    <Screen edges={['top', 'left', 'right']} style={styles.screen}>
+      <AppText variant="display" accessibilityRole="header" style={styles.title}>
+        History
+      </AppText>
       <View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
           {FILTERS.map((option) => (
@@ -264,7 +266,7 @@ export default function HistoryScreen() {
               {loadFailed
                 ? `${friendlyMessages.INTERNAL} Your entries are still on this phone.`
                 : filter === 'all'
-                  ? 'Tap Log on the home screen to add your first entry.'
+                  ? 'Tap Log below to add your first entry.'
                   : 'Nothing of this kind in the last three months.'}
             </AppText>
           </View>
@@ -456,7 +458,8 @@ const styles = StyleSheet.create({
   mealPhoto: { width: '100%', height: 180, borderRadius: radius.lg, marginBottom: space.s1 },
   screen: { paddingBottom: 0 },
   filters: { gap: space.s1, paddingBottom: space.s1 },
-  list: { paddingBottom: space.s4, flexGrow: 1 },
+  list: { paddingBottom: TAB_BAR_CLEARANCE, flexGrow: 1 },
+  title: { marginBottom: space.s1 },
   dayLabel: { marginTop: 20, marginBottom: 10 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.s3 },
   emptyTitle: { marginBottom: space.s1 },
