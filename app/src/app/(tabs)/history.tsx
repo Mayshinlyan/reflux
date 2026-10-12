@@ -1,12 +1,12 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Infinity as InfinityIcon } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
-import { Animated, SectionList, StyleSheet, View } from 'react-native';
+import { Animated, SectionList, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { TAB_BAR_CLEARANCE } from '@/components/FloatingTabBar';
-import { HistorySummary } from '@/components/HistorySummary';
+import { HistorySummary, statsScrollDistance } from '@/components/HistorySummary';
 import { RangeStepper } from '@/components/RangeStepper';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -58,8 +58,6 @@ const FILTERS: { value: TimelineFilter; label: string }[] = [
 
 /** The entries sit faded under the stats card and reach full strength once it has scrolled away (Figma 04a). */
 const FADED = 0.4;
-/** The stats carousel and the gap under it (270 + 28), which is how far the list scrolls before they are gone. */
-const STATS_SCROLL = 298;
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList) as unknown as typeof SectionList;
 
 const todayKeyNow = () => localDayKey(new Date().toISOString(), currentTimeZone());
@@ -151,16 +149,17 @@ export default function HistoryScreen() {
   const [scrollY] = useState(() => new Animated.Value(0));
   const [room, setRoom] = useState({ content: 0, view: 0 });
   const scrollable = room.content - room.view;
+  const statsScroll = statsScrollDistance(useWindowDimensions().height);
   const fade = useMemo(
     () =>
       scrollable <= 0
         ? 1
         : scrollY.interpolate({
-            inputRange: [0, Math.min(STATS_SCROLL, scrollable)],
+            inputRange: [0, Math.min(statsScroll, scrollable)],
             outputRange: [FADED, 1],
             extrapolate: 'clamp',
           }),
-    [scrollY, scrollable],
+    [scrollY, scrollable, statsScroll],
   );
 
   const stepping = kind === 'week' || kind === 'month';

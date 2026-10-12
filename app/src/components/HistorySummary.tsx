@@ -15,40 +15,40 @@ import { AppText } from './AppText';
 import { CarouselDots } from './CarouselDots';
 import { VERDICT_LABELS } from './VerdictBadge';
 
-/** The card is 24 narrower than the space between the screen's margins, so the next one peeks in. */
-const PEEK = space.s3;
 const CARD_GAP = 12;
-const CARD_HEIGHT = 252;
 const CARDS = 3;
+/** Space between the cards and their dots. */
+const DOTS_GAP = 14;
+const DOTS_HEIGHT = 24;
 
-const DONUT = 112;
-/** Figma's ring: the hole is 70% of the width, so the stroke is the remaining 30% of the radius. */
-const STROKE = (DONUT / 2) * 0.3;
-const RING = DONUT / 2 - STROKE / 2;
+/** The card takes about two thirds of the screen, so the stats are what History opens on (Figma: 590 of 874). */
+const CARD_SHARE = 0.675;
+/** What the tallest card needs, so its content is never cut off on a short phone. */
+const CARD_MIN_HEIGHT = 584;
+export const statsCardHeight = (windowHeight: number) =>
+  Math.max(CARD_MIN_HEIGHT, Math.round(windowHeight * CARD_SHARE));
+/** How far History scrolls before the cards, their dots and the gap under them have gone (the fade runs over this). */
+export const statsScrollDistance = (windowHeight: number) =>
+  statsCardHeight(windowHeight) + DOTS_GAP + DOTS_HEIGHT + space.s4;
 
-/** A point on the ring, `angle` radians clockwise from 12 o'clock. */
-const onRing = (angle: number) => ({
-  x: DONUT / 2 + RING * Math.sin(angle),
-  y: DONUT / 2 - RING * Math.cos(angle),
-});
+/** The donut at its largest; it shrinks to fit a narrow card. */
+const DONUT_MAX = 256;
 
 /**
- * Figma "04a" stats carousel: three swipeable cards for the shown period (Food, Top symptoms, Top tags)
- * with page dots under them.
+ * Figma "04a" stats carousel: three full-width swipeable cards for the shown period (Food, Top symptoms,
+ * Top tags) with page ticks under them.
  */
 export function HistorySummary({ summary }: { summary: Summary }) {
-  const { width } = useWindowDimensions();
-  const cardWidth = width - 2 * space.s3 - PEEK;
+  const { width, height } = useWindowDimensions();
+  const cardWidth = width - 2 * space.s3;
   const step = cardWidth + CARD_GAP;
+  const minHeight = statsCardHeight(height);
   const [page, setPage] = useState(1);
   return (
     <View style={styles.carousel}>
       <ScrollView
         horizontal
-        // The row runs on to the screen's edge, where the next card shows.
-        style={styles.scroller}
-        // Room after the last card, so it can come to rest at the left edge like the others.
-        contentContainerStyle={[styles.cards, { paddingRight: PEEK + space.s3 }]}
+        contentContainerStyle={styles.cards}
         snapToInterval={step}
         decelerationRate="fast"
         disableIntervalMomentum
@@ -58,23 +58,35 @@ export function HistorySummary({ summary }: { summary: Summary }) {
           const next = Math.min(CARDS, Math.max(1, Math.round(event.nativeEvent.contentOffset.x / step) + 1));
           setPage((current) => (current === next ? current : next));
         }}>
-        <FoodCard summary={summary} width={cardWidth} />
-        <SymptomsCard summary={summary} width={cardWidth} />
-        <TagsCard summary={summary} width={cardWidth} />
+        <FoodCard summary={summary} width={cardWidth} minHeight={minHeight} />
+        <SymptomsCard summary={summary} width={cardWidth} minHeight={minHeight} />
+        <TagsCard summary={summary} width={cardWidth} minHeight={minHeight} />
       </ScrollView>
       <CarouselDots page={page} total={CARDS} />
     </View>
   );
 }
 
+type CardProps = { summary: Summary; width: number; minHeight: number };
+
 /** Food spreads its parts down the card; the bar cards stack theirs from the top with `gap` between. */
-function Card({ width, gap, children }: { width: number; gap?: number; children: React.ReactNode }) {
+function Card({
+  width,
+  minHeight,
+  gap,
+  children,
+}: {
+  width: number;
+  minHeight: number;
+  gap?: number;
+  children: React.ReactNode;
+}) {
   const colors = useColors();
   return (
     <View
       style={[
         styles.card,
-        { width, backgroundColor: colors.surface },
+        { width, minHeight, backgroundColor: colors.surface },
         gap ? { gap } : { justifyContent: 'space-between' },
       ]}>
       {children}
@@ -84,53 +96,58 @@ function Card({ width, gap, children }: { width: number; gap?: number; children:
 
 function Header({ title, aside }: { title: string; aside?: string }) {
   return (
-    <View style={styles.header}>
-      <AppText variant="title" accessibilityRole="header">
+    <View>
+      <AppText variant="display" accessibilityRole="header">
         {title}
       </AppText>
-      {aside ? (
-        <AppText variant="caption" color="inkSoft">
-          {aside}
-        </AppText>
-      ) : null}
+      {aside ? <AppText color="inkSoft">{aside}</AppText> : null}
     </View>
   );
 }
 
-function FoodCard({ summary, width }: { summary: Summary; width: number }) {
+function FoodCard({ summary, width, minHeight }: CardProps) {
   const colors = useColors();
+  const size = Math.min(DONUT_MAX, width - 2 * space.s3);
+  // Figma's ring: the hole is 70% of the width, so the stroke is the remaining 30% of the radius.
+  const stroke = (size / 2) * 0.3;
+  const ring = size / 2 - stroke / 2;
+  /** A point on the ring, `angle` radians clockwise from 12 o'clock. */
+  const onRing = (angle: number) => ({
+    x: size / 2 + ring * Math.sin(angle),
+    y: size / 2 - ring * Math.cos(angle),
+  });
   const segments = donutSegments(summary.verdicts);
   const mealWord = summary.meals === 1 ? 'meal' : 'meals';
   const good = summary.verdicts.good;
   return (
-    <Card width={width}>
+    <Card width={width} minHeight={minHeight}>
       <Header
         title={`${summary.meals} ${mealWord}`}
         aside={good === 0 ? undefined : good === 1 ? '1 was good' : `${good} were good`}
       />
       <View style={styles.chart}>
-        <View style={styles.donut}>
+        <View style={{ width: size, height: size }}>
           {/* The numbers are in the legend, so the ring is left out for screen readers. */}
           <Svg
-            width={DONUT}
-            height={DONUT}
+            width={size}
+            height={size}
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants">
             <Circle
-              cx={DONUT / 2}
-              cy={DONUT / 2}
-              r={RING}
+              cx={size / 2}
+              cy={size / 2}
+              r={ring}
               stroke={colors.surface2}
-              strokeWidth={STROKE}
+              strokeWidth={stroke}
               fill="none"
             />
             {segments.length === 1 ? (
               <Circle
-                cx={DONUT / 2}
-                cy={DONUT / 2}
-                r={RING}
+                cx={size / 2}
+                cy={size / 2}
+                r={ring}
                 stroke={colors[verdictColors[segments[0]!.verdict].accent]}
-                strokeWidth={STROKE}
+                strokeWidth={stroke}
                 fill="none"
               />
             ) : (
@@ -140,9 +157,9 @@ function FoodCard({ summary, width }: { summary: Summary; width: number }) {
                 return (
                   <Path
                     key={verdict}
-                    d={`M ${from.x} ${from.y} A ${RING} ${RING} 0 ${sweep > Math.PI ? 1 : 0} 1 ${to.x} ${to.y}`}
+                    d={`M ${from.x} ${from.y} A ${ring} ${ring} 0 ${sweep > Math.PI ? 1 : 0} 1 ${to.x} ${to.y}`}
                     stroke={colors[verdictColors[verdict].accent]}
-                    strokeWidth={STROKE}
+                    strokeWidth={stroke}
                     fill="none"
                   />
                 );
@@ -150,62 +167,50 @@ function FoodCard({ summary, width }: { summary: Summary; width: number }) {
             )}
           </Svg>
           <View style={styles.centre}>
-            <AppText variant="title">{String(summary.meals)}</AppText>
-            <AppText variant="caption" color="inkSoft">
-              {mealWord}
-            </AppText>
+            <AppText variant="display">{String(summary.meals)}</AppText>
+            <AppText color="inkSoft">{mealWord}</AppText>
           </View>
         </View>
         <View style={styles.legend}>
           {SUMMARY_VERDICTS.map((verdict) => (
-            <View key={verdict} style={styles.legendRow}>
+            <View key={verdict} style={styles.legendItem}>
               <View style={styles.legendName}>
                 <View style={[styles.dot, { backgroundColor: colors[verdictColors[verdict].accent] }]} />
-                <AppText variant="caption" color="inkSoft">
-                  {VERDICT_LABELS[verdict]}
-                </AppText>
+                <AppText color="inkSoft">{VERDICT_LABELS[verdict]}</AppText>
               </View>
-              <AppText variant="caption">{String(summary.verdicts[verdict])}</AppText>
+              <AppText variant="title">{String(summary.verdicts[verdict])}</AppText>
             </View>
           ))}
         </View>
       </View>
-      <AppText variant="caption" color="inkSoft">
-        {goodLine(summary)}
-      </AppText>
+      <AppText color="inkSoft">{goodLine(summary)}</AppText>
     </Card>
   );
 }
 
-function SymptomsCard({ summary, width }: { summary: Summary; width: number }) {
+function SymptomsCard({ summary, width, minHeight }: CardProps) {
   const dayWord = summary.symptomDays === 1 ? 'day' : 'days';
   return (
-    <Card width={width} gap={14}>
+    <Card width={width} minHeight={minHeight} gap={space.s3}>
       <Header
         title="Top symptoms"
         aside={summary.symptomDays === 0 ? 'No symptoms' : `${summary.symptomDays} ${dayWord} with symptoms`}
       />
-      {summary.symptoms.length === 0 ? (
-        <AppText variant="caption" color="inkSoft">
-          No symptoms logged in this period.
-        </AppText>
-      ) : (
-        <Bars rows={summary.symptoms} fill="clay" />
-      )}
+      <Bars rows={summary.symptoms} fill="clay" />
     </Card>
   );
 }
 
-function TagsCard({ summary, width }: { summary: Summary; width: number }) {
+function TagsCard({ summary, width, minHeight }: CardProps) {
   return (
-    <Card width={width} gap={14}>
+    <Card width={width} minHeight={minHeight} gap={space.s3}>
       <Header title="Top tags" />
       <Bars rows={summary.tags} fill="sage" />
     </Card>
   );
 }
 
-/** Ranked rows: the name, a bar as long as its count is next to the biggest, and the count. A 0 is an empty track. */
+/** Ranked rows: the name and count, then a bar as long as the count is next to the biggest. A 0 is an empty track. */
 function Bars({ rows, fill }: { rows: RankedCount[]; fill: ColorToken }) {
   const colors = useColors();
   const most = Math.max(1, ...rows.map((row) => row.count));
@@ -213,17 +218,17 @@ function Bars({ rows, fill }: { rows: RankedCount[]; fill: ColorToken }) {
     <View style={styles.bars}>
       {rows.map((row) => (
         <View key={row.key} accessible accessibilityLabel={`${row.label}, ${row.count}`} style={styles.bar}>
-          <AppText variant="caption" numberOfLines={1} style={styles.barLabel}>
-            {row.label}
-          </AppText>
+          <View style={styles.barTop}>
+            <AppText numberOfLines={1} style={styles.barLabel}>
+              {row.label}
+            </AppText>
+            <AppText color="inkSoft">{String(row.count)}</AppText>
+          </View>
           <View style={[styles.track, { backgroundColor: colors.surface2 }]}>
             <View
               style={{ width: `${(row.count / most) * 100}%`, height: '100%', backgroundColor: colors[fill] }}
             />
           </View>
-          <AppText variant="caption" color="inkSoft" style={styles.barCount}>
-            {String(row.count)}
-          </AppText>
         </View>
       ))}
     </View>
@@ -231,18 +236,10 @@ function Bars({ rows, fill }: { rows: RankedCount[]; fill: ColorToken }) {
 }
 
 const styles = StyleSheet.create({
-  carousel: { gap: CARD_GAP },
-  scroller: { marginRight: -space.s3 },
+  carousel: { gap: DOTS_GAP },
   cards: { gap: CARD_GAP },
-  card: {
-    height: CARD_HEIGHT,
-    borderRadius: radius.lg,
-    padding: space.s2,
-    overflow: 'hidden',
-  },
-  header: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: space.s1 },
-  chart: { flexDirection: 'row', alignItems: 'center', gap: 20 },
-  donut: { width: DONUT, height: DONUT },
+  card: { borderRadius: radius.lg, padding: space.s3, overflow: 'hidden' },
+  chart: { alignItems: 'center', gap: space.s4 },
   centre: {
     position: 'absolute',
     top: 0,
@@ -251,15 +248,14 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
   },
-  legend: { flex: 1, gap: 10 },
-  legendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  legend: { flexDirection: 'row', justifyContent: 'space-between', alignSelf: 'stretch' },
+  legendItem: { alignItems: 'center', gap: 4 },
   legendName: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  bars: { gap: 10 },
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  barLabel: { width: 128 },
-  track: { flex: 1, height: 12, borderRadius: 6, overflow: 'hidden' },
-  barCount: { width: 24, textAlign: 'right' },
+  bars: { gap: 20 },
+  bar: { gap: space.s1 },
+  barTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s1 },
+  barLabel: { flex: 1 },
+  track: { height: 24, borderRadius: 12, overflow: 'hidden' },
 });

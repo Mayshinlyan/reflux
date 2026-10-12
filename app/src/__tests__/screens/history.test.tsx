@@ -248,12 +248,12 @@ describe('History: the stats cards', () => {
     expect(screen.getByText('1 day with symptoms')).toBeTruthy();
   });
 
-  it('says so when no symptoms were logged', async () => {
+  it('says no symptoms and shows the rows empty when none were logged', async () => {
     seedMeal('Toast', 'ok', at(10, 8));
     await render(<HistoryScreen />);
 
     expect(screen.getByText('No symptoms')).toBeTruthy();
-    expect(screen.getByText('No symptoms logged in this period.')).toBeTruthy();
+    expect(screen.getByLabelText('Hoarse voice, 0')).toBeTruthy();
   });
 });
 

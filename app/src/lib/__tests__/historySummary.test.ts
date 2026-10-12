@@ -48,16 +48,39 @@ describe('summarize', () => {
     });
   });
 
-  it('is all zeros for an empty period, with every tag listed at 0', () => {
+  it('is all zeros for an empty period, with six symptoms and every tag listed at 0', () => {
     const summary = summarize([], dayOf);
     expect(summary).toMatchObject({
       meals: 0,
       symptomDays: 0,
       verdicts: { good: 0, ok: 0, caution: 0, trigger: 0 },
-      symptoms: [],
     });
+    expect(summary.symptoms.map((symptom) => symptom.key)).toEqual([
+      'hoarseness',
+      'throat_clearing',
+      'mucus',
+      'swallowing',
+      'cough_after_eating',
+      'breathing',
+    ]);
+    expect(summary.symptoms.every((symptom) => symptom.count === 0)).toBe(true);
     expect(summary.tags).toHaveLength(6);
     expect(summary.tags.every((tag) => tag.count === 0)).toBe(true);
+  });
+
+  it('fills the six rows with unlogged symptoms at 0 after the logged ones', () => {
+    const summary = summarize(
+      [symptom(1, '2026-10-10', ['burping', 'heartburn']), symptom(2, '2026-10-09', ['heartburn'])],
+      dayOf,
+    );
+    expect(summary.symptoms.map((s) => [s.key, s.count])).toEqual([
+      ['heartburn', 2],
+      ['burping', 1],
+      ['hoarseness', 0],
+      ['throat_clearing', 0],
+      ['mucus', 0],
+      ['swallowing', 0],
+    ]);
   });
 
   it('ranks symptoms by how many entries have them, most first, and keeps the top six', () => {

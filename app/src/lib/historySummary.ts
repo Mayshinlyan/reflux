@@ -1,4 +1,5 @@
 import { LIFESTYLE_TAGS, type LifestyleTagKey } from '@/constants/lifestyleTags';
+import { RETIRED_SYMPTOM_KEYS, SYMPTOM_ITEMS } from '@/constants/symptomItems';
 import type { AppVerdict } from '@/types/analysis';
 
 import { symptomLabel, tagLabel, type TimelineEntry } from './timeline';
@@ -17,7 +18,10 @@ export type HistorySummary = {
   symptomDays: number;
   /** Meals per verdict. Meals saved without a verdict are not counted here, only in `meals`. */
   verdicts: Record<AppVerdict, number>;
-  /** The symptoms logged in the period, most often first, at most `TOP_SYMPTOMS`. Each entry counts once. */
+  /**
+   * `TOP_SYMPTOMS` symptoms: those logged in the period, most often first (each entry counts once), then, if fewer
+   * were logged, others in the picker's order at 0.
+   */
   symptoms: RankedCount[];
   /** Every lifestyle tag, most often first (ties keep the picker's order), including those used 0 times. */
   tags: RankedCount[];
@@ -54,10 +58,14 @@ export function summarize(
       countTags(entry.log.tags);
     }
   }
-  const symptoms = [...symptomCounts]
+  const logged = [...symptomCounts]
     .map(([key, count]) => ({ key, label: symptomLabel(key), count }))
     .sort(byCount)
     .slice(0, TOP_SYMPTOMS);
+  const unlogged = SYMPTOM_ITEMS.filter(
+    (item) => !symptomCounts.has(item.key) && !RETIRED_SYMPTOM_KEYS.includes(item.key),
+  ).map((item) => ({ key: item.key, label: item.label, count: 0 }));
+  const symptoms = [...logged, ...unlogged].slice(0, TOP_SYMPTOMS);
   const tags = LIFESTYLE_TAGS.map((tag) => ({
     key: tag.key,
     label: tagLabel(tag.key),
