@@ -30,6 +30,7 @@ import {
 } from '@/db/repositories/food';
 import { updateMedicationLogTime } from '@/db/repositories/medications';
 import { isFoodSaved, saveFoodFromLog } from '@/db/repositories/savedFoods';
+import { getSetting } from '@/db/repositories/settings';
 import { listSymptomLogsForMeal, setMealSymptoms } from '@/db/repositories/symptoms';
 import type { MedicationLog } from '@/db/schema';
 import { AppError } from '@/lib/errors';
@@ -37,7 +38,6 @@ import { loadEntry } from '@/lib/entry';
 import { logger } from '@/lib/logger';
 import { earliestMealTime, formatMealTime } from '@/lib/mealTime';
 import { effectiveVerdict } from '@/lib/verdict';
-import { getSetting } from '@/db/repositories/settings';
 import { analyzeFood } from '@/services/relayClient';
 import { space } from '@/theme';
 import type { Portion } from '@/types/analysis';

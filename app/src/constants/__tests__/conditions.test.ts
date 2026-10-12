@@ -3,6 +3,7 @@ import {
   conditionsForAnalysis,
   legacyCondition,
   managingLine,
+  readConditions,
   suggestedSymptoms,
   toggleCondition,
 } from '../conditions';
@@ -44,6 +45,17 @@ describe('conditions', () => {
     expect(legacyCondition('gerd')).toBe('acid_reflux');
     expect(legacyCondition('lpr')).toBe('lpr');
     expect(legacyCondition('flu')).toBeNull();
+  });
+
+  it('makes a stored list safe: known keys once each, "Not sure yet" only alone, null when unusable', () => {
+    expect(readConditions(['lpr', 'acid_reflux'])).toEqual(['acid_reflux', 'lpr']);
+    expect(readConditions(['lpr', 'bogus', 'lpr'])).toEqual(['lpr']);
+    expect(readConditions(['unsure', 'lpr'])).toEqual(['lpr']);
+    expect(readConditions(['unsure'])).toEqual(['unsure']);
+    expect(readConditions([])).toBeNull();
+    expect(readConditions(['bogus'])).toBeNull();
+    expect(readConditions('gerd')).toBeNull();
+    expect(readConditions({})).toBeNull();
   });
 
   it('lists the body areas the conditions affect first', () => {

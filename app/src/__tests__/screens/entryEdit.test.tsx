@@ -13,6 +13,7 @@ import {
 } from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
 import { listSavedFoods, saveFoodFromLog } from '@/db/repositories/savedFoods';
+import { setSetting } from '@/db/repositories/settings';
 import { createSymptomLog, getSymptomLog, listSymptomLogsForMeal } from '@/db/repositories/symptoms';
 import { medicationLogs } from '@/db/schema';
 import type { AppDb } from '@/db/types';
@@ -263,6 +264,23 @@ describe('Edit entry: a meal', () => {
       expect(analyze).toHaveBeenCalledWith({ text: 'spicy chicken tacos', portion: 'large' });
       expect(getFoodLog(mockDb, id)).toMatchObject({ portion: 'large', overallVerdict: 'trigger' });
       expect(mockToast).toHaveBeenLastCalledWith('Changes saved. Verdict updated for the new portion.');
+    });
+
+    it('tells the relay what the user is managing', async () => {
+      const id = seedMeal();
+      setSetting(mockDb, 'conditions', ['acid_reflux', 'lpr']);
+      analyze.mockResolvedValue(checked('trigger'));
+      await editMeal(id);
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
+      await fireEvent.press(screen.getByRole('radio', { name: 'Large' }));
+      await save();
+
+      expect(analyze).toHaveBeenCalledWith({
+        text: 'spicy chicken tacos',
+        portion: 'large',
+        conditions: ['acid_reflux', 'lpr'],
+      });
     });
 
     it('keeps a verdict the user set earlier over the new one', async () => {

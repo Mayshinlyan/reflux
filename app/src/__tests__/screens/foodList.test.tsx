@@ -6,6 +6,7 @@ import { FoodList } from '@/components/FoodList';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
 import { createSavedFood, listSavedFoods, saveCheckedFood } from '@/db/repositories/savedFoods';
+import { setSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';
 import type { MealAnalysis } from '@/types/analysis';
 
@@ -295,6 +296,22 @@ describe('Food screen: My foods', () => {
 
       await press('Edit');
       expect(screen.getByLabelText('Name').props.value).toBe('Mint tea');
+    });
+
+    it('tells the relay what the user is managing on Check again, and nothing when unsure', async () => {
+      mockAnalyze.mockResolvedValue({ ...tea, meta });
+      setSetting(mockDb, 'conditions', ['acid_reflux', 'lpr']);
+      await openTea();
+      await fireEvent.changeText(screen.getByLabelText('Ingredients'), 'Honey');
+      await press('Check again');
+      expect(mockAnalyze).toHaveBeenLastCalledWith(
+        expect.objectContaining({ conditions: ['acid_reflux', 'lpr'] }),
+      );
+
+      setSetting(mockDb, 'conditions', ['unsure']);
+      await fireEvent.changeText(screen.getByLabelText('Ingredients'), 'Honey, lemon');
+      await press('Check again');
+      expect(mockAnalyze.mock.lastCall?.[0]).not.toHaveProperty('conditions');
     });
 
     it('keeps ingredients edited after a Check again', async () => {

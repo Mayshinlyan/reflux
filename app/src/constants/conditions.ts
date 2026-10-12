@@ -35,6 +35,15 @@ export function legacyCondition(value: unknown): ConditionKey | null {
   return CONDITION_KEYS.includes(value as ConditionKey) ? (value as ConditionKey) : null;
 }
 
+/** A stored list made safe to use: known keys only, once each, in card order, and "Not sure yet" only on its own. Null when nothing usable is left. */
+export function readConditions(value: unknown): ConditionKey[] | null {
+  if (!Array.isArray(value)) return null;
+  const known = CONDITION_KEYS.filter((key) => value.includes(key));
+  const real = known.filter((key) => key !== 'unsure');
+  const result = real.length > 0 ? real : known;
+  return result.length > 0 ? result : null;
+}
+
 /** Tap a card: "Not sure yet" clears the rest, and any other pick clears "Not sure yet". Never empty. */
 export function toggleCondition(current: readonly ConditionKey[], key: ConditionKey): ConditionKey[] {
   if (key === 'unsure') return ['unsure'];

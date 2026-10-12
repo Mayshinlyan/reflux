@@ -36,6 +36,7 @@ import {
   saveFoodFromLog,
   type StoredSavedFood,
 } from '@/db/repositories/savedFoods';
+import { getSetting } from '@/db/repositories/settings';
 import { createSymptomLog } from '@/db/repositories/symptoms';
 import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
 import { playChing } from '@/lib/ching';
@@ -47,7 +48,6 @@ import { isLateMeal } from '@/lib/mealTiming';
 import { currentTimeZone } from '@/lib/time';
 import { effectiveVerdict } from '@/lib/verdict';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
-import { getSetting } from '@/db/repositories/settings';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
