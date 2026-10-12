@@ -13,13 +13,16 @@ export function Avatar({
   name,
   avatar = 'initial',
   size = 'small',
+  diameter: diameterOverride,
 }: {
   name: string;
   avatar?: AvatarKey;
   size?: 'small' | 'medium' | 'large';
+  /** Overrides the size's diameter (the avatar picker shrinks circles on narrow phones). */
+  diameter?: number;
 }) {
   const colors = useColors();
-  const diameter = DIAMETER[size];
+  const diameter = diameterOverride ?? DIAMETER[size];
   const def = avatarDef(avatar);
   const Icon = def.icon;
   const initial = name.trim().charAt(0).toUpperCase() || '?';
@@ -37,7 +40,7 @@ export function Avatar({
           style={[
             { color: colors[def.ink] },
             size === 'small' && styles.small,
-            size === 'medium' && styles.medium,
+            size === 'medium' && mediumInitial(diameter),
           ]}>
           {initial}
         </AppText>
@@ -48,8 +51,13 @@ export function Avatar({
 
 const DIAMETER = { small: 44, medium: 72, large: 96 } as const;
 
+/** The medium initial is 35/38 at 72; it scales with the circle. */
+const mediumInitial = (diameter: number) => ({
+  fontSize: Math.round((35 * diameter) / DIAMETER.medium),
+  lineHeight: Math.round((38 * diameter) / DIAMETER.medium),
+});
+
 const styles = StyleSheet.create({
   circle: { borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   small: { fontSize: typography.title.fontSize },
-  medium: { fontSize: 35, lineHeight: 38 },
 });
