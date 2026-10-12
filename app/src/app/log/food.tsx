@@ -41,6 +41,6 @@ export default function LogFoodScreen() {
     return { id: saved.id, name };
   });
 
-  if (manage === '1' && !target) return <FoodList manage />;
+  if (manage === '1' && !target) return <FoodList />;
   return <FoodFlow openCamera={camera === '1'} myFood={target} fromList={check === '1'} date={date} />;
 }

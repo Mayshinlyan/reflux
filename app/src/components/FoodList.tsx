@@ -78,13 +78,13 @@ function loadEatenToday(db: AppDb): EatenToday {
 }
 
 /**
- * The saved foods as "Quick Log" cards. From Log, tapping a card asks when it was eaten (now, or earlier in
- * the past week), then logs it with the verdict it was saved with, no new analysis. From Settings > My foods
- * (`manage`), tapping a card opens it to rename, re-check or remove, a Log button logs it, and a left swipe
- * deletes it. "Log a new food" checks one from a photo or a description; the result can be logged as eaten,
- * saved to this list, or both.
+ * My foods (Settings > My foods, and "See all" in the food capture's Quick log row): the saved foods as
+ * filled cards. Tapping a card opens it to rename, re-check or remove, the Log button logs it (now, or earlier
+ * in the past week) with the verdict it was saved with and no new analysis, and a left swipe deletes it.
+ * "Log a new food" checks one from a photo or a description; the result can be logged as eaten, saved to this
+ * list, or both.
  */
-export function FoodList({ manage = false }: { manage?: boolean }) {
+export function FoodList() {
   const colors = useColors();
   const db = useDb();
   const toast = useToast();
@@ -349,7 +349,13 @@ export function FoodList({ manage = false }: { manage?: boolean }) {
     <SwipeNav {...foodSwipe} enabled={!logging && !editing && !sheetFood}>
       <Screen>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <BackHeader title="Log food" />
+          <BackHeader />
+          <AppText variant="display" accessibilityRole="header">
+            My foods
+          </AppText>
+          <AppText color="inkSoft" style={styles.subtitle}>
+            Tap a food to edit it.
+          </AppText>
           {loadFailed && foods.length === 0 ? (
             <AppText color="inkSoft" style={styles.empty}>
               {`${friendlyMessages.INTERNAL} Your foods are still on this phone.`}
@@ -360,26 +366,20 @@ export function FoodList({ manage = false }: { manage?: boolean }) {
             </AppText>
           ) : (
             <>
-              <AppText variant="label" color="inkSoft" accessibilityRole="header" style={styles.heading}>
-                Quick Log
-              </AppText>
               {foods.map((food) => {
                 const today = eaten.get(food.mealName.toLowerCase());
                 const done = justLogged.has(food.id);
                 const card = (
-                  <View
-                    style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  <View style={[styles.card, { backgroundColor: colors.surface }]}>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={manage ? `Edit ${food.mealName}` : `Log ${food.mealName}`}
-                      accessibilityState={{ disabled: done && !manage }}
-                      disabled={done && !manage}
+                      accessibilityLabel={`Edit ${food.mealName}`}
                       // Swiping isn't possible with a screen reader, so offer Delete from its actions menu.
-                      accessibilityActions={manage ? [{ name: 'delete', label: 'Delete' }] : undefined}
+                      accessibilityActions={[{ name: 'delete', label: 'Delete' }]}
                       onAccessibilityAction={(event) => {
                         if (event.nativeEvent.actionName === 'delete') confirmRemove(food.id, food.mealName);
                       }}
-                      onPress={() => (manage ? openEdit(food) : askWhen(food))}
+                      onPress={() => openEdit(food)}
                       style={styles.info}>
                       {food.photoUri ? (
                         <Image source={{ uri: food.photoUri }} style={styles.icon} contentFit="cover" />
@@ -400,28 +400,26 @@ export function FoodList({ manage = false }: { manage?: boolean }) {
                         </AppText>
                       </View>
                     </Pressable>
-                    {manage ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={done ? `${food.mealName} logged` : `Log ${food.mealName}`}
-                        accessibilityState={{ disabled: done }}
-                        disabled={done}
-                        onPress={() => askWhen(food)}
-                        style={({ pressed }) => [
-                          styles.logButton,
-                          {
-                            backgroundColor: done ? colors.sageInk : colors.sageTint,
-                            opacity: pressed ? 0.8 : 1,
-                          },
-                        ]}>
-                        <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
-                          {done ? 'Logged ✓' : 'Log'}
-                        </AppText>
-                      </Pressable>
-                    ) : null}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={done ? `${food.mealName} logged` : `Log ${food.mealName}`}
+                      accessibilityState={{ disabled: done }}
+                      disabled={done}
+                      onPress={() => askWhen(food)}
+                      style={({ pressed }) => [
+                        styles.logButton,
+                        {
+                          backgroundColor: done ? colors.sageInk : colors.sageTint,
+                          opacity: pressed ? 0.8 : 1,
+                        },
+                      ]}>
+                      <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
+                        {done ? 'Logged ✓' : 'Log'}
+                      </AppText>
+                    </Pressable>
                   </View>
                 );
-                return manage ? (
+                return (
                   <SwipeToDelete
                     key={food.id}
                     label={food.mealName}
@@ -429,10 +427,6 @@ export function FoodList({ manage = false }: { manage?: boolean }) {
                     onDelete={() => confirmRemove(food.id, food.mealName)}>
                     {card}
                   </SwipeToDelete>
-                ) : (
-                  <View key={food.id} style={styles.row}>
-                    {card}
-                  </View>
                 );
               })}
             </>
@@ -563,12 +557,11 @@ export function FoodList({ manage = false }: { manage?: boolean }) {
 const styles = StyleSheet.create({
   content: { paddingBottom: space.s4 },
   empty: { marginBottom: space.s2, lineHeight: 24 },
-  heading: { marginBottom: 12 },
+  subtitle: { fontSize: 15, lineHeight: 21, marginTop: space.s2, marginBottom: space.s4 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.s1,
-    borderWidth: 1,
     borderRadius: radius.lg,
     paddingVertical: space.s1,
     paddingLeft: space.s1,
