@@ -72,6 +72,9 @@ export function BottomSheet({ visible, onClose, onDismissed, scrollToTopKey, chi
   );
 }
 
+/** Side padding of the sheet, so content inside can size itself to the room left. */
+export const SHEET_GUTTER = 20;
+
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(30,26,22,0.42)' },
@@ -79,7 +82,7 @@ const styles = StyleSheet.create({
     maxHeight: '78%',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingHorizontal: 20,
+    paddingHorizontal: SHEET_GUTTER,
     paddingTop: 10,
   },
   handle: {
