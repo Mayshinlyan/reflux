@@ -7,6 +7,9 @@ export type TabKey = 'log' | 'today' | 'history' | 'you';
 
 /** Bottom space a tab screen leaves so its content scrolls clear of the floating bar (Figma: 130). */
 export const TAB_BAR_CLEARANCE = 130;
+export const TAB_BAR_HEIGHT = 60;
+/** How far the bar floats above the screen's bottom edge: the home indicator's inset, but at least 16. */
+export const tabBarBottomOffset = (bottomInset: number) => Math.max(bottomInset, 16);
 
 const TABS: { key: TabKey; label: string; icon: LucideIcon }[] = [
   { key: 'log', label: 'Log', icon: Plus },
@@ -70,7 +73,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   bar: {
     flex: 1,
-    height: 60,
+    height: TAB_BAR_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,

@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { type BottomTabBarProps, Tabs } from 'expo-router/js-tabs';
 import { StyleSheet, View } from 'react-native';
 
-import { FloatingTabBar, type TabKey } from '@/components/FloatingTabBar';
+import { FloatingTabBar, type TabKey, tabBarBottomOffset } from '@/components/FloatingTabBar';
 import { lightColors } from '@/theme';
 
 /** Which route each tab opens, and the reverse. Log is an action, so it has no route here. */
@@ -21,7 +21,7 @@ const TAB_FOR: Record<string, Exclude<TabKey, 'log'>> = {
 function TabBar({ state, navigation, insets }: BottomTabBarProps) {
   const active = TAB_FOR[state.routes[state.index]?.name ?? 'index'] ?? 'today';
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { bottom: Math.max(insets.bottom, 16) }]}>
+    <View pointerEvents="box-none" style={[styles.wrap, { bottom: tabBarBottomOffset(insets.bottom) }]}>
       <FloatingTabBar
         active={active}
         onSelect={(tab) => {

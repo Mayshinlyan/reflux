@@ -1,12 +1,13 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Infinity as InfinityIcon } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
-import { Animated, SectionList, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, SectionList, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { TAB_BAR_CLEARANCE } from '@/components/FloatingTabBar';
-import { HistorySummary, statsScrollDistance } from '@/components/HistorySummary';
+import { HistorySummary, statsCardHeight, statsScrollDistance } from '@/components/HistorySummary';
 import { RangeStepper } from '@/components/RangeStepper';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -149,7 +150,10 @@ export default function HistoryScreen() {
   const [scrollY] = useState(() => new Animated.Value(0));
   const [room, setRoom] = useState({ content: 0, view: 0 });
   const scrollable = room.content - room.view;
-  const statsScroll = statsScrollDistance(useWindowDimensions().height);
+  // The card fills the list from below the title and controls down to just above the floating tab bar.
+  const [above, setAbove] = useState(0);
+  const cardHeight = statsCardHeight(room.view, above, useSafeAreaInsets().bottom);
+  const statsScroll = statsScrollDistance(cardHeight);
   const fade = useMemo(
     () =>
       scrollable <= 0
@@ -206,28 +210,35 @@ export default function HistoryScreen() {
         keyExtractor={(entry) => `${entry.kind}-${entry.id}`}
         ListHeaderComponent={
           <View>
-            <AppText variant="display" accessibilityRole="header" style={styles.title}>
-              History
-            </AppText>
-            <View style={styles.controls}>
-              <SegmentedControl
-                options={SEGMENTS}
-                value={kind === 'custom' ? null : kind}
-                onChange={choose}
-              />
-              <RangeStepper
-                label={label}
-                // A week or month moves only with the arrows; the calendar opens from all time or a picked range.
-                onPressLabel={stepping ? undefined : openCalendar}
-                arrows={stepping}
-                unit={kind === 'month' ? 'month' : 'week'}
-                canBack={period.startKey > firstDay}
-                canForward={!isCurrent(period, todayKey)}
-                onBack={() => stepping && setSpan(shiftPeriod(kind, span, -1))}
-                onForward={() => stepping && setSpan(shiftPeriod(kind, span, 1))}
-              />
+            <View
+              onLayout={(event) => {
+                // Read it now: the event is cleared before a state updater runs.
+                const { height } = event.nativeEvent.layout;
+                setAbove(height);
+              }}>
+              <AppText variant="display" accessibilityRole="header" style={styles.title}>
+                History
+              </AppText>
+              <View style={styles.controls}>
+                <SegmentedControl
+                  options={SEGMENTS}
+                  value={kind === 'custom' ? null : kind}
+                  onChange={choose}
+                />
+                <RangeStepper
+                  label={label}
+                  // A week or month moves only with the arrows; the calendar opens from all time or a picked range.
+                  onPressLabel={stepping ? undefined : openCalendar}
+                  arrows={stepping}
+                  unit={kind === 'month' ? 'month' : 'week'}
+                  canBack={period.startKey > firstDay}
+                  canForward={!isCurrent(period, todayKey)}
+                  onBack={() => stepping && setSpan(shiftPeriod(kind, span, -1))}
+                  onForward={() => stepping && setSpan(shiftPeriod(kind, span, 1))}
+                />
+              </View>
             </View>
-            <HistorySummary summary={summary} />
+            <HistorySummary summary={summary} height={cardHeight} />
             <View style={styles.entriesHead}>
               <AppText variant="section" accessibilityRole="header">
                 Entries
