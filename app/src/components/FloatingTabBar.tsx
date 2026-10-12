@@ -12,13 +12,13 @@ export const LOG_BUTTON_SIZE = 64;
 export const LOG_BUTTON_RAISE = 24;
 
 const TAB_TARGET = 48;
-const TOP_PAD = 16;
-/** Room under the icons: the home indicator's inset, but at least 24. */
-const MIN_BOTTOM_PAD = 24;
+const TOP_PAD = 8;
+/** Room under the icons: the home indicator's inset, but at least 16. */
+const MIN_BOTTOM_PAD = 16;
 const BAR_RADIUS = space.s3;
 
 export const tabBarBottomPadding = (bottomInset: number) => Math.max(bottomInset, MIN_BOTTOM_PAD);
-/** Height of the bar from the screen's bottom edge to its top edge (88 with no home indicator). */
+/** Height of the bar from the screen's bottom edge to its top edge (72 with no home indicator). */
 export const tabBarHeight = (bottomInset: number) => TOP_PAD + TAB_TARGET + tabBarBottomPadding(bottomInset);
 
 const TABS: { key: Exclude<TabKey, 'log'>; label: string; icon: LucideIcon }[] = [
@@ -54,7 +54,7 @@ export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect 
         accessibilityState={{ selected: isActive }}
         onPress={() => onSelect(key)}
         style={({ pressed }) => [styles.tab, { opacity: pressed ? 0.8 : 1 }]}>
-        <Icon size={32} color={isActive ? colors.ink : colors.inkSoft} strokeWidth={2} />
+        <Icon size={24} color={isActive ? colors.ink : colors.inkSoft} strokeWidth={2} />
       </Pressable>
     );
   };

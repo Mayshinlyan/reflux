@@ -182,7 +182,7 @@
   /* Full-width bar on the bottom edge; the olive Log button rises 24 above it (Figma "Tab bar floating"). */
   .tabbar-row{flex:none;position:relative;margin:0;padding-top:24px}
   .tabbar{
-    display:flex;align-items:flex-start;height:88px;padding:16px 24px 24px;box-sizing:border-box;
+    display:flex;align-items:flex-start;height:72px;padding:8px 24px 16px;box-sizing:border-box;
     background:var(--surface);border-radius:24px 24px 0 0;
     box-shadow:0 -4px 16px rgba(46,42,38,.12);
   }
@@ -194,7 +194,7 @@
   }
   .tabbar__log svg{width:32px;height:32px}
   .tabbar__item{flex:1;height:48px;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);background:none;border:none;font-family:inherit}
-  .tabbar__item svg{width:32px;height:32px}
+  .tabbar__item svg{width:24px;height:24px}
   .tabbar__item.active{color:var(--ink)}
   .topbar{display:flex;align-items:center;justify-content:space-between;height:44px;position:relative}
   .topbar__btn{width:44px;height:44px;border-radius:50%;background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:center;border:none}
@@ -763,7 +763,7 @@
         </div>
       </div>
     </div>
-    <p class="caption-s" style="text-align:center;margin-top:10px">The tab bar stays fixed to the bottom edge, full width with 24pt rounded top corners; the content above scrolls beneath it. It is 88pt tall (16 above the icons, 48 for them, 24 below, or the home indicator&rsquo;s inset if that is bigger). Today and History are icon-only tabs (32pt icons in 48pt targets) with no backgrounds: the current one is <code>ink</code>, the other <code>ink-soft</code>. Log is the one olive circle (64pt, 32pt icon), raised 24pt above the bar&rsquo;s top edge in the middle, so it reads as the action. Tapping it fans three round buttons in an arch above it (radius 128pt, at 140&deg;, 90&deg; and 40&deg;) over a dimmed screen: <em>Snap food</em> (honey tint, opens the camera straight away), <em>Symptom</em> (clay tint) and <em>Medication</em> (sage tint), each 56pt with a cream label under it. The Log button becomes a close icon while the arch is open, and the Android back button closes it. The belly ring and the week strip still open the full Log page. Profile is not a tab: a plain person icon on a 36pt <code>surface</code> circle sits at the top right of Today (48pt tap area) and opens it.</p>
+    <p class="caption-s" style="text-align:center;margin-top:10px">The tab bar stays fixed to the bottom edge, full width with 24pt rounded top corners; the content above scrolls beneath it. It is 72pt tall (8 above the icons, 48 for them, 16 below, or the home indicator&rsquo;s inset if that is bigger). Today and History are icon-only tabs (24pt icons in 48pt targets) with no backgrounds: the current one is <code>ink</code>, the other <code>ink-soft</code>. Log is the one olive circle (64pt, 32pt icon), raised 24pt above the bar&rsquo;s top edge in the middle, so it reads as the action. Tapping it fans three round buttons in an arch above it (radius 128pt, at 140&deg;, 90&deg; and 40&deg;) over a dimmed screen: <em>Snap food</em> (honey tint, opens the camera straight away), <em>Symptom</em> (clay tint) and <em>Medication</em> (sage tint), each 56pt with a cream label under it. The Log button becomes a close icon while the arch is open, and the Android back button closes it. The belly ring and the week strip still open the full Log page. Profile is not a tab: a plain person icon on a 36pt <code>surface</code> circle sits at the top right of Today (48pt tap area) and opens it.</p>
 
     <div class="section-sub" style="margin-top:var(--s4)">
       <h3>Today</h3>

@@ -67,10 +67,10 @@ describe('FloatingTabBar', () => {
     });
   });
 
-  it('sits 24 above the home indicator inset or more, and 88 tall on a phone without one', () => {
-    expect(tabBarHeight(0)).toBe(88);
-    expect(tabBarHeight(34)).toBe(98);
-    expect(tabBarBottomPadding(10)).toBe(24);
+  it('is 72 tall on a phone without a home indicator, and grows with the indicator inset', () => {
+    expect(tabBarHeight(0)).toBe(72);
+    expect(tabBarHeight(34)).toBe(90);
+    expect(tabBarBottomPadding(10)).toBe(16);
     expect(tabBarBottomPadding(34)).toBe(34);
   });
 });
