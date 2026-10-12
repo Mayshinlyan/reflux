@@ -21,10 +21,12 @@ const CARD_GAP = 12;
 const CARDS = 3;
 /** Room the card keeps at its bottom for the ticks (24 tall, 24 from the edge) and a gap above them. */
 const TICKS_AREA = 64;
+/** The card's side and top padding (Figma 04a). */
+const CARD_PAD = 20;
 /** The gap between the card and the floating tab bar (Figma 04a.0). */
-const TAB_BAR_GAP = 16;
+const TAB_BAR_GAP = 32;
 /** What the tallest card needs, so its content is never cut off on a short phone (it then scrolls under the bar). */
-export const CARD_MIN_HEIGHT = 520;
+export const CARD_MIN_HEIGHT = 470;
 
 /**
  * The card fills the list's visible height from where it starts down to just above the floating tab bar, so the
@@ -43,7 +45,7 @@ export const statsScrollDistance = (cardHeight: number) => cardHeight + space.s4
 const DONUT_MAX = 256;
 const DONUT_MIN = 160;
 /** What Food needs besides the donut: padding, header, legend, caption and the gaps between them. */
-const FOOD_FIXED = 304;
+const FOOD_FIXED = 264;
 
 /**
  * Figma "04a" stats carousel: three full-width swipeable cards for the shown period (Food, Top symptoms,
@@ -113,7 +115,11 @@ function Header({ title, aside }: { title: string; aside?: string }) {
       <AppText variant="display" accessibilityRole="header">
         {title}
       </AppText>
-      {aside ? <AppText color="inkSoft">{aside}</AppText> : null}
+      {aside ? (
+        <AppText variant="caption" color="inkSoft">
+          {aside}
+        </AppText>
+      ) : null}
     </View>
   );
 }
@@ -204,7 +210,7 @@ function FoodCard({ summary, width, height }: CardProps) {
 function SymptomsCard({ summary, width, height }: CardProps) {
   const dayWord = summary.symptomDays === 1 ? 'day' : 'days';
   return (
-    <Card width={width} height={height} gap={space.s3}>
+    <Card width={width} height={height} gap={space.s2}>
       <Header
         title="Top symptoms"
         aside={summary.symptomDays === 0 ? 'No symptoms' : `${summary.symptomDays} ${dayWord} with symptoms`}
@@ -216,7 +222,7 @@ function SymptomsCard({ summary, width, height }: CardProps) {
 
 function TagsCard({ summary, width, height }: CardProps) {
   return (
-    <Card width={width} height={height} gap={space.s3}>
+    <Card width={width} height={height} gap={space.s2}>
       <Header title="Top tags" />
       <Bars rows={summary.tags} fill="sage" />
     </Card>
@@ -251,7 +257,7 @@ function Bars({ rows, fill }: { rows: RankedCount[]; fill: ColorToken }) {
 const styles = StyleSheet.create({
   ticks: { position: 'absolute', left: 0, right: 0, bottom: space.s3 },
   cards: { gap: CARD_GAP },
-  card: { borderRadius: radius.lg, padding: space.s3, paddingBottom: TICKS_AREA, overflow: 'hidden' },
+  card: { borderRadius: radius.lg, padding: CARD_PAD, paddingBottom: TICKS_AREA, overflow: 'hidden' },
   chart: { alignItems: 'center', gap: space.s4 },
   centre: {
     position: 'absolute',
@@ -268,8 +274,8 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   // The rows share what height is left; 8 is the least between them.
   bars: { flex: 1, gap: 8, justifyContent: 'space-between' },
-  bar: { gap: space.s1 },
+  bar: { gap: 4 },
   barTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s1 },
   barLabel: { flex: 1 },
-  track: { height: 24, borderRadius: 12, overflow: 'hidden' },
+  track: { height: 14, borderRadius: 7, overflow: 'hidden' },
 });
