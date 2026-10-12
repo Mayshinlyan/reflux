@@ -29,6 +29,7 @@ import { LIFESTYLE_TAGS, type LifestyleTagKey } from '@/constants/lifestyleTags'
 import { SYMPTOM_ITEMS, type SymptomKey } from '@/constants/symptomItems';
 import { useDb } from '@/db/DatabaseProvider';
 import { getFoodLog, listDiaryFoodLogs, type StoredFoodLog } from '@/db/repositories/food';
+import { getSetting } from '@/db/repositories/settings';
 import { createSymptomLog, getSymptomLog, updateSymptomLog } from '@/db/repositories/symptoms';
 import { playChing } from '@/lib/ching';
 import { friendlyMessages } from '@/lib/errors';
@@ -41,6 +42,12 @@ import { space } from '@/theme';
 const MAX_NOTE_LENGTH = 1000;
 /** A meal this recent before the symptoms is offered as the one they followed. */
 const LINK_WINDOW_MS = 3 * 60 * 60 * 1000;
+
+/** The area's symptoms with the ones the user usually feels first; each group keeps its own order. */
+const usualFirst = (symptoms: readonly SymptomKey[], usual: readonly SymptomKey[]) => [
+  ...symptoms.filter((key) => usual.includes(key)),
+  ...symptoms.filter((key) => !usual.includes(key)),
+];
 
 const symptomLabel = (key: SymptomKey) => SYMPTOM_ITEMS.find((item) => item.key === key)?.label ?? key;
 
@@ -60,6 +67,8 @@ export function symptomsTitle(labels: string[]): string {
  */
 export default function LogSymptomsScreen() {
   const db = useDb();
+  // Read once per visit: settings change on other screens, never while logging.
+  const usual = useMemo(() => getSetting(db, 'usualSymptoms'), [db]);
   const toast = useToast();
   const navigation = useNavigation();
   const params = useLocalSearchParams<{ id?: string; afterFood?: string; date?: string }>();
@@ -236,7 +245,7 @@ export default function LogSymptomsScreen() {
                   <View key={z.key} style={styles.section}>
                     <AppText variant="section">{z.label}</AppText>
                     <View style={styles.chips}>
-                      {z.symptoms.map((key) => (
+                      {usualFirst(z.symptoms, usual).map((key) => (
                         <SymptomChip
                           key={key}
                           label={symptomLabel(key)}

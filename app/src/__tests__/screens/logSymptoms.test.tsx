@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import LogSymptomsScreen, { symptomsTitle } from '@/app/log/symptoms';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createUncheckedMeal } from '@/db/repositories/food';
+import { setSetting } from '@/db/repositories/settings';
 import { createSymptomLog, getSymptomLog, listSymptomLogs } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 
@@ -75,6 +76,17 @@ describe('symptomsTitle', () => {
 });
 
 describe('Log symptoms screen: pick, then details', () => {
+  it('lists the symptoms they usually feel first within each area', async () => {
+    setSetting(mockDb, 'usualSymptoms', ['constipation', 'hoarseness']);
+    await render(<LogSymptomsScreen />);
+
+    const names = screen.getAllByRole('checkbox').map((chip) => chip.props.accessibilityLabel as string);
+    // Tummy normally starts with Stomach pain; the area keeps its other symptoms in their usual order.
+    expect(names.indexOf('Constipation')).toBeLessThan(names.indexOf('Stomach pain'));
+    expect(names.indexOf('Stomach pain')).toBeLessThan(names.indexOf('Feeling full'));
+    expect(names.indexOf('Hoarse voice')).toBe(0);
+  });
+
   it('chooses symptoms across areas, then saves them with contributors and a note', async () => {
     await render(<LogSymptomsScreen />);
 

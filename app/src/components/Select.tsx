@@ -1,6 +1,6 @@
 import { Check, ChevronDown } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { type DimensionValue, Pressable, StyleSheet, View } from 'react-native';
 
 import { fontFamily, minTouchTarget, radius, useColors } from '@/theme';
 
@@ -12,7 +12,7 @@ type Props<T extends string> = {
   onChange: (value: T) => void;
   /** What the choice is for, read by screen readers ("Show"). */
   label: string;
-  width?: number;
+  width?: DimensionValue;
 };
 
 /**

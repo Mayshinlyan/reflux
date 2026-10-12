@@ -1,5 +1,7 @@
 import { eq } from 'drizzle-orm';
 
+import { CONDITION_KEYS, type ConditionKey } from '@/constants/conditions';
+import { RETIRED_SYMPTOM_KEYS, SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
 import { type PetAnimal, PETS } from '@/lib/pets';
 import { nowIso } from '@/lib/time';
 
@@ -19,6 +21,10 @@ export type Settings = {
   onboardingDone: boolean;
   /** What the app calls the user (Today's greeting); empty until they set one in You. */
   userName: string;
+  /** What the user is managing, from onboarding (shown on Profile). */
+  condition: ConditionKey;
+  /** Symptoms they usually feel; the symptom log lists these first. */
+  usualSymptoms: SymptomKey[];
   petName: string;
   petAnimal: PetAnimal;
   /** The highest pet stage (0-2) the user has seen on Today; a higher derived stage plays the celebration once. */
@@ -30,6 +36,8 @@ export const DEFAULT_SETTINGS: Settings = {
   lateMealWindowMinutes: 180,
   onboardingDone: false,
   userName: '',
+  condition: 'unsure',
+  usualSymptoms: [],
   petName: PETS.mochi.defaultName,
   petAnimal: 'mochi',
   petSeenStage: 0,
@@ -52,6 +60,17 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
   }
   if (key === 'userName' && (value as string).length > USER_NAME_MAX) {
     throw new Error(`userName must be at most ${USER_NAME_MAX} characters`);
+  }
+  if (key === 'condition' && !CONDITION_KEYS.includes(value as ConditionKey)) {
+    throw new Error(`Unknown condition: ${value as string}`);
+  }
+  if (key === 'usualSymptoms') {
+    const keys = value as SymptomKey[];
+    const offered = (symptom: SymptomKey) =>
+      SYMPTOM_KEYS.includes(symptom) && !RETIRED_SYMPTOM_KEYS.includes(symptom);
+    if (!Array.isArray(keys) || !keys.every(offered) || new Set(keys).size !== keys.length) {
+      throw new Error('usualSymptoms must be distinct symptoms that are still offered');
+    }
   }
   if (key === 'petSeenStage') {
     const stage = value as number;

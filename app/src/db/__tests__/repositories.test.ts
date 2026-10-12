@@ -110,6 +110,22 @@ describe('settings', () => {
     expect(getSetting(db, 'userName')).toBe('');
   });
 
+  it('stores the condition and usual symptoms, and rejects unknown or duplicate ones', () => {
+    const { db } = createTestDb();
+    expect(getSetting(db, 'condition')).toBe('unsure');
+    expect(getSetting(db, 'usualSymptoms')).toEqual([]);
+
+    setSetting(db, 'condition', 'gerd');
+    setSetting(db, 'usualSymptoms', ['heartburn', 'hoarseness']);
+    expect(getSetting(db, 'condition')).toBe('gerd');
+    expect(getSetting(db, 'usualSymptoms')).toEqual(['heartburn', 'hoarseness']);
+
+    expect(() => setSetting(db, 'condition', 'flu' as never)).toThrow();
+    expect(() => setSetting(db, 'usualSymptoms', ['heartburn', 'heartburn'])).toThrow();
+    expect(() => setSetting(db, 'usualSymptoms', ['nope' as never])).toThrow();
+    expect(() => setSetting(db, 'usualSymptoms', ['sleep'])).toThrow();
+  });
+
   it('rejects invalid values', () => {
     const { db } = createTestDb();
     expect(() => setSetting(db, 'userName', 'x'.repeat(25))).toThrow();
