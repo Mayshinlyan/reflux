@@ -43,6 +43,16 @@ describe('log redaction', () => {
     expect(output).toContain('[REDACTED]');
   });
 
+  it('never writes the conditions or details a user states (health data)', () => {
+    const { logger, lines } = memoryLogger();
+
+    logger.info({ conditions: ['gastritis'], req: { conditions: ['lpr'], details: 'no chili' } }, 'stated');
+
+    const output = lines.join('\n');
+    for (const secret of ['gastritis', 'lpr', 'no chili']) expect(output).not.toContain(secret);
+    expect(output).toContain('[REDACTED]');
+  });
+
   it('emits Cloud Logging severity and Error Reporting fields for errors', () => {
     const { logger, parsed } = memoryLogger();
 

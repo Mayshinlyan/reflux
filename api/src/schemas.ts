@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { CATEGORIES } from './config/ruleset.js';
+import { CATEGORIES, CONDITIONS } from './config/ruleset.js';
 
 /** Control characters (incl. newlines and tabs) become spaces; angle brackets are dropped so text can't close our delimiter. */
 export function sanitizeFoodText(raw: string): string {
@@ -25,11 +25,21 @@ export const detailsSchema = z
 /** How much the user ate. A fixed set, so it can go into the prompt without sanitizing. */
 export const portionSchema = z.enum(['small', 'regular', 'large']);
 
+/** What the user is managing. A fixed set (no free text), deduplicated; empty becomes undefined. */
+export const conditionsSchema = z
+  .array(z.enum(CONDITIONS))
+  .max(CONDITIONS.length)
+  .transform((value) => {
+    const unique = [...new Set(value)];
+    return unique.length > 0 ? unique : undefined;
+  });
+
 /** JSON body for text analysis. Unknown fields are rejected. */
 export const analyzeTextBodySchema = z.strictObject({
   text: z.string().max(200).transform(sanitizeFoodText).pipe(z.string().min(1)),
   details: detailsSchema.optional(),
   portion: portionSchema.optional(),
+  conditions: conditionsSchema.optional(),
 });
 
 // The output schema mirrors app/src/types/analysis.ts. Keep the two in sync.

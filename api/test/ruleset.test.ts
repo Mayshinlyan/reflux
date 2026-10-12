@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import { CATEGORIES, ruleset } from '../src/config/ruleset.js';
+import { CATEGORIES, CONDITIONS, ruleset } from '../src/config/ruleset.js';
 import { mealAnalysisSchema, sanitizeFoodText } from '../src/schemas.js';
 import { goodAnalysis } from './helpers.js';
 
@@ -21,6 +21,18 @@ describe('refluxRuleset.json', () => {
       expect(category.sources.length).toBeGreaterThan(0);
       for (const id of category.sources) expect(sources[id]).toBeTruthy();
     }
+  });
+
+  it('has an emphasis for each condition that only names real categories and cited sources', () => {
+    const sources = ruleset.sources as Record<string, string>;
+    expect(Object.keys(ruleset.conditions).sort()).toEqual([...CONDITIONS].sort());
+    for (const condition of Object.values(ruleset.conditions)) {
+      expect(condition.emphasis.length).toBeGreaterThan(0);
+      for (const category of condition.emphasis) expect(CATEGORIES).toContain(category);
+      for (const id of condition.sources) expect(sources[id]).toBeTruthy();
+    }
+    // Gastritis has no source yet; that is flagged in the file, not papered over.
+    expect(ruleset.conditions.gastritis.sources).toEqual([]);
   });
 
   it('matches the trigger categories in the app type', () => {

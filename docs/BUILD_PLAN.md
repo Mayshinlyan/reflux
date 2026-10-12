@@ -234,7 +234,8 @@ Defined in `app/src/db/schema.ts`. Migrations are generated with `drizzle-kit ge
 GET  /health            # liveness check for Cloud Run probes, deploy smoke test
 POST /v1/analyze-food
   headers: Authorization (Firebase anon ID token), X-Request-Id
-  body: multipart { photo, details? } OR JSON { text, details? }   # details: optional user note, ≤300 chars
+  body: multipart { photo, details?, portion?, conditions? } OR JSON { text, details?, portion?, conditions? }
+        # details: optional user note, ≤300 chars; conditions: any of acid_reflux, lpr, gastritis (multipart: comma separated)
   200 → { isFood, mealName, items[], overall, meta }
   errors → { error: { code, message, requestId } }
 ```
@@ -248,6 +249,7 @@ POST /v1/analyze-food
 ## Claude Integration & Ruleset
 
 - **Ruleset** (`refluxRuleset.json`, with a `version` field): **acidic (low pH; key for LPR)**, caffeine, mint, alcohol, carbonation, high-fat/fried, spicy, chocolate, raw garlic/onion, large portion. Each has a description, example keywords and **cited sources** (e.g. ACG GERD guideline, LPR low-acid-diet research). Clinician review happens in M2, before public launch.
+- **Conditions** (`conditions` in the ruleset, prompt `food-analysis-v6`): what the user is managing is sent as a fixed-order `<conditions>` tag in the user turn, as DATA. The per-condition emphasis (which categories to weigh more strictly) is fixed text in the system prompt, rendered from the ruleset, so the cache prefix is the same for everyone. It can only raise a verdict, never lower one. The emphasis is a draft: it needs clinician review, and gastritis has no source yet. The relay never logs the conditions.
 - **One call per analysis** with forced tool use (`report_meal_analysis`):
   - Top level: `isFood`, `mealName`, and `overall {verdict, confidence, reasoning ≤400}`.
   - `items[≤8]`, each with `name`, `ingredients[≤20]{name, matchedCategories}`, `verdict`, `reasoning ≤300` and `matchedTriggers[{category, evidence}]`.

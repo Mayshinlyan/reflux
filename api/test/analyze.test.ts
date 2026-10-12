@@ -107,6 +107,30 @@ describe('POST /v1/analyze-food: text', () => {
     expect(claudeCalls[0]).toMatchObject({ kind: 'text', text: 'soup', portion: 'large' });
   });
 
+  it('passes the conditions to Claude, deduplicated, and leaves the key out when none are sent', async () => {
+    const { app, claudeCalls } = testApp();
+    const ok = await post(app).send({ text: 'soup', conditions: ['lpr', 'lpr', 'gastritis'] });
+    expect(ok.status).toBe(200);
+    expect(claudeCalls[0]).toEqual({ kind: 'text', text: 'soup', conditions: ['lpr', 'gastritis'] });
+
+    await post(app).send({ text: 'soup', conditions: [] });
+    expect(claudeCalls[1]).toEqual({ kind: 'text', text: 'soup' });
+    expect(claudeCalls[1]).not.toHaveProperty('conditions');
+  });
+
+  it.each([
+    { text: 'soup', conditions: ['unsure'] },
+    { text: 'soup', conditions: ['flu'] },
+    { text: 'soup', conditions: 'lpr' },
+    { text: 'soup', conditions: ['acid_reflux', 'lpr', 'gastritis', 'lpr'] },
+  ])('rejects conditions %j', async (body) => {
+    const { app, claudeCalls } = testApp();
+    const res = await post(app).send(body);
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('INPUT_REJECTED');
+    expect(claudeCalls).toHaveLength(0);
+  });
+
   it.each([
     { text: 'soup', portion: 'huge' },
     { text: 'soup', portion: 2 },
@@ -159,6 +183,21 @@ describe('POST /v1/analyze-food: photo', () => {
 
     expect(res.status).toBe(200);
     expect(claudeCalls[0]).toMatchObject({ kind: 'photo', details: 'homemade, no chili' });
+  });
+
+  it('passes comma-separated conditions with the photo and rejects a bad one', async () => {
+    const { app, claudeCalls } = testApp();
+    const ok = await post(app)
+      .field('conditions', 'acid_reflux,lpr')
+      .attach('photo', jpeg, { filename: 'meal.jpg', contentType: 'image/jpeg' });
+    expect(ok.status).toBe(200);
+    expect(claudeCalls[0]).toMatchObject({ kind: 'photo', conditions: ['acid_reflux', 'lpr'] });
+
+    const bad = await post(app)
+      .field('conditions', 'acid_reflux,flu')
+      .attach('photo', jpeg, { filename: 'meal.jpg', contentType: 'image/jpeg' });
+    expect(bad.status).toBe(400);
+    expect(claudeCalls).toHaveLength(1);
   });
 
   it('passes the portion with the photo and rejects a bad one', async () => {
