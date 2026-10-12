@@ -11,6 +11,7 @@ import {
   getFoodLog,
   listDiaryFoodLogs,
   listMealTags,
+  listMealTagsFor,
   promoteCheckToDiary,
   saveMealDetails,
   updateFoodCheck,
@@ -502,6 +503,27 @@ describe('food logs', () => {
       notes: null,
     });
     expect(listMealTags(db, id)).toEqual([]);
+  });
+
+  it('reads the tags of several meals at once, leaving out meals without tags', () => {
+    const { db } = createTestDb();
+    const [a, b, c] = ['a', 'b', 'c'].map((name) =>
+      createFoodLog(db, {
+        entryType: 'diary',
+        source: 'text',
+        inputText: name,
+        analysis: mintTea,
+        meta,
+      }),
+    ) as [number, number, number];
+    saveMealDetails(db, a, { tags: ['stress', 'alcohol'] });
+    saveMealDetails(db, b, { tags: ['stress'] });
+
+    const tags = listMealTagsFor(db, [a, b, c]);
+    expect([...(tags.get(a) ?? [])].sort()).toEqual(['alcohol', 'stress']);
+    expect(tags.get(b)).toEqual(['stress']);
+    expect(tags.has(c)).toBe(false);
+    expect(listMealTagsFor(db, []).size).toBe(0);
   });
 
   it('refuses unknown tags and missing meals when saving details', () => {

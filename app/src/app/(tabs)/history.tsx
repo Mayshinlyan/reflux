@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Infinity as InfinityIcon } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
-import { SectionList, StyleSheet, View } from 'react-native';
+import { Animated, SectionList, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { DateRangePicker } from '@/components/DateRangePicker';
@@ -15,10 +15,11 @@ import { TimelineItem } from '@/components/TimelineItem';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { useDb } from '@/db/DatabaseProvider';
 import { earliestEntryDayKey } from '@/db/repositories/data';
-import { listDiaryFoodLogs } from '@/db/repositories/food';
+import { listDiaryFoodLogs, listMealTagsFor } from '@/db/repositories/food';
 import { listMedicationLogs } from '@/db/repositories/medications';
 import { listSymptomLogs } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
+import type { LifestyleTagKey } from '@/constants/lifestyleTags';
 import { useDeleteEntry } from '@/hooks/useDeleteEntry';
 import { friendlyMessages } from '@/lib/errors';
 import { summarize } from '@/lib/historySummary';
@@ -55,6 +56,12 @@ const FILTERS: { value: TimelineFilter; label: string }[] = [
   { value: 'medication', label: 'Medications' },
 ];
 
+/** The entries sit faded under the stats card and reach full strength once it has scrolled away (Figma 04a). */
+const FADED = 0.4;
+/** The stats carousel and the gap under it (270 + 28), which is how far the list scrolls before they are gone. */
+const STATS_SCROLL = 298;
+const AnimatedSectionList = Animated.createAnimatedComponent(SectionList) as unknown as typeof SectionList;
+
 const todayKeyNow = () => localDayKey(new Date().toISOString(), currentTimeZone());
 
 /** Everything logged in the period, by day. Loads a day either side so other zones aren't clipped, then trims. */
@@ -80,6 +87,7 @@ export default function HistoryScreen() {
   const [picking, setPicking] = useState(false);
   const [dayCounts, setDayCounts] = useState<ReadonlyMap<string, number>>(new Map());
   const [sections, setSections] = useState<TimelineSection[]>([]);
+  const [mealTags, setMealTags] = useState<ReadonlyMap<number, readonly LifestyleTagKey[]>>(new Map());
   const [todayKey, setTodayKey] = useState(todayKeyNow);
   const [firstDayKey, setFirstDayKey] = useState<string | undefined>(undefined);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -92,7 +100,16 @@ export default function HistoryScreen() {
 
   const reload = useCallback(() => {
     try {
-      setSections(loadPeriod(db, period));
+      const loaded = loadPeriod(db, period);
+      setSections(loaded);
+      setMealTags(
+        listMealTagsFor(
+          db,
+          loaded.flatMap((section) =>
+            section.entries.filter((entry) => entry.kind === 'food').map((entry) => entry.id),
+          ),
+        ),
+      );
       setTodayKey(todayKeyNow());
       setFirstDayKey(earliestEntryDayKey(db));
       setLoadFailed(false);
@@ -113,8 +130,9 @@ export default function HistoryScreen() {
       summarize(
         sections.flatMap((section) => section.entries),
         (entry) => localDayKey(entry.at, entry.tz),
+        mealTags,
       ),
-    [sections],
+    [sections, mealTags],
   );
   const shown = useMemo(
     () =>
@@ -127,6 +145,22 @@ export default function HistoryScreen() {
             }))
             .filter((section) => section.entries.length > 0),
     [sections, filter],
+  );
+
+  // The entries fade in as the list scrolls. A list too short to scroll that far is never faded.
+  const [scrollY] = useState(() => new Animated.Value(0));
+  const [room, setRoom] = useState({ content: 0, view: 0 });
+  const scrollable = room.content - room.view;
+  const fade = useMemo(
+    () =>
+      scrollable <= 0
+        ? 1
+        : scrollY.interpolate({
+            inputRange: [0, Math.min(STATS_SCROLL, scrollable)],
+            outputRange: [FADED, 1],
+            extrapolate: 'clamp',
+          }),
+    [scrollY, scrollable],
   );
 
   const stepping = kind === 'week' || kind === 'month';
@@ -158,7 +192,13 @@ export default function HistoryScreen() {
 
   return (
     <Screen edges={['top', 'left', 'right']} style={styles.screen}>
-      <SectionList
+      <AnimatedSectionList
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: true,
+        })}
+        scrollEventThrottle={16}
+        onLayout={(event) => setRoom((r) => ({ ...r, view: event.nativeEvent.layout.height }))}
+        onContentSizeChange={(_, height) => setRoom((r) => ({ ...r, content: height }))}
         sections={shown.map((section) => ({ ...section, data: section.entries }))}
         keyExtractor={(entry) => `${entry.kind}-${entry.id}`}
         ListHeaderComponent={
@@ -194,23 +234,27 @@ export default function HistoryScreen() {
           </View>
         }
         renderSectionHeader={({ section }) => (
-          <AppText variant="section" accessibilityRole="header" style={styles.dayLabel}>
-            {section.label}
-          </AppText>
+          <Animated.View style={{ opacity: fade }}>
+            <AppText variant="section" accessibilityRole="header" style={styles.dayLabel}>
+              {section.label}
+            </AppText>
+          </Animated.View>
         )}
         renderItem={({ item }) => (
-          <TimelineItem
-            kind={item.kind}
-            title={item.title}
-            time={item.meta}
-            side={
-              item.kind === 'food' && item.log.overallVerdict ? (
-                <VerdictBadge verdict={item.log.overallVerdict} />
-              ) : undefined
-            }
-            onPress={() => open(item)}
-            onDelete={() => confirmDelete(item)}
-          />
+          <Animated.View style={{ opacity: fade }}>
+            <TimelineItem
+              kind={item.kind}
+              title={item.title}
+              time={item.meta}
+              side={
+                item.kind === 'food' && item.log.overallVerdict ? (
+                  <VerdictBadge verdict={item.log.overallVerdict} />
+                ) : undefined
+              }
+              onPress={() => open(item)}
+              onDelete={() => confirmDelete(item)}
+            />
+          </Animated.View>
         )}
         stickySectionHeadersEnabled={false}
         showsVerticalScrollIndicator={false}
