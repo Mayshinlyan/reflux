@@ -10,6 +10,7 @@ import type { AppVerdict } from '@/types/analysis';
 let mockDb: AppDb;
 let closeDb: () => void;
 let mockOnboardingDone = true;
+let mockUserName = '';
 let mockReduceMotion = true;
 const mockPush = jest.fn();
 const mockRedirect = jest.fn();
@@ -17,7 +18,12 @@ const mockRedirect = jest.fn();
 jest.mock('@/db/DatabaseProvider', () => ({
   useDb: () => mockDb,
   useSettings: () => ({
-    settings: { onboardingDone: mockOnboardingDone, bedtime: '22:30', lateMealWindowMinutes: 180 },
+    settings: {
+      onboardingDone: mockOnboardingDone,
+      userName: mockUserName,
+      bedtime: '22:30',
+      lateMealWindowMinutes: 180,
+    },
   }),
 }));
 // Reanimated's native runtime can't load in Jest; use its mocks (which lack useReducedMotion).
@@ -52,6 +58,7 @@ beforeEach(() => {
   mockDb = db;
   closeDb = () => sqlite.close();
   mockOnboardingDone = true;
+  mockUserName = '';
   mockReduceMotion = true;
   mockPush.mockClear();
   mockRedirect.mockClear();
@@ -87,6 +94,13 @@ describe('Today: an empty day', () => {
     expect(screen.getByText('Tap me to log')).toBeTruthy();
     expect(screen.getByLabelText('Belly feels happy')).toBeTruthy();
     expect(screen.queryByText('Today')).toBeNull();
+  });
+
+  it('adds the name to the greeting once one is set', async () => {
+    mockUserName = 'May';
+    await render(<TodayScreen />);
+
+    expect(screen.getByRole('header', { name: /^Good (morning|afternoon|evening), May$/ })).toBeTruthy();
   });
 
   it('opens the Log page at once when the belly is tapped and Reduce Motion is on', async () => {

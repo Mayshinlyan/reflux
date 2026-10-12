@@ -97,6 +97,39 @@ describe('Settings', () => {
   });
 });
 
+describe('Settings: your name', () => {
+  it('offers to add a name on a fresh install', async () => {
+    await render(<SettingsScreen />);
+
+    expect(screen.getByRole('button', { name: 'Your name, Add' })).toBeTruthy();
+  });
+
+  it('saves the typed name, shows it on the row, and closes the sheet', async () => {
+    await render(<SettingsScreen />);
+    await press('button', 'Your name, Add');
+
+    await fireEvent.changeText(screen.getByLabelText('Your name'), '  May ');
+    await press('button', 'Save');
+
+    expect(getSetting(mockDb, 'userName')).toBe('May');
+    expect(screen.getByRole('button', { name: 'Your name, May' })).toBeTruthy();
+    expect(screen.queryByLabelText('Your name')).toBeNull();
+  });
+
+  it('starts from the saved name and can clear it', async () => {
+    setSetting(mockDb, 'userName', 'May');
+    await render(<SettingsScreen />);
+    await press('button', 'Your name, May');
+    expect(screen.getByLabelText('Your name').props.value).toBe('May');
+
+    await fireEvent.changeText(screen.getByLabelText('Your name'), '');
+    await press('button', 'Save');
+
+    expect(getSetting(mockDb, 'userName')).toBe('');
+    expect(screen.getByRole('button', { name: 'Your name, Add' })).toBeTruthy();
+  });
+});
+
 describe('Settings: bedtime', () => {
   it('offers 8:00 PM to 2:00 AM with the current bedtime marked', async () => {
     await render(<SettingsScreen />);

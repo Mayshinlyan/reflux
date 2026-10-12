@@ -11,16 +11,18 @@ import { TAB_BAR_CLEARANCE } from '@/components/FloatingTabBar';
 import { Screen } from '@/components/Screen';
 import { SectionTitle } from '@/components/SectionTitle';
 import { SettingsRow } from '@/components/SettingsRow';
+import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { deleteAllData } from '@/db/repositories/data';
+import { USER_NAME_MAX } from '@/db/repositories/settings';
 import { BEDTIME_OPTIONS, formatClock } from '@/lib/clock';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { deleteAllPhotos } from '@/services/photoStore';
 import { fontFamily, minTouchTarget, space, useColors } from '@/theme';
 
-type Sheet = 'bedtime' | null;
+type Sheet = 'name' | 'bedtime' | null;
 
 /** Settings ("Profile" in the mockup). */
 export default function SettingsScreen() {
@@ -30,10 +32,28 @@ export default function SettingsScreen() {
   const { settings, update, reload } = useSettings();
   const [sheet, setSheet] = useState<Sheet>(null);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
 
   const closeSheet = () => {
     setSheet(null);
     setSaveFailed(false);
+  };
+
+  const openName = () => {
+    setNameDraft(settings.userName);
+    setSheet('name');
+  };
+
+  const saveName = () => {
+    try {
+      update('userName', nameDraft);
+    } catch (error) {
+      logger.error('saveName', error);
+      setSaveFailed(true);
+      return;
+    }
+    Haptics.selectionAsync().catch(() => {});
+    closeSheet();
   };
 
   const chooseBedtime = (bedtime: string) => {
@@ -87,6 +107,7 @@ export default function SettingsScreen() {
           You
         </AppText>
         <SectionTitle first>Personalize</SectionTitle>
+        <SettingsRow label="Your name" value={settings.userName || 'Add'} onPress={openName} />
         <SettingsRow
           label="Bedtime"
           value={formatClock(settings.bedtime)}
@@ -108,6 +129,25 @@ export default function SettingsScreen() {
         </AppText>
         <Button label="Delete all my data" variant="quietDanger" onPress={confirmDeleteAll} />
       </ScrollView>
+
+      <BottomSheet visible={sheet === 'name'} onClose={closeSheet}>
+        <TextField
+          label="Your name"
+          value={nameDraft}
+          onChangeText={setNameDraft}
+          placeholder="Your name"
+          maxLength={USER_NAME_MAX}
+          autoCapitalize="words"
+          returnKeyType="done"
+          onSubmitEditing={saveName}
+        />
+        {saveFailed && (
+          <AppText color="redInk" style={styles.error}>
+            {friendlyMessages.INTERNAL}
+          </AppText>
+        )}
+        <Button label="Save" onPress={saveName} />
+      </BottomSheet>
 
       <BottomSheet visible={sheet === 'bedtime'} onClose={closeSheet}>
         <AppText variant="title" accessibilityRole="header">
