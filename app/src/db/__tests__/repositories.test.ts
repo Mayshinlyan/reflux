@@ -110,6 +110,16 @@ describe('settings', () => {
     expect(getSetting(db, 'userName')).toBe('');
   });
 
+  it('defaults the avatar to the initial, stores a known one, and rejects an unknown key', () => {
+    const { db } = createTestDb();
+    expect(getSetting(db, 'avatar')).toBe('initial');
+
+    setSetting(db, 'avatar', 'cat');
+    expect(getSetting(db, 'avatar')).toBe('cat');
+
+    expect(() => setSetting(db, 'avatar', 'dragon' as never)).toThrow();
+  });
+
   it('stores the condition and usual symptoms, and rejects unknown or duplicate ones', () => {
     const { db } = createTestDb();
     expect(getSetting(db, 'condition')).toBe('unsure');

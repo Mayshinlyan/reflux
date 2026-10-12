@@ -35,6 +35,12 @@ const PAIRS: [text: keyof Palette, background: keyof Palette][] = [
   ['redInk', 'surface2'],
   ['clayInk', 'surface'],
   ['sageInk', 'surface'],
+  // Avatar icons on their tints.
+  ['lavenderInk', 'lavenderTint'],
+  ['roseInk', 'roseTint'],
+  ['mintInk', 'mintTint'],
+  ['skyInk', 'skyTint'],
+  ['inkSoft', 'surface2'],
 ];
 
 describe.each([
