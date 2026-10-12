@@ -19,6 +19,7 @@ import { useToast } from '@/components/Toast';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { LIFESTYLE_TAGS, type LifestyleTagKey } from '@/constants/lifestyleTags';
 import { SYMPTOM_ITEMS, type SymptomKey } from '@/constants/symptomItems';
+import { analysisConditions } from '@/constants/conditions';
 import { useDb } from '@/db/DatabaseProvider';
 import {
   type FoodLogEdit,
@@ -36,6 +37,7 @@ import { loadEntry } from '@/lib/entry';
 import { logger } from '@/lib/logger';
 import { earliestMealTime, formatMealTime } from '@/lib/mealTime';
 import { effectiveVerdict } from '@/lib/verdict';
+import { getSetting } from '@/db/repositories/settings';
 import { analyzeFood } from '@/services/relayClient';
 import { space } from '@/theme';
 import type { Portion } from '@/types/analysis';
@@ -169,7 +171,10 @@ function MealEdit({ log }: { log: StoredFoodLog }) {
     if (recheck) {
       setChecking(true);
       try {
-        const portionExtra = portion !== 'regular' ? { portion } : {};
+        const portionExtra = {
+          ...(portion !== 'regular' ? { portion } : {}),
+          ...analysisConditions(getSetting(db, 'conditions')),
+        };
         const { meta, ...analysis } = await analyzeFood(
           log.photoUri
             ? { photo: { uri: log.photoUri, mimeType: 'image/jpeg' }, ...portionExtra }

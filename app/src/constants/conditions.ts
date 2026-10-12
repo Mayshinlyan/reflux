@@ -71,3 +71,9 @@ export function conditionsForAnalysis(conditions: readonly ConditionKey[]): Cond
 export function suggestedSymptoms(conditions: readonly ConditionKey[]): SymptomKey[] {
   return [...new Set(conditions.flatMap((item) => CONDITION_SYMPTOMS[item]))];
 }
+
+/** For spreading into an analyze request: the key is left out when there is nothing to tell the relay. */
+export function analysisConditions(conditions: readonly ConditionKey[]): { conditions?: ConditionKey[] } {
+  const real = conditionsForAnalysis(conditions);
+  return real.length > 0 ? { conditions: real } : {};
+}

@@ -15,6 +15,8 @@ export type AnalyzeInput = ({ text: string } | { photo: { uri: string; mimeType?
   details?: string;
   /** Left out for a regular portion. */
   portion?: Portion;
+  /** What the user is managing, to tune the verdict. Left out when there is nothing to say. */
+  conditions?: readonly string[];
 };
 
 // Longer than the relay's 30 s Claude timeout, so the relay's own AI_TIMEOUT wins when it can.
@@ -78,6 +80,7 @@ export async function analyzeFood(input: AnalyzeInput, signal?: AbortSignal): Pr
         text: input.text,
         ...(input.details ? { details: input.details } : {}),
         ...(input.portion ? { portion: input.portion } : {}),
+        ...(input.conditions?.length ? { conditions: input.conditions } : {}),
       });
     }
     // Expo's fetch rebuilds multipart bodies itself and only accepts a Blob-like value with
@@ -87,6 +90,7 @@ export async function analyzeFood(input: AnalyzeInput, signal?: AbortSignal): Pr
     form.append('photo', new File(input.photo.uri) as unknown as Blob);
     if (input.details) form.append('details', input.details);
     if (input.portion) form.append('portion', input.portion);
+    if (input.conditions?.length) form.append('conditions', input.conditions.join(','));
     return form;
   };
 

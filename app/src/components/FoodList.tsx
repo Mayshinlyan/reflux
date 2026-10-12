@@ -19,6 +19,7 @@ import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { VERDICT_LABELS } from '@/components/VerdictBadge';
 import { VerdictSelect } from '@/components/VerdictSelect';
+import { analysisConditions } from '@/constants/conditions';
 import { useDb } from '@/db/DatabaseProvider';
 import { openSymptoms, useSymptomPrompt } from '@/hooks/useSymptomPrompt';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
@@ -44,6 +45,7 @@ import { formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
+import { getSetting } from '@/db/repositories/settings';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import type { AppVerdict } from '@/types/analysis';
 import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
@@ -268,6 +270,7 @@ export function FoodList() {
       const result = await analyzeFood({
         ...(photoUri ? { photo: { uri: photoUri, mimeType: 'image/jpeg' } } : { text: trimmedName }),
         ...(details ? { details } : {}),
+        ...analysisConditions(getSetting(db, 'conditions')),
       });
       // The sheet may have been closed, or opened for another food, while this ran.
       if (editingId.current !== id) return;
