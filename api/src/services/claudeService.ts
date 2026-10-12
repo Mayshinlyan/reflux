@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 
+import { type Condition } from '../config/ruleset.js';
 import { HttpError } from '../errors.js';
 import {
   photoUserMessage,
@@ -10,8 +11,8 @@ import {
 import { mealAnalysisJsonSchema, type Portion } from '../schemas.js';
 
 export type ClaudeInput =
-  | { kind: 'text'; text: string; details?: string; portion?: Portion }
-  | { kind: 'photo'; jpeg: Buffer; details?: string; portion?: Portion };
+  | { kind: 'text'; text: string; details?: string; portion?: Portion; conditions?: Condition[] }
+  | { kind: 'photo'; jpeg: Buffer; details?: string; portion?: Portion; conditions?: Condition[] };
 
 /** Content-free numbers only; safe to log. */
 export type ClaudeTelemetry = {
@@ -84,13 +85,18 @@ export function createClaudeService(options: {
     async analyze(input) {
       const content: Anthropic.ContentBlockParam[] =
         input.kind === 'text'
-          ? [{ type: 'text', text: textUserMessage(input.text, input.details, input.portion) }]
+          ? [
+              {
+                type: 'text',
+                text: textUserMessage(input.text, input.details, input.portion, input.conditions),
+              },
+            ]
           : [
               {
                 type: 'image',
                 source: { type: 'base64', media_type: 'image/jpeg', data: input.jpeg.toString('base64') },
               },
-              { type: 'text', text: photoUserMessage(input.details, input.portion) },
+              { type: 'text', text: photoUserMessage(input.details, input.portion, input.conditions) },
             ];
 
       const request = {

@@ -43,7 +43,7 @@ per BUILD_PLAN.md ("Relay API", "Claude Integration & Ruleset", "Security", "Err
 everything that can be built and tested **without credentials or GCP access**:
 
 - `api/src/config/refluxRuleset.json` (versioned; categories acidic, caffeine, mint, alcohol, carbonation, high_fat,
-  spicy, chocolate, raw_garlic_onion, large_portion; each with description, example keywords and cited sources —
+  spicy, chocolate, raw_garlic_onion, large_portion; each with description, example keywords and cited sources, plus a `conditions` section (which categories to weigh more strictly for acid reflux, LPR and gastritis) —
   cite only sources you are confident exist, and mark the file as needing clinician review),
   `api/src/prompts/foodAnalysisPrompt.ts` and `schemas.ts` (zod, strict, unknown fields rejected, enums restricted to
   the ruleset, length caps from the plan; keep consistent with the app type `app/src/types/analysis.ts`).

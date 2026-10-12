@@ -18,4 +18,9 @@ export const CATEGORIES = [
 
 export type TriggerCategory = (typeof CATEGORIES)[number];
 
+/** What the user is managing, sent with a check. `unsure` is the app's and is never sent. */
+export const CONDITIONS = ['acid_reflux', 'lpr', 'gastritis'] as const;
+
+export type Condition = (typeof CONDITIONS)[number];
+
 export const RULESET_VERSION: string = ruleset.version;

@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-29.1",
+  "version": "2026-10-12.1",
   "needsClinicianReview": true,
   "reviewNote": "Draft ruleset compiled for a private pilot. Not medical advice and not yet reviewed by a clinician; a clinician must review categories, keywords and sources before any public launch (Milestone 2).",
   "sources": {
@@ -112,6 +112,24 @@
         "second helping"
       ],
       "sources": ["acg2022", "newberry2019"]
+    }
+  },
+  "conditions": {
+    "acid_reflux": {
+      "label": "acid reflux or GERD",
+      "emphasis": ["large_portion", "high_fat", "chocolate", "mint", "caffeine", "alcohol", "spicy"],
+      "sources": ["acg2022", "newberry2019"]
+    },
+    "lpr": {
+      "label": "silent reflux (LPR)",
+      "emphasis": ["acidic", "carbonation", "caffeine", "alcohol", "mint"],
+      "sources": ["koufman2011", "zalvan2017"]
+    },
+    "gastritis": {
+      "label": "gastritis",
+      "emphasis": ["alcohol", "caffeine", "spicy", "acidic"],
+      "sources": [],
+      "note": "Draft emphasis with no source yet; needs a clinician and a citation before release."
     }
   }
 }
