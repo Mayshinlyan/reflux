@@ -41,6 +41,21 @@ describe('FloatingTabBar', () => {
     }
   });
 
+  it('draws the selected tab solid ink and the other a pale surface2 silhouette, with details cut out', async () => {
+    // react-native-svg hands colours to the native view as opaque ARGB numbers.
+    const argb = (hex: string) => String(parseInt(`FF${hex.slice(1)}`, 16));
+    await render(<FloatingTabBar active="history" bottomInset={0} onSelect={jest.fn()} />);
+
+    const today = JSON.stringify(screen.getByRole('tab', { name: 'Today' }));
+    const history = JSON.stringify(screen.getByRole('tab', { name: 'History' }));
+
+    expect(today).toContain(argb(lightColors.surface2));
+    expect(today).not.toContain(argb(lightColors.ink));
+    expect(history).toContain(argb(lightColors.ink));
+    expect(history).not.toContain(argb(lightColors.surface2));
+    for (const tab of [today, history]) expect(tab).toContain(argb(lightColors.surface));
+  });
+
   it('keeps Log outside the tabs: two tabs, with Log as a separate button', async () => {
     await render(<FloatingTabBar active="today" bottomInset={0} onSelect={jest.fn()} />);
 
@@ -67,11 +82,11 @@ describe('FloatingTabBar', () => {
     });
   });
 
-  it('is 72 tall on a phone without a home indicator, and grows with the indicator inset', () => {
-    expect(tabBarHeight(0)).toBe(72);
-    expect(tabBarHeight(34)).toBe(90);
-    expect(tabBarBottomPadding(10)).toBe(16);
-    expect(tabBarBottomPadding(34)).toBe(34);
+  it('is 64 tall on a phone without a home indicator, and grows with the indicator inset', () => {
+    expect(tabBarHeight(0)).toBe(64);
+    expect(tabBarHeight(34)).toBe(78);
+    expect(tabBarBottomPadding(10)).toBe(8);
+    expect(tabBarBottomPadding(34)).toBe(22);
   });
 });
 

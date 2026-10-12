@@ -1,7 +1,10 @@
-import { Clock, House, type LucideIcon, Plus, X } from 'lucide-react-native';
+import { Plus, X } from 'lucide-react-native';
+import type { ComponentType } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { shadow, space, useColors } from '@/theme';
+
+import { ClockSolid, HouseSolid, type TabIconProps } from './TabIcons';
 
 export type TabKey = 'log' | 'today' | 'history';
 
@@ -13,17 +16,22 @@ export const LOG_BUTTON_RAISE = 24;
 
 const TAB_TARGET = 48;
 const TOP_PAD = 8;
-/** Room under the icons: the home indicator's inset, but at least 16. */
-const MIN_BOTTOM_PAD = 16;
+/**
+ * Room under the icons. The home indicator sits inside the bar's bottom area, so only the inset beyond the 12 the
+ * 48 target already leaves under its icon is added (at least 8): the icons look centred, not lofted up.
+ */
+const MIN_BOTTOM_PAD = 8;
+const INDICATOR_OVERLAP = 12;
 const BAR_RADIUS = space.s3;
 
-export const tabBarBottomPadding = (bottomInset: number) => Math.max(bottomInset, MIN_BOTTOM_PAD);
-/** Height of the bar from the screen's bottom edge to its top edge (72 with no home indicator). */
+export const tabBarBottomPadding = (bottomInset: number) =>
+  Math.max(bottomInset - INDICATOR_OVERLAP, MIN_BOTTOM_PAD);
+/** Height of the bar from the screen's bottom edge to its top edge (64 with no home indicator). */
 export const tabBarHeight = (bottomInset: number) => TOP_PAD + TAB_TARGET + tabBarBottomPadding(bottomInset);
 
-const TABS: { key: Exclude<TabKey, 'log'>; label: string; icon: LucideIcon }[] = [
-  { key: 'today', label: 'Today', icon: House },
-  { key: 'history', label: 'History', icon: Clock },
+const TABS: { key: Exclude<TabKey, 'log'>; label: string; icon: ComponentType<TabIconProps> }[] = [
+  { key: 'today', label: 'Today', icon: HouseSolid },
+  { key: 'history', label: 'History', icon: ClockSolid },
 ];
 
 type Props = {
@@ -38,8 +46,9 @@ type Props = {
 
 /**
  * Figma "Tab bar floating": a full-width `surface` bar on the bottom edge with rounded top corners. Today and
- * History are icon-only tabs with no backgrounds (the current one is `ink`, the other `inkSoft`), and the olive
- * Log button sits raised in the middle so it reads as the one action. Icon-only, so every button carries a label.
+ * History are icon-only tabs of solid shapes with no backgrounds: the current one is `ink`, the other a pale
+ * `surface2` silhouette (greyed out). The olive Log button sits raised in the middle so it reads as the one
+ * action. Icon-only, so every button carries a label.
  */
 export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect }: Props) {
   const colors = useColors();
@@ -54,7 +63,7 @@ export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect 
         accessibilityState={{ selected: isActive }}
         onPress={() => onSelect(key)}
         style={({ pressed }) => [styles.tab, { opacity: pressed ? 0.8 : 1 }]}>
-        <Icon size={24} color={isActive ? colors.ink : colors.inkSoft} strokeWidth={2} />
+        <Icon size={24} color={isActive ? colors.ink : colors.surface2} cutout={colors.surface} />
       </Pressable>
     );
   };
