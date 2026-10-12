@@ -4,7 +4,12 @@ import { Alert, type AlertButton } from 'react-native';
 
 import HistoryScreen from '@/app/(tabs)/history';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { createFoodLog, createUncheckedMeal, listDiaryFoodLogs } from '@/db/repositories/food';
+import {
+  createFoodLog,
+  createUncheckedMeal,
+  listDiaryFoodLogs,
+  saveMealDetails,
+} from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
 import { createSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
@@ -182,18 +187,46 @@ describe('History: the week', () => {
   });
 });
 
-describe('History: the summary card', () => {
-  it('counts the shown week: meals, days with symptoms and the verdict mix', async () => {
+describe('History: the stats cards', () => {
+  it('counts the shown week on the Food card: meals, days with symptoms and the verdict mix', async () => {
     seedWeek();
     await render(<HistoryScreen />);
 
     expect(screen.getByText('4 meals')).toBeTruthy();
     expect(screen.getByText('2 days with symptoms')).toBeTruthy();
-    expect(screen.getByText('Okay 2')).toBeTruthy();
-    expect(screen.getByText('Caution 1')).toBeTruthy();
-    expect(screen.getByText('Avoid 1')).toBeTruthy();
-    // No meal was marked Good, so it isn't in the legend.
-    expect(screen.queryByText(/^Good/)).toBeNull();
+    // Every verdict is in the legend, even one with no meals.
+    for (const name of ['Good', 'Okay', 'Caution', 'Avoid']) {
+      expect(screen.getAllByText(name).length).toBeGreaterThan(0);
+    }
+    expect(screen.getByText('None of your meals were good.')).toBeTruthy();
+  });
+
+  it('ranks the symptoms logged in the shown week on the Top symptoms card', async () => {
+    seedWeek();
+    createSymptomLog(mockDb, { items: [{ key: 'heartburn' }], loggedAt: at(9, 9) });
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('Top symptoms')).toBeTruthy();
+    const rows = screen.getAllByLabelText(/^(Heartburn|Burping), \d$/);
+    expect(rows.map((row) => row.props.accessibilityLabel)).toEqual(['Heartburn, 3', 'Burping, 2']);
+  });
+
+  it('counts the tags of meals and symptom entries on the Top tags card, with unused tags at 0', async () => {
+    const meal = seedMeal('Pasta', 'ok', at(10, 12));
+    saveMealDetails(mockDb, meal, { tags: ['large_meal', 'stress'] });
+    createSymptomLog(mockDb, { items: [{ key: 'heartburn' }], tags: ['stress'], loggedAt: at(10, 20) });
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('Top tags')).toBeTruthy();
+    expect(screen.getByLabelText('Stress, 2')).toBeTruthy();
+    expect(screen.getByLabelText('Large meal, 1')).toBeTruthy();
+    expect(screen.getByLabelText('Alcohol, 0')).toBeTruthy();
+  });
+
+  it('shows three cards with the first one marked in the dots', async () => {
+    await render(<HistoryScreen />);
+
+    expect(screen.getByLabelText('Card 1 of 3')).toBeTruthy();
   });
 
   it('is not changed by the Entries filter', async () => {
@@ -213,6 +246,14 @@ describe('History: the summary card', () => {
 
     expect(screen.getByText('1 meal')).toBeTruthy();
     expect(screen.getByText('1 day with symptoms')).toBeTruthy();
+  });
+
+  it('says no symptoms and shows the rows empty when none were logged', async () => {
+    seedMeal('Toast', 'ok', at(10, 8));
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('No symptoms')).toBeTruthy();
+    expect(screen.getByLabelText('Hoarse voice, 0')).toBeTruthy();
   });
 });
 

@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lt } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lt } from 'drizzle-orm';
 
 import { LIFESTYLE_TAG_KEYS, type LifestyleTagKey } from '@/constants/lifestyleTags';
 import { currentTimeZone, nowIso } from '@/lib/time';
@@ -239,6 +239,23 @@ export function listMealTags(db: AppDb, id: number): LifestyleTagKey[] {
     .where(eq(foodLogTags.foodLogId, id))
     .all()
     .map((row) => row.tagKey as LifestyleTagKey);
+}
+
+/** The lifestyle tags of several meals at once, by meal id; a meal without tags is absent. */
+export function listMealTagsFor(db: AppDb, ids: readonly number[]): Map<number, LifestyleTagKey[]> {
+  const byMeal = new Map<number, LifestyleTagKey[]>();
+  // Chunked so a long history stays under SQLite's limit on bound values.
+  for (let i = 0; i < ids.length; i += 500) {
+    const rows = db
+      .select({ foodLogId: foodLogTags.foodLogId, tagKey: foodLogTags.tagKey })
+      .from(foodLogTags)
+      .where(inArray(foodLogTags.foodLogId, ids.slice(i, i + 500)))
+      .all();
+    for (const row of rows) {
+      byMeal.set(row.foodLogId, [...(byMeal.get(row.foodLogId) ?? []), row.tagKey as LifestyleTagKey]);
+    }
+  }
+  return byMeal;
 }
 
 export function deleteFoodLog(db: AppDb, id: number): void {
