@@ -28,3 +28,13 @@ export const BEDTIME_OPTIONS: readonly string[] = (() => {
   }
   return options;
 })();
+
+/** Late-meal windows offered, in minutes before bedtime. */
+export const LATE_MEAL_WINDOW_OPTIONS: readonly number[] = [60, 120, 180, 240];
+
+/** 180 -> "3 hours", 60 -> "1 hour"; anything that isn't whole hours is shown in minutes. */
+export function formatWindow(minutes: number): string {
+  if (minutes % 60 !== 0) return `${minutes} minutes`;
+  const hours = minutes / 60;
+  return hours === 1 ? '1 hour' : `${hours} hours`;
+}

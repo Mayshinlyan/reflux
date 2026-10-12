@@ -1,10 +1,10 @@
 import * as Haptics from 'expo-haptics';
-import { Check } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { BedtimeSheet } from '@/components/BedtimeSheet';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { TAB_BAR_CLEARANCE } from '@/components/FloatingTabBar';
@@ -16,17 +16,16 @@ import { useToast } from '@/components/Toast';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { deleteAllData } from '@/db/repositories/data';
 import { USER_NAME_MAX } from '@/db/repositories/settings';
-import { BEDTIME_OPTIONS, formatClock } from '@/lib/clock';
+import { formatClock, formatWindow } from '@/lib/clock';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { deleteAllPhotos } from '@/services/photoStore';
-import { fontFamily, minTouchTarget, space, useColors } from '@/theme';
+import { space } from '@/theme';
 
 type Sheet = 'name' | 'bedtime' | null;
 
 /** Settings ("Profile" in the mockup). */
 export default function SettingsScreen() {
-  const colors = useColors();
   const toast = useToast();
   const db = useDb();
   const { settings, update, reload } = useSettings();
@@ -149,42 +148,14 @@ export default function SettingsScreen() {
         <Button label="Save" onPress={saveName} />
       </BottomSheet>
 
-      <BottomSheet visible={sheet === 'bedtime'} onClose={closeSheet}>
-        <AppText variant="title" accessibilityRole="header">
-          Bedtime
-        </AppText>
-        <AppText color="inkSoft" style={styles.sheetSub}>
-          Meals within 3 hours of bedtime are flagged as late.
-        </AppText>
-        <View accessibilityRole="radiogroup">
-          {BEDTIME_OPTIONS.map((option) => {
-            const selected = option === settings.bedtime;
-            return (
-              <Pressable
-                key={option}
-                accessibilityRole="radio"
-                accessibilityLabel={formatClock(option)}
-                accessibilityState={{ checked: selected }}
-                onPress={() => chooseBedtime(option)}
-                style={[styles.option, { borderBottomColor: colors.hairline }]}>
-                <AppText
-                  style={[
-                    styles.optionText,
-                    selected && { color: colors.clayInk, fontFamily: fontFamily.extrabold },
-                  ]}>
-                  {formatClock(option)}
-                </AppText>
-                {selected && <Check size={18} color={colors.clayInk} strokeWidth={2.6} />}
-              </Pressable>
-            );
-          })}
-        </View>
-        {saveFailed && (
-          <AppText color="redInk" style={styles.error}>
-            {friendlyMessages.INTERNAL}
-          </AppText>
-        )}
-      </BottomSheet>
+      <BedtimeSheet
+        visible={sheet === 'bedtime'}
+        value={settings.bedtime}
+        onChoose={chooseBedtime}
+        onClose={closeSheet}
+        note={`Meals within ${formatWindow(settings.lateMealWindowMinutes)} of bedtime are flagged as late.`}
+        saveFailed={saveFailed}
+      />
     </Screen>
   );
 }
@@ -193,15 +164,5 @@ const styles = StyleSheet.create({
   content: { paddingBottom: TAB_BAR_CLEARANCE },
   title: { marginBottom: space.s4 },
   note: { marginBottom: space.s2 },
-  sheetSub: { marginTop: 4, marginBottom: space.s2, fontSize: 15, lineHeight: 21 },
-  option: {
-    minHeight: Math.max(minTouchTarget, 52),
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-  },
-  optionText: { fontSize: 16 },
   error: { marginBottom: space.s1 },
 });
