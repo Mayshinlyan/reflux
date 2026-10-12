@@ -73,14 +73,16 @@ describe('Profile', () => {
 
   it('shows the name, what you are managing, and your usual symptoms', async () => {
     setSetting(mockDb, 'userName', 'May');
-    setSetting(mockDb, 'condition', 'acid_reflux');
+    setSetting(mockDb, 'conditions', ['acid_reflux', 'lpr']);
     setSetting(mockDb, 'usualSymptoms', ['heartburn', 'burping']);
     await render(<ProfileScreen />);
 
     expect(screen.getByRole('header', { name: 'May' })).toBeTruthy();
-    expect(screen.getByText('Managing acid reflux')).toBeTruthy();
+    expect(screen.getByText('Managing acid reflux and silent reflux')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Edit name' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Condition, Acid reflux, change' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Condition, Acid reflux or GERD, Silent reflux (LPR), change' }),
+    ).toBeTruthy();
     expect(screen.getByText('Heartburn')).toBeTruthy();
     expect(screen.getByText('Burping')).toBeTruthy();
   });
@@ -146,28 +148,53 @@ describe('Profile: avatar', () => {
 });
 
 describe('Profile: condition', () => {
-  it('lists the conditions with the current one marked', async () => {
-    setSetting(mockDb, 'condition', 'acid_reflux');
-    await render(<ProfileScreen />);
-    await press('button', 'Condition, Acid reflux, change');
+  const change = 'Condition, Acid reflux or GERD, change';
 
-    const options = screen.getAllByRole('radio');
-    expect(options).toHaveLength(5);
+  it('lists the conditions with the current ones checked', async () => {
+    setSetting(mockDb, 'conditions', ['acid_reflux']);
+    await render(<ProfileScreen />);
+    await press('button', change);
+
+    const options = screen.getAllByRole('checkbox');
+    expect(options).toHaveLength(4);
     expect(
       options.filter((o) => o.props.accessibilityState?.checked).map((o) => o.props.accessibilityLabel),
-    ).toEqual(['Acid reflux, Heartburn, sour taste, burping']);
+    ).toEqual(['Acid reflux or GERD, Heartburn, sour taste, burping']);
   });
 
-  it('saves the chosen condition on tap, updates the Profile, and closes the sheet', async () => {
-    setSetting(mockDb, 'condition', 'acid_reflux');
+  it('saves several conditions on Save, updates the Profile, and closes the sheet', async () => {
+    setSetting(mockDb, 'conditions', ['acid_reflux']);
     await render(<ProfileScreen />);
-    await press('button', 'Condition, Acid reflux, change');
+    await press('button', change);
 
-    await press('radio', 'GERD, Frequent or long-term reflux');
+    await press('checkbox', 'Silent reflux (LPR), Hoarse voice, throat clearing');
+    expect(getSetting(mockDb, 'conditions')).toEqual(['acid_reflux']);
+    await press('button', 'Save');
 
-    expect(getSetting(mockDb, 'condition')).toBe('gerd');
-    expect(screen.getByText('Managing GERD')).toBeTruthy();
-    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+    expect(getSetting(mockDb, 'conditions')).toEqual(['acid_reflux', 'lpr']);
+    expect(screen.getByText('Managing acid reflux and silent reflux')).toBeTruthy();
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+  });
+
+  it('"Not sure yet" clears the rest, and picking a condition clears "Not sure yet"', async () => {
+    setSetting(mockDb, 'conditions', ['acid_reflux', 'lpr']);
+    await render(<ProfileScreen />);
+    await press('button', 'Condition, Acid reflux or GERD, Silent reflux (LPR), change');
+
+    const checked = () =>
+      screen
+        .getAllByRole('checkbox')
+        .filter((o) => o.props.accessibilityState?.checked)
+        .map((o) => o.props.accessibilityLabel.split(',')[0]);
+    await press('checkbox', 'Not sure yet, Track first, decide later');
+    expect(checked()).toEqual(['Not sure yet']);
+
+    await press('checkbox', 'Gastritis, Stomach irritation, pain, feeling full');
+    expect(checked()).toEqual(['Gastritis']);
+    await press('button', 'Save');
+
+    expect(getSetting(mockDb, 'conditions')).toEqual(['gastritis']);
+    expect(screen.getByText('Managing gastritis')).toBeTruthy();
   });
 });
 

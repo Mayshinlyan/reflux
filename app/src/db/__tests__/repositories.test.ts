@@ -1,6 +1,7 @@
 /** @jest-environment node */
 import { count } from 'drizzle-orm';
 
+import { nowIso } from '@/lib/time';
 import type { MealAnalysis } from '@/types/analysis';
 
 import { countLoggedEntries, deleteAllData, earliestEntryDayKey } from '../repositories/data';
@@ -120,20 +121,42 @@ describe('settings', () => {
     expect(() => setSetting(db, 'avatar', 'dragon' as never)).toThrow();
   });
 
-  it('stores the condition and usual symptoms, and rejects unknown or duplicate ones', () => {
+  it('stores the conditions and usual symptoms, and rejects unknown or duplicate ones', () => {
     const { db } = createTestDb();
-    expect(getSetting(db, 'condition')).toBe('unsure');
+    expect(getSetting(db, 'conditions')).toEqual(['unsure']);
     expect(getSetting(db, 'usualSymptoms')).toEqual([]);
 
-    setSetting(db, 'condition', 'gerd');
+    setSetting(db, 'conditions', ['acid_reflux', 'lpr']);
     setSetting(db, 'usualSymptoms', ['heartburn', 'hoarseness']);
-    expect(getSetting(db, 'condition')).toBe('gerd');
+    expect(getSetting(db, 'conditions')).toEqual(['acid_reflux', 'lpr']);
     expect(getSetting(db, 'usualSymptoms')).toEqual(['heartburn', 'hoarseness']);
 
-    expect(() => setSetting(db, 'condition', 'flu' as never)).toThrow();
+    expect(() => setSetting(db, 'conditions', ['flu' as never])).toThrow();
+    expect(() => setSetting(db, 'conditions', [])).toThrow();
+    expect(() => setSetting(db, 'conditions', ['lpr', 'lpr'])).toThrow();
+    expect(() => setSetting(db, 'conditions', ['unsure', 'lpr'])).toThrow();
     expect(() => setSetting(db, 'usualSymptoms', ['heartburn', 'heartburn'])).toThrow();
     expect(() => setSetting(db, 'usualSymptoms', ['nope' as never])).toThrow();
     expect(() => setSetting(db, 'usualSymptoms', ['sleep'])).toThrow();
+  });
+
+  it('carries a saved single condition over, with gerd becoming acid reflux', () => {
+    const legacy = (value: string) => {
+      const { db } = createTestDb();
+      db.insert(appSettings)
+        .values({ key: 'condition', value: JSON.stringify(value), updatedAt: nowIso() })
+        .run();
+      return db;
+    };
+
+    expect(getSetting(legacy('gerd'), 'conditions')).toEqual(['acid_reflux']);
+    expect(getAllSettings(legacy('gerd')).conditions).toEqual(['acid_reflux']);
+    expect(getAllSettings(legacy('lpr')).conditions).toEqual(['lpr']);
+    expect(getAllSettings(legacy('flu')).conditions).toEqual(['unsure']);
+
+    const db = legacy('gerd');
+    setSetting(db, 'conditions', ['gastritis']);
+    expect(getAllSettings(db).conditions).toEqual(['gastritis']);
   });
 
   it('rejects invalid values', () => {

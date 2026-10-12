@@ -10,7 +10,7 @@ const POINTS: readonly { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: Camera,
     title: 'Meal checks use AI',
-    body: 'Only the photo or description you add is sent to check a meal.',
+    body: "Only the photo or description you add, and what you're managing, is sent to check a meal.",
   },
   {
     icon: Check,

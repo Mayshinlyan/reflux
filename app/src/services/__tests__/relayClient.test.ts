@@ -84,6 +84,21 @@ describe('analyzeFood', () => {
     expect(fetchMock.mock.calls[1][1].body.get('portion')).toBe('small');
   });
 
+  it('sends the conditions as a list (JSON) or comma separated (photo), and leaves them out when none', async () => {
+    fetchMock.mockImplementation(() => json(200, analysis));
+
+    await analyzeFood({ text: 'coffee', conditions: ['acid_reflux', 'lpr'] });
+    await analyzeFood({ photo: { uri: 'file:///meal.jpg' }, conditions: ['acid_reflux', 'lpr'] });
+    await analyzeFood({ text: 'tea', conditions: [] });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      text: 'coffee',
+      conditions: ['acid_reflux', 'lpr'],
+    });
+    expect(fetchMock.mock.calls[1][1].body.get('conditions')).toBe('acid_reflux,lpr');
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ text: 'tea' });
+  });
+
   it('sends a photo as multipart without forcing a content type', async () => {
     fetchMock.mockReturnValue(json(200, analysis));
 

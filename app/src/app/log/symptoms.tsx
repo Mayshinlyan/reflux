@@ -24,7 +24,7 @@ import { TimePill } from '@/components/TimePill';
 import { TimelineItem } from '@/components/TimelineItem';
 import { useToast } from '@/components/Toast';
 import { VerdictBadge } from '@/components/VerdictBadge';
-import { BODY_ZONES } from '@/constants/bodyZones';
+import { orderedZones } from '@/constants/bodyZones';
 import { LIFESTYLE_TAGS, type LifestyleTagKey } from '@/constants/lifestyleTags';
 import { SYMPTOM_ITEMS, type SymptomKey } from '@/constants/symptomItems';
 import { useDb } from '@/db/DatabaseProvider';
@@ -69,6 +69,7 @@ export default function LogSymptomsScreen() {
   const db = useDb();
   // Read once per visit: settings change on other screens, never while logging.
   const usual = useMemo(() => getSetting(db, 'usualSymptoms'), [db]);
+  const conditions = useMemo(() => getSetting(db, 'conditions'), [db]);
   const toast = useToast();
   const navigation = useNavigation();
   const params = useLocalSearchParams<{ id?: string; afterFood?: string; date?: string }>();
@@ -241,7 +242,7 @@ export default function LogSymptomsScreen() {
                 <AppText color="inkSoft" style={styles.subtitle}>
                   Tap everything that applies.
                 </AppText>
-                {BODY_ZONES.map((z) => (
+                {orderedZones(conditions).map((z) => (
                   <View key={z.key} style={styles.section}>
                     <AppText variant="section">{z.label}</AppText>
                     <View style={styles.chips}>

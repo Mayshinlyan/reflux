@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import { AVATAR_KEYS, type AvatarKey } from '@/constants/avatars';
-import { CONDITION_KEYS, type ConditionKey } from '@/constants/conditions';
+import { CONDITION_KEYS, type ConditionKey, legacyCondition } from '@/constants/conditions';
 import { RETIRED_SYMPTOM_KEYS, SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
 import { type PetAnimal, PETS } from '@/lib/pets';
 import { nowIso } from '@/lib/time';
@@ -24,8 +24,8 @@ export type Settings = {
   userName: string;
   /** The built-in avatar shown on You; 'initial' is the first letter of the name. */
   avatar: AvatarKey;
-  /** What the user is managing, from onboarding (shown on Profile). */
-  condition: ConditionKey;
+  /** What the user is managing, any number of them or just 'unsure' (shown on Profile, sent to meal checks). */
+  conditions: ConditionKey[];
   /** Symptoms they usually feel; the symptom log lists these first. */
   usualSymptoms: SymptomKey[];
   petName: string;
@@ -40,7 +40,7 @@ export const DEFAULT_SETTINGS: Settings = {
   onboardingDone: false,
   userName: '',
   avatar: 'initial',
-  condition: 'unsure',
+  conditions: ['unsure'],
   usualSymptoms: [],
   petName: PETS.mochi.defaultName,
   petAnimal: 'mochi',
@@ -68,8 +68,15 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
   if (key === 'avatar' && !AVATAR_KEYS.includes(value as AvatarKey)) {
     throw new Error(`Unknown avatar: ${value as string}`);
   }
-  if (key === 'condition' && !CONDITION_KEYS.includes(value as ConditionKey)) {
-    throw new Error(`Unknown condition: ${value as string}`);
+  if (key === 'conditions') {
+    const keys = value as ConditionKey[];
+    const valid =
+      Array.isArray(keys) &&
+      keys.length > 0 &&
+      keys.every((item) => CONDITION_KEYS.includes(item)) &&
+      new Set(keys).size === keys.length &&
+      (!keys.includes('unsure') || keys.length === 1);
+    if (!valid) throw new Error("conditions must be distinct known conditions, with 'unsure' only alone");
   }
   if (key === 'usualSymptoms') {
     const keys = value as SymptomKey[];
@@ -91,8 +98,23 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
   }
 }
 
+/** Before `conditions` there was one `condition` row; carry it over (`gerd` is now acid reflux). */
+function legacyConditions(raw: string | undefined): ConditionKey[] | null {
+  if (raw === undefined) return null;
+  try {
+    const legacy = legacyCondition(JSON.parse(raw));
+    return legacy ? [legacy] : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getSetting<K extends SettingKey>(db: AppDb, key: K): Settings[K] {
   const row = db.select().from(appSettings).where(eq(appSettings.key, key)).get();
+  if (!row && key === 'conditions') {
+    const old = db.select().from(appSettings).where(eq(appSettings.key, 'condition')).get();
+    return (legacyConditions(old?.value) ?? DEFAULT_SETTINGS[key]) as Settings[K];
+  }
   if (!row) return DEFAULT_SETTINGS[key];
   try {
     return JSON.parse(row.value) as Settings[K];
@@ -112,7 +134,11 @@ export function getAllSettings(db: AppDb): Settings {
   const settings = { ...DEFAULT_SETTINGS };
   for (const key of Object.keys(DEFAULT_SETTINGS) as SettingKey[]) {
     const raw = stored.get(key);
-    if (raw === undefined) continue;
+    if (raw === undefined) {
+      if (key === 'conditions')
+        settings.conditions = legacyConditions(stored.get('condition')) ?? settings.conditions;
+      continue;
+    }
     try {
       (settings as Record<SettingKey, unknown>)[key] = JSON.parse(raw);
     } catch {

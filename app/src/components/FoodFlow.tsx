@@ -19,6 +19,7 @@ import { Screen } from '@/components/Screen';
 import { SwipeNav } from '@/components/SwipeNav';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
+import { analysisConditions } from '@/constants/conditions';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import {
   createFoodLog,
@@ -46,6 +47,7 @@ import { isLateMeal } from '@/lib/mealTiming';
 import { currentTimeZone } from '@/lib/time';
 import { effectiveVerdict } from '@/lib/verdict';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
+import { getSetting } from '@/db/repositories/settings';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
@@ -209,7 +211,10 @@ export function FoodFlow({
     setUpdated(null);
     setAnalyzed(target);
     setAiNotes(notes);
-    const extra = notes ? { details: notes } : {};
+    const extra = {
+      ...(notes ? { details: notes } : {}),
+      ...analysisConditions(getSetting(db, 'conditions')),
+    };
     void analyze(
       target.source === 'text'
         ? { text: target.text, ...extra }
@@ -476,11 +481,12 @@ export function FoodFlow({
     saving.current = true;
     setCorrecting(true);
     const notes = [aiNotes, note].filter(Boolean).join('. ').slice(-MAX_DETAILS);
+    const conditions = analysisConditions(getSetting(db, 'conditions'));
     try {
       const result = await analyzeFood(
         analyzed.source === 'text'
-          ? { text: analyzed.text, details: notes }
-          : { photo: { uri: analyzed.uri, mimeType: 'image/jpeg' }, details: notes },
+          ? { text: analyzed.text, details: notes, ...conditions }
+          : { photo: { uri: analyzed.uri, mimeType: 'image/jpeg' }, details: notes, ...conditions },
       );
       if (!alive.current) return;
       if (checkId.current !== null) {

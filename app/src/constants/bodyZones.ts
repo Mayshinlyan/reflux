@@ -1,3 +1,4 @@
+import type { ConditionKey } from './conditions';
 import type { SymptomKey } from './symptomItems';
 
 export type ZoneKey = 'throat' | 'chest' | 'tummy';
@@ -22,3 +23,21 @@ export const BODY_ZONES: readonly { key: ZoneKey; label: string; symptoms: reado
 
 export const zoneLabel = (zone: ZoneKey) => BODY_ZONES.find((z) => z.key === zone)?.label ?? zone;
 export const zoneSymptoms = (zone: ZoneKey) => BODY_ZONES.find((z) => z.key === zone)?.symptoms ?? [];
+
+/** The area each condition shows first. */
+const CONDITION_ZONE: Partial<Record<ConditionKey, ZoneKey>> = {
+  lpr: 'throat',
+  acid_reflux: 'chest',
+  gastritis: 'tummy',
+};
+
+/** The areas with those of the chosen conditions first (in the order chosen); no condition keeps the default order. */
+export function orderedZones(conditions: readonly ConditionKey[]): typeof BODY_ZONES {
+  const first = conditions.flatMap((item) => CONDITION_ZONE[item] ?? []);
+  return [
+    ...BODY_ZONES.filter((zone) => first.includes(zone.key)).sort(
+      (a, b) => first.indexOf(a.key) - first.indexOf(b.key),
+    ),
+    ...BODY_ZONES.filter((zone) => !first.includes(zone.key)),
+  ];
+}

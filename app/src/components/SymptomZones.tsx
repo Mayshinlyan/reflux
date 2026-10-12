@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
-import { BODY_ZONES } from '@/constants/bodyZones';
+import { orderedZones } from '@/constants/bodyZones';
+import type { ConditionKey } from '@/constants/conditions';
 import { SYMPTOM_ITEMS, type SymptomKey } from '@/constants/symptomItems';
 import { space } from '@/theme';
 
@@ -12,13 +13,15 @@ const labelOf = (key: SymptomKey) => SYMPTOM_ITEMS.find((item) => item.key === k
 type Props = {
   selected: ReadonlySet<SymptomKey>;
   onToggle: (key: SymptomKey) => void;
+  /** Puts the areas these conditions affect first. */
+  conditions?: readonly ConditionKey[];
 };
 
 /** Every symptom, grouped by body area (Throat & voice, Chest, Tummy), as chips to toggle. */
-export function SymptomZones({ selected, onToggle }: Props) {
+export function SymptomZones({ selected, onToggle, conditions = [] }: Props) {
   return (
     <>
-      {BODY_ZONES.map((zone, index) => (
+      {orderedZones(conditions).map((zone, index) => (
         <View key={zone.key} style={index > 0 && styles.zone}>
           <AppText variant="section">{zone.label}</AppText>
           <View style={styles.chips}>

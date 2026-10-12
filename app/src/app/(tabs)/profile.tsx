@@ -14,7 +14,7 @@ import { Screen } from '@/components/Screen';
 import { SymptomChip } from '@/components/SymptomChip';
 import { symptomLabel } from '@/components/SymptomZones';
 import { TopBar, TopBarButton } from '@/components/TopBar';
-import { CONDITIONS, managingLine } from '@/constants/conditions';
+import { conditionLabels, managingLine } from '@/constants/conditions';
 import { useSettings } from '@/db/DatabaseProvider';
 import { radius, space, useColors } from '@/theme';
 
@@ -32,7 +32,7 @@ export default function ProfileScreen() {
     setSheet(next);
   };
   const close = () => setSheet(null);
-  const conditionLabel = CONDITIONS.find((item) => item.key === settings.condition)?.label ?? '';
+  const conditionLabel = conditionLabels(settings.conditions);
   const named = settings.userName.length > 0;
 
   return (
@@ -61,7 +61,7 @@ export default function ProfileScreen() {
             {named ? settings.userName : 'Your name'}
           </AppText>
           <AppText variant="caption" color="inkSoft">
-            {managingLine(settings.condition)}
+            {managingLine(settings.conditions)}
           </AppText>
           <Pressable
             accessibilityRole="button"
@@ -86,7 +86,9 @@ export default function ProfileScreen() {
           ]}>
           <AppText variant="section">Condition</AppText>
           <View style={styles.conditionRow}>
-            <AppText variant="bodyEm">{conditionLabel}</AppText>
+            <AppText variant="bodyEm" style={styles.conditionText}>
+              {conditionLabel}
+            </AppText>
             <AppText color="inkSoft">Change</AppText>
           </View>
         </Pressable>
@@ -153,6 +155,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: space.s1,
   },
+  conditionText: { flex: 1, marginRight: space.s1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1, marginTop: space.s1 },
   empty: { marginTop: space.s1 },
 });

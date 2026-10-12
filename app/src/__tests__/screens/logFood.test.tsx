@@ -4,6 +4,7 @@ import LogFoodScreen from '@/app/log/food';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { listDiaryFoodLogs, listMealTags } from '@/db/repositories/food';
 import { createSavedFood, listSavedFoods, saveCheckedFood } from '@/db/repositories/savedFoods';
+import { setSetting } from '@/db/repositories/settings';
 import { listSymptomLogs } from '@/db/repositories/symptoms';
 import { foodLogs } from '@/db/schema';
 import type { AppDb } from '@/db/types';
@@ -690,6 +691,26 @@ describe('Food screen (updating the verdict with a comment)', () => {
     expect(logs).toHaveLength(1);
     expect(logs[0]).toMatchObject({ mealName: 'Pumpkin soup', overallVerdict: 'ok', inputText: 'soup' });
     expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('tells the relay what you are managing on the check and on the update', async () => {
+    setSetting(mockDb, 'conditions', ['acid_reflux', 'lpr']);
+    analyze.mockResolvedValueOnce(result).mockResolvedValueOnce(corrected);
+    await analyzeSoup();
+    expect(analyze).toHaveBeenLastCalledWith(
+      { text: 'soup', conditions: ['acid_reflux', 'lpr'] },
+      expect.any(AbortSignal),
+    );
+
+    await tellUs('it is pumpkin soup');
+    await press('Update verdict');
+    await screen.findByText('Plain pumpkin soup.');
+
+    expect(analyze).toHaveBeenLastCalledWith({
+      text: 'soup',
+      details: 'it is pumpkin soup',
+      conditions: ['acid_reflux', 'lpr'],
+    });
   });
 
   it('builds each update on earlier details and comments', async () => {
