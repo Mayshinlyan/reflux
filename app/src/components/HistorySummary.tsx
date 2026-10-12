@@ -34,10 +34,7 @@ export const CARD_MIN_HEIGHT = 470;
  * the height of what sits over the card (title and controls).
  */
 export const statsCardHeight = (listHeight: number, above: number, bottomInset: number) =>
-  Math.max(
-    CARD_MIN_HEIGHT,
-    Math.round(listHeight - above - (tabBarHeight(bottomInset) + TAB_BAR_GAP)),
-  );
+  Math.max(CARD_MIN_HEIGHT, Math.round(listHeight - above - (tabBarHeight(bottomInset) + TAB_BAR_GAP)));
 /** How far History scrolls before the card and the gap under it have gone (the entries fade in over this). */
 export const statsScrollDistance = (cardHeight: number) => cardHeight + space.s4;
 

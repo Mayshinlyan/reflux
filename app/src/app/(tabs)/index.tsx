@@ -113,7 +113,10 @@ export default function TodayScreen() {
             accessibilityLabel="Profile"
             hitSlop={6}
             onPress={() => router.push('/profile')}
-            style={({ pressed }) => [styles.profile, { backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 }]}>
+            style={({ pressed }) => [
+              styles.profile,
+              { backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
+            ]}>
             <User size={20} color={colors.ink} strokeWidth={2} />
           </Pressable>
         </View>
@@ -179,7 +182,13 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: space.s2 },
   greeting: { flex: 1, gap: space.s1 },
   // 36 to look, with hitSlop making it a 48 target (Figma 02a).
-  profile: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  profile: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   ring: { alignItems: 'center' },
   // On an empty day the ring sits in the middle of the room left under the week.
   ringEmpty: { flex: 1, justifyContent: 'center' },

@@ -44,7 +44,10 @@ describe('FloatingTabBar', () => {
   it('keeps Log outside the tabs: two tabs, with Log as a separate button', async () => {
     await render(<FloatingTabBar active="today" bottomInset={0} onSelect={jest.fn()} />);
 
-    expect(screen.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual(['Today', 'History']);
+    expect(screen.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual([
+      'Today',
+      'History',
+    ]);
     expect(screen.queryByRole('tab', { name: 'Log' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Log' })).toBeTruthy();
   });
