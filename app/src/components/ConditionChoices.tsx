@@ -6,22 +6,23 @@ import { CONDITIONS, type ConditionKey } from '@/constants/conditions';
 import { ChoiceCard } from './ChoiceCard';
 
 type Props = {
-  value: ConditionKey;
-  onChoose: (condition: ConditionKey) => void;
+  value: readonly ConditionKey[];
+  onToggle: (condition: ConditionKey) => void;
 };
 
-/** The conditions to pick from, one choice card each (onboarding and the Profile's condition sheet). */
-export function ConditionChoices({ value, onChoose }: Props) {
+/** The conditions to pick from, pick all that apply (onboarding and the Profile's condition sheet). */
+export function ConditionChoices({ value, onToggle }: Props) {
   return (
-    <View accessibilityRole="radiogroup" style={styles.list}>
+    <View style={styles.list}>
       {CONDITIONS.map((item) => (
         <ChoiceCard
           key={item.key}
           icon={Activity}
           title={item.label}
           subtitle={item.hint}
-          selected={item.key === value}
-          onPress={() => onChoose(item.key)}
+          multiple
+          selected={value.includes(item.key)}
+          onPress={() => onToggle(item.key)}
         />
       ))}
     </View>

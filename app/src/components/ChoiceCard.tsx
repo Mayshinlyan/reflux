@@ -12,19 +12,20 @@ type Props = {
   onPress: () => void;
   /**
    * Omit for a plain navigation card (chevron). Pass true/false for a pick-one card (radio):
-   * selected = clay tint fill, never a border.
+   * selected = clay tint fill, never a border. Set `multiple` for pick-any cards (checkbox).
    */
   selected?: boolean;
+  multiple?: boolean;
 };
 
-/** Figma "Choice card": icon circle, title + subtitle, then a chevron or a radio. */
-export function ChoiceCard({ title, subtitle, icon: Icon, onPress, selected }: Props) {
+/** Figma "Choice card": icon circle, title + subtitle, then a chevron, a radio or a checkbox. */
+export function ChoiceCard({ title, subtitle, icon: Icon, onPress, selected, multiple }: Props) {
   const colors = useColors();
   const isChoice = selected !== undefined;
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole={isChoice ? 'radio' : 'button'}
+      accessibilityRole={isChoice ? (multiple ? 'checkbox' : 'radio') : 'button'}
       accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
       accessibilityState={isChoice ? { checked: selected } : undefined}
       style={({ pressed }) => [

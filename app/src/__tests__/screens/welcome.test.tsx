@@ -7,6 +7,7 @@ import type { AppDb } from '@/db/types';
 
 let mockDb: AppDb;
 let closeDb: () => void;
+let mockSettings: Record<string, unknown> = {};
 const mockUpdate = jest.fn();
 const mockReplace = jest.fn();
 const mockSignIn = jest.fn(() => Promise.resolve());
@@ -14,7 +15,7 @@ const mockSignIn = jest.fn(() => Promise.resolve());
 jest.mock('@/db/DatabaseProvider', () => ({
   useDb: () => mockDb,
   useSettings: () => ({
-    settings: jest.requireActual('@/db/repositories/settings').DEFAULT_SETTINGS,
+    settings: { ...jest.requireActual('@/db/repositories/settings').DEFAULT_SETTINGS, ...mockSettings },
     update: mockUpdate,
   }),
 }));
@@ -32,6 +33,7 @@ beforeEach(() => {
   const { db, sqlite } = createTestDb();
   mockDb = db;
   closeDb = () => sqlite.close();
+  mockSettings = {};
   mockUpdate.mockReset();
   mockReplace.mockReset();
   mockSignIn.mockClear();
@@ -74,9 +76,11 @@ describe('Welcome', () => {
     await toCondition();
 
     expect(screen.getByRole('header', { name: 'What would you like to manage?' })).toBeTruthy();
-    await pick('radio', 'GERD, Frequent or long-term reflux');
+    await pick('checkbox', 'Silent reflux (LPR), Hoarse voice, throat clearing');
+    await pick('checkbox', 'Acid reflux or GERD, Heartburn, sour taste, burping');
     await press('Continue');
-    expect(mockUpdate).toHaveBeenCalledWith('condition', 'gerd');
+    // Saved in catalog order, not tap order.
+    expect(mockUpdate).toHaveBeenCalledWith('conditions', ['acid_reflux', 'lpr']);
 
     expect(screen.getByRole('header', { name: 'What do you usually feel?' })).toBeTruthy();
     await pick('checkbox', 'Heartburn');
@@ -117,6 +121,18 @@ describe('Welcome', () => {
     expect(mockUpdate).toHaveBeenCalledWith('onboardingDone', true);
     expect(mockSignIn).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith('/');
+  });
+
+  it('starts the usual symptoms from the chosen conditions', async () => {
+    mockSettings = { conditions: ['acid_reflux'] };
+    await render(<WelcomeScreen />);
+    await toCondition();
+    await press('Continue');
+
+    const checked = (name: string) => screen.getByRole('checkbox', { name }).props.accessibilityState.checked;
+    expect(checked('Heartburn')).toBe(true);
+    expect(checked('Burping')).toBe(true);
+    expect(checked('Hoarse voice')).toBe(false);
   });
 
   it('lets them skip the usual symptoms and the medications without saving anything', async () => {
