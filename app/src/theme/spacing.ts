@@ -8,6 +8,8 @@ export const radius = { sm: 10, md: 16, lg: 20, pill: 999 } as const;
 /** Figma "Belly/Soft lift": the one shadow, for floating buttons, the tab bar and menus. */
 export const shadow = {
   softLift: '0px 6px 16px -6px rgba(46, 42, 38, 0.18)',
+  /** Figma "Tab bar full-width": the bar sits on the bottom edge, so its shadow falls upward. */
+  tabBar: '0px -4px 16px 0px rgba(46, 42, 38, 0.12)',
 } as const;
 
 /** Platform-specific minimum touch target: 44pt on iOS, 48dp on Android. */

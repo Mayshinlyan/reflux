@@ -94,18 +94,22 @@ export type MyFoodTarget = { id?: number; name?: string };
  * log row; tapping one skips straight to the details with its saved verdict. Each result is kept as a check (outside the diary);
  * "I ate this" opens the details, and Save promotes that check, reusing its analysis instead of calling
  * the relay again.
- * `openCamera` (the Scan shortcut on Today) opens the camera as soon as the screen appears.
+ * `photoUri` is a photo the tab bar's Snap food already took and prepared: the flow starts on its review step.
+ * `openCamera` opens the camera as soon as the screen appears (the tab bar falls back to it when it was denied camera
+ * access, so this screen can say why).
  * With `myFood`, the verdict is saved to "My foods" instead, and nothing goes into the diary.
  * `fromList` ("Log a new food" on the Food list) also offers saving the result to My foods only; saving
  * without a verdict still logs the meal to the diary.
  * `date` (a day tapped in Today's week strip) logs the meal at noon of that earlier day instead of now.
  */
 export function FoodFlow({
+  photoUri,
   openCamera = false,
   myFood,
   fromList = false,
   date,
 }: {
+  photoUri?: string;
   openCamera?: boolean;
   myFood?: MyFoodTarget;
   fromList?: boolean;
@@ -116,7 +120,9 @@ export function FoodFlow({
   const toast = useToast();
   const { state, analyze, reset } = useAnalyzeFood();
   const [text, setText] = useState(myFood?.name ?? '');
-  const [analyzed, setAnalyzed] = useState<Analyzed | null>(null);
+  const [analyzed, setAnalyzed] = useState<Analyzed | null>(
+    photoUri ? { source: 'photo', uri: photoUri } : null,
+  );
   // Notes for the AI: `draft` is the photo-review box, `aiNotes` what was last sent, `correction` the post-verdict box.
   const [draft, setDraft] = useState('');
   const [aiNotes, setAiNotes] = useState('');
@@ -241,7 +247,7 @@ export function FoodFlow({
       });
       if (!alive.current) return;
       if (picked.status === 'denied') setNotice(CAMERA_DENIED);
-      // Closing the camera that Scan opened means "never mind": back to where the user came from.
+      // Closing the camera that `openCamera` opened means "never mind": back to where the user came from.
       if (picked.status === 'canceled' && fromScan) router.back();
       if (picked.status !== 'ok') return;
       // Not analyzed yet: the review step lets the user add optional details first.
@@ -258,7 +264,7 @@ export function FoodFlow({
     }
   };
 
-  // Scan on Today: straight to the camera, once. Closing it goes back; denied access keeps the screen and says why.
+  // `openCamera`: straight to the camera, once. Closing it goes back; denied access keeps the screen and says why.
   const cameraOpened = useRef(false);
   useEffect(() => {
     if (!openCamera || cameraOpened.current) return;

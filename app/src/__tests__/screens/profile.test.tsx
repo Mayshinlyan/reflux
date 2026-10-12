@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import ProfileScreen from '@/app/(tabs)/profile';
+import ProfileScreen from '@/app/profile';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { getSetting, setSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';

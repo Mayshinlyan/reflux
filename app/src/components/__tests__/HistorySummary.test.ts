@@ -1,15 +1,15 @@
-import { tabBarBottomOffset } from '../FloatingTabBar';
+import { tabBarHeight } from '../FloatingTabBar';
 import { CARD_MIN_HEIGHT, statsCardHeight, statsScrollDistance } from '../HistorySummary';
 
 describe('stats card size', () => {
   it('fills the list from under the title and controls down to 32 above the tab bar', () => {
-    // List 830 tall, 148 taken by the title and controls, a 34 home indicator: bar 34 + 60 up, 32 gap.
-    expect(statsCardHeight(830, 148, 34)).toBe(830 - 148 - (34 + 60 + 32));
+    // List 830 tall, 148 taken by the title and controls, a 34 home indicator: a 78 bar, then a 32 gap.
+    expect(statsCardHeight(830, 148, 34)).toBe(830 - 148 - (78 + 32));
   });
 
-  it('leaves the bar its 16 when the phone has no home indicator', () => {
-    expect(tabBarBottomOffset(0)).toBe(16);
-    expect(statsCardHeight(830, 148, 0)).toBe(830 - 148 - (16 + 60 + 32));
+  it('gives the bar 8 under its icons when the phone has no home indicator', () => {
+    expect(tabBarHeight(0)).toBe(64);
+    expect(statsCardHeight(830, 148, 0)).toBe(830 - 148 - (64 + 32));
   });
 
   it('never gets shorter than the tallest card needs, and is that tall before the list is measured', () => {

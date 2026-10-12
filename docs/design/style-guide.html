@@ -179,21 +179,24 @@
   .device__group:last-child{margin-bottom:0}
   .device__group-label{font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:12px}
 
-  .tabbar-row{flex:none;display:flex;gap:12px;align-items:center;margin:0 18px 16px}
+  /* Full-width bar on the bottom edge; the olive Log button rises 24 above it (Figma "Tab bar floating"). */
+  .tabbar-row{flex:none;position:relative;margin:0;padding-top:24px}
   .tabbar{
-    flex:1;display:flex;gap:4px;align-items:center;height:60px;padding:8px;
-    background:var(--surface);border-radius:var(--r-pill);
-    box-shadow:0 6px 16px -6px rgba(46,42,38,.18);
+    display:flex;align-items:flex-start;height:64px;padding:8px 24px 8px;box-sizing:border-box;
+    background:var(--surface);border-radius:24px 24px 0 0;
+    box-shadow:0 -4px 16px rgba(46,42,38,.12);
   }
+  .tabbar__slot{flex:none;width:64px}
   .tabbar__log{
-    flex:none;width:60px;height:60px;display:flex;align-items:center;justify-content:center;border:none;
+    position:absolute;top:0;left:50%;margin-left:-32px;width:64px;height:64px;display:flex;align-items:center;justify-content:center;border:none;
     border-radius:var(--r-pill);background:var(--cta);color:var(--cta-ink);font-family:inherit;
     box-shadow:0 6px 16px -6px rgba(46,42,38,.18);
   }
-  .tabbar__log svg{width:24px;height:24px}
-  .tabbar__item{flex:1;height:44px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-pill);color:var(--ink);background:none;border:none;font-family:inherit}
+  .tabbar__log svg{width:32px;height:32px}
+  .tabbar__item{flex:1;height:48px;display:flex;align-items:center;justify-content:center;color:var(--surface-2);background:none;border:none;font-family:inherit}
   .tabbar__item svg{width:24px;height:24px}
-  .tabbar__item.active{background:var(--surface-2)}
+  .tabbar__item.active{color:var(--ink)}
+  .tabbar__item .cut{stroke:var(--surface)}
   .topbar{display:flex;align-items:center;justify-content:space-between;height:44px;position:relative}
   .topbar__btn{width:44px;height:44px;border-radius:50%;background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:center;border:none}
   .topbar__btn svg{width:22px;height:22px}
@@ -748,13 +751,11 @@
         <div class="tabbar-row">
         <div class="tabbar" role="tablist">
           <button class="tabbar__item active" type="button" role="tab" aria-selected="true" aria-label="Today">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-2.93 1.41-1.41m11.32-11.32 1.41-1.41M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path fill="currentColor" stroke="currentColor" d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path class="cut" d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/></svg>
           </button>
+          <div class="tabbar__slot"></div>
           <button class="tabbar__item" type="button" role="tab" aria-selected="false" aria-label="History">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/></svg>
-          </button>
-          <button class="tabbar__item" type="button" role="tab" aria-selected="false" aria-label="You">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" fill="currentColor" stroke="currentColor"/><path class="cut" d="M12 6v6l4 2"/></svg>
           </button>
         </div>
         <button class="tabbar__log" type="button" aria-label="Log">
@@ -763,7 +764,7 @@
         </div>
       </div>
     </div>
-    <p class="caption-s" style="text-align:center;margin-top:10px">The floating tab bar stays fixed; the content above scrolls beneath it. The pill holds three tabs and the current one rests on surface 2. Log is its own olive circle beside the pill, so it reads as an action, not a fourth tab. It sits on the right, where the thumb rests.</p>
+    <p class="caption-s" style="text-align:center;margin-top:10px">The tab bar stays fixed to the bottom edge, full width with 24pt rounded top corners; the content above scrolls beneath it. It is 64pt tall (8 above the icons, 48 for them, 8 below); on a phone with a home indicator the bar grows by the inset beyond 12pt, so the indicator sits inside the bar and the icons stay centred. Today and History are icon-only tabs: solid shapes (24pt icons in 48pt targets) with no outline or background. The current one is solid <code>ink</code> and the other is a pale <code>surface-2</code> silhouette, like a greyed-out version; the door and the clock hands are cut out in <code>surface</code>. Log is the one olive circle (64pt, 32pt icon), raised 24pt above the bar&rsquo;s top edge in the middle, so it reads as the action. Tapping it fans three round buttons in an arch above it (radius 128pt, at 140&deg;, 90&deg; and 40&deg;) over a dimmed screen: <em>Snap food</em> (honey tint, opens the camera straight away), <em>Symptom</em> (clay tint) and <em>Medication</em> (sage tint), each 56pt with a cream label under it. The Log button becomes a close icon while the arch is open, and the Android back button closes it. The belly ring and the week strip still open the full Log page. Profile is not a tab: a plain person icon on a 36pt <code>surface</code> circle sits at the top right of Today (48pt tap area) and opens it.</p>
 
     <div class="section-sub" style="margin-top:var(--s4)">
       <h3>Today</h3>
