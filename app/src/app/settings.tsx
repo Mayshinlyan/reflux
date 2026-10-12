@@ -1,65 +1,50 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import { Clock, Moon, Pill, Shield, Trash2, Utensils } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
-import { AppText } from '@/components/AppText';
+import { BackHeader } from '@/components/BackHeader';
 import { BedtimeSheet } from '@/components/BedtimeSheet';
-import { BottomSheet } from '@/components/BottomSheet';
-import { Button } from '@/components/Button';
-import { TAB_BAR_CLEARANCE } from '@/components/FloatingTabBar';
+import { OptionSheet } from '@/components/OptionSheet';
+import { PrivacySheet } from '@/components/profile/PrivacySheet';
 import { Screen } from '@/components/Screen';
 import { SectionTitle } from '@/components/SectionTitle';
 import { SettingsRow } from '@/components/SettingsRow';
-import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { deleteAllData } from '@/db/repositories/data';
-import { USER_NAME_MAX } from '@/db/repositories/settings';
-import { formatClock, formatWindow } from '@/lib/clock';
+import { formatClock, formatWindow, LATE_MEAL_WINDOW_OPTIONS } from '@/lib/clock';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { deleteAllPhotos } from '@/services/photoStore';
 import { space } from '@/theme';
 
-type Sheet = 'name' | 'bedtime' | null;
+type Sheet = 'bedtime' | 'window' | 'privacy' | null;
 
-/** Settings ("Profile" in the mockup). */
+const WINDOWS = LATE_MEAL_WINDOW_OPTIONS.map((minutes) => ({
+  value: String(minutes),
+  label: formatWindow(minutes),
+}));
+
+/** Settings, opened from the gear on You (Figma 05). */
 export default function SettingsScreen() {
   const toast = useToast();
   const db = useDb();
   const { settings, update, reload } = useSettings();
   const [sheet, setSheet] = useState<Sheet>(null);
   const [saveFailed, setSaveFailed] = useState(false);
-  const [nameDraft, setNameDraft] = useState('');
 
   const closeSheet = () => {
     setSheet(null);
     setSaveFailed(false);
   };
 
-  const openName = () => {
-    setNameDraft(settings.userName);
-    setSheet('name');
-  };
-
-  const saveName = () => {
+  const persist = (write: () => void, what: string) => {
     try {
-      update('userName', nameDraft);
+      write();
     } catch (error) {
-      logger.error('saveName', error);
-      setSaveFailed(true);
-      return;
-    }
-    Haptics.selectionAsync().catch(() => {});
-    closeSheet();
-  };
-
-  const chooseBedtime = (bedtime: string) => {
-    try {
-      update('bedtime', bedtime);
-    } catch (error) {
-      logger.error('saveBedtime', error);
+      logger.error(what, error);
       setSaveFailed(true);
       return;
     }
@@ -100,69 +85,68 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <AppText variant="display" accessibilityRole="header" style={styles.title}>
-          You
-        </AppText>
-        <SectionTitle first>Personalize</SectionTitle>
-        <SettingsRow label="Your name" value={settings.userName || 'Add'} onPress={openName} />
+    <Screen>
+      <BackHeader title="Settings" />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <SectionTitle first>Preferences</SectionTitle>
         <SettingsRow
+          icon={Moon}
           label="Bedtime"
           value={formatClock(settings.bedtime)}
           onPress={() => setSheet('bedtime')}
         />
         <SettingsRow
+          icon={Clock}
+          label="Late-meal window"
+          value={formatWindow(settings.lateMealWindowMinutes)}
+          onPress={() => setSheet('window')}
+        />
+
+        <SectionTitle>Your lists</SectionTitle>
+        <SettingsRow
+          icon={Utensils}
           label="My foods"
           onPress={() => router.push({ pathname: '/log/food', params: { manage: '1' } })}
         />
         <SettingsRow
+          icon={Pill}
           label="My medications"
           onPress={() => router.push({ pathname: '/log/medication', params: { manage: '1' } })}
         />
 
-        <SectionTitle>Your data</SectionTitle>
-        <AppText variant="caption" color="inkSoft" style={styles.note}>
-          Everything you log stays on this phone. Food descriptions and photos are sent to be analyzed, and
-          are not kept by a day in my belly.
-        </AppText>
-        <Button label="Delete all my data" variant="quietDanger" onPress={confirmDeleteAll} />
-      </ScrollView>
+        <SectionTitle>About</SectionTitle>
+        <SettingsRow icon={Shield} label="Privacy and disclaimer" onPress={() => setSheet('privacy')} />
 
-      <BottomSheet visible={sheet === 'name'} onClose={closeSheet}>
-        <TextField
-          label="Your name"
-          value={nameDraft}
-          onChangeText={setNameDraft}
-          placeholder="Your name"
-          maxLength={USER_NAME_MAX}
-          autoCapitalize="words"
-          returnKeyType="done"
-          onSubmitEditing={saveName}
-        />
-        {saveFailed && (
-          <AppText color="redInk" style={styles.error}>
-            {friendlyMessages.INTERNAL}
-          </AppText>
-        )}
-        <Button label="Save" onPress={saveName} />
-      </BottomSheet>
+        <View style={styles.danger}>
+          <SettingsRow icon={Trash2} label="Delete all my data" danger onPress={confirmDeleteAll} />
+        </View>
+      </ScrollView>
 
       <BedtimeSheet
         visible={sheet === 'bedtime'}
         value={settings.bedtime}
-        onChoose={chooseBedtime}
+        onChoose={(bedtime) => persist(() => update('bedtime', bedtime), 'saveBedtime')}
         onClose={closeSheet}
         note={`Meals within ${formatWindow(settings.lateMealWindowMinutes)} of bedtime are flagged as late.`}
         saveFailed={saveFailed}
       />
+      <OptionSheet
+        visible={sheet === 'window'}
+        title="Late-meal window"
+        note="Meals logged this close to bedtime get a late-meal tag."
+        options={WINDOWS}
+        value={String(settings.lateMealWindowMinutes)}
+        onChoose={(minutes) =>
+          persist(() => update('lateMealWindowMinutes', Number(minutes)), 'saveLateWindow')
+        }
+        onClose={closeSheet}
+        saveFailed={saveFailed}
+      />
+      <PrivacySheet visible={sheet === 'privacy'} onClose={closeSheet} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: TAB_BAR_CLEARANCE },
-  title: { marginBottom: space.s4 },
-  note: { marginBottom: space.s2 },
-  error: { marginBottom: space.s1 },
+  danger: { marginTop: space.s2 },
 });

@@ -9,12 +9,12 @@ import { lightColors } from '@/theme';
 const ROUTE_FOR: Record<Exclude<TabKey, 'log'>, string> = {
   today: 'index',
   history: 'history',
-  you: 'settings',
+  you: 'profile',
 };
 const TAB_FOR: Record<string, Exclude<TabKey, 'log'>> = {
   index: 'today',
   history: 'history',
-  settings: 'you',
+  profile: 'you',
 };
 
 /** Adapts the router's tab state to the Figma floating bar, hovering over the screens. */
@@ -40,7 +40,7 @@ export default function TabsLayout() {
       screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: lightColors.bg } }}>
       <Tabs.Screen name="index" />
       <Tabs.Screen name="history" />
-      <Tabs.Screen name="settings" />
+      <Tabs.Screen name="profile" />
     </Tabs>
   );
 }

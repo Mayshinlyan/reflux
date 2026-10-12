@@ -9,3 +9,19 @@ export const CONDITIONS = [
 
 export type ConditionKey = (typeof CONDITIONS)[number]['key'];
 export const CONDITION_KEYS = CONDITIONS.map((condition) => condition.key) as ConditionKey[];
+
+/** The line under the name on the Profile, e.g. "Managing acid reflux". */
+export function managingLine(condition: ConditionKey): string {
+  switch (condition) {
+    case 'acid_reflux':
+      return 'Managing acid reflux';
+    case 'gerd':
+      return 'Managing GERD';
+    case 'lpr':
+      return 'Managing silent reflux';
+    case 'gastritis':
+      return 'Managing gastritis';
+    default:
+      return 'Just tracking for now';
+  }
+}
