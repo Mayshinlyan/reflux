@@ -1,6 +1,6 @@
 import { Redirect, router, useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { HomeRing } from '@/components/HomeRing';
@@ -18,6 +18,9 @@ import { space } from '@/theme';
 
 /** How long the tapped day stays highlighted before Log opens (Figma 02c). */
 const PICK_HOLD_MS = 600;
+
+/** Today's entries sit faded under the ring and reach full strength once the ring has scrolled away. */
+const FADED = 0.4;
 
 function greeting(now: Date): string {
   const hour = now.getHours();
@@ -37,6 +40,23 @@ export default function TodayScreen() {
   const now = new Date();
   const [picked, setPicked] = useState<string | null>(null);
   const pickTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // The entries fade in as the page scrolls. A page too short to scroll that far is never faded.
+  const [scrollY] = useState(() => new Animated.Value(0));
+  const [room, setRoom] = useState({ content: 0, view: 0 });
+  const [entriesY, setEntriesY] = useState(0);
+  const scrollable = room.content - room.view;
+  const fade = useMemo(
+    () =>
+      scrollable <= 0 || entriesY <= 0
+        ? 1
+        : scrollY.interpolate({
+            inputRange: [0, Math.min(entriesY, scrollable)],
+            outputRange: [FADED, 1],
+            extrapolate: 'clamp',
+          }),
+    [scrollY, scrollable, entriesY],
+  );
 
   // Back from Log, the strip is plain again; leaving Today (another tab) drops a pending pick.
   useFocusEffect(
@@ -64,7 +84,17 @@ export default function TodayScreen() {
 
   return (
     <Screen edges={['top', 'left', 'right']} style={styles.screen}>
-      <ScrollView
+      <Animated.ScrollView
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: true,
+        })}
+        scrollEventThrottle={16}
+        onLayout={(event) => {
+          // Read it now: the event is cleared before a state updater runs.
+          const { height } = event.nativeEvent.layout;
+          setRoom((r) => ({ ...r, view: height }));
+        }}
+        onContentSizeChange={(_, height) => setRoom((r) => ({ ...r, content: height }))}
         contentContainerStyle={[styles.content, empty && styles.grow]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.greeting}>
@@ -88,7 +118,12 @@ export default function TodayScreen() {
         </View>
 
         {!empty && (
-          <View style={styles.today}>
+          <View
+            style={styles.today}
+            onLayout={(event) => {
+              const { y } = event.nativeEvent.layout;
+              setEntriesY(y);
+            }}>
             <View style={styles.sectionHeader}>
               <AppText variant="title" accessibilityRole="header">
                 Today
@@ -97,7 +132,7 @@ export default function TodayScreen() {
                 {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
               </AppText>
             </View>
-            <View>
+            <Animated.View style={{ opacity: fade }}>
               {entries.map((entry) => (
                 <TimelineItem
                   key={`${entry.kind}-${entry.id}`}
@@ -117,10 +152,10 @@ export default function TodayScreen() {
                   onPress={() => router.push('/history')}
                 />
               ))}
-            </View>
+            </Animated.View>
           </View>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
     </Screen>
   );
 }
