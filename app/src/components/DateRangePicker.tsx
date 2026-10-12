@@ -219,7 +219,7 @@ function Day({
 
 const styles = StyleSheet.create({
   page: { flex: 1, paddingHorizontal: space.s3 },
-  weekdays: { flexDirection: 'row', marginTop: space.s1 },
+  weekdays: { flexDirection: 'row', marginTop: space.s4 },
   weekday: { flex: 1, textAlign: 'center' },
   months: { paddingBottom: space.s2 },
   // Room above each title: under the weekday row and between months, so a month never runs into the next one.
