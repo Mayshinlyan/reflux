@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import { getNetworkStateAsync } from 'expo-network';
 import { AppState } from 'react-native';
 
+import type { ConditionKey } from '@/constants/conditions';
 import { relayBaseUrl } from '@/lib/config';
 import { AppError, isRelayErrorCode } from '@/lib/errors';
 import type { AnalysisMeta, MealAnalysis, Portion } from '@/types/analysis';
@@ -16,7 +17,7 @@ export type AnalyzeInput = ({ text: string } | { photo: { uri: string; mimeType?
   /** Left out for a regular portion. */
   portion?: Portion;
   /** What the user is managing, to tune the verdict. Left out when there is nothing to say. */
-  conditions?: readonly string[];
+  conditions?: readonly ConditionKey[];
 };
 
 // Longer than the relay's 30 s Claude timeout, so the relay's own AI_TIMEOUT wins when it can.

@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import { AVATAR_KEYS, type AvatarKey } from '@/constants/avatars';
-import { CONDITION_KEYS, type ConditionKey, legacyCondition } from '@/constants/conditions';
+import { CONDITION_KEYS, type ConditionKey, legacyCondition, readConditions } from '@/constants/conditions';
 import { RETIRED_SYMPTOM_KEYS, SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
 import { type PetAnimal, PETS } from '@/lib/pets';
 import { nowIso } from '@/lib/time';
@@ -117,7 +117,9 @@ export function getSetting<K extends SettingKey>(db: AppDb, key: K): Settings[K]
   }
   if (!row) return DEFAULT_SETTINGS[key];
   try {
-    return JSON.parse(row.value) as Settings[K];
+    const value = JSON.parse(row.value);
+    if (key === 'conditions') return (readConditions(value) ?? DEFAULT_SETTINGS[key]) as Settings[K];
+    return value as Settings[K];
   } catch {
     return DEFAULT_SETTINGS[key];
   }
@@ -140,7 +142,9 @@ export function getAllSettings(db: AppDb): Settings {
       continue;
     }
     try {
-      (settings as Record<SettingKey, unknown>)[key] = JSON.parse(raw);
+      const value = JSON.parse(raw);
+      (settings as Record<SettingKey, unknown>)[key] =
+        key === 'conditions' ? (readConditions(value) ?? DEFAULT_SETTINGS.conditions) : value;
     } catch {
       // Keep the default for a corrupt value.
     }

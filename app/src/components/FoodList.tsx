@@ -33,6 +33,7 @@ import {
   type StoredSavedFood,
   updateSavedFood,
 } from '@/db/repositories/savedFoods';
+import { getSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';
 import { playChing } from '@/lib/ching';
 import { AppError, friendlyMessages } from '@/lib/errors';
@@ -45,7 +46,6 @@ import { formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
-import { getSetting } from '@/db/repositories/settings';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import type { AppVerdict } from '@/types/analysis';
 import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';

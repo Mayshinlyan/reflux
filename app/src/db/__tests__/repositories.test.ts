@@ -159,6 +159,21 @@ describe('settings', () => {
     expect(getAllSettings(db).conditions).toEqual(['gastritis']);
   });
 
+  it('cleans up a stored conditions row that is not a valid list', () => {
+    const stored = (value: unknown) => {
+      const { db } = createTestDb();
+      db.insert(appSettings)
+        .values({ key: 'conditions', value: JSON.stringify(value), updatedAt: nowIso() })
+        .run();
+      return db;
+    };
+
+    expect(getSetting(stored(['lpr', 'bogus', 'lpr']), 'conditions')).toEqual(['lpr']);
+    expect(getAllSettings(stored(['lpr', 'bogus', 'lpr'])).conditions).toEqual(['lpr']);
+    expect(getSetting(stored('not a list'), 'conditions')).toEqual(['unsure']);
+    expect(getAllSettings(stored('not a list')).conditions).toEqual(['unsure']);
+  });
+
   it('rejects invalid values', () => {
     const { db } = createTestDb();
     expect(() => setSetting(db, 'userName', 'x'.repeat(25))).toThrow();
