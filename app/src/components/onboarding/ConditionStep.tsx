@@ -1,10 +1,7 @@
-import { Activity } from 'lucide-react-native';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/Button';
-import { ChoiceCard } from '@/components/ChoiceCard';
-import { CONDITIONS } from '@/constants/conditions';
+import { ConditionChoices } from '@/components/ConditionChoices';
 import { useSettings } from '@/db/DatabaseProvider';
 import { logger } from '@/lib/logger';
 
@@ -33,22 +30,7 @@ export function ConditionStep({ onNext }: { onNext: () => void }) {
       subtitle="We'll tailor what you track. You can change this later."
       saveFailed={saveFailed}
       footer={<Button label="Continue" onPress={next} />}>
-      <View accessibilityRole="radiogroup" style={styles.list}>
-        {CONDITIONS.map((item) => (
-          <ChoiceCard
-            key={item.key}
-            icon={Activity}
-            title={item.label}
-            subtitle={item.hint}
-            selected={item.key === condition}
-            onPress={() => setCondition(item.key)}
-          />
-        ))}
-      </View>
+      <ConditionChoices value={condition} onChoose={setCondition} />
     </StepLayout>
   );
 }
-
-const styles = StyleSheet.create({
-  list: { gap: 12 },
-});

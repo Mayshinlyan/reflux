@@ -43,8 +43,8 @@ describe('Tabs layout', () => {
     });
   });
 
-  it('treats Settings as the You tab', async () => {
-    mockActiveRoute = 'settings';
+  it('treats Profile as the You tab', async () => {
+    mockActiveRoute = 'profile';
     await render(<TabsLayout />);
 
     expect(screen.getByRole('tab', { name: 'You' }).props.accessibilityState).toMatchObject({
@@ -68,6 +68,6 @@ describe('Tabs layout', () => {
     await fireEvent.press(screen.getByRole('tab', { name: 'You' }));
     await fireEvent.press(screen.getByRole('tab', { name: 'Today' }));
 
-    expect(mockNavigate.mock.calls).toEqual([['history'], ['settings']]);
+    expect(mockNavigate.mock.calls).toEqual([['history'], ['profile']]);
   });
 });

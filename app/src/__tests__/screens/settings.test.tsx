@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, type AlertButton } from 'react-native';
 
-import SettingsScreen from '@/app/(tabs)/settings';
+import SettingsScreen from '@/app/settings';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createMedication, listMedications } from '@/db/repositories/medications';
 import { getSetting, setSetting } from '@/db/repositories/settings';
@@ -68,24 +68,32 @@ const press = async (role: 'button' | 'radio', name: string) =>
   fireEvent.press(screen.getByRole(role, { name }));
 
 describe('Settings', () => {
-  it('shows the current bedtime, with the default on a fresh install', async () => {
+  it('shows the current bedtime and late-meal window, with the defaults on a fresh install', async () => {
     await render(<SettingsScreen />);
 
-    expect(screen.getByRole('header', { name: 'You' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Settings' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Bedtime, 10:30 PM' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'My medications' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Late-meal window, 3 hours' })).toBeTruthy();
   });
 
-  it('groups bedtime, foods and medications under Personalize, bedtime first, with no pet', async () => {
+  it('groups the rows as Figma does, with no condition row and no pet', async () => {
     await render(<SettingsScreen />);
 
-    expect(screen.getByRole('header', { name: 'Personalize' })).toBeTruthy();
+    expect(screen.getAllByRole('header').map((h) => h.props.children ?? h.props.accessibilityLabel)).toEqual(
+      expect.arrayContaining(['Preferences', 'Your lists', 'About']),
+    );
     const rows = screen
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
-      .filter((label) => /^(Bedtime|My pet|My foods|My medications)/.test(label ?? ''));
-    expect(rows).toEqual(['Bedtime, 10:30 PM', 'My foods', 'My medications']);
-    expect(screen.queryByRole('button', { name: /My pet/ })).toBeNull();
+      .filter((label) => /^(Bedtime|Late-meal|Condition|My |Privacy|Delete)/.test(label ?? ''));
+    expect(rows).toEqual([
+      'Bedtime, 10:30 PM',
+      'Late-meal window, 3 hours',
+      'My foods',
+      'My medications',
+      'Privacy and disclaimer',
+      'Delete all my data',
+    ]);
   });
 
   it('opens My medications', async () => {
@@ -97,36 +105,44 @@ describe('Settings', () => {
   });
 });
 
-describe('Settings: your name', () => {
-  it('offers to add a name on a fresh install', async () => {
+describe('Settings: late-meal window', () => {
+  it('offers 1 to 4 hours with the current window marked', async () => {
     await render(<SettingsScreen />);
+    await press('button', 'Late-meal window, 3 hours');
 
-    expect(screen.getByRole('button', { name: 'Your name, Add' })).toBeTruthy();
+    const options = screen.getAllByRole('radio');
+    expect(options.map((o) => o.props.accessibilityLabel)).toEqual([
+      '1 hour',
+      '2 hours',
+      '3 hours',
+      '4 hours',
+    ]);
+    expect(
+      options.filter((o) => o.props.accessibilityState?.checked).map((o) => o.props.accessibilityLabel),
+    ).toEqual(['3 hours']);
   });
 
-  it('saves the typed name, shows it on the row, and closes the sheet', async () => {
+  it('saves the chosen window, shows it, and closes the list', async () => {
     await render(<SettingsScreen />);
-    await press('button', 'Your name, Add');
+    await press('button', 'Late-meal window, 3 hours');
 
-    await fireEvent.changeText(screen.getByLabelText('Your name'), '  May ');
-    await press('button', 'Save');
+    await press('radio', '2 hours');
 
-    expect(getSetting(mockDb, 'userName')).toBe('May');
-    expect(screen.getByRole('button', { name: 'Your name, May' })).toBeTruthy();
-    expect(screen.queryByLabelText('Your name')).toBeNull();
+    expect(getSetting(mockDb, 'lateMealWindowMinutes')).toBe(120);
+    expect(screen.getByRole('button', { name: 'Late-meal window, 2 hours' })).toBeTruthy();
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
   });
+});
 
-  it('starts from the saved name and can clear it', async () => {
-    setSetting(mockDb, 'userName', 'May');
+describe('Settings: privacy and disclaimer', () => {
+  it('shows where data lives and that this is not medical advice', async () => {
     await render(<SettingsScreen />);
-    await press('button', 'Your name, May');
-    expect(screen.getByLabelText('Your name').props.value).toBe('May');
 
-    await fireEvent.changeText(screen.getByLabelText('Your name'), '');
-    await press('button', 'Save');
+    await press('button', 'Privacy and disclaimer');
 
-    expect(getSetting(mockDb, 'userName')).toBe('');
-    expect(screen.getByRole('button', { name: 'Your name, Add' })).toBeTruthy();
+    expect(screen.getByText('Stored on your phone')).toBeTruthy();
+    expect(screen.getByText('Meal checks use AI')).toBeTruthy();
+    expect(screen.getByText('Not medical advice')).toBeTruthy();
   });
 });
 
