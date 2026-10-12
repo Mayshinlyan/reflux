@@ -197,7 +197,11 @@ export default function HistoryScreen() {
           useNativeDriver: true,
         })}
         scrollEventThrottle={16}
-        onLayout={(event) => setRoom((r) => ({ ...r, view: event.nativeEvent.layout.height }))}
+        onLayout={(event) => {
+          // Read it now: the event is cleared before a state updater runs.
+          const { height } = event.nativeEvent.layout;
+          setRoom((r) => ({ ...r, view: height }));
+        }}
         onContentSizeChange={(_, height) => setRoom((r) => ({ ...r, content: height }))}
         sections={shown.map((section) => ({ ...section, data: section.entries }))}
         keyExtractor={(entry) => `${entry.kind}-${entry.id}`}
