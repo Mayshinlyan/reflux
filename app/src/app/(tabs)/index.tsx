@@ -69,7 +69,7 @@ export default function TodayScreen() {
         showsVerticalScrollIndicator={false}>
         <View style={styles.greeting}>
           <AppText variant="display" accessibilityRole="header">
-            {greeting(now)}
+            {settings.userName ? `${greeting(now)}, ${settings.userName}` : greeting(now)}
           </AppText>
           <AppText variant="voiceSmall" color="inkSoft">
             {now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}

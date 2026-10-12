@@ -99,8 +99,20 @@ describe('settings', () => {
     expect(getAllSettings(db)).toMatchObject({ bedtime: '21:45', petName: 'Biscuit', onboardingDone: true });
   });
 
+  it('has no user name until one is set, then trims it and allows clearing it', () => {
+    const { db } = createTestDb();
+    expect(getSetting(db, 'userName')).toBe('');
+
+    setSetting(db, 'userName', '  May ');
+    expect(getSetting(db, 'userName')).toBe('May');
+
+    setSetting(db, 'userName', '   ');
+    expect(getSetting(db, 'userName')).toBe('');
+  });
+
   it('rejects invalid values', () => {
     const { db } = createTestDb();
+    expect(() => setSetting(db, 'userName', 'x'.repeat(25))).toThrow();
     expect(() => setSetting(db, 'bedtime', '25:00')).toThrow();
     expect(() => setSetting(db, 'petName', '   ')).toThrow();
     expect(() => setSetting(db, 'petSeenStage', 3)).toThrow();

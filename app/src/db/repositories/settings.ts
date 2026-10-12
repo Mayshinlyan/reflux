@@ -17,6 +17,8 @@ export type Settings = {
   /** A meal this many minutes (or fewer) before bedtime is flagged as late. */
   lateMealWindowMinutes: number;
   onboardingDone: boolean;
+  /** What the app calls the user (Today's greeting); empty until they set one in You. */
+  userName: string;
   petName: string;
   petAnimal: PetAnimal;
   /** The highest pet stage (0-2) the user has seen on Today; a higher derived stage plays the celebration once. */
@@ -27,12 +29,16 @@ export const DEFAULT_SETTINGS: Settings = {
   bedtime: '22:30',
   lateMealWindowMinutes: 180,
   onboardingDone: false,
+  userName: '',
   petName: PETS.mochi.defaultName,
   petAnimal: 'mochi',
   petSeenStage: 0,
 };
 
 export type SettingKey = keyof Settings;
+
+/** Longest name the greeting has room for. */
+export const USER_NAME_MAX = 24;
 
 const BEDTIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -43,6 +49,9 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
   if (key === 'petName') {
     const name = (value as string).trim();
     if (name.length < 1 || name.length > 24) throw new Error('petName must be 1–24 characters');
+  }
+  if (key === 'userName' && (value as string).length > USER_NAME_MAX) {
+    throw new Error(`userName must be at most ${USER_NAME_MAX} characters`);
   }
   if (key === 'petSeenStage') {
     const stage = value as number;
@@ -88,7 +97,9 @@ export function getAllSettings(db: AppDb): Settings {
 }
 
 export function setSetting<K extends SettingKey>(db: AppDb, key: K, value: Settings[K]): void {
-  const normalized = (key === 'petName' ? (value as string).trim() : value) as Settings[K];
+  const normalized = (
+    key === 'petName' || key === 'userName' ? (value as string).trim() : value
+  ) as Settings[K];
   validate(key, normalized);
   const json = JSON.stringify(normalized);
   db.insert(appSettings)

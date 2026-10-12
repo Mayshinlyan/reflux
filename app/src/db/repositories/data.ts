@@ -17,7 +17,7 @@ import type { AppDb } from '../types';
 
 /**
  * Deletes everything the user has logged (symptoms, meals and checks, medications and their
- * history) and resets the pet and bedtime to their defaults, in one transaction. `onboardingDone`
+ * history) and resets the name, pet and bedtime to their defaults, in one transaction. `onboardingDone`
  * is kept so a returning user isn't shown the welcome screen again. Meal photos live outside the
  * database; the caller removes them with `deleteAllPhotos()`.
  */
