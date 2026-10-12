@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 
+import { AVATAR_KEYS, type AvatarKey } from '@/constants/avatars';
 import { CONDITION_KEYS, type ConditionKey } from '@/constants/conditions';
 import { RETIRED_SYMPTOM_KEYS, SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
 import { type PetAnimal, PETS } from '@/lib/pets';
@@ -21,6 +22,8 @@ export type Settings = {
   onboardingDone: boolean;
   /** What the app calls the user (Today's greeting); empty until they set one in You. */
   userName: string;
+  /** The built-in avatar shown on You; 'initial' is the first letter of the name. */
+  avatar: AvatarKey;
   /** What the user is managing, from onboarding (shown on Profile). */
   condition: ConditionKey;
   /** Symptoms they usually feel; the symptom log lists these first. */
@@ -36,6 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lateMealWindowMinutes: 180,
   onboardingDone: false,
   userName: '',
+  avatar: 'initial',
   condition: 'unsure',
   usualSymptoms: [],
   petName: PETS.mochi.defaultName,
@@ -60,6 +64,9 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
   }
   if (key === 'userName' && (value as string).length > USER_NAME_MAX) {
     throw new Error(`userName must be at most ${USER_NAME_MAX} characters`);
+  }
+  if (key === 'avatar' && !AVATAR_KEYS.includes(value as AvatarKey)) {
+    throw new Error(`Unknown avatar: ${value as string}`);
   }
   if (key === 'condition' && !CONDITION_KEYS.includes(value as ConditionKey)) {
     throw new Error(`Unknown condition: ${value as string}`);

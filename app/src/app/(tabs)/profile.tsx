@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { Avatar } from '@/components/Avatar';
 import { TAB_BAR_CLEARANCE } from '@/components/FloatingTabBar';
+import { AvatarSheet } from '@/components/profile/AvatarSheet';
 import { ConditionSheet } from '@/components/profile/ConditionSheet';
 import { NameSheet } from '@/components/profile/NameSheet';
 import { SymptomsSheet } from '@/components/profile/SymptomsSheet';
@@ -17,7 +18,7 @@ import { CONDITIONS, managingLine } from '@/constants/conditions';
 import { useSettings } from '@/db/DatabaseProvider';
 import { radius, space, useColors } from '@/theme';
 
-type Sheet = 'name' | 'condition' | 'symptoms' | null;
+type Sheet = 'avatar' | 'name' | 'condition' | 'symptoms' | null;
 
 /** You: who you are and what you're managing (Figma 06). The gear opens Settings. */
 export default function ProfileScreen() {
@@ -42,7 +43,16 @@ export default function ProfileScreen() {
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.identity}>
-          <Avatar name={settings.userName} size="large" />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Change avatar"
+            onPress={() => open('avatar')}
+            style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
+            <Avatar name={settings.userName} avatar={settings.avatar} size="large" />
+            <View style={[styles.badge, { backgroundColor: colors.surface }]}>
+              <Pencil size={16} color={colors.ink} strokeWidth={2} />
+            </View>
+          </Pressable>
           <AppText
             variant="display"
             accessibilityRole="header"
@@ -104,6 +114,7 @@ export default function ProfileScreen() {
         </Pressable>
       </ScrollView>
 
+      <AvatarSheet key={`avatar-${opened}`} visible={sheet === 'avatar'} onClose={close} />
       <NameSheet key={`name-${opened}`} visible={sheet === 'name'} onClose={close} />
       <ConditionSheet key={`condition-${opened}`} visible={sheet === 'condition'} onClose={close} />
       <SymptomsSheet key={`symptoms-${opened}`} visible={sheet === 'symptoms'} onClose={close} />
@@ -115,6 +126,16 @@ const styles = StyleSheet.create({
   content: { paddingTop: space.s3, paddingBottom: TAB_BAR_CLEARANCE },
   identity: { alignItems: 'center', marginBottom: space.s4 },
   name: { marginTop: space.s1 },
+  badge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',

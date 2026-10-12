@@ -1,31 +1,55 @@
 import { StyleSheet, View } from 'react-native';
 
+import { type AvatarKey, avatarDef } from '@/constants/avatars';
 import { radius, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
-/** Figma "Avatar": the first letter on a clay tint. Small is 44 (Nunito), large is 96 (Gaegu hero). */
-export function Avatar({ name, size = 'small' }: { name: string; size?: 'small' | 'large' }) {
+/**
+ * Figma "Avatar": a built-in avatar on its tint. The default is the first letter of the name on clay
+ * (small is 44 in Nunito, large is 96 in the Gaegu hero); the others are icons about a third of the circle.
+ */
+export function Avatar({
+  name,
+  avatar = 'initial',
+  size = 'small',
+}: {
+  name: string;
+  avatar?: AvatarKey;
+  size?: 'small' | 'medium' | 'large';
+}) {
   const colors = useColors();
-  const large = size === 'large';
+  const diameter = DIAMETER[size];
+  const def = avatarDef(avatar);
+  const Icon = def.icon;
   const initial = name.trim().charAt(0).toUpperCase() || '?';
   return (
     <View
       accessible
       accessibilityRole="image"
-      accessibilityLabel={name ? `Avatar for ${name}` : 'Avatar'}
-      style={[
-        styles.circle,
-        { width: large ? 96 : 44, height: large ? 96 : 44, backgroundColor: colors.clayTint },
-      ]}>
-      <AppText variant={large ? 'hero' : 'title'} style={[{ color: colors.clayInk }, !large && styles.small]}>
-        {initial}
-      </AppText>
+      accessibilityLabel={Icon ? `${def.label} avatar` : name ? `Avatar for ${name}` : 'Avatar'}
+      style={[styles.circle, { width: diameter, height: diameter, backgroundColor: colors[def.tint] }]}>
+      {Icon ? (
+        <Icon size={Math.round(diameter * 0.42)} color={colors[def.ink]} strokeWidth={1.75} />
+      ) : (
+        <AppText
+          variant={size === 'small' ? 'title' : 'hero'}
+          style={[
+            { color: colors[def.ink] },
+            size === 'small' && styles.small,
+            size === 'medium' && styles.medium,
+          ]}>
+          {initial}
+        </AppText>
+      )}
     </View>
   );
 }
 
+const DIAMETER = { small: 44, medium: 72, large: 96 } as const;
+
 const styles = StyleSheet.create({
   circle: { borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   small: { fontSize: typography.title.fontSize },
+  medium: { fontSize: 35, lineHeight: 38 },
 });

@@ -121,6 +121,30 @@ describe('Profile: name', () => {
   });
 });
 
+describe('Profile: avatar', () => {
+  it('offers the eight avatars with the current one marked', async () => {
+    await render(<ProfileScreen />);
+    await press('button', 'Change avatar');
+
+    const options = screen.getAllByRole('radio');
+    expect(options).toHaveLength(8);
+    expect(
+      options.filter((o) => o.props.accessibilityState?.checked).map((o) => o.props.accessibilityLabel),
+    ).toEqual(['Your initial']);
+  });
+
+  it('saves the chosen avatar on tap, shows it, and closes the sheet', async () => {
+    await render(<ProfileScreen />);
+    await press('button', 'Change avatar');
+
+    await press('radio', 'Coffee cup avatar');
+
+    expect(getSetting(mockDb, 'avatar')).toBe('coffee');
+    expect(screen.getByLabelText('Coffee cup avatar')).toBeTruthy();
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+  });
+});
+
 describe('Profile: condition', () => {
   it('lists the conditions with the current one marked', async () => {
     setSetting(mockDb, 'condition', 'acid_reflux');

@@ -173,6 +173,13 @@ describe('Avatar and TimePill', () => {
     expect(screen.getByText('M')).toBeTruthy();
   });
 
+  it('shows an icon avatar instead of the letter', async () => {
+    await render(<Avatar name="may" avatar="cat" />);
+
+    expect(screen.getByLabelText('Cat avatar')).toBeTruthy();
+    expect(screen.queryByText('M')).toBeNull();
+  });
+
   it('shows the time', async () => {
     await render(<TimePill label="Today, 1:36 PM" />);
 
