@@ -55,7 +55,7 @@ export default function LogChooseScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { marginTop: space.s2, marginBottom: space.s3 },
+  title: { marginTop: space.s4 + space.s1, marginBottom: space.s4 + space.s1 },
   tiles: { gap: space.s3, alignItems: 'center' },
   row: { flexDirection: 'row', gap: space.s3 },
 });

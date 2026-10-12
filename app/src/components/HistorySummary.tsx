@@ -51,7 +51,7 @@ export function HistorySummary({ summary }: { summary: Summary }) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.lg, padding: space.s2, gap: 12 },
+  card: { borderRadius: radius.lg, padding: space.s2, gap: space.s2 },
   top: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space.s1 },
   // Segments sit edge to edge with a hairline of gap, as in Figma.
   bar: { flexDirection: 'row', height: 10, borderRadius: radius.pill, overflow: 'hidden', gap: 2 },

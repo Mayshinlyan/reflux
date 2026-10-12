@@ -563,7 +563,7 @@ export function FoodList({ manage = false }: { manage?: boolean }) {
 const styles = StyleSheet.create({
   content: { paddingBottom: space.s4 },
   empty: { marginBottom: space.s2, lineHeight: 24 },
-  heading: { marginBottom: space.s1 },
+  heading: { marginBottom: 12 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
     paddingRight: space.s1,
   },
   // On the swipe container, not the card, so the revealed Delete button is exactly the card's height.
-  row: { marginBottom: space.s1 },
+  row: { marginBottom: 12 },
   info: {
     flex: 1,
     flexDirection: 'row',

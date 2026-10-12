@@ -1,5 +1,7 @@
 import { StyleSheet } from 'react-native';
 
+import { space } from '@/theme';
+
 import { AppText } from './AppText';
 
 /** Small muted heading between form sections (the mockup's `.section-title`). */
@@ -16,6 +18,7 @@ export function SectionTitle({ children, first }: { children: string; first?: bo
 }
 
 const styles = StyleSheet.create({
-  title: { marginTop: 22, marginBottom: 10 },
+  // The settings row above a title already leaves 12, so the title adds 20 to make the 32 between groups.
+  title: { marginTop: space.s4 - 12, marginBottom: 12 },
   first: { marginTop: 0 },
 });

@@ -25,5 +25,5 @@ export function Screen({ children, style, edges = ALL_EDGES }: Props) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  pad: { flex: 1, paddingHorizontal: space.s3, paddingTop: space.s2, paddingBottom: space.s2 },
+  pad: { flex: 1, paddingHorizontal: space.s3, paddingTop: space.s2, paddingBottom: 0 },
 });

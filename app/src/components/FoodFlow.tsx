@@ -770,7 +770,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingBottom: space.s3 },
   actions: { gap: space.s1 },
-  footer: { gap: space.s1, paddingTop: space.s1 },
+  footer: { gap: 12, paddingTop: space.s2 },
   sheetActions: { gap: space.s2, marginTop: space.s2 },
   link: { minHeight: minTouchTarget, alignItems: 'center', justifyContent: 'center' },
   linkText: { ...typography.bodyEm, fontSize: 15, fontFamily: fontFamily.bold },

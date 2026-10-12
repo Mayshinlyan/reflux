@@ -77,8 +77,8 @@ export function FoodCapture({
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: space.s2 },
-  heading: { gap: 14, paddingBottom: space.s1 },
+  wrap: { gap: space.s3 },
+  heading: { gap: space.s2, paddingBottom: space.s1 },
   photo: {
     height: 200,
     borderRadius: radius.lg,

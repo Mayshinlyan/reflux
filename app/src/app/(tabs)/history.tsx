@@ -250,20 +250,22 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
-  title: { marginBottom: space.s2 },
+  title: { marginBottom: space.s4 },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: space.s2,
+    marginBottom: space.s4,
   },
   entriesHead: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginTop: space.s3,
+    marginTop: space.s4,
+    marginBottom: 12,
   },
-  dayLabel: { marginTop: space.s2, marginBottom: 10 },
+  // The row above a label already leaves 12, so the label adds 20 to make the 32 between days.
+  dayLabel: { marginTop: space.s4 - 12, marginBottom: 12 },
   list: { paddingBottom: TAB_BAR_CLEARANCE, flexGrow: 1 },
   empty: { alignItems: 'center', paddingHorizontal: space.s3, paddingTop: space.s4 },
   emptyTitle: { marginBottom: space.s1 },

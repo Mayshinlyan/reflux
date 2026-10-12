@@ -10,7 +10,8 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
-import { TopBar, TopBarButton } from '@/components/TopBar';
+import { BackHeader } from '@/components/BackHeader';
+import { TopBarButton } from '@/components/TopBar';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { LIFESTYLE_TAGS } from '@/constants/lifestyleTags';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
@@ -73,7 +74,7 @@ export default function EntryScreen() {
   if (!entry) {
     return (
       <Screen>
-        <TopBar close />
+        <BackHeader close />
         <View style={styles.missing}>
           <AppText variant="title" style={styles.missingTitle}>
             This entry isn&apos;t here any more
@@ -89,7 +90,10 @@ export default function EntryScreen() {
 
   return (
     <Screen>
-      <TopBar close right={<TopBarButton icon={Ellipsis} label="More" onPress={() => setMenuOpen(true)} />} />
+      <BackHeader
+        close
+        right={<TopBarButton icon={Ellipsis} label="More" onPress={() => setMenuOpen(true)} />}
+      />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {entry.kind === 'food' && <MealView log={entry.log} />}
         {entry.kind === 'symptom' && <SymptomView log={entry.log} />}
@@ -277,8 +281,8 @@ function DoseView({ log }: { log: Extract<LoadedEntry, { kind: 'medication' }>['
 }
 
 const styles = StyleSheet.create({
-  content: { gap: space.s2, paddingTop: space.s2, paddingBottom: space.s4 },
-  heading: { gap: 16, marginBottom: space.s1 },
+  content: { gap: space.s3, paddingBottom: space.s4 },
+  heading: { gap: space.s2 },
   card: { borderRadius: radius.lg, padding: space.s2, gap: 12 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: space.s1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },

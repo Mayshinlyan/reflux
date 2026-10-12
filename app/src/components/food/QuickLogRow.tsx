@@ -47,7 +47,7 @@ export function QuickLogRow({ foods, onPick, onSeeAll }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 10, marginBottom: space.s2 },
+  wrap: { gap: 12, marginBottom: 12 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   chips: { flexDirection: 'row', gap: space.s1 },
 });

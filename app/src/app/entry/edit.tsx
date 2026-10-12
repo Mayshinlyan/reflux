@@ -14,7 +14,7 @@ import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { TimePill } from '@/components/TimePill';
-import { TopBar } from '@/components/TopBar';
+import { BackHeader } from '@/components/BackHeader';
 import { useToast } from '@/components/Toast';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { LIFESTYLE_TAGS, type LifestyleTagKey } from '@/constants/lifestyleTags';
@@ -81,7 +81,7 @@ export default function EditEntryScreen() {
   if (entry?.kind === 'medication') return <DoseEdit log={entry.log} />;
   return (
     <Screen>
-      <TopBar title="Edit entry" />
+      <BackHeader title="Edit entry" />
       <View style={styles.missing}>
         <AppText color="inkSoft" style={styles.missingText}>
           This entry can&apos;t be edited here.
@@ -216,7 +216,7 @@ function MealEdit({ log }: { log: StoredFoodLog }) {
   return (
     <Screen>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <TopBar title="Edit entry" />
+        <BackHeader title="Edit entry" />
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -309,8 +309,8 @@ function DoseEdit({ log }: { log: MedicationLog }) {
 
   return (
     <Screen>
-      <TopBar title="Edit entry" />
-      <View style={[styles.flex, styles.meal, styles.doseBody]}>
+      <BackHeader title="Edit entry" />
+      <View style={[styles.flex, styles.meal]}>
         <AppText variant="hero" accessibilityRole="header">
           {log.doseText ? `${log.name} ${log.doseText}` : log.name}
         </AppText>
@@ -326,12 +326,11 @@ function DoseEdit({ log }: { log: MedicationLog }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { gap: space.s4, paddingTop: space.s2, paddingBottom: space.s3 },
+  content: { gap: space.s4, paddingBottom: space.s3 },
   meal: { gap: 16 },
-  doseBody: { paddingTop: space.s2 },
   section: { gap: 12 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
-  footer: { paddingTop: space.s1 },
+  footer: { paddingTop: space.s2 },
   missing: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   missingText: { textAlign: 'center' },
 });
