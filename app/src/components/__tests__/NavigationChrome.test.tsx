@@ -4,7 +4,7 @@ import { Pencil, Trash } from 'lucide-react-native';
 import { lightColors } from '@/theme';
 
 import { ActionMenu } from '../ActionMenu';
-import { FloatingTabBar } from '../FloatingTabBar';
+import { FloatingTabBar, tabBarBottomPadding, tabBarHeight } from '../FloatingTabBar';
 import { TopBar } from '../TopBar';
 
 jest.mock('expo-router', () => ({
@@ -12,13 +12,14 @@ jest.mock('expo-router', () => ({
 }));
 
 describe('FloatingTabBar', () => {
-  it('has Log, Today, History and You, and reports the one tapped', async () => {
+  it('has Log, Today and History, and reports the one tapped', async () => {
     const onSelect = jest.fn();
-    await render(<FloatingTabBar active="today" onSelect={onSelect} />);
+    await render(<FloatingTabBar active="today" bottomInset={0} onSelect={onSelect} />);
 
-    for (const name of ['Log', 'Today', 'History', 'You']) {
+    for (const name of ['Log', 'Today', 'History']) {
       expect(screen.getByLabelText(name)).toBeTruthy();
     }
+    expect(screen.queryByLabelText('You')).toBeNull();
     await fireEvent.press(screen.getByLabelText('History'));
     await fireEvent.press(screen.getByLabelText('Log'));
 
@@ -26,34 +27,48 @@ describe('FloatingTabBar', () => {
     expect(onSelect).toHaveBeenNthCalledWith(2, 'log');
   });
 
-  it('marks only the current tab as selected, on a surface2 fill', async () => {
-    await render(<FloatingTabBar active="you" onSelect={jest.fn()} />);
+  it('marks only the current tab as selected, in ink, with no background on either tab', async () => {
+    await render(<FloatingTabBar active="history" bottomInset={0} onSelect={jest.fn()} />);
 
-    expect(screen.getByRole('tab', { name: 'You' }).props.accessibilityState).toMatchObject({
+    expect(screen.getByRole('tab', { name: 'History' }).props.accessibilityState).toMatchObject({
       selected: true,
     });
     expect(screen.getByRole('tab', { name: 'Today' }).props.accessibilityState).toMatchObject({
       selected: false,
     });
-    expect(screen.getByRole('tab', { name: 'You' })).toHaveStyle({ backgroundColor: lightColors.surface2 });
+    for (const name of ['Today', 'History']) {
+      expect(screen.getByRole('tab', { name })).not.toHaveStyle({ backgroundColor: lightColors.surface2 });
+    }
   });
 
-  it('keeps Log outside the tab pill: three tabs, plus Log as a separate button', async () => {
-    await render(<FloatingTabBar active="today" onSelect={jest.fn()} />);
+  it('keeps Log outside the tabs: two tabs, with Log as a separate button', async () => {
+    await render(<FloatingTabBar active="today" bottomInset={0} onSelect={jest.fn()} />);
 
-    expect(screen.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual([
-      'Today',
-      'History',
-      'You',
-    ]);
+    expect(screen.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual(['Today', 'History']);
     expect(screen.queryByRole('tab', { name: 'Log' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Log' })).toBeTruthy();
   });
 
   it('keeps Log as the olive primary action whichever tab is current', async () => {
-    await render(<FloatingTabBar active="history" onSelect={jest.fn()} />);
+    await render(<FloatingTabBar active="history" bottomInset={0} onSelect={jest.fn()} />);
 
     expect(screen.getByRole('button', { name: 'Log' })).toHaveStyle({ backgroundColor: lightColors.cta });
+  });
+
+  it('turns Log into Close, reported as expanded, while the arch is open', async () => {
+    await render(<FloatingTabBar active="today" logOpen bottomInset={0} onSelect={jest.fn()} />);
+
+    expect(screen.queryByRole('button', { name: 'Log' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Close' }).props.accessibilityState).toMatchObject({
+      expanded: true,
+    });
+  });
+
+  it('sits 24 above the home indicator inset or more, and 88 tall on a phone without one', () => {
+    expect(tabBarHeight(0)).toBe(88);
+    expect(tabBarHeight(34)).toBe(98);
+    expect(tabBarBottomPadding(10)).toBe(24);
+    expect(tabBarBottomPadding(34)).toBe(34);
   });
 });
 

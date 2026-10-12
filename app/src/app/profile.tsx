@@ -5,7 +5,6 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Avatar } from '@/components/Avatar';
-import { TAB_BAR_CLEARANCE } from '@/components/FloatingTabBar';
 import { AvatarSheet } from '@/components/profile/AvatarSheet';
 import { ConditionSheet } from '@/components/profile/ConditionSheet';
 import { NameSheet } from '@/components/profile/NameSheet';
@@ -20,7 +19,7 @@ import { radius, space, useColors } from '@/theme';
 
 type Sheet = 'avatar' | 'name' | 'condition' | 'symptoms' | null;
 
-/** You: who you are and what you're managing (Figma 06). The gear opens Settings. */
+/** You: who you are and what you're managing (Figma 06). Opened from the profile button on Today; the gear opens Settings. */
 export default function ProfileScreen() {
   const colors = useColors();
   const { settings } = useSettings();
@@ -36,9 +35,8 @@ export default function ProfileScreen() {
   const named = settings.userName.length > 0;
 
   return (
-    <Screen edges={['top', 'left', 'right']}>
+    <Screen>
       <TopBar
-        hideBack
         right={<TopBarButton icon={Settings} label="Settings" onPress={() => router.push('/settings')} />}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -125,7 +123,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingTop: space.s3, paddingBottom: TAB_BAR_CLEARANCE },
+  content: { paddingTop: space.s3, paddingBottom: space.s4 },
   identity: { alignItems: 'center', marginBottom: space.s4 },
   name: { marginTop: space.s1 },
   badge: {

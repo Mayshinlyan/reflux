@@ -1,6 +1,7 @@
 import { Redirect, router, useFocusEffect } from 'expo-router';
+import { User } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { HomeRing } from '@/components/HomeRing';
@@ -14,7 +15,7 @@ import { useSettings } from '@/db/DatabaseProvider';
 import { useTodayData } from '@/hooks/useTodayData';
 import { bellyMoodFor } from '@/lib/belly';
 import { isLateMeal } from '@/lib/mealTiming';
-import { space } from '@/theme';
+import { radius, space, useColors } from '@/theme';
 
 /** How long the tapped day stays highlighted before Log opens (Figma 02c). */
 const PICK_HOLD_MS = 600;
@@ -31,10 +32,11 @@ function greeting(now: Date): string {
 
 /**
  * Today: a greeting, this week, and a ring with one arc per meal logged today, the belly in the middle.
- * Tapping the belly opens the Log page; after logging, today's entries list below the ring.
- * First launch redirects to Welcome.
+ * Tapping the belly opens the Log page; after logging, today's entries list below the ring. The round button
+ * beside the greeting opens Profile. First launch redirects to Welcome.
  */
 export default function TodayScreen() {
+  const colors = useColors();
   const { settings } = useSettings();
   const { week, loggedDays, entries, meals } = useTodayData();
   const now = new Date();
@@ -97,13 +99,23 @@ export default function TodayScreen() {
         onContentSizeChange={(_, height) => setRoom((r) => ({ ...r, content: height }))}
         contentContainerStyle={[styles.content, empty && styles.grow]}
         showsVerticalScrollIndicator={false}>
-        <View style={styles.greeting}>
-          <AppText variant="display" accessibilityRole="header">
-            {settings.userName ? `${greeting(now)}, ${settings.userName}` : greeting(now)}
-          </AppText>
-          <AppText variant="voiceSmall" color="inkSoft">
-            {now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-          </AppText>
+        <View style={styles.header}>
+          <View style={styles.greeting}>
+            <AppText variant="display" accessibilityRole="header">
+              {settings.userName ? `${greeting(now)}, ${settings.userName}` : greeting(now)}
+            </AppText>
+            <AppText variant="voiceSmall" color="inkSoft">
+              {now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+            </AppText>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Profile"
+            hitSlop={6}
+            onPress={() => router.push('/profile')}
+            style={({ pressed }) => [styles.profile, { backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 }]}>
+            <User size={20} color={colors.ink} strokeWidth={2} />
+          </Pressable>
         </View>
 
         <WeekStrip
@@ -164,7 +176,10 @@ const styles = StyleSheet.create({
   screen: { paddingTop: 58 - space.s2 },
   content: { gap: space.s3, paddingBottom: TAB_BAR_CLEARANCE },
   grow: { flexGrow: 1 },
-  greeting: { gap: space.s1 },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: space.s2 },
+  greeting: { flex: 1, gap: space.s1 },
+  // 36 to look, with hitSlop making it a 48 target (Figma 02a).
+  profile: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   ring: { alignItems: 'center' },
   // On an empty day the ring sits in the middle of the room left under the week.
   ringEmpty: { flex: 1, justifyContent: 'center' },

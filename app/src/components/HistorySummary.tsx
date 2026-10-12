@@ -15,7 +15,7 @@ import { AppText } from './AppText';
 import { CarouselDots } from './CarouselDots';
 import { VERDICT_LABELS } from './VerdictBadge';
 
-import { TAB_BAR_HEIGHT, tabBarBottomOffset } from './FloatingTabBar';
+import { tabBarHeight } from './FloatingTabBar';
 
 const CARD_GAP = 12;
 const CARDS = 3;
@@ -23,7 +23,7 @@ const CARDS = 3;
 const TICKS_AREA = 64;
 /** The card's side and top padding (Figma 04a). */
 const CARD_PAD = 20;
-/** The gap between the card and the floating tab bar (Figma 04a.0). */
+/** The gap between the card and the tab bar (Figma 04a.0). */
 const TAB_BAR_GAP = 32;
 /** What the tallest card needs, so its content is never cut off on a short phone (it then scrolls under the bar). */
 export const CARD_MIN_HEIGHT = 470;
@@ -36,7 +36,7 @@ export const CARD_MIN_HEIGHT = 470;
 export const statsCardHeight = (listHeight: number, above: number, bottomInset: number) =>
   Math.max(
     CARD_MIN_HEIGHT,
-    Math.round(listHeight - above - (tabBarBottomOffset(bottomInset) + TAB_BAR_HEIGHT + TAB_BAR_GAP)),
+    Math.round(listHeight - above - (tabBarHeight(bottomInset) + TAB_BAR_GAP)),
   );
 /** How far History scrolls before the card and the gap under it have gone (the entries fade in over this). */
 export const statsScrollDistance = (cardHeight: number) => cardHeight + space.s4;
