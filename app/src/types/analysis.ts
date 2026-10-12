@@ -6,7 +6,7 @@
 export type Verdict = 'ok' | 'caution' | 'trigger';
 
 /**
- * What the app shows and stores as a verdict: the AI's three, plus 'good' ("OK"), which only the user can
+ * What the app shows and stores as a verdict: the AI's three, plus 'good' ("Good"), which only the user can
  * set, by hand on a saved food. The relay never returns it.
  */
 export type AppVerdict = Verdict | 'good';

@@ -58,6 +58,35 @@ export function dayLabel(dayKey: string, now: Date = new Date(), tz: string = cu
   })).format(new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1, 12)));
 }
 
+/** "Today", "Yesterday", or in full, e.g. "Thursday, Oct 8" (with the year when it isn't this one). */
+export function longDayLabel(dayKey: string, now: Date = new Date(), tz: string = currentTimeZone()): string {
+  const today = localDayKey(now.toISOString(), tz);
+  if (dayKey === today) return 'Today';
+  if (dayKey === addDays(today, -1)) return 'Yesterday';
+  const [y, m, d] = dayKey.split('-').map(Number);
+  const sameYear = y === Number(today.slice(0, 4));
+  return cachedFormatter(sameYear ? 'longDayThisYear' : 'longDayOtherYear', 'UTC', () => ({
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })).format(new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1, 12)));
+}
+
+/** "Sat, Oct 10 · 7:45 PM" as it was where the entry was logged (with the year when it isn't this one). */
+export function formatWhen(iso: string, tz: string, now: Date = new Date()): string {
+  const dayKey = localDayKey(iso, tz);
+  const [y, m, d] = dayKey.split('-').map(Number);
+  const sameYear = y === Number(localDayKey(now.toISOString(), tz).slice(0, 4));
+  const date = cachedFormatter(sameYear ? 'whenThisYear' : 'whenOtherYear', 'UTC', () => ({
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })).format(new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1, 12)));
+  return `${date} · ${formatTime(iso, tz)}`;
+}
+
 /** Clock time as it was where the entry was logged, e.g. "8:20 PM". */
 export function formatTime(iso: string, tz: string): string {
   const timeOptions = (): Intl.DateTimeFormatOptions => ({ hour: 'numeric', minute: '2-digit' });

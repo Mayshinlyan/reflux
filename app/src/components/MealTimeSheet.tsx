@@ -38,25 +38,41 @@ type Props = {
   /** "When did you eat this?" / "When did you take this?" */
   question: string;
   confirmLabel: string;
-  /** The chosen time, or null when it was left alone, meaning "now, as of this tap". */
+  /** The chosen time, or null when it was left alone, meaning "as it was": now, or the `initial` time. */
   onConfirm: (at: Date | null) => void;
   onClose: () => void;
   /** Called once the sheet has finished closing (iPhone). */
   onDismissed?: () => void;
+  /** Where the wheel starts, for changing an existing time; defaults to now. */
+  initial?: Date;
+  /** The earliest day the wheel allows; defaults to the past week. Moved back to edit an older entry. */
+  minimum?: Date;
 };
 
 /**
  * The step after tapping Log: a date-and-time wheel that starts on now, in the past week and never later than
  * now. Leave it alone to log right now. (On Android use `pickTimeAndroid` instead of showing this.)
  */
-export function MealTimeSheet({ visible, question, confirmLabel, onConfirm, onClose, onDismissed }: Props) {
+export function MealTimeSheet({
+  visible,
+  question,
+  confirmLabel,
+  onConfirm,
+  onClose,
+  onDismissed,
+  initial,
+  minimum,
+}: Props) {
   const colors = useColors();
   // Reset on each open, so an earlier choice doesn't stick to the next food.
-  const [draft, setDraft] = useState<{ at: Date; touched: boolean }>({ at: new Date(), touched: false });
+  const [draft, setDraft] = useState<{ at: Date; touched: boolean }>({
+    at: initial ?? new Date(),
+    touched: false,
+  });
   const [wasVisible, setWasVisible] = useState(false);
   if (visible !== wasVisible) {
     setWasVisible(visible);
-    if (visible) setDraft({ at: new Date(), touched: false });
+    if (visible) setDraft({ at: initial ?? new Date(), touched: false });
   }
   const now = new Date();
 
@@ -77,7 +93,7 @@ export function MealTimeSheet({ visible, question, confirmLabel, onConfirm, onCl
           mode="datetime"
           display="spinner"
           minuteInterval={5}
-          minimumDate={earliestMealTime(now)}
+          minimumDate={minimum ?? earliestMealTime(now)}
           maximumDate={now}
           textColor={colors.ink}
           themeVariant="light"

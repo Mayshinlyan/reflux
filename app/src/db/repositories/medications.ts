@@ -84,6 +84,10 @@ export function listMedicationLogs(db: AppDb, range: { from: string; to: string 
     .all();
 }
 
+export function getMedicationLog(db: AppDb, id: number): MedicationLog | undefined {
+  return db.select().from(medicationLogs).where(eq(medicationLogs.id, id)).get();
+}
+
 /** Fixes when a past dose was taken, from History. The time zone becomes the current one. */
 export function updateMedicationLogTime(db: AppDb, logId: number, takenAt: string): void {
   const updated = db

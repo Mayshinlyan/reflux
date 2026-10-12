@@ -29,4 +29,4 @@ export function BackHeader({
   );
 }
 
-const styles = StyleSheet.create({ wrap: { marginBottom: space.s2 } });
+const styles = StyleSheet.create({ wrap: { marginBottom: space.s4 } });

@@ -8,7 +8,7 @@ import type { AppVerdict } from '@/types/analysis';
 import { AppText } from './AppText';
 import { VERDICT_ICONS, VERDICT_LABELS } from './VerdictBadge';
 
-/** Best to worst. "OK" is only ever set by hand. */
+/** Best to worst. "Good" is only ever set by hand. */
 const CHOICES: AppVerdict[] = ['good', 'ok', 'caution', 'trigger'];
 
 /**

@@ -4,20 +4,12 @@ import { Alert, type AlertButton } from 'react-native';
 
 import HistoryScreen from '@/app/(tabs)/history';
 import { createTestDb } from '@/db/__tests__/testDb';
-import {
-  createFoodLog,
-  createUncheckedMeal,
-  getFoodLog,
-  listDiaryFoodLogs,
-  updateFoodLog,
-} from '@/db/repositories/food';
+import { createFoodLog, createUncheckedMeal, listDiaryFoodLogs } from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
-import { listSavedFoods } from '@/db/repositories/savedFoods';
-import { createSymptomLog, getSymptomLog } from '@/db/repositories/symptoms';
-import { medicationLogs } from '@/db/schema';
+import { createSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
-import { analyzeFood } from '@/services/relayClient';
-import { lightColors } from '@/theme';
+import type { Verdict } from '@/types/analysis';
+import { router } from 'expo-router';
 
 let mockDb: AppDb;
 let closeDb: () => void;
@@ -44,53 +36,75 @@ jest.mock('expo-router', () => ({
     require('react').useEffect(effect, [effect]);
   },
 }));
-jest.mock('expo-image', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { View } = require('react-native');
-  return {
-    Image: (props: { accessibilityLabel?: string }) => <View accessibilityLabel={props.accessibilityLabel} />,
-  };
-});
-jest.mock('@/services/relayClient', () => ({ analyzeFood: jest.fn() }));
-// The native wheel can't render here: the stand-in keeps its latest props so a test can "turn" it.
-let mockWheel: { value: Date; onValueChange: (event: unknown, date: Date) => void } | null = null;
-jest.mock('@react-native-community/datetimepicker', () => ({
-  __esModule: true,
-  default: (props: NonNullable<typeof mockWheel>) => {
-    mockWheel = props;
-    return null;
-  },
-  DateTimePickerAndroid: { open: jest.fn() },
-}));
 jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(() => Promise.resolve()),
   NotificationFeedbackType: { Success: 'success' },
 }));
 
+// Saturday 10 Oct 2026, local noon. Only the clock is faked, so timers and promises behave as usual.
+const NOW = new Date(2026, 9, 10, 12, 0);
+
 beforeEach(() => {
+  jest.useFakeTimers({
+    now: NOW,
+    doNotFake: [
+      'nextTick',
+      'setImmediate',
+      'clearImmediate',
+      'setInterval',
+      'clearInterval',
+      'setTimeout',
+      'clearTimeout',
+      'queueMicrotask',
+      'requestAnimationFrame',
+      'cancelAnimationFrame',
+      'requestIdleCallback',
+      'cancelIdleCallback',
+      'performance',
+      'hrtime',
+    ],
+  });
   const { db, sqlite } = createTestDb();
   mockDb = db;
   closeDb = () => sqlite.close();
+  (router.push as jest.Mock).mockClear();
 });
-afterEach(() => closeDb());
+afterEach(() => {
+  closeDb();
+  jest.useRealTimers();
+  jest.restoreAllMocks();
+});
 
-const seedFullEntry = () =>
-  createSymptomLog(mockDb, {
-    items: [
-      { key: 'hoarseness' },
-      { key: 'throat_clearing' },
-      { key: 'swallowing' },
-      { key: 'lump' },
-      { key: 'heartburn' },
-      { key: 'feeling_full' },
-      { key: 'constipation' },
-    ],
-    tags: ['stress', 'large_meal'],
-    notes: 'Lost voice',
+/** A local time on the given day of October 2026 (or September, with a negative month offset). */
+const at = (day: number, hour = 12, month = 9) => new Date(2026, month, day, hour).toISOString();
+
+const seedMeal = (name: string, verdict: Verdict, loggedAt: string) =>
+  createFoodLog(mockDb, {
+    entryType: 'diary',
+    source: 'text',
+    inputText: name,
+    loggedAt,
+    analysis: {
+      isFood: true,
+      mealName: name,
+      items: [],
+      overall: { verdict, confidence: 'medium', reasoning: 'Because.' },
+    },
+    meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
   });
 
-const openEntry = async () => {
-  await fireEvent.press(screen.getByRole('button', { name: /^Symptoms: Throat & voice/ }));
+const seedSymptom = (loggedAt: string) =>
+  createSymptomLog(mockDb, { items: [{ key: 'heartburn' }, { key: 'burping' }], loggedAt });
+
+/** Today (Sat Oct 10), Yesterday (Fri Oct 9), Thursday Oct 8, and one meal last week (Thu Oct 1). */
+const seedWeek = () => {
+  seedMeal('Oatmeal with banana', 'ok', at(10, 8));
+  seedMeal('Spicy chicken tacos', 'caution', at(10, 19));
+  seedSymptom(at(10, 21));
+  seedMeal('Grilled salmon', 'ok', at(9, 12));
+  seedMeal('Pasta with tomato sauce', 'trigger', at(8, 20));
+  seedSymptom(at(8, 22));
+  seedMeal('Old pasta', 'trigger', at(1, 12));
 };
 
 /** Presses a button of the most recent Alert.alert, as a tap on the system dialog would. */
@@ -99,302 +113,405 @@ const pressAlertButton = (spy: jest.SpyInstance, text: string) => {
   buttons.find((button) => button.text === text)?.onPress?.();
 };
 
-describe('History: removing a symptom from an entry', () => {
-  it('puts a minus on every symptom and every "anything else" tag', async () => {
-    seedFullEntry();
+describe('History: the week', () => {
+  it('lists this week by day, newest first, under plain day labels', async () => {
+    seedWeek();
     await render(<HistoryScreen />);
-    await openEntry();
 
-    for (const label of [
-      'Hoarse voice',
-      'Heartburn',
-      'Feeling full',
-      'Constipation',
-      'Stress',
-      'Large meal',
-    ]) {
-      expect(screen.getByRole('button', { name: `Remove ${label}` })).toBeTruthy();
-    }
-    expect(screen.queryByText(/only symptom/)).toBeNull();
+    expect(screen.getByText('Today')).toBeTruthy();
+    expect(screen.getByText('Yesterday')).toBeTruthy();
+    expect(screen.getByText('Thursday, Oct 8')).toBeTruthy();
+    expect(screen.getByText('Spicy chicken tacos')).toBeTruthy();
+    expect(screen.getByText('Grilled salmon')).toBeTruthy();
+    // Last week's meal is outside the shown week.
+    expect(screen.queryByText('Old pasta')).toBeNull();
   });
 
-  it('asks first, and cancelling changes nothing', async () => {
-    const id = seedFullEntry();
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  it('starts on Week with the range pill showing the week', async () => {
     await render(<HistoryScreen />);
-    await openEntry();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Remove Heartburn' }));
-
-    expect(alert).toHaveBeenLastCalledWith(
-      'Remove Heartburn?',
-      'It will be taken off this entry.',
-      expect.any(Array),
-    );
-    pressAlertButton(alert, 'Cancel');
-    expect(getSymptomLog(mockDb, id)?.items.map((item) => item.key)).toContain('heartburn');
-    expect(screen.getByRole('button', { name: 'Remove Heartburn' })).toBeTruthy();
-    alert.mockRestore();
+    expect(screen.getByRole('tab', { name: 'Week' }).props.accessibilityState.selected).toBe(true);
+    expect(screen.getByText('Oct 4 – 10')).toBeTruthy();
   });
 
-  it('removes the symptom once confirmed and updates the open sheet and the list straight away', async () => {
-    const id = seedFullEntry();
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  it('keeps the dates of a week or month as plain text, moved only by the arrows', async () => {
     await render(<HistoryScreen />);
-    await openEntry();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Remove Heartburn' }));
-    await React.act(async () => pressAlertButton(alert, 'Remove'));
+    expect(screen.queryByRole('button', { name: 'Oct 4 – 10' })).toBeNull();
+    await fireEvent.press(screen.getByText('Oct 4 – 10'));
+    expect(screen.queryByRole('header', { name: 'Select dates' })).toBeNull();
 
-    expect(getSymptomLog(mockDb, id)?.items.map((item) => item.key)).not.toContain('heartburn');
-    // The sheet is still open and no longer lists it; the empty Chest heading is gone too.
-    expect(screen.queryByRole('button', { name: 'Remove Heartburn' })).toBeNull();
-    expect(screen.queryByRole('header', { name: /^Chest/ })).toBeNull();
-    expect(screen.getByRole('header', { name: 'Throat & voice · 4' })).toBeTruthy();
-    // The row behind it now counts six symptoms and only names the areas that are left.
-    expect(screen.getByText(/^6 symptoms · /)).toBeTruthy();
-    expect(screen.getByText('Throat & voice · Tummy')).toBeTruthy();
-    alert.mockRestore();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
+    expect(screen.queryByRole('button', { name: 'October' })).toBeNull();
+    await fireEvent.press(screen.getByText('October'));
+    expect(screen.queryByRole('header', { name: 'Select dates' })).toBeNull();
   });
 
-  it('gives the last symptom no minus, and says why (its tags still have one)', async () => {
-    createSymptomLog(mockDb, { items: [{ key: 'cough' }], tags: ['stress'] });
+  it('shows a verdict badge on a meal row, in the new words', async () => {
+    seedMeal('Pasta with tomato sauce', 'trigger', at(8, 20));
+    seedMeal('Oatmeal', 'ok', at(8, 8));
     await render(<HistoryScreen />);
-    await fireEvent.press(screen.getByRole('button', { name: /^Symptoms: Chest/ }));
 
-    expect(screen.queryByRole('button', { name: 'Remove Nagging cough' })).toBeNull();
-    expect(screen.getByText(/only symptom, so it can.t be removed/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Remove Stress' })).toBeTruthy();
+    expect(screen.getByLabelText('Avoid')).toBeTruthy();
+    expect(screen.getByLabelText('Okay')).toBeTruthy();
+  });
+
+  it('shows a meal saved without a verdict with no badge', async () => {
+    createUncheckedMeal(mockDb, { source: 'text', inputText: 'grilled fish', loggedAt: at(10) });
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('grilled fish')).toBeTruthy();
+    expect(screen.queryByLabelText('Okay')).toBeNull();
+  });
+
+  it('lists a logged medication with its Taken pill', async () => {
+    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    logMedication(mockDb, id, { takenAt: at(10, 8) });
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('Omeprazole 20 mg')).toBeTruthy();
+    expect(screen.getByText('Taken')).toBeTruthy();
+  });
+
+  it('says so when nothing is logged this week', async () => {
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('Nothing here yet')).toBeTruthy();
+    expect(screen.getByText(/Nothing logged this week/)).toBeTruthy();
+    expect(screen.getByText('0 meals')).toBeTruthy();
   });
 });
 
-describe('History: removing an "anything else" tag from an entry', () => {
-  it('asks first, and cancelling changes nothing', async () => {
-    const id = seedFullEntry();
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+describe('History: the summary card', () => {
+  it('counts the shown week: meals, days with symptoms and the verdict mix', async () => {
+    seedWeek();
     await render(<HistoryScreen />);
-    await openEntry();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Remove Stress' }));
-
-    expect(alert).toHaveBeenLastCalledWith(
-      'Remove Stress?',
-      'It will be taken off this entry.',
-      expect.any(Array),
-    );
-    pressAlertButton(alert, 'Cancel');
-    expect(getSymptomLog(mockDb, id)?.tags).toContain('stress');
-    alert.mockRestore();
+    expect(screen.getByText('4 meals')).toBeTruthy();
+    expect(screen.getByText('2 days with symptoms')).toBeTruthy();
+    expect(screen.getByText('Okay 2')).toBeTruthy();
+    expect(screen.getByText('Caution 1')).toBeTruthy();
+    expect(screen.getByText('Avoid 1')).toBeTruthy();
+    // No meal was marked Good, so it isn't in the legend.
+    expect(screen.queryByText(/^Good/)).toBeNull();
   });
 
-  it('removes just that tag once confirmed, keeping the symptoms and note, and updates the open sheet', async () => {
-    const id = seedFullEntry();
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  it('is not changed by the Entries filter', async () => {
+    seedWeek();
     await render(<HistoryScreen />);
-    await openEntry();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Remove Stress' }));
-    await React.act(async () => pressAlertButton(alert, 'Remove'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Show, All' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Symptoms' }));
 
-    expect(getSymptomLog(mockDb, id)).toMatchObject({
-      tags: ['large_meal'],
-      notes: 'Lost voice',
-      items: expect.arrayContaining([{ key: 'heartburn', score: 1 }]),
+    expect(screen.getByText('4 meals')).toBeTruthy();
+  });
+
+  it('uses the singular for one meal and one day', async () => {
+    seedMeal('Toast', 'ok', at(10, 8));
+    seedSymptom(at(10, 9));
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('1 meal')).toBeTruthy();
+    expect(screen.getByText('1 day with symptoms')).toBeTruthy();
+  });
+});
+
+describe('History: the Entries filter', () => {
+  it('keeps only one kind of entry, and All brings the rest back', async () => {
+    seedWeek();
+    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    logMedication(mockDb, id, { takenAt: at(10, 8) });
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Show, All' }));
+    expect(screen.getAllByRole('radio').map((option) => option.props.accessibilityLabel)).toEqual([
+      'All',
+      'Symptoms',
+      'Food',
+      'Medications',
+    ]);
+    await fireEvent.press(screen.getByRole('radio', { name: 'Medications' }));
+    expect(screen.getByText('Omeprazole 20 mg')).toBeTruthy();
+    expect(screen.queryByText('Spicy chicken tacos')).toBeNull();
+    // A day with nothing of that kind has no heading.
+    expect(screen.queryByText('Yesterday')).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Show, Medications' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'All' }));
+    expect(screen.getByText('Spicy chicken tacos')).toBeTruthy();
+  });
+
+  it('says nothing of that kind when the filter matches nothing this week', async () => {
+    seedMeal('Toast', 'ok', at(10, 8));
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Show, All' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Symptoms' }));
+
+    expect(screen.getByText('Nothing of this kind this week.')).toBeTruthy();
+  });
+});
+
+describe('History: stepping through weeks and months', () => {
+  it('steps back to an earlier week and forward again', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous week' }));
+
+    expect(screen.getByText('Sep 27 – Oct 3')).toBeTruthy();
+    expect(screen.getByText('Old pasta')).toBeTruthy();
+    expect(screen.queryByText('Spicy chicken tacos')).toBeNull();
+    expect(screen.getByText('1 meal')).toBeTruthy();
+    expect(screen.getByText('Thursday, Oct 1')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Next week' }));
+    expect(screen.getByText('Oct 4 – 10')).toBeTruthy();
+    expect(screen.getByText('Spicy chicken tacos')).toBeTruthy();
+  });
+
+  it('dims the forward arrow on the current week, and the back arrow at the first entry', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+
+    expect(screen.getByRole('button', { name: 'Next week' }).props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Previous week' }).props.accessibilityState.disabled).toBe(
+      false,
+    );
+
+    // The week with the first entry (1 Oct) is as far back as it goes.
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous week' }));
+    expect(screen.getByRole('button', { name: 'Previous week' }).props.accessibilityState.disabled).toBe(
+      true,
+    );
+    expect(screen.getByRole('button', { name: 'Next week' }).props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('has nowhere to step with nothing logged', async () => {
+    await render(<HistoryScreen />);
+
+    expect(screen.getByRole('button', { name: 'Previous week' }).props.accessibilityState.disabled).toBe(
+      true,
+    );
+    expect(screen.getByRole('button', { name: 'Next week' }).props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('switches to the month, labelled by name, and steps by month', async () => {
+    seedWeek();
+    seedMeal('September lunch', 'ok', at(20, 12, 8));
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
+
+    expect(screen.getByText('October')).toBeTruthy();
+    // The list renders in batches, so the month is checked by its numbers: last week's meal is in it too.
+    expect(screen.getByText('5 meals')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous month' }));
+    expect(screen.getByText('September')).toBeTruthy();
+    expect(screen.getByText('September lunch')).toBeTruthy();
+    expect(screen.getByText('1 meal')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Previous month' }).props.accessibilityState.disabled).toBe(
+      true,
+    );
+  });
+
+  it('goes back to this week when switching back from the month', async () => {
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Week' }));
+
+    expect(screen.getByText('Oct 4 – 10')).toBeTruthy();
+  });
+
+  it('names the three segments for a screen reader: Week, Month and All time', async () => {
+    await render(<HistoryScreen />);
+
+    expect(screen.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual([
+      'Week',
+      'Month',
+      'All time',
+    ]);
+  });
+});
+
+describe('History: all time', () => {
+  it('shows everything from the first entry to today, with no arrows', async () => {
+    seedWeek();
+    seedMeal('September lunch', 'ok', at(20, 12, 8));
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'All time' }));
+
+    expect(screen.getByRole('tab', { name: 'All time' }).props.accessibilityState.selected).toBe(true);
+    expect(screen.getByRole('button', { name: 'Sep 20 – Oct 10' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Previous week' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Next week' })).toBeNull();
+    expect(screen.getByText('6 meals')).toBeTruthy();
+  });
+
+  it('says nothing is logged yet when it is empty', async () => {
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'All time' }));
+
+    expect(screen.getByText(/Nothing logged yet/)).toBeTruthy();
+  });
+});
+
+describe('History: the calendar', () => {
+  // The calendar opens from the dates of all time (or of a range picked by hand), not of a week or month.
+  const openCalendar = async () => {
+    await fireEvent.press(screen.getByRole('tab', { name: 'All time' }));
+    await fireEvent.press(screen.getByHintText('Opens the calendar to pick dates'));
+  };
+
+  it('opens when the dates are tapped, naming the entries on each day', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+
+    await openCalendar();
+
+    expect(screen.getByRole('header', { name: 'Select dates' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'October 2026' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'October 10, 3 entries' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'October 9, 1 entry' })).toBeTruthy();
+    // A day with nothing logged is just its date.
+    expect(screen.getByRole('button', { name: 'October 5' })).toBeTruthy();
+  });
+
+  it('cannot pick a day after today', async () => {
+    await render(<HistoryScreen />);
+
+    await openCalendar();
+
+    expect(screen.getByRole('button', { name: 'October 11' }).props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'October 10' }).props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('shows the range picked, counts its entries, and applies it', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+    await openCalendar();
+
+    expect(screen.getByRole('button', { name: 'See entries' }).props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(screen.getByRole('button', { name: 'October 8, 2 entries' }));
+    // The start alone is one day.
+    expect(screen.getByRole('button', { name: 'See 2 entries' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'October 10, 3 entries' }));
+    expect(screen.getByRole('button', { name: 'See 6 entries' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'See 6 entries' }));
+
+    // Back on History: the range, no arrows, no segment selected, and its numbers.
+    expect(screen.queryByRole('header', { name: 'Select dates' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Oct 8 – 10' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Previous week' })).toBeNull();
+    for (const tab of screen.getAllByRole('tab')) {
+      expect(tab.props.accessibilityState.selected).toBe(false);
+    }
+    expect(screen.getByText('4 meals')).toBeTruthy();
+    expect(screen.getByText('Spicy chicken tacos')).toBeTruthy();
+  });
+
+  it('treats the earlier of two taps as the start', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+    await openCalendar();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'October 10, 3 entries' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'October 9, 1 entry' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'See 4 entries' }));
+
+    expect(screen.getByRole('button', { name: 'Oct 9 – 10' })).toBeTruthy();
+  });
+
+  it('writes a single picked day as that day', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+    await openCalendar();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'October 9, 1 entry' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'See 1 entry' }));
+
+    expect(screen.getByRole('button', { name: 'Oct 9' })).toBeTruthy();
+    expect(screen.getByText('Grilled salmon')).toBeTruthy();
+  });
+
+  it('clears the picks on Reset', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+    await openCalendar();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'October 8, 2 entries' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Reset' }));
+
+    expect(screen.getByRole('button', { name: 'See entries' }).props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('closes with the X and leaves History as it was', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+    await openCalendar();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'October 8, 2 entries' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+
+    // Still on all time, with the dates unchanged.
+    expect(screen.queryByRole('header', { name: 'Select dates' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Oct 1 – 10' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'All time' }).props.accessibilityState.selected).toBe(true);
+  });
+
+  it('opens on the range already picked, and can be re-picked from there', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+    await openCalendar();
+    await fireEvent.press(screen.getByRole('button', { name: 'October 8, 2 entries' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'October 9, 1 entry' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'See 3 entries' }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Oct 8 – 9' }));
+
+    expect(screen.getByRole('button', { name: 'See 3 entries' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'October 8, 2 entries' }).props.accessibilityState.selected,
+    ).toBe(true);
+  });
+});
+
+describe('History: opening an entry', () => {
+  it('opens a meal, a symptom entry and a dose on the entry screen', async () => {
+    const mealId = seedMeal('Spicy chicken tacos', 'caution', at(10, 19));
+    const symptomId = seedSymptom(at(10, 21));
+    const medId = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    const doseId = logMedication(mockDb, medId, { takenAt: at(10, 8) });
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Spicy chicken tacos/ }));
+    expect(router.push).toHaveBeenLastCalledWith({
+      pathname: '/entry',
+      params: { kind: 'food', id: String(mealId) },
     });
-    expect(screen.queryByRole('button', { name: 'Remove Stress' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Remove Large meal' })).toBeTruthy();
-    expect(screen.getByText(/^7 symptoms · /)).toBeTruthy(); // symptoms untouched
-    alert.mockRestore();
-  });
-
-  it('lets every tag go, and then drops the empty "Anything else going on" heading', async () => {
-    const id = seedFullEntry();
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    await render(<HistoryScreen />);
-    await openEntry();
-
-    for (const label of ['Stress', 'Large meal']) {
-      await fireEvent.press(screen.getByRole('button', { name: `Remove ${label}` }));
-      await React.act(async () => pressAlertButton(alert, 'Remove'));
-    }
-
-    expect(getSymptomLog(mockDb, id)?.tags).toEqual([]);
-    expect(screen.queryByRole('header', { name: 'Anything else going on' })).toBeNull();
-    expect(screen.getByRole('header', { name: 'Your note' })).toBeTruthy();
-    alert.mockRestore();
-  });
-});
-
-describe('History: symptom entry', () => {
-  it('summarises the entry in the list by body area, with a count instead of a cut-off list', async () => {
-    seedFullEntry();
-    await render(<HistoryScreen />);
-
-    expect(screen.getByText('Throat & voice · Chest · Tummy')).toBeTruthy();
-    expect(screen.getByText(/^7 symptoms · /)).toBeTruthy();
-    expect(screen.queryByText(/Hoarse voice, Throat clearing/)).toBeNull();
-  });
-
-  it('shows the detail organised under headings: areas, other factors, then the note in its own card', async () => {
-    seedFullEntry();
-    await render(<HistoryScreen />);
-    await openEntry();
-
-    expect(screen.getByText('Symptom entry')).toBeTruthy();
-    expect(screen.getByRole('header', { name: 'Throat & voice · 4' })).toBeTruthy();
-    expect(screen.getByRole('header', { name: 'Chest · 1' })).toBeTruthy();
-    expect(screen.getByRole('header', { name: 'Tummy · 2' })).toBeTruthy();
-    expect(screen.getByRole('header', { name: 'Anything else going on' })).toBeTruthy();
-    expect(screen.getByRole('header', { name: 'Your note' })).toBeTruthy();
-
-    for (const label of [
-      'Hoarse voice',
-      'Trouble swallowing',
-      'Heartburn',
-      'Feeling full',
-      'Stress',
-      'Large meal',
-    ]) {
-      expect(screen.getByText(label)).toBeTruthy();
-    }
-    expect(screen.getByText('Lost voice')).toBeTruthy();
-  });
-
-  it('leaves out headings for things that were not logged', async () => {
-    createSymptomLog(mockDb, { items: [{ key: 'cough' }] });
-    await render(<HistoryScreen />);
-    await fireEvent.press(screen.getByRole('button', { name: /^Symptoms: Chest/ }));
-
-    expect(screen.getByRole('header', { name: 'Chest · 1' })).toBeTruthy();
-    expect(screen.queryByRole('header', { name: /Throat/ })).toBeNull();
-    expect(screen.queryByRole('header', { name: 'Anything else going on' })).toBeNull();
-    expect(screen.queryByRole('header', { name: 'Your note' })).toBeNull();
-  });
-
-  it('files a retired symptom (Trouble sleeping on an older entry) under "Other"', async () => {
-    createSymptomLog(mockDb, { items: [{ key: 'sleep' }] });
-    await render(<HistoryScreen />);
-    await fireEvent.press(screen.getByRole('button', { name: /^Symptoms: Other/ }));
-
-    expect(screen.getByRole('header', { name: 'Other · 1' })).toBeTruthy();
-    expect(screen.getByText('Trouble sleeping')).toBeTruthy();
-  });
-
-  it('makes Edit the obvious main action and Delete a quiet one', async () => {
-    seedFullEntry();
-    await render(<HistoryScreen />);
-    await openEntry();
-
-    const backgroundOf = (name: string) => {
-      const style = screen.getByRole('button', { name }).props.style;
-      const resolved = typeof style === 'function' ? style({ pressed: false }) : style;
-      return [resolved].flat(Infinity).find((s: { backgroundColor?: string }) => s?.backgroundColor)
-        ?.backgroundColor;
-    };
-
-    // Filled terracotta, like the app's other primary buttons, and clearly labelled.
-    expect(backgroundOf('Edit entry')).toBe(lightColors.cta);
-    // Delete does not compete with it: no fill at all, just red text on the sheet.
-    expect(backgroundOf('Delete')).toBe('transparent');
-  });
-});
-
-const seedMeal = (overrides: { photoUri?: string | null; loggedAt?: string; tz?: string } = {}) =>
-  createFoodLog(mockDb, {
-    loggedAt: overrides.loggedAt,
-    tz: overrides.tz,
-    entryType: 'diary',
-    source: overrides.photoUri ? 'photo' : 'text',
-    inputText: overrides.photoUri ? null : 'dim sum',
-    photoUri: overrides.photoUri ?? null,
-    analysis: {
-      isFood: true,
-      mealName: 'Steamed dim sum',
-      items: [
-        {
-          name: 'Shrimp dumpling',
-          ingredients: [
-            { name: 'shrimp', matchedCategories: [] },
-            { name: 'chili oil', matchedCategories: ['spicy'] },
-          ],
-          verdict: 'caution',
-          reasoning: 'Chili oil can be a trigger.',
-          matchedTriggers: [{ category: 'spicy', evidence: 'chili oil' }],
-        },
-      ],
-      overall: { verdict: 'caution', confidence: 'medium', reasoning: 'A few triggers here.' },
-    },
-    meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
-  });
-
-describe('History: saved meals', () => {
-  it('lists a meal saved from Log food with its verdict', async () => {
-    seedMeal();
-    await render(<HistoryScreen />);
-
-    expect(screen.getByText('Steamed dim sum')).toBeTruthy();
-    expect(screen.getByLabelText('Caution')).toBeTruthy();
-  });
-
-  it('badges a meal eaten within 3 hours of bedtime, in the list and the detail', async () => {
-    seedMeal({ loggedAt: new Date().toISOString().slice(0, 10) + 'T20:00:00Z', tz: 'UTC' });
-    await render(<HistoryScreen />);
-
-    expect(screen.getByLabelText('Late meal, close to bedtime')).toBeTruthy();
-
-    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
-    expect(screen.getAllByLabelText('Late meal, close to bedtime')).toHaveLength(2);
-  });
-
-  it('does not badge an earlier meal', async () => {
-    seedMeal({ loggedAt: new Date().toISOString().slice(0, 10) + 'T12:00:00Z', tz: 'UTC' });
-    await render(<HistoryScreen />);
-
-    expect(screen.queryByLabelText('Late meal, close to bedtime')).toBeNull();
-  });
-
-  it('opens the full analysis: overall reasoning, items, ingredients and the note', async () => {
-    seedMeal();
-    await render(<HistoryScreen />);
-
-    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
-
-    expect(screen.getByText('A few triggers here.')).toBeTruthy();
-    expect(screen.getByText('Shrimp dumpling')).toBeTruthy();
-    expect(screen.getByText(/shrimp, chili oil/)).toBeTruthy();
-    expect(screen.getByText('Chili oil can be a trigger.')).toBeTruthy();
-    // The meal name is the sheet heading only once (the card's own title is hidden there).
-    expect(screen.getAllByText('Steamed dim sum')).toHaveLength(2); // list row + sheet heading
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
-  });
-
-  it('shows the meal photo for a photo entry', async () => {
-    seedMeal({ photoUri: 'file:///doc/photos/meal.jpg' });
-    await render(<HistoryScreen />);
-
-    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
-
-    expect(screen.getByLabelText('Your meal photo')).toBeTruthy();
-  });
-
-  it('shows no photo for a typed entry', async () => {
-    seedMeal();
-    await render(<HistoryScreen />);
-
-    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
-
-    expect(screen.queryByLabelText('Your meal photo')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: /^Symptoms: / }));
+    expect(router.push).toHaveBeenLastCalledWith({
+      pathname: '/entry',
+      params: { kind: 'symptom', id: String(symptomId) },
+    });
+    await fireEvent.press(screen.getByRole('button', { name: /^Medication: Omeprazole/ }));
+    expect(router.push).toHaveBeenLastCalledWith({
+      pathname: '/entry',
+      params: { kind: 'medication', id: String(doseId) },
+    });
   });
 });
 
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 
 describe('History: swipe to delete an entry', () => {
-  afterEach(() => jest.restoreAllMocks());
-
   it('asks first, and Cancel keeps the meal', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    seedMeal();
+    seedMeal('Steamed dim sum', 'caution', at(10));
     await render(<HistoryScreen />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Delete Steamed dim sum' }));
@@ -404,21 +521,24 @@ describe('History: swipe to delete an entry', () => {
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
   });
 
-  it('removes the meal from the list once confirmed', async () => {
+  it('removes the meal from the list, and the numbers, once confirmed', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    seedMeal();
+    seedMeal('Steamed dim sum', 'caution', at(10));
     await render(<HistoryScreen />);
+    expect(screen.getByText('1 meal')).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Delete Steamed dim sum' }));
     await act(async () => pressAlertButton(alert, 'Delete'));
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
-    expect(screen.queryByRole('button', { name: /^Meal: Steamed dim sum/ })).toBeNull();
+    expect(screen.queryByText('Steamed dim sum')).toBeNull();
+    expect(screen.getByText('0 meals')).toBeTruthy();
+    expect(mockToast).toHaveBeenLastCalledWith('Entry deleted');
   });
 
   it('offers Delete to screen readers as an action on the row', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    seedMeal();
+    seedMeal('Steamed dim sum', 'caution', at(10));
     await render(<HistoryScreen />);
 
     await fireEvent(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }), 'accessibilityAction', {
@@ -428,203 +548,32 @@ describe('History: swipe to delete an entry', () => {
     expect(alert.mock.calls.at(-1)?.[0]).toBe('Delete this entry?');
   });
 
-  it('deletes a symptom entry the same way', async () => {
+  it('deletes a symptom entry and a dose the same way', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    seedFullEntry();
+    seedSymptom(at(10, 21));
+    const medId = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    logMedication(mockDb, medId, { takenAt: at(10, 8) });
     await render(<HistoryScreen />);
 
-    await fireEvent.press(screen.getByRole('button', { name: /^Delete Throat & voice/ }));
+    await fireEvent.press(screen.getByRole('button', { name: /^Delete Chest/ }));
     await act(async () => pressAlertButton(alert, 'Delete'));
-
-    expect(screen.queryByRole('button', { name: /^Symptoms: Throat & voice/ })).toBeNull();
-  });
-
-  it('deletes a medication entry the same way', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
-    logMedication(mockDb, id);
-    await render(<HistoryScreen />);
+    expect(screen.queryByRole('button', { name: /^Symptoms: / })).toBeNull();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Delete Omeprazole 20 mg' }));
     await act(async () => pressAlertButton(alert, 'Delete'));
-
     expect(screen.queryByText('Omeprazole 20 mg')).toBeNull();
   });
 });
 
-describe('History: edit a meal', () => {
-  const analyze = analyzeFood as jest.Mock;
-  beforeEach(() => analyze.mockReset());
-
-  const openEdit = async () => {
-    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Edit' }));
-  };
-
-  it('saves a new name and a verdict chosen by hand, with no AI call', async () => {
-    const id = seedMeal();
-    await render(<HistoryScreen />);
-    await openEdit();
-
-    await fireEvent.changeText(screen.getByDisplayValue('Steamed dim sum'), 'Dumplings');
-    await fireEvent.press(screen.getByRole('button', { name: 'Verdict, Caution' }));
-    await fireEvent.press(screen.getByRole('radio', { name: 'OK' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
-
-    expect(analyze).not.toHaveBeenCalled();
-    expect(getFoodLog(mockDb, id)).toMatchObject({ mealName: 'Dumplings', overallVerdict: 'good' });
-    expect(mockToast).toHaveBeenLastCalledWith('Changes saved');
-    // Back to the entry, now showing the change.
-    expect(screen.getByRole('header', { name: 'Dumplings' })).toBeTruthy();
-  });
-
-  it('re-checks the meal for a new portion and saves the new verdict', async () => {
-    const id = seedMeal();
-    const analysis = getFoodLog(mockDb, id)!.analysis!;
-    analyze.mockResolvedValue({
-      ...analysis,
-      overall: { ...analysis.overall, verdict: 'trigger' },
-      meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
+describe('History: a failing load', () => {
+  it('says it could not load, rather than showing an empty week', async () => {
+    seedMeal('Toast', 'ok', at(10, 8));
+    jest.spyOn(mockDb, 'select').mockImplementation(() => {
+      throw new Error('disk');
     });
     await render(<HistoryScreen />);
-    await openEdit();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
-    await fireEvent.press(screen.getByRole('radio', { name: 'Large' }));
-    await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Save' })));
-
-    expect(analyze).toHaveBeenCalledWith({ text: 'dim sum', portion: 'large' });
-    expect(getFoodLog(mockDb, id)).toMatchObject({ portion: 'large', overallVerdict: 'trigger' });
-  });
-
-  it('keeps a verdict the user set earlier over the re-check for a new portion', async () => {
-    const id = seedMeal();
-    updateFoodLog(mockDb, id, { name: 'Steamed dim sum', verdict: 'good' });
-    const analysis = getFoodLog(mockDb, id)!.analysis!;
-    analyze.mockResolvedValue({
-      ...analysis,
-      overall: { verdict: 'trigger', confidence: 'high', reasoning: 'Big portion.' },
-      meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
-    });
-    await render(<HistoryScreen />);
-    await openEdit();
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
-    await fireEvent.press(screen.getByRole('radio', { name: 'Large' }));
-    await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Save' })));
-
-    expect(getFoodLog(mockDb, id)).toMatchObject({ portion: 'large', overallVerdict: 'good' });
-    expect(getFoodLog(mockDb, id)?.analysis?.overall).toMatchObject({
-      verdict: 'trigger',
-      userVerdict: 'good',
-    });
-  });
-
-  it('keeps the edits and saves nothing when the re-check fails', async () => {
-    const id = seedMeal();
-    analyze.mockRejectedValue(new Error('offline'));
-    await render(<HistoryScreen />);
-    await openEdit();
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
-    await fireEvent.press(screen.getByRole('radio', { name: 'Small' }));
-    await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Save' })));
-
-    expect(getFoodLog(mockDb, id)?.portion).toBeNull();
-    expect(screen.getByRole('button', { name: 'Portion, Small' })).toBeTruthy();
-  });
-
-  it('cancels back to the entry without saving', async () => {
-    const id = seedMeal();
-    await render(<HistoryScreen />);
-    await openEdit();
-
-    await fireEvent.changeText(screen.getByDisplayValue('Steamed dim sum'), 'Dumplings');
-    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
-
-    expect(getFoodLog(mockDb, id)?.mealName).toBe('Steamed dim sum');
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
-  });
-
-  it('no longer offers Log again, on meals or anywhere else', async () => {
-    seedMeal();
-    seedFullEntry();
-    await render(<HistoryScreen />);
-
-    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
-    expect(screen.queryByRole('button', { name: /again/ })).toBeNull();
-    const row = screen.getByRole('button', { name: /^Meal: Steamed dim sum/ });
-    expect(row.props.accessibilityActions).toEqual([{ name: 'delete', label: 'Delete' }]);
-  });
-});
-
-describe('History: save a meal to My foods', () => {
-  it('saves the meal from its detail sheet, and saving it twice adds nothing', async () => {
-    seedMeal();
-    await render(<HistoryScreen />);
-
-    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Save to My foods' }));
-
-    // The sheet closes so the toast isn't hidden behind it.
-    expect(screen.queryByRole('button', { name: 'Save to My foods' })).toBeNull();
-    expect(mockToast).toHaveBeenLastCalledWith('Saved to My foods');
-
-    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Steamed dim sum/ }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Save to My foods' }));
-
-    expect(mockToast).toHaveBeenLastCalledWith('Already in My foods');
-    expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Steamed dim sum']);
-  });
-
-  it('is not offered on medication entries', async () => {
-    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
-    logMedication(mockDb, id);
-    await render(<HistoryScreen />);
-
-    await fireEvent.press(screen.getByRole('button', { name: /^Medication: Omeprazole/ }));
-
-    expect(screen.queryByRole('button', { name: 'Save to My foods' })).toBeNull();
-  });
-});
-
-describe('History: meals saved without a verdict', () => {
-  it('lists the meal with no verdict badge and says so in the detail', async () => {
-    createUncheckedMeal(mockDb, { source: 'text', inputText: 'grilled fish' });
-    await render(<HistoryScreen />);
-
-    expect(screen.queryByText('Caution')).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: /^Meal: grilled fish/ }));
-
-    expect(screen.getByText('Saved without a verdict.')).toBeTruthy();
-  });
-});
-
-describe('History: edit a medication', () => {
-  it('moves the dose to the time chosen on the wheel', async () => {
-    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
-    logMedication(mockDb, id);
-    await render(<HistoryScreen />);
-
-    await fireEvent.press(screen.getByRole('button', { name: /^Medication: Omeprazole 20 mg/ }));
-    expect(screen.queryByRole('button', { name: /again/ })).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: 'Edit' }));
-    await fireEvent.press(screen.getByRole('button', { name: /^Taken, / }));
-    const earlier = new Date(Date.now() - 2 * 3_600_000);
-    await act(async () => mockWheel!.onValueChange(null, earlier));
-    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
-
-    expect(mockDb.select().from(medicationLogs).all()[0].takenAt).toBe(earlier.toISOString());
-    expect(mockToast).toHaveBeenLastCalledWith('Changes saved');
-  });
-});
-
-describe('History: medications', () => {
-  it('lists a logged medication', async () => {
-    const id = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
-    logMedication(mockDb, id);
-    await render(<HistoryScreen />);
-
-    expect(screen.getByText('Omeprazole 20 mg')).toBeTruthy();
+    expect(screen.getByText("Couldn't load your logs")).toBeTruthy();
+    expect(screen.queryByText('Nothing here yet')).toBeNull();
   });
 });

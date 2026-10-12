@@ -1,4 +1,6 @@
-import { count, eq, ne } from 'drizzle-orm';
+import { and, asc, count, eq, lte, ne } from 'drizzle-orm';
+
+import { localDayKey } from '@/lib/localDay';
 
 import {
   appSettings,
@@ -32,6 +34,64 @@ export function deleteAllData(db: AppDb): void {
     tx.delete(savedFoods).run();
     tx.delete(appSettings).where(ne(appSettings.key, 'onboardingDone')).run();
   });
+}
+
+/** Time zones are at most 14 hours apart, so entries within 36 hours of the oldest may be on an earlier local day. */
+const ZONE_SLACK_MS = 36 * 60 * 60 * 1000;
+
+/**
+ * The local day ("YYYY-MM-DD") of the oldest diary entry: a meal, symptom log or dose, each placed on the
+ * day of the zone it was logged in. Undefined when nothing is logged. History uses it as the start of "all
+ * time" and to stop stepping back.
+ */
+export function earliestEntryDayKey(db: AppDb): string | undefined {
+  const within = (oldest: string) => new Date(new Date(oldest).getTime() + ZONE_SLACK_MS).toISOString();
+  const days: string[] = [];
+
+  const oldestMeal = db
+    .select({ at: foodLogs.loggedAt })
+    .from(foodLogs)
+    .where(eq(foodLogs.entryType, 'diary'))
+    .orderBy(asc(foodLogs.loggedAt))
+    .limit(1)
+    .get();
+  if (oldestMeal) {
+    db.select({ at: foodLogs.loggedAt, tz: foodLogs.tz })
+      .from(foodLogs)
+      .where(and(eq(foodLogs.entryType, 'diary'), lte(foodLogs.loggedAt, within(oldestMeal.at))))
+      .all()
+      .forEach((row) => days.push(localDayKey(row.at, row.tz)));
+  }
+
+  const oldestSymptom = db
+    .select({ at: symptomLogs.loggedAt })
+    .from(symptomLogs)
+    .orderBy(asc(symptomLogs.loggedAt))
+    .limit(1)
+    .get();
+  if (oldestSymptom) {
+    db.select({ at: symptomLogs.loggedAt, tz: symptomLogs.tz })
+      .from(symptomLogs)
+      .where(lte(symptomLogs.loggedAt, within(oldestSymptom.at)))
+      .all()
+      .forEach((row) => days.push(localDayKey(row.at, row.tz)));
+  }
+
+  const oldestDose = db
+    .select({ at: medicationLogs.takenAt })
+    .from(medicationLogs)
+    .orderBy(asc(medicationLogs.takenAt))
+    .limit(1)
+    .get();
+  if (oldestDose) {
+    db.select({ at: medicationLogs.takenAt, tz: medicationLogs.tz })
+      .from(medicationLogs)
+      .where(lte(medicationLogs.takenAt, within(oldestDose.at)))
+      .all()
+      .forEach((row) => days.push(localDayKey(row.at, row.tz)));
+  }
+
+  return days.sort()[0];
 }
 
 /**

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Utensils } from 'lucide-react-native';
+import { Infinity as InfinityIcon, Utensils } from 'lucide-react-native';
 
 import { lightColors } from '@/theme';
 
@@ -87,6 +87,44 @@ describe('SegmentedControl', () => {
     await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
 
     expect(onChange).toHaveBeenCalledWith('month');
+  });
+
+  it('can show an icon in place of text, named for a screen reader', async () => {
+    const onChange = jest.fn();
+    await render(
+      <SegmentedControl
+        options={[
+          { value: 'week', label: 'W', accessibilityLabel: 'Week' },
+          { value: 'all', label: 'All time', icon: InfinityIcon },
+        ]}
+        value="week"
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByRole('tab', { name: 'Week' })).toBeTruthy();
+    expect(screen.getByText('W')).toBeTruthy();
+    // The icon segment has no text, only its name.
+    expect(screen.queryByText('All time')).toBeNull();
+    await fireEvent.press(screen.getByRole('tab', { name: 'All time' }));
+    expect(onChange).toHaveBeenCalledWith('all');
+  });
+
+  it('can have nothing selected, for a range picked by hand', async () => {
+    await render(
+      <SegmentedControl
+        options={[
+          { value: 'week', label: 'W' },
+          { value: 'month', label: 'M' },
+        ]}
+        value={null}
+        onChange={jest.fn()}
+      />,
+    );
+
+    for (const tab of screen.getAllByRole('tab')) {
+      expect(tab.props.accessibilityState.selected).toBe(false);
+    }
   });
 });
 

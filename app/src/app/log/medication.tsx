@@ -654,8 +654,8 @@ const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
   flex: { flex: 1 },
   content: { paddingBottom: space.s3 },
-  detailContent: { paddingBottom: space.s3, gap: space.s3 },
-  subtitle: { fontSize: 15, lineHeight: 21, marginTop: 4, marginBottom: space.s3 },
+  detailContent: { paddingBottom: space.s3, gap: space.s4 },
+  subtitle: { fontSize: 15, lineHeight: 21, marginTop: space.s2, marginBottom: space.s4 },
   empty: { marginBottom: space.s2, lineHeight: 24 },
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   typeBadge: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill },
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
     paddingVertical: space.s1,
     paddingLeft: space.s1,
     paddingRight: space.s1,
-    marginBottom: space.s1,
+    marginBottom: 12,
   },
   info: {
     flex: 1,
@@ -691,7 +691,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logText: { ...typography.label, fontSize: 14, fontFamily: fontFamily.extrabold },
-  fieldLabel: { marginBottom: space.s1 },
+  fieldLabel: { marginBottom: 12 },
   picker: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
   spacer: { height: space.s2 },
   typeNote: { marginBottom: space.s2 },
   types: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1, marginBottom: space.s2 },
-  footer: { paddingTop: space.s1, paddingBottom: space.s2 },
+  footer: { paddingTop: space.s2 },
   secondary: { marginTop: space.s1 },
   sheetMeta: { marginTop: 4, marginBottom: space.s2 },
 });

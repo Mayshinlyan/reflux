@@ -6,10 +6,10 @@ import { VERDICT_LABELS, VerdictBadge } from '../VerdictBadge';
 
 describe('VerdictBadge', () => {
   it.each<[AppVerdict, string]>([
-    ['good', 'OK'],
-    ['ok', 'Likely OK'],
+    ['good', 'Good'],
+    ['ok', 'Okay'],
     ['caution', 'Caution'],
-    ['trigger', 'Likely trigger'],
+    ['trigger', 'Avoid'],
   ])('labels %s as "%s"', async (verdict, label) => {
     await render(<VerdictBadge verdict={verdict} />);
     expect(VERDICT_LABELS[verdict]).toBe(label);

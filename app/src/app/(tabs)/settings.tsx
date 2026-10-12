@@ -83,7 +83,7 @@ export default function SettingsScreen() {
   return (
     <Screen edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <AppText variant="display" accessibilityRole="header">
+        <AppText variant="display" accessibilityRole="header" style={styles.title}>
           You
         </AppText>
         <SectionTitle first>Personalize</SectionTitle>
@@ -151,7 +151,8 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   content: { paddingBottom: TAB_BAR_CLEARANCE },
-  note: { marginTop: space.s2 },
+  title: { marginBottom: space.s4 },
+  note: { marginBottom: space.s2 },
   sheetSub: { marginTop: 4, marginBottom: space.s2, fontSize: 15, lineHeight: 21 },
   option: {
     minHeight: Math.max(minTouchTarget, 52),

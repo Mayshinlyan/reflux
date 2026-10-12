@@ -12,10 +12,10 @@ describe('VerdictSelect', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Verdict, Caution' }));
     expect(screen.queryByRole('button', { name: 'Verdict, Caution' })).toBeNull(); // not shown twice
     expect(screen.getAllByRole('radio').map((option) => option.props.accessibilityLabel)).toEqual([
-      'OK',
-      'Likely OK',
+      'Good',
+      'Okay',
       'Caution',
-      'Likely trigger',
+      'Avoid',
     ]);
     expect(screen.getByRole('radio', { name: 'Caution' }).props.accessibilityState).toEqual({
       checked: true,
@@ -45,7 +45,7 @@ describe('VerdictSelect', () => {
     const onChange = jest.fn();
     await render(<VerdictSelect value="caution" onChange={onChange} />);
     await fireEvent.press(screen.getByRole('button', { name: 'Verdict, Caution' }));
-    await fireEvent.press(screen.getByRole('radio', { name: 'OK' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Good' }));
 
     expect(onChange).toHaveBeenCalledWith('good');
     expect(screen.queryByRole('radio')).toBeNull();

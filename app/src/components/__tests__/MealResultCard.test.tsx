@@ -27,7 +27,7 @@ describe('MealResultCard verdict set by the user', () => {
     mine.overall.userVerdict = 'good';
     await render(<MealResultCard analysis={mine} />);
 
-    expect(screen.getByLabelText('OK')).toBeTruthy();
+    expect(screen.getByLabelText('Good')).toBeTruthy();
     // Only the overall verdict is overridden; the item keeps the AI's own.
     expect(screen.getAllByLabelText('Caution')).toHaveLength(1);
     expect(screen.getByText('Set by you. The AI said Caution.')).toBeTruthy();

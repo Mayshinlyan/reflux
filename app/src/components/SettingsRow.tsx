@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     minHeight: Math.max(minTouchTarget, 52),
     borderRadius: radius.md,
     paddingHorizontal: 14,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   label: { flex: 1, fontSize: 16 },
 });

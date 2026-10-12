@@ -175,3 +175,47 @@ export function listSymptomLogs(db: AppDb, range: { from: string; to: string }):
     .all();
   return withDetails(db, logs);
 }
+
+/** The symptom logs that were recorded as following a meal, oldest first. */
+export function listSymptomLogsForMeal(db: AppDb, foodLogId: number): SymptomLogWithDetails[] {
+  const logs = db
+    .select()
+    .from(symptomLogs)
+    .where(eq(symptomLogs.foodLogId, foodLogId))
+    .orderBy(asc(symptomLogs.loggedAt), asc(symptomLogs.id))
+    .all();
+  return withDetails(db, logs);
+}
+
+/**
+ * Makes the `managed` symptoms on a meal's follow-up logs match `keys`: ones no longer wanted come off
+ * (a log left with nothing is deleted), new ones go into one new log linked to the meal. Symptoms outside
+ * `managed`, which the meal screen can't show, are left alone.
+ */
+export function setMealSymptoms(
+  db: AppDb,
+  foodLogId: number,
+  keys: readonly SymptomKey[],
+  managed: readonly SymptomKey[],
+  loggedAt: string,
+): void {
+  db.transaction((tx) => {
+    const scope = tx as unknown as AppDb;
+    const wanted = new Set(keys.filter((key) => managed.includes(key)));
+    const present = new Set<SymptomKey>();
+    for (const log of listSymptomLogsForMeal(scope, foodLogId)) {
+      const drop = log.items
+        .map((item) => item.key)
+        .filter((key) => managed.includes(key) && !wanted.has(key));
+      log.items.forEach((item) => managed.includes(item.key) && present.add(item.key));
+      if (drop.length === 0) continue;
+      if (drop.length === log.items.length) deleteSymptomLog(scope, log.id);
+      else drop.forEach((key) => removeSymptomFromLog(scope, log.id, key));
+      drop.forEach((key) => present.delete(key));
+    }
+    const added = [...wanted].filter((key) => !present.has(key));
+    if (added.length > 0) {
+      createSymptomLog(scope, { items: added.map((key) => ({ key })), foodLogId, loggedAt });
+    }
+  });
+}

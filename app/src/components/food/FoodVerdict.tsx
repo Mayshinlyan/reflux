@@ -65,7 +65,7 @@ export function FoodVerdict({ analysis, when, late }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: space.s2 },
+  wrap: { gap: space.s3 },
   result: { gap: 16, alignItems: 'flex-start' },
   card: { borderRadius: radius.lg, padding: space.s2, gap: 12 },
   reason: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
