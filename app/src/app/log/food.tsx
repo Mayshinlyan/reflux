@@ -11,7 +11,7 @@ import { logger } from '@/lib/logger';
 /**
  * The Food screen: straight to "What did you eat?" (a photo or a typed description), with the saved foods as a
  * Quick log row on top. `?manage=1` (Settings > My foods, and "See all") lists the saved foods to edit or log
- * instead. `?check=1` ("+ Log a new food" there) is the same check, which can also save the result to My foods;
+ * instead. `?check=1` ("Add a food" there) is the same check, which can also save the result to My foods;
  * `?camera=1` (Scan on Today) opens the camera straight away. `?myFood=1&food=<id>` re-checks a saved food
  * ("Get a verdict" / "Check again"), saving the verdict to it and not the diary. `?date=` (a day tapped in
  * Today's week strip) logs the meal on that day.

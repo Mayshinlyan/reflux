@@ -94,7 +94,7 @@ export type MyFoodTarget = { id?: number; name?: string };
  * the relay again.
  * `openCamera` (the Scan shortcut on Today) opens the camera as soon as the screen appears.
  * With `myFood`, the verdict is saved to "My foods" instead, and nothing goes into the diary.
- * `fromList` ("Log a new food" on the Food list) also offers saving the result to My foods only; saving
+ * `fromList` ("Add a food" on the Food list) also offers saving the result to My foods only; saving
  * without a verdict still logs the meal to the diary.
  * `date` (a day tapped in Today's week strip) logs the meal at noon of that earlier day instead of now.
  */

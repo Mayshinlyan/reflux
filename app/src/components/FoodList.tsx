@@ -81,7 +81,7 @@ function loadEatenToday(db: AppDb): EatenToday {
  * My foods (Settings > My foods, and "See all" in the food capture's Quick log row): the saved foods as
  * filled cards. Tapping a card opens it to rename, re-check or remove, the Log button logs it (now, or earlier
  * in the past week) with the verdict it was saved with and no new analysis, and a left swipe deletes it.
- * "Log a new food" checks one from a photo or a description; the result can be logged as eaten, saved to this
+ * "Add a food" checks one from a photo or a description; the result can be logged as eaten, saved to this
  * list, or both.
  */
 export function FoodList() {
@@ -167,7 +167,7 @@ export function FoodList() {
     setChanging(false);
   };
 
-  /** "Log a new food": the photo/text check. */
+  /** "Add a food": the photo/text check. */
   const addFood = () => router.push({ pathname: '/log/food', params: { check: '1' } });
 
   const checkFood = () => {
@@ -431,10 +431,10 @@ export function FoodList() {
               })}
             </>
           )}
-          <Pressable accessibilityRole="button" onPress={addFood} style={styles.add}>
-            <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Log a new food</AppText>
-          </Pressable>
         </ScrollView>
+        <View style={styles.footer}>
+          <Button label="Add a food" variant="secondary" onPress={addFood} />
+        </View>
 
         <MealTimeSheet
           visible={logging !== null}
@@ -589,8 +589,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logText: { ...typography.label, fontSize: 14, fontFamily: fontFamily.extrabold },
-  add: { minHeight: minTouchTarget, justifyContent: 'center', paddingVertical: space.s1 },
-  addText: { ...typography.bodyEm, fontSize: 15, fontFamily: fontFamily.bold },
+  footer: { paddingTop: space.s2 },
   sheetTitle: { marginBottom: space.s1 },
   sheetPhoto: {
     width: '100%',

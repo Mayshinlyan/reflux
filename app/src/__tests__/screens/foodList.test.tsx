@@ -123,7 +123,7 @@ describe('Food screen: which view', () => {
     expect(screen.queryByText(/check flow/)).toBeNull();
   });
 
-  it('opens the check for "Log a new food"', async () => {
+  it('opens the check for "Add a food"', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     mockParams = { check: '1' };
     await render(<LogFoodScreen />);
@@ -193,10 +193,10 @@ describe('Food screen: My foods', () => {
     expect(new Date(meal.loggedAt).getTime()).toBeLessThanOrEqual(Date.now());
   });
 
-  it('"Log a new food" opens the check', async () => {
+  it('"Add a food" opens the check', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
-    await press('+ Log a new food');
+    await press('Add a food');
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/log/food', params: { check: '1' } });
   });
 
