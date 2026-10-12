@@ -18,7 +18,14 @@ let closeDb: () => void;
 const mockBack = jest.fn();
 const mockPush = jest.fn();
 const mockToast = jest.fn();
-let mockParams: { camera?: string; myFood?: string; food?: string; check?: string; date?: string } = {};
+let mockParams: {
+  photoUri?: string;
+  camera?: string;
+  myFood?: string;
+  food?: string;
+  check?: string;
+  date?: string;
+} = {};
 
 jest.mock('@/db/DatabaseProvider', () => ({
   useDb: () => mockDb,
@@ -518,7 +525,31 @@ describe('Log food screen (photo)', () => {
     expect(mockBack).not.toHaveBeenCalled();
   });
 
-  it('goes back to where Scan was tapped when the camera it opened is closed', async () => {
+  it('starts on the review step for a photo the tab bar already took, without opening a camera', async () => {
+    mockParams = { photoUri: photo.uri };
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+
+    expect(pick).not.toHaveBeenCalled();
+    expect(analyze).not.toHaveBeenCalled(); // waits for the review step
+    await reviewThenCheck();
+
+    expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
+    expect(analyze).toHaveBeenCalledWith(
+      { photo: { uri: photo.uri, mimeType: 'image/jpeg' } },
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('ignores a photo address that is not a local file', async () => {
+    mockParams = { photoUri: 'https://example.com/meal.jpg' };
+    await render(<LogFoodScreen />);
+
+    expect(screen.getByRole('button', { name: 'Take or choose a photo' })).toBeEnabled();
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it('goes back to where it was opened from when the camera it opened is closed', async () => {
     mockParams = { camera: '1' };
     pick.mockResolvedValue({ status: 'canceled' });
     await render(<LogFoodScreen />);
@@ -527,7 +558,7 @@ describe('Log food screen (photo)', () => {
     expect(analyze).not.toHaveBeenCalled();
   });
 
-  it('stays on the screen and explains when Scan is denied camera access', async () => {
+  it('stays on the screen and explains when the camera is denied access', async () => {
     mockParams = { camera: '1' };
     pick.mockResolvedValue({ status: 'denied' });
     await render(<LogFoodScreen />);

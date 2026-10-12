@@ -1,13 +1,18 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { BackHandler } from 'react-native';
 
 import TabsLayout from '@/app/(tabs)/_layout';
+import { pickFoodPhoto } from '@/services/photoPicker';
 
 const mockPush = jest.fn();
 const mockNavigate = jest.fn();
 let mockActiveRoute = 'index';
 
 jest.mock('expo-router', () => ({ router: { push: (href: unknown) => mockPush(href) } }));
+jest.mock('@/services/photoPicker', () => ({ pickFoodPhoto: jest.fn() }));
+jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
+
+const pick = pickFoodPhoto as jest.Mock;
 // The real Tabs needs a navigation container; this stand-in just renders the custom bar it is given.
 jest.mock('expo-router/js-tabs', () => {
   const Tabs = ({ tabBar }: { tabBar: (props: unknown) => React.ReactNode }) =>
@@ -26,6 +31,7 @@ jest.mock('expo-router/js-tabs', () => {
 });
 
 beforeEach(() => {
+  pick.mockReset();
   mockPush.mockClear();
   mockNavigate.mockClear();
   mockActiveRoute = 'index';
@@ -75,14 +81,79 @@ describe('Quick log arch', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('opens the camera for Snap food, then closes', async () => {
+  it('opens the camera itself for Snap food, without opening the Food screen first', async () => {
+    let finish: (value: unknown) => void = () => {};
+    pick.mockReturnValue(new Promise((resolve) => (finish = resolve)));
     await render(<TabsLayout />);
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
     await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
 
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/food', params: { camera: '1' } });
-    expect(screen.queryByRole('button', { name: 'Symptom' })).toBeNull();
+    expect(pick).toHaveBeenCalledWith('camera');
+    expect(mockPush).not.toHaveBeenCalled(); // nothing behind the camera
+    expect(screen.queryByRole('button', { name: 'Symptom' })).toBeNull(); // and the arch has closed
+    await act(async () => finish({ status: 'canceled' }));
+  });
+
+  it('opens the Food screen on the photo that was taken', async () => {
+    pick.mockResolvedValue({ status: 'ok', photo: { uri: 'file:///cache/meal.jpg', width: 1, height: 1 } });
+    await render(<TabsLayout />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
+
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: '/log/food',
+        params: { photoUri: 'file:///cache/meal.jpg' },
+      }),
+    );
+  });
+
+  it('stays where you were when the camera is closed without a photo', async () => {
+    pick.mockResolvedValue({ status: 'canceled' });
+    await render(<TabsLayout />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
+
+    await waitFor(() => expect(pick).toHaveBeenCalledTimes(1));
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('opens the Food screen to explain when camera access is denied', async () => {
+    pick.mockResolvedValue({ status: 'denied' });
+    await render(<TabsLayout />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
+
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/food', params: { camera: '1' } }),
+    );
+  });
+
+  it('opens the plain Food screen when the photo cannot be read', async () => {
+    pick.mockRejectedValue(new Error('file:///private/path failed'));
+    await render(<TabsLayout />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/log/food'));
+  });
+
+  it('opens only one camera when Snap food is tapped again while it is busy', async () => {
+    let finish: (value: unknown) => void = () => {};
+    pick.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    await render(<TabsLayout />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
+
+    expect(pick).toHaveBeenCalledTimes(1);
+    await act(async () => finish({ status: 'canceled' }));
   });
 
   it('opens the symptom and medication flows', async () => {
