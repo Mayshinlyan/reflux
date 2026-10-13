@@ -278,4 +278,22 @@ describe('Today: after logging', () => {
 
     expect(screen.getByLabelText('Caution')).toBeTruthy();
   });
+
+  it("opens an entry's own page, not History, when it is tapped", async () => {
+    const mealId = seedMeal('Spicy ramen', 'caution', minutesAgo(1));
+    const medId = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
+    const doseId = logMedication(mockDb, medId, { takenAt: minutesAgo(2) });
+    await render(<TodayScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: Spicy ramen/ }));
+    expect(mockPush).toHaveBeenLastCalledWith({
+      pathname: '/entry',
+      params: { kind: 'food', id: String(mealId) },
+    });
+    await fireEvent.press(screen.getByRole('button', { name: /^Medication: Omeprazole/ }));
+    expect(mockPush).toHaveBeenLastCalledWith({
+      pathname: '/entry',
+      params: { kind: 'medication', id: String(doseId) },
+    });
+  });
 });
