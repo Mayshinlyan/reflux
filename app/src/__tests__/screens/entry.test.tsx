@@ -191,6 +191,36 @@ describe('Entry: a symptom entry', () => {
     expect(screen.getByText('After Spicy chicken tacos')).toBeTruthy();
     expect(screen.getByText('Worse lying down.')).toBeTruthy();
   });
+
+  it('shows what is possibly related, worked out from the meal it followed', async () => {
+    const mealId = seedTacos();
+    const id = createSymptomLog(mockDb, {
+      items: [{ key: 'heartburn' }],
+      foodLogId: mealId,
+      loggedAt: at(10, 21, 40),
+    });
+    mockParams = { kind: 'symptom', id: String(id) };
+    await render(<EntryScreen />);
+
+    expect(screen.getByText('Possibly related')).toBeTruthy();
+    expect(screen.getByText('Spicy chicken tacos, 2 hours before')).toBeTruthy();
+    expect(screen.getByText('A late meal, 3 hours before bed')).toBeTruthy();
+    expect(screen.getByText(/Not a diagnosis/)).toBeTruthy();
+  });
+
+  it('has no possibly related card when no meal was linked, and shows a typed tag as its own text', async () => {
+    const id = createSymptomLog(mockDb, {
+      items: [{ key: 'custom:Hiccups' }],
+      tags: ['custom:Skipped breakfast'],
+      loggedAt: at(10, 21, 40),
+    });
+    mockParams = { kind: 'symptom', id: String(id) };
+    await render(<EntryScreen />);
+
+    expect(screen.queryByText('Possibly related')).toBeNull();
+    expect(screen.getByText('Skipped breakfast')).toBeTruthy();
+    expect(screen.getAllByText('Hiccups').length).toBeGreaterThan(0);
+  });
 });
 
 describe('Entry: a dose', () => {

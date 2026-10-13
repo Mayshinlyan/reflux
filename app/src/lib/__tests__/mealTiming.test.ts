@@ -1,4 +1,4 @@
-import { isLateMeal } from '../mealTiming';
+import { isLateMeal, minutesBeforeBed } from '../mealTiming';
 
 const WINDOW = 180;
 
@@ -43,5 +43,21 @@ describe('isLateMeal', () => {
 
   it('never flags with an invalid bedtime', () => {
     expect(isLateMeal('2026-06-01T22:30:00Z', 'UTC', 'late', WINDOW)).toBe(false);
+  });
+});
+
+describe('minutesBeforeBed', () => {
+  it('is positive before bedtime and negative after it', () => {
+    expect(minutesBeforeBed('2026-06-01T21:50:00Z', 'UTC', '22:30')).toBe(40);
+    expect(minutesBeforeBed('2026-06-01T23:00:00Z', 'UTC', '22:30')).toBe(-30);
+  });
+
+  it('goes the short way round midnight', () => {
+    expect(minutesBeforeBed('2026-06-01T23:30:00Z', 'UTC', '00:30')).toBe(60);
+    expect(minutesBeforeBed('2026-06-02T00:30:00Z', 'UTC', '23:30')).toBe(-60);
+  });
+
+  it('is null for a bedtime that is not a time', () => {
+    expect(minutesBeforeBed('2026-06-01T21:50:00Z', 'UTC', 'late')).toBeNull();
   });
 });

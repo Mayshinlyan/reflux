@@ -5,8 +5,11 @@ import { type ColorToken, minTouchTarget, radius, space, useColors } from '@/the
 
 import { AppText } from './AppText';
 
-/** `quietDanger` is a plain red text button for destructive actions that shouldn't compete with the main one. */
-type Variant = 'primary' | 'secondary' | 'danger' | 'quietDanger';
+/**
+ * `quietDanger` is a plain red text button for destructive actions that shouldn't compete with the main one;
+ * `quiet` is the same in clay ink, for a way out that sits under a primary button ("Complete check-in").
+ */
+type Variant = 'primary' | 'secondary' | 'danger' | 'quietDanger' | 'quiet';
 
 type Props = {
   label: string;
@@ -24,6 +27,7 @@ const VARIANTS: Record<Variant, { bg: ColorToken | 'transparent'; text: ColorTok
   secondary: { bg: 'surface2', text: 'ink' },
   danger: { bg: 'redTint', text: 'redInk' },
   quietDanger: { bg: 'transparent', text: 'redInk' },
+  quiet: { bg: 'transparent', text: 'clayInk' },
 };
 
 export function Button({
@@ -36,7 +40,9 @@ export function Button({
 }: Props) {
   const colors = useColors();
   // Disabled buttons use the mockup's muted fill rather than fading, so the label stays readable.
-  const style = disabled ? ({ bg: 'surface2', text: 'inkSoft' } as const) : VARIANTS[variant];
+  const style = disabled
+    ? ({ bg: variant === 'quiet' ? 'transparent' : 'surface2', text: 'inkSoft' } as const)
+    : VARIANTS[variant];
   return (
     <Pressable
       accessibilityRole="button"

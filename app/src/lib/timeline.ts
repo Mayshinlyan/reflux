@@ -1,7 +1,12 @@
 import { BODY_ZONES, type ZoneKey } from '@/constants/bodyZones';
-import { LIFESTYLE_TAGS } from '@/constants/lifestyleTags';
+import { isCustomTag, LIFESTYLE_TAGS } from '@/constants/lifestyleTags';
 import { MEDICATION_TYPES } from '@/constants/medicationTypes';
-import { SYMPTOM_ITEMS, type SymptomKey } from '@/constants/symptomItems';
+import {
+  customSymptomLabel,
+  isCustomSymptom,
+  type LoggedSymptomKey,
+  SYMPTOM_ITEMS,
+} from '@/constants/symptomItems';
 import type { StoredFoodLog } from '@/db/repositories/food';
 import type { SymptomLogWithDetails } from '@/db/repositories/symptoms';
 import type { MedicationLog } from '@/db/schema';
@@ -50,18 +55,20 @@ const symptomLabels = new Map<string, string>(SYMPTOM_ITEMS.map((item) => [item.
 const tagLabels = new Map<string, string>(LIFESTYLE_TAGS.map((tag) => [tag.key, tag.label]));
 const medicationTypeLabels = new Map<string, string>(MEDICATION_TYPES.map((type) => [type.key, type.label]));
 
-export const symptomLabel = (key: string) => symptomLabels.get(key) ?? key;
+/** A built-in symptom's label, or the text of one the user typed. */
+export const symptomLabel = (key: string) =>
+  isCustomSymptom(key) ? customSymptomLabel(key) : (symptomLabels.get(key) ?? key);
 
-export type SymptomGroup = { zone: ZoneKey | 'other'; label: string; keys: SymptomKey[] };
+export type SymptomGroup = { zone: ZoneKey | 'other'; label: string; keys: LoggedSymptomKey[] };
 
 /**
  * Splits an entry's symptoms into their body areas (in map order), so they can be shown
  * under headings. Symptoms that no longer belong to an area (retired ones such as Trouble
- * sleeping, still present on older entries) go in a final "Other" group.
+ * sleeping, still present on older entries, and ones the user typed) go in a final "Other" group.
  */
-export function groupSymptoms(items: readonly { key: SymptomKey }[]): SymptomGroup[] {
+export function groupSymptoms(items: readonly { key: LoggedSymptomKey }[]): SymptomGroup[] {
   const groups: SymptomGroup[] = [];
-  const placed = new Set<SymptomKey>();
+  const placed = new Set<LoggedSymptomKey>();
   for (const zone of BODY_ZONES) {
     const keys = zone.symptoms.filter((key) => items.some((item) => item.key === key));
     keys.forEach((key) => placed.add(key));
@@ -75,7 +82,7 @@ export function groupSymptoms(items: readonly { key: SymptomKey }[]): SymptomGro
 const TITLE_SYMPTOMS = 3;
 
 /** The symptoms by name in body-map order; past three, the rest are counted ("+2 more"). */
-function symptomTitle(items: readonly { key: SymptomKey }[]): string {
+function symptomTitle(items: readonly { key: LoggedSymptomKey }[]): string {
   const names = groupSymptoms(items).flatMap((group) => group.keys.map(symptomLabel));
   if (names.length === 0) return 'Symptoms';
   const shown = names.slice(0, TITLE_SYMPTOMS).join(', ');
@@ -83,7 +90,9 @@ function symptomTitle(items: readonly { key: SymptomKey }[]): string {
   return rest > 0 ? `${shown} +${rest} more` : shown;
 }
 
-export const tagLabel = (key: string) => tagLabels.get(key) ?? key;
+/** A built-in tag's label, or the text of one the user typed. */
+export const tagLabel = (key: string) =>
+  isCustomTag(key) ? customSymptomLabel(key) : (tagLabels.get(key) ?? key);
 export const medicationTypeLabel = (key: string) => medicationTypeLabels.get(key) ?? key;
 
 /**

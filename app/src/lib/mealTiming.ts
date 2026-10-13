@@ -48,3 +48,17 @@ export function isLateMeal(loggedAt: string, tz: string, bedtime: string, window
   // The clock wraps at midnight, so take the shorter way round.
   return Math.min(gap, MINUTES_PER_DAY - gap) <= windowMinutes;
 }
+
+/**
+ * How many minutes before bedtime a meal was eaten, going the shorter way round the clock: positive before
+ * bed, negative after it. Null when bedtime isn't a valid time.
+ */
+export function minutesBeforeBed(loggedAt: string, tz: string, bedtime: string): number | null {
+  const bed = bedtimeMinutes(bedtime);
+  if (bed === null) return null;
+  const gap = bed - minutesOfDay(loggedAt, tz);
+  return (
+    ((((gap + MINUTES_PER_DAY / 2) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY) -
+    MINUTES_PER_DAY / 2
+  );
+}

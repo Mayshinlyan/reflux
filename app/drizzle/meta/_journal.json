@@ -50,6 +50,20 @@
       "when": 1791687922180,
       "tag": "0006_food_details",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1791857449843,
+      "tag": "0007_saved_symptoms",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791860568208,
+      "tag": "0008_saved_kind_zone",
+      "breakpoints": true
     }
   ]
 }
