@@ -2,7 +2,7 @@ import type { StoredFoodLog } from '@/db/repositories/food';
 import type { SymptomLogWithDetails } from '@/db/repositories/symptoms';
 
 import type { LifestyleTagKey } from '@/constants/lifestyleTags';
-import type { SymptomKey } from '@/constants/symptomItems';
+import type { LoggedSymptomKey } from '@/constants/symptomItems';
 
 import { donutSegments, goodLine, summarize } from '../historySummary';
 import type { TimelineEntry } from '../timeline';
@@ -16,7 +16,7 @@ const meal = (id: number, verdict: StoredFoodLog['overallVerdict'], day: string)
     log: { overallVerdict: verdict } as StoredFoodLog,
   }) as TimelineEntry;
 
-const symptom = (id: number, day: string, keys: SymptomKey[] = [], tags: LifestyleTagKey[] = []) =>
+const symptom = (id: number, day: string, keys: LoggedSymptomKey[] = [], tags: LifestyleTagKey[] = []) =>
   ({
     kind: 'symptom',
     id,
@@ -80,6 +80,20 @@ describe('summarize', () => {
       ['throat_clearing', 0],
       ['mucus', 0],
       ['swallowing', 0],
+    ]);
+  });
+
+  it('ranks a symptom the user typed with the others, under their own words', () => {
+    const summary = summarize(
+      [
+        symptom(1, '2026-10-10', ['custom:Hiccups', 'heartburn']),
+        symptom(2, '2026-10-09', ['custom:Hiccups']),
+      ],
+      dayOf,
+    );
+    expect(summary.symptoms.slice(0, 2)).toEqual([
+      { key: 'custom:Hiccups', label: 'Hiccups', count: 2 },
+      { key: 'heartburn', label: 'Heartburn', count: 1 },
     ]);
   });
 

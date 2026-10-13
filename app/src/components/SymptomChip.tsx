@@ -15,10 +15,12 @@ type Props = {
   onRemove?: () => void;
   /** Set when the chip sits inside a `surface` card: it then rests on `surface2` so it stays visible. */
   onCard?: boolean;
+  /** An action rather than a symptom ("+ Add your own"): clay ink, announced as a button, never selected. */
+  action?: boolean;
 };
 
 /** A symptom you either have or don't: tap to toggle. There is no severity rating. */
-export function SymptomChip({ label, selected, onToggle, readOnly, onRemove, onCard }: Props) {
+export function SymptomChip({ label, selected, onToggle, readOnly, onRemove, onCard, action }: Props) {
   const colors = useColors();
   // Filled, never outlined: selected = sage tint, otherwise surface (surface2 on a card).
   const colorStyle = {
@@ -50,11 +52,14 @@ export function SymptomChip({ label, selected, onToggle, readOnly, onRemove, onC
 
   const roleProps = readOnly
     ? ({ accessible: true, accessibilityRole: 'text', accessibilityLabel: label } as const)
-    : ({
-        accessibilityRole: 'checkbox',
-        accessibilityLabel: label,
-        accessibilityState: { checked: selected },
-      } as const);
+    : action
+      ? ({ accessibilityRole: 'button', accessibilityLabel: label } as const)
+      : ({
+          accessibilityRole: 'checkbox',
+          accessibilityLabel: label,
+          accessibilityState: { checked: selected },
+        } as const);
+  const labelColor = action ? colors.clayInk : selected ? colors.sageInk : colors.ink;
 
   return (
     <Pressable
@@ -63,7 +68,7 @@ export function SymptomChip({ label, selected, onToggle, readOnly, onRemove, onC
       {...roleProps}
       hitSlop={3}
       style={[styles.chip, colorStyle]}>
-      <AppText style={[styles.label, { color: selected ? colors.sageInk : colors.ink }]}>{label}</AppText>
+      <AppText style={[styles.label, { color: labelColor }]}>{label}</AppText>
     </Pressable>
   );
 }

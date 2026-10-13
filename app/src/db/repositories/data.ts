@@ -9,6 +9,7 @@ import {
   medicationLogs,
   medications,
   savedFoods,
+  savedSymptoms,
   symptomLogItems,
   symptomLogs,
   symptomLogTags,
@@ -32,6 +33,7 @@ export function deleteAllData(db: AppDb): void {
     tx.delete(medicationLogs).run();
     tx.delete(medications).run();
     tx.delete(savedFoods).run();
+    tx.delete(savedSymptoms).run();
     tx.delete(appSettings).where(ne(appSettings.key, 'onboardingDone')).run();
   });
 }

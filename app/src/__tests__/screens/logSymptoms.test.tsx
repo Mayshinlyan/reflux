@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import LogSymptomsScreen, { symptomsTitle } from '@/app/log/symptoms';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createUncheckedMeal } from '@/db/repositories/food';
+import { createSavedSymptom, listSavedSymptoms } from '@/db/repositories/savedSymptoms';
 import { setSetting } from '@/db/repositories/settings';
 import { createSymptomLog, getSymptomLog, listSymptomLogs } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
@@ -375,5 +376,107 @@ describe('Log symptoms screen: logging on an earlier day (from the week strip)',
     expect(logs).toHaveLength(4);
     for (const log of logs)
       expect(Math.abs(Date.now() - new Date(log.loggedAt).getTime())).toBeLessThan(60_000);
+  });
+});
+
+describe('Your own', () => {
+  const addOwn = async (text: string) => {
+    await press('button', '+ Add your own');
+    await fireEvent.changeText(screen.getByLabelText('Add your own symptom'), text);
+    await press('button', 'Add');
+  };
+
+  it('adds a symptom you type: picked, saved to your list and logged with the entry', async () => {
+    await render(<LogSymptomsScreen />);
+    expect(screen.getByText('Your own')).toBeTruthy();
+
+    await addOwn('  Hiccups ');
+
+    expect(screen.getByRole('checkbox', { name: 'Hiccups' }).props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    await press('button', 'Next');
+    expect(screen.getByText('Hiccups')).toBeTruthy(); // the details title
+    await press('button', 'Save');
+
+    expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.items).toEqual([{ key: 'custom:Hiccups', score: 1 }]);
+    expect(listSavedSymptoms(mockDb).map((row) => row.name)).toEqual(['Hiccups']);
+  });
+
+  it('offers the ones you added before as chips, unpicked', async () => {
+    createSavedSymptom(mockDb, 'Jaw tightness');
+    createSavedSymptom(mockDb, 'Dry mouth');
+    await render(<LogSymptomsScreen />);
+
+    for (const name of ['Dry mouth', 'Jaw tightness']) {
+      expect(screen.getByRole('checkbox', { name }).props.accessibilityState).toMatchObject({
+        checked: false,
+      });
+    }
+    await choose('Dry mouth');
+    await press('button', 'Next');
+    await press('button', 'Save');
+    expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.items).toEqual([{ key: 'custom:Dry mouth', score: 1 }]);
+  });
+
+  it('picks the built-in symptom when you type its name, without saving a copy', async () => {
+    await render(<LogSymptomsScreen />);
+
+    await addOwn('heartburn');
+
+    expect(screen.getByRole('checkbox', { name: 'Heartburn' }).props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    expect(listSavedSymptoms(mockDb)).toEqual([]);
+  });
+
+  it('does not add a second chip for a name already saved, whatever the capitals', async () => {
+    createSavedSymptom(mockDb, 'Hiccups');
+    await render(<LogSymptomsScreen />);
+
+    await addOwn('hiccups');
+
+    expect(screen.getAllByRole('checkbox', { name: 'Hiccups' })).toHaveLength(1);
+    expect(screen.getByRole('checkbox', { name: 'Hiccups' }).props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    expect(listSavedSymptoms(mockDb)).toHaveLength(1);
+  });
+
+  it('keeps Add off until something is typed', async () => {
+    await render(<LogSymptomsScreen />);
+    await press('button', '+ Add your own');
+    expect(screen.getByRole('button', { name: 'Add' }).props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+  });
+
+  it('keeps a custom symptom when editing an entry, even after it was removed from your list', async () => {
+    const id = createSymptomLog(mockDb, { items: [{ key: 'heartburn' }, { key: 'custom:Hiccups' }] });
+    mockParams = { id: String(id) };
+    await render(<LogSymptomsScreen />);
+
+    expect(screen.getByRole('checkbox', { name: 'Hiccups' }).props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    await press('button', 'Next');
+    await press('button', 'Save changes');
+
+    expect(getSymptomLog(mockDb, id)?.items.map((item) => item.key)).toEqual(['heartburn', 'custom:Hiccups']);
+  });
+
+  it("keeps the chip of an entry's own symptom after it is tapped off, so it can be tapped back on", async () => {
+    const id = createSymptomLog(mockDb, { items: [{ key: 'heartburn' }, { key: 'custom:Hiccups' }] });
+    mockParams = { id: String(id) };
+    await render(<LogSymptomsScreen />);
+
+    await press('checkbox', 'Hiccups');
+    expect(screen.getByRole('checkbox', { name: 'Hiccups' }).props.accessibilityState).toMatchObject({
+      checked: false,
+    });
+    await press('checkbox', 'Hiccups');
+    expect(screen.getByRole('checkbox', { name: 'Hiccups' }).props.accessibilityState).toMatchObject({
+      checked: true,
+    });
   });
 });

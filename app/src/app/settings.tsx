@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Clock, Moon, Pill, Shield, Trash2, Utensils } from 'lucide-react-native';
+import { Activity, Clock, Moon, Pill, Shield, Trash2, Utensils } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -113,6 +113,7 @@ export default function SettingsScreen() {
           label="My medications"
           onPress={() => router.push({ pathname: '/log/medication', params: { manage: '1' } })}
         />
+        <SettingsRow icon={Activity} label="My symptoms" onPress={() => router.push('/my-symptoms')} />
 
         <SectionTitle>About</SectionTitle>
         <SettingsRow icon={Shield} label="Privacy and disclaimer" onPress={() => setSheet('privacy')} />

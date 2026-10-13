@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { AddSymptomSheet } from '@/components/AddSymptomSheet';
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { Button } from '@/components/Button';
@@ -26,9 +27,19 @@ import { useToast } from '@/components/Toast';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { orderedZones } from '@/constants/bodyZones';
 import { LIFESTYLE_TAGS, type LifestyleTagKey } from '@/constants/lifestyleTags';
-import { SYMPTOM_ITEMS, type SymptomKey } from '@/constants/symptomItems';
+import {
+  CUSTOM_PREFIX,
+  type CustomSymptomKey,
+  customSymptomLabel,
+  isCustomSymptom,
+  type LoggedSymptomKey,
+  SYMPTOM_ITEMS,
+  type SymptomKey,
+  symptomKeyFromText,
+} from '@/constants/symptomItems';
 import { useDb } from '@/db/DatabaseProvider';
 import { getFoodLog, listDiaryFoodLogs, type StoredFoodLog } from '@/db/repositories/food';
+import { createSavedSymptom, listSavedSymptoms } from '@/db/repositories/savedSymptoms';
 import { getSetting } from '@/db/repositories/settings';
 import { createSymptomLog, getSymptomLog, updateSymptomLog } from '@/db/repositories/symptoms';
 import { playChing } from '@/lib/ching';
@@ -37,6 +48,7 @@ import { logger } from '@/lib/logger';
 import { symptomsSwipe } from '@/lib/logSwipe';
 import { dayToLoggedAt, formatClockTime, formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
+import { symptomLabel } from '@/lib/timeline';
 import { space } from '@/theme';
 
 const MAX_NOTE_LENGTH = 1000;
@@ -48,8 +60,6 @@ const usualFirst = (symptoms: readonly SymptomKey[], usual: readonly SymptomKey[
   ...symptoms.filter((key) => usual.includes(key)),
   ...symptoms.filter((key) => !usual.includes(key)),
 ];
-
-const symptomLabel = (key: SymptomKey) => SYMPTOM_ITEMS.find((item) => item.key === key)?.label ?? key;
 
 /** "Heartburn", "Heartburn and burping", "Heartburn, burping and 2 more". */
 export function symptomsTitle(labels: string[]): string {
@@ -99,7 +109,22 @@ export default function LogSymptomsScreen() {
     }
   }, [db, params.afterFood, editingId]);
 
-  const [selected, setSelected] = useState<Set<SymptomKey>>(() => new Set(existing?.items.map((i) => i.key)));
+  const [selected, setSelected] = useState<Set<LoggedSymptomKey>>(
+    () => new Set(existing?.items.map((i) => i.key)),
+  );
+  // The symptoms typed before ("Your own"), as the chips offered under the body areas.
+  const [savedOwn, setSavedOwn] = useState<string[]>(() => {
+    try {
+      return listSavedSymptoms(db).map((row) => row.name);
+    } catch (error) {
+      logger.error('listSavedSymptoms', error);
+      return [];
+    }
+  });
+  const [seenOwn, setSeenOwn] = useState<CustomSymptomKey[]>(() =>
+    (existing?.items ?? []).map((item) => item.key).filter(isCustomSymptom),
+  );
+  const [addOpen, setAddOpen] = useState(false);
   const [tags, setTags] = useState<Set<LifestyleTagKey>>(() => new Set(existing?.tags ?? []));
   const [note, setNote] = useState(existing?.notes ?? '');
   /** When it started. Null means "now, as of saving"; a week-strip day starts at noon of that day. */
@@ -143,7 +168,23 @@ export default function LogSymptomsScreen() {
   }, [step]);
 
   // Keep the canonical symptom order rather than tap order.
-  const picked = useMemo(() => SYMPTOM_ITEMS.filter((item) => selected.has(item.key)), [selected]);
+  const picked = useMemo(
+    () => [
+      ...SYMPTOM_ITEMS.filter((item) => selected.has(item.key)).map((item) => ({
+        key: item.key as LoggedSymptomKey,
+        label: item.label,
+      })),
+      ...[...selected].filter(isCustomSymptom).map((key) => ({ key, label: customSymptomLabel(key) })),
+    ],
+    [selected],
+  );
+
+  // The saved ones, then any custom symptom seen on this screen that is not saved (one on the entry being
+  // edited, or one whose save failed), so tapping it off leaves a chip to tap it back on.
+  const ownKeys = useMemo(() => {
+    const keys = savedOwn.map((name) => `${CUSTOM_PREFIX}${name}` as const);
+    return [...keys, ...seenOwn.filter((key) => !keys.includes(key))];
+  }, [savedOwn, seenOwn]);
 
   // The meal these symptoms followed: the one named in the link, else the latest one just before them.
   const [openedAt] = useState(() => Date.now());
@@ -166,13 +207,35 @@ export default function LogSymptomsScreen() {
   const unlinked = candidate !== undefined && candidate.id === unlinkedId;
   const linked = candidate && !unlinked ? candidate : undefined;
 
-  const toggleSymptom = (key: SymptomKey) => {
+  const toggleSymptom = (key: LoggedSymptomKey) => {
     Haptics.selectionAsync().catch(() => {});
     setSelected((current) => {
       const next = new Set(current);
       if (!next.delete(key)) next.add(key);
       return next;
     });
+  };
+
+  /** Something typed in "Add your own": a built-in name picks that chip, anything else is saved and picked. */
+  const addOwn = (text: string) => {
+    let key = symptomKeyFromText(text);
+    if (!key) return;
+    if (isCustomSymptom(key)) {
+      try {
+        const saved = createSavedSymptom(db, customSymptomLabel(key));
+        key = `${CUSTOM_PREFIX}${saved.name}`;
+        setSavedOwn(listSavedSymptoms(db).map((row) => row.name));
+      } catch (error) {
+        // It can still be logged; it just won't be offered as a chip next time.
+        logger.error('createSavedSymptom', error);
+      }
+    }
+    Haptics.selectionAsync().catch(() => {});
+    const added: LoggedSymptomKey = key;
+    if (isCustomSymptom(added))
+      setSeenOwn((current) => (current.includes(added) ? current : [...current, added]));
+    setSelected((current) => new Set(current).add(added));
+    setAddOpen(false);
   };
 
   const toggleTag = (key: LifestyleTagKey) =>
@@ -257,6 +320,25 @@ export default function LogSymptomsScreen() {
                     </View>
                   </View>
                 ))}
+                <View style={styles.section}>
+                  <AppText variant="section">Your own</AppText>
+                  <View style={styles.chips}>
+                    {ownKeys.map((key) => (
+                      <SymptomChip
+                        key={key}
+                        label={customSymptomLabel(key)}
+                        selected={selected.has(key)}
+                        onToggle={() => toggleSymptom(key)}
+                      />
+                    ))}
+                    <SymptomChip
+                      action
+                      label="+ Add your own"
+                      selected={false}
+                      onToggle={() => setAddOpen(true)}
+                    />
+                  </View>
+                </View>
               </>
             ) : (
               <>
@@ -326,6 +408,7 @@ export default function LogSymptomsScreen() {
           </View>
         </KeyboardAvoidingView>
 
+        <AddSymptomSheet visible={addOpen} onClose={() => setAddOpen(false)} onAdd={addOwn} />
         <MealTimeSheet
           visible={timeOpen}
           question="When did this start?"

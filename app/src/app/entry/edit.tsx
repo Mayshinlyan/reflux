@@ -146,7 +146,7 @@ function MealEdit({ log }: { log: StoredFoodLog }) {
       new Set(
         listSymptomLogsForMeal(db, log.id)
           .flatMap((after) => after.items.map((item) => item.key))
-          .filter((key) => MEAL_SYMPTOM_KEYS.includes(key)),
+          .filter((key): key is SymptomKey => MEAL_SYMPTOM_KEYS.some((meal) => meal === key)),
       ),
   );
   const [note, setNote] = useState(log.notes ?? '');
