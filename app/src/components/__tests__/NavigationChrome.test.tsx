@@ -4,7 +4,7 @@ import { Pencil, Trash } from 'lucide-react-native';
 import { lightColors } from '@/theme';
 
 import { ActionMenu } from '../ActionMenu';
-import { FloatingTabBar, tabBarBottomPadding, tabBarHeight } from '../FloatingTabBar';
+import { FloatingTabBar, tabBarBottomPadding, tabBarClearance, tabBarHeight } from '../FloatingTabBar';
 import { TopBar } from '../TopBar';
 
 jest.mock('expo-router', () => ({
@@ -41,7 +41,7 @@ describe('FloatingTabBar', () => {
     }
   });
 
-  it('draws the selected tab solid ink and the other a pale surface2 silhouette, with details cut out', async () => {
+  it('draws the selected tab solid ink and the other an inkMuted silhouette, with details cut out', async () => {
     // react-native-svg hands colours to the native view as opaque ARGB numbers.
     const argb = (hex: string) => String(parseInt(`FF${hex.slice(1)}`, 16));
     await render(<FloatingTabBar active="history" bottomInset={0} onSelect={jest.fn()} />);
@@ -49,10 +49,10 @@ describe('FloatingTabBar', () => {
     const today = JSON.stringify(screen.getByRole('tab', { name: 'Today' }));
     const history = JSON.stringify(screen.getByRole('tab', { name: 'History' }));
 
-    expect(today).toContain(argb(lightColors.surface2));
+    expect(today).toContain(argb(lightColors.inkMuted));
     expect(today).not.toContain(argb(lightColors.ink));
     expect(history).toContain(argb(lightColors.ink));
-    expect(history).not.toContain(argb(lightColors.surface2));
+    expect(history).not.toContain(argb(lightColors.inkMuted));
     for (const tab of [today, history]) expect(tab).toContain(argb(lightColors.surface));
   });
 
@@ -87,6 +87,11 @@ describe('FloatingTabBar', () => {
     expect(tabBarHeight(34)).toBe(78);
     expect(tabBarBottomPadding(10)).toBe(8);
     expect(tabBarBottomPadding(34)).toBe(22);
+  });
+
+  it('leaves content the bar, the raised Log button and a 16 gap of clearance', () => {
+    expect(tabBarClearance(0)).toBe(104);
+    expect(tabBarClearance(34)).toBe(118);
   });
 });
 

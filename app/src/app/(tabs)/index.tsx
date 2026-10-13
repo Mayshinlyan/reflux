@@ -2,12 +2,13 @@ import { Redirect, router, useFocusEffect } from 'expo-router';
 import { User } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { HomeRing } from '@/components/HomeRing';
 import { LateMealBadge } from '@/components/LateMealBadge';
 import { Screen } from '@/components/Screen';
-import { TAB_BAR_CLEARANCE } from '@/components/FloatingTabBar';
+import { tabBarClearance } from '@/components/FloatingTabBar';
 import { TimelineItem } from '@/components/TimelineItem';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { WeekStrip } from '@/components/WeekStrip';
@@ -37,6 +38,7 @@ function greeting(now: Date): string {
  */
 export default function TodayScreen() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const { settings } = useSettings();
   const { week, loggedDays, entries, meals } = useTodayData();
   const now = new Date();
@@ -97,7 +99,11 @@ export default function TodayScreen() {
           setRoom((r) => ({ ...r, view: height }));
         }}
         onContentSizeChange={(_, height) => setRoom((r) => ({ ...r, content: height }))}
-        contentContainerStyle={[styles.content, empty && styles.grow]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: tabBarClearance(insets.bottom) },
+          empty && styles.grow,
+        ]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.greeting}>
@@ -177,7 +183,7 @@ export default function TodayScreen() {
 
 const styles = StyleSheet.create({
   screen: { paddingTop: 58 - space.s2 },
-  content: { gap: space.s3, paddingBottom: TAB_BAR_CLEARANCE },
+  content: { gap: space.s3 },
   grow: { flexGrow: 1 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: space.s2 },
   greeting: { flex: 1, gap: space.s1 },

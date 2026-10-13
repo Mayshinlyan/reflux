@@ -8,8 +8,6 @@ import { ClockSolid, HouseSolid, type TabIconProps } from './TabIcons';
 
 export type TabKey = 'log' | 'today' | 'history';
 
-/** Bottom space a tab screen leaves so its content scrolls clear of the bar and the raised Log button (Figma: 130). */
-export const TAB_BAR_CLEARANCE = 130;
 /** The olive Log button, and how far it rises above the bar's top edge. */
 export const LOG_BUTTON_SIZE = 64;
 export const LOG_BUTTON_RAISE = 24;
@@ -29,6 +27,10 @@ export const tabBarBottomPadding = (bottomInset: number) =>
 /** Height of the bar from the screen's bottom edge to its top edge (64 with no home indicator). */
 export const tabBarHeight = (bottomInset: number) => TOP_PAD + TAB_TARGET + tabBarBottomPadding(bottomInset);
 
+/** Bottom space a tab screen leaves so its content scrolls clear of the bar and the raised Log button, plus a gap. */
+export const tabBarClearance = (bottomInset: number) =>
+  tabBarHeight(bottomInset) + LOG_BUTTON_RAISE + space.s2;
+
 const TABS: { key: Exclude<TabKey, 'log'>; label: string; icon: ComponentType<TabIconProps> }[] = [
   { key: 'today', label: 'Today', icon: HouseSolid },
   { key: 'history', label: 'History', icon: ClockSolid },
@@ -46,8 +48,8 @@ type Props = {
 
 /**
  * Figma "Tab bar floating": a full-width `surface` bar on the bottom edge with rounded top corners. Today and
- * History are icon-only tabs of solid shapes with no backgrounds: the current one is `ink`, the other a pale
- * `surface2` silhouette (greyed out). The olive Log button sits raised in the middle so it reads as the one
+ * History are icon-only tabs of solid shapes with no backgrounds: the current one is `ink`, the other a
+ * muted `inkMuted` silhouette (greyed out, 3:1 on the bar). The olive Log button sits raised in the middle so it reads as the one
  * action. Icon-only, so every button carries a label.
  */
 export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect }: Props) {
@@ -63,7 +65,7 @@ export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect 
         accessibilityState={{ selected: isActive }}
         onPress={() => onSelect(key)}
         style={({ pressed }) => [styles.tab, { opacity: pressed ? 0.8 : 1 }]}>
-        <Icon size={24} color={isActive ? colors.ink : colors.surface2} cutout={colors.surface} />
+        <Icon size={24} color={isActive ? colors.ink : colors.inkMuted} cutout={colors.surface} />
       </Pressable>
     );
   };
