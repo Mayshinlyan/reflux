@@ -148,6 +148,28 @@ describe('Edit entry: a meal', () => {
     expect(screen.getByDisplayValue('Felt full.')).toBeTruthy();
   });
 
+  it('shows a factor the user typed when logging the meal, and keeps it when saving', async () => {
+    const id = seedMeal();
+    saveMealDetails(mockDb, id, { tags: ['stress', 'custom:Skipped breakfast'] });
+    await editMeal(id);
+
+    expect(screen.getByRole('checkbox', { name: 'Skipped breakfast' }).props.accessibilityState.checked).toBe(
+      true,
+    );
+    await save();
+    expect(listMealTags(mockDb, id).sort()).toEqual(['custom:Skipped breakfast', 'stress']);
+  });
+
+  it('lets a factor the user typed be taken off the meal', async () => {
+    const id = seedMeal();
+    saveMealDetails(mockDb, id, { tags: ['stress', 'custom:Skipped breakfast'] });
+    await editMeal(id);
+
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Skipped breakfast' }));
+    await save();
+    expect(listMealTags(mockDb, id)).toEqual(['stress']);
+  });
+
   it('saves new tags, a note and symptoms, then goes back to the entry', async () => {
     const id = seedMeal();
     await editMeal(id);

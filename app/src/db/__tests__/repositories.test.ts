@@ -602,6 +602,32 @@ describe('food logs', () => {
     expect(listMealTagsFor(db, []).size).toBe(0);
   });
 
+  it('keeps a lifestyle factor the user typed as a custom tag on the meal, and refuses a malformed one', () => {
+    const { db } = createTestDb();
+    const id = createFoodLog(db, { entryType: 'diary', source: 'text', analysis: mintTea, meta });
+    saveMealDetails(db, id, { tags: ['stress', 'custom:Skipped breakfast'] });
+    expect(listMealTags(db, id).sort()).toEqual(['custom:Skipped breakfast', 'stress']);
+    expect(listMealTagsFor(db, [id]).get(id)?.sort()).toEqual(['custom:Skipped breakfast', 'stress']);
+
+    expect(() => saveMealDetails(db, id, { tags: ['custom:'] })).toThrow('Invalid custom tag');
+    expect(() => saveMealDetails(db, id, { tags: ['custom:  padded '] })).toThrow('Invalid custom tag');
+    // A failed save changes nothing.
+    expect(listMealTags(db, id).sort()).toEqual(['custom:Skipped breakfast', 'stress']);
+  });
+
+  it('does not touch the portion when the details leave it out', () => {
+    const { db } = createTestDb();
+    const id = createFoodLog(db, {
+      entryType: 'diary',
+      source: 'text',
+      analysis: mintTea,
+      meta,
+      portion: 'large',
+    });
+    saveMealDetails(db, id, { tags: ['stress'], notes: 'heavy' });
+    expect(getFoodLog(db, id)).toMatchObject({ portion: 'large', notes: 'heavy' });
+  });
+
   it('refuses unknown tags and missing meals when saving details', () => {
     const { db } = createTestDb();
     const id = createFoodLog(db, { entryType: 'diary', source: 'text', analysis: mintTea, meta });
