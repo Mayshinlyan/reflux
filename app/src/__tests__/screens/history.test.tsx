@@ -596,7 +596,7 @@ describe('History: swipe to delete an entry', () => {
     logMedication(mockDb, medId, { takenAt: at(10, 8) });
     await render(<HistoryScreen />);
 
-    await fireEvent.press(screen.getByRole('button', { name: /^Delete Chest/ }));
+    await fireEvent.press(screen.getByRole('button', { name: /^Delete Heartburn/ }));
     await act(async () => pressAlertButton(alert, 'Delete'));
     expect(screen.queryByRole('button', { name: /^Symptoms: / })).toBeNull();
 

@@ -47,10 +47,28 @@ describe('buildTimeline', () => {
 
     expect(sections.map((s) => s.label)).toEqual(['Today', 'Yesterday']);
     expect(sections[0]?.entries.map((e) => [e.kind, e.title])).toEqual([
-      ['symptom', 'Throat & voice · Chest'],
+      ['symptom', 'Hoarse voice, Heartburn'],
       ['food', 'Oatmeal with banana'],
       ['medication', 'Omeprazole 20mg'],
     ]);
+  });
+
+  it('names up to three symptoms and counts the rest', () => {
+    const many: SymptomLogWithDetails = {
+      ...symptom(5, '2026-09-28T19:00:00.000Z'),
+      items: [
+        { key: 'stomach_pain', score: 1 },
+        { key: 'heartburn', score: 1 },
+        { key: 'hoarseness', score: 1 },
+        { key: 'feeling_full', score: 1 },
+        { key: 'constipation', score: 1 },
+      ],
+    };
+    const [entry] =
+      buildTimeline({ symptoms: [many], food: [], medications: [] }, 'all', now, 'Europe/London')[0]
+        ?.entries ?? [];
+
+    expect(entry?.title).toBe('Hoarse voice, Heartburn, Stomach pain +2 more');
   });
 
   it('puts a count and the time under the title of a symptom entry', () => {
@@ -73,7 +91,7 @@ describe('buildTimeline', () => {
     );
     const byKind = Object.fromEntries((sections[0]?.entries ?? []).map((e) => [e.kind, e]));
 
-    expect(byKind.symptom?.title).toBe('Chest');
+    expect(byKind.symptom?.title).toBe('Nagging cough');
     expect(byKind.symptom?.meta).toMatch(/^1 symptom · /);
     expect(byKind.food?.meta).toBe(byKind.food?.time);
     expect(byKind.medication?.meta).toBe(byKind.medication?.time);

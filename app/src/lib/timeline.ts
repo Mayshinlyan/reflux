@@ -78,6 +78,18 @@ export function groupSymptoms(items: readonly { key: LoggedSymptomKey }[]): Symp
   if (other.length > 0) groups.push({ zone: 'other', label: 'Other', keys: other });
   return groups;
 }
+
+const TITLE_SYMPTOMS = 3;
+
+/** The symptoms by name in body-map order; past three, the rest are counted ("+2 more"). */
+function symptomTitle(items: readonly { key: LoggedSymptomKey }[]): string {
+  const names = groupSymptoms(items).flatMap((group) => group.keys.map(symptomLabel));
+  if (names.length === 0) return 'Symptoms';
+  const shown = names.slice(0, TITLE_SYMPTOMS).join(', ');
+  const rest = names.length - TITLE_SYMPTOMS;
+  return rest > 0 ? `${shown} +${rest} more` : shown;
+}
+
 /** A built-in tag's label, or the text of one the user typed. */
 export const tagLabel = (key: string) =>
   isCustomTag(key) ? customSymptomLabel(key) : (tagLabels.get(key) ?? key);
@@ -102,11 +114,7 @@ export function buildTimeline(
         id: log.id,
         at: log.loggedAt,
         tz: log.tz,
-        // Which areas were affected, rather than a long list that gets cut off.
-        title:
-          groupSymptoms(log.items)
-            .map((group) => group.label)
-            .join(' · ') || 'Symptoms',
+        title: symptomTitle(log.items),
         time,
         meta: `${log.items.length} ${log.items.length === 1 ? 'symptom' : 'symptoms'} · ${time}`,
         log,
