@@ -113,7 +113,7 @@ export default function SettingsScreen() {
           label="My medications"
           onPress={() => router.push({ pathname: '/log/medication', params: { manage: '1' } })}
         />
-        <SettingsRow icon={Activity} label="My symptoms" onPress={() => router.push('/my-symptoms')} />
+        <SettingsRow icon={Activity} label="My additions" onPress={() => router.push('/my-additions')} />
 
         <SectionTitle>About</SectionTitle>
         <SettingsRow icon={Shield} label="Privacy and disclaimer" onPress={() => setSheet('privacy')} />

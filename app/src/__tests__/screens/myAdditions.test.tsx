@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, type AlertButton } from 'react-native';
 
-import MySymptomsScreen from '@/app/my-symptoms';
+import MyAdditionsScreen from '@/app/my-additions';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createSavedSymptom, listSavedSymptoms } from '@/db/repositories/savedSymptoms';
 import { createSymptomLog, listSymptomLogs } from '@/db/repositories/symptoms';
@@ -49,22 +49,27 @@ afterEach(() => {
   closeDb();
 });
 
-describe('My symptoms', () => {
-  it('lists what you added, A to Z, with the swipe hint', async () => {
+describe('My additions', () => {
+  it('lists what you added, symptoms then lifestyle, each A to Z, with its kind and the swipe hint', async () => {
     createSavedSymptom(mockDb, 'Jaw tightness');
     createSavedSymptom(mockDb, 'Dry mouth');
-    await render(<MySymptomsScreen />);
+    createSavedSymptom(mockDb, 'Skipped breakfast', 'lifestyle');
+    await render(<MyAdditionsScreen />);
 
-    expect(screen.getByRole('header', { name: 'My symptoms' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'My additions' })).toBeTruthy();
     expect(screen.getByText('Swipe left to remove one.')).toBeTruthy();
     expect(
-      screen.getAllByLabelText(/^(Dry mouth|Jaw tightness)$/).map((el) => el.props.accessibilityLabel),
-    ).toEqual(['Dry mouth', 'Jaw tightness']);
+      screen
+        .getAllByLabelText(/^(Dry mouth|Jaw tightness|Skipped breakfast)$/)
+        .map((el) => el.props.accessibilityLabel),
+    ).toEqual(['Dry mouth', 'Jaw tightness', 'Skipped breakfast']);
+    expect(screen.getAllByText('Symptom')).toHaveLength(2);
+    expect(screen.getAllByText('Lifestyle')).toHaveLength(1);
   });
 
   it('says what the list is for when it is empty', async () => {
-    await render(<MySymptomsScreen />);
-    expect(screen.getByText(/Symptoms you add with/)).toBeTruthy();
+    await render(<MyAdditionsScreen />);
+    expect(screen.getByText(/Symptoms and lifestyle factors you add with/)).toBeTruthy();
   });
 
   it('removes one from a left swipe after confirming, and entries already logged keep it', async () => {
@@ -72,7 +77,7 @@ describe('My symptoms', () => {
     createSavedSymptom(mockDb, 'Dry mouth');
     createSymptomLog(mockDb, { items: [{ key: 'custom:Hiccups' }] });
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    await render(<MySymptomsScreen />);
+    await render(<MyAdditionsScreen />);
 
     await press('Delete Hiccups');
     expect(alert).toHaveBeenCalledWith('Remove Hiccups?', expect.any(String), expect.any(Array));
@@ -91,7 +96,7 @@ describe('My symptoms', () => {
   it('keeps the symptom when the removal is cancelled', async () => {
     createSavedSymptom(mockDb, 'Hiccups');
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    await render(<MySymptomsScreen />);
+    await render(<MyAdditionsScreen />);
 
     await press('Delete Hiccups');
     await act(async () => pressAlertButton(alert, 'Cancel'));
@@ -102,7 +107,7 @@ describe('My symptoms', () => {
   it('offers Delete to screen readers, which cannot swipe', async () => {
     createSavedSymptom(mockDb, 'Hiccups');
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    await render(<MySymptomsScreen />);
+    await render(<MyAdditionsScreen />);
 
     await fireEvent(screen.getByLabelText('Hiccups'), 'accessibilityAction', {
       nativeEvent: { actionName: 'delete' },
@@ -111,25 +116,8 @@ describe('My symptoms', () => {
     expect(alert).toHaveBeenCalledWith('Remove Hiccups?', expect.any(String), expect.any(Array));
   });
 
-  it('adds a symptom from the bottom button', async () => {
-    await render(<MySymptomsScreen />);
-
-    await press('Add a symptom');
-    await fireEvent.changeText(screen.getByLabelText('Add your own symptom'), 'Hiccups');
-    await press('Add');
-
-    expect(listSavedSymptoms(mockDb).map((row) => row.name)).toEqual(['Hiccups']);
-    expect(screen.getByLabelText('Hiccups')).toBeTruthy();
-  });
-
-  it('does not add a built-in symptom to the list, and says so', async () => {
-    await render(<MySymptomsScreen />);
-
-    await press('Add a symptom');
-    await fireEvent.changeText(screen.getByLabelText('Add your own symptom'), 'heartburn');
-    await press('Add');
-
-    expect(listSavedSymptoms(mockDb)).toEqual([]);
-    expect(mockToast).toHaveBeenCalled();
+  it('has no add button: adding happens where you log', async () => {
+    await render(<MyAdditionsScreen />);
+    expect(screen.queryByRole('button', { name: /^Add/ })).toBeNull();
   });
 });

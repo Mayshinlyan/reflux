@@ -1,35 +1,30 @@
-import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
-import { AddSymptomSheet } from '@/components/AddSymptomSheet';
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
-import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { useToast } from '@/components/Toast';
-import { isCustomSymptom, symptomKeyFromText } from '@/constants/symptomItems';
 import { useDb } from '@/db/DatabaseProvider';
-import { createSavedSymptom, listSavedSymptoms, removeSavedSymptom } from '@/db/repositories/savedSymptoms';
+import { listSavedSymptoms, removeSavedSymptom } from '@/db/repositories/savedSymptoms';
 import type { SavedSymptom } from '@/db/schema';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { radius, space, typography, useColors } from '@/theme';
 
 /**
- * My symptoms (Settings > My symptoms, Figma 05c): the symptoms typed in "Add your own", as filled cards.
- * A left swipe removes one from the quick-pick chips; entries already logged keep it. There is no edit:
- * remove it and add it again.
+ * My additions (Settings > My additions, Figma 05c): the symptoms and lifestyle factors typed with a "+" chip,
+ * as filled cards with their kind underneath. A left swipe removes one from the quick-pick chips; entries
+ * already logged keep it. Adding happens where you log, so there is no add button and no edit.
  */
-export default function MySymptomsScreen() {
+export default function MyAdditionsScreen() {
   const colors = useColors();
   const db = useDb();
   const toast = useToast();
   const [symptoms, setSymptoms] = useState<SavedSymptom[]>([]);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
 
   const reload = useCallback(() => {
     try {
@@ -63,43 +58,23 @@ export default function MySymptomsScreen() {
     ]);
   };
 
-  const add = (text: string) => {
-    // A name that is already a built-in symptom has its own chip, so it isn't added here.
-    const key = symptomKeyFromText(text);
-    if (key && !isCustomSymptom(key)) {
-      setAddOpen(false);
-      toast('That one is already in the list when you log');
-      return;
-    }
-    try {
-      createSavedSymptom(db, text);
-    } catch (error) {
-      logger.error('createSavedSymptom', error);
-      Alert.alert("Couldn't save", friendlyMessages.INTERNAL);
-      return;
-    }
-    Haptics.selectionAsync().catch(() => {});
-    setAddOpen(false);
-    reload();
-  };
-
   return (
     <Screen style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <BackHeader />
         <AppText variant="display" accessibilityRole="header">
-          My symptoms
+          My additions
         </AppText>
         <AppText color="inkSoft" style={styles.subtitle}>
           Swipe left to remove one.
         </AppText>
         {loadFailed && symptoms.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
-            {`${friendlyMessages.INTERNAL} Your symptoms are still on this phone.`}
+            {`${friendlyMessages.INTERNAL} Your additions are still on this phone.`}
           </AppText>
         ) : symptoms.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
-            Symptoms you add with “Add your own” show up here.
+            Symptoms and lifestyle factors you add with + show up here.
           </AppText>
         ) : (
           symptoms.map((symptom) => (
@@ -120,16 +95,14 @@ export default function MySymptomsScreen() {
                 <AppText style={styles.name} numberOfLines={2}>
                   {symptom.name}
                 </AppText>
+                <AppText variant="caption" color="inkSoft">
+                  {symptom.kind === 'lifestyle' ? 'Lifestyle' : 'Symptom'}
+                </AppText>
               </View>
             </SwipeToDelete>
           ))
         )}
       </ScrollView>
-
-      <View style={styles.footer}>
-        <Button label="Add a symptom" variant="secondary" onPress={() => setAddOpen(true)} />
-      </View>
-      <AddSymptomSheet visible={addOpen} onClose={() => setAddOpen(false)} onAdd={add} />
     </Screen>
   );
 }
@@ -141,7 +114,12 @@ const styles = StyleSheet.create({
   empty: { marginBottom: space.s2, lineHeight: 24 },
   // On the swipe container, not the card, so the revealed Delete button is exactly the card's height.
   row: { marginBottom: 12 },
-  card: { borderRadius: radius.lg, minHeight: 48, paddingHorizontal: space.s2, justifyContent: 'center' },
+  card: {
+    borderRadius: radius.lg,
+    minHeight: 56,
+    paddingHorizontal: space.s2,
+    paddingVertical: 10,
+    justifyContent: 'center',
+  },
   name: { ...typography.bodyEm, fontSize: 15, lineHeight: 20 },
-  footer: { paddingTop: space.s2, paddingBottom: space.s3 },
 });

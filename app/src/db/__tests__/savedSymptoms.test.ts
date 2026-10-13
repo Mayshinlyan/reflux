@@ -15,7 +15,7 @@ beforeEach(() => {
 });
 afterEach(() => close());
 
-describe('saved symptoms (My symptoms)', () => {
+describe('saved additions (My additions)', () => {
   it('adds a tidied name and lists them A to Z', () => {
     createSavedSymptom(db, '  Jaw   tightness ');
     createSavedSymptom(db, 'hiccups');
@@ -37,6 +37,18 @@ describe('saved symptoms (My symptoms)', () => {
     expect(createSavedSymptom(db, 'x'.repeat(60)).name).toHaveLength(40);
   });
 
+  it('keeps the kind and body area, and lists symptoms before lifestyle', () => {
+    createSavedSymptom(db, 'Skipped breakfast', 'lifestyle', 'chest');
+    createSavedSymptom(db, 'Hiccups', 'symptom', 'chest');
+
+    expect(listSavedSymptoms(db).map(({ name, kind, zone }) => ({ name, kind, zone }))).toEqual([
+      { name: 'Hiccups', kind: 'symptom', zone: 'chest' },
+      // A lifestyle factor has no body area, whatever was passed.
+      { name: 'Skipped breakfast', kind: 'lifestyle', zone: null },
+    ]);
+    expect(listSavedSymptoms(db, 'lifestyle').map((row) => row.name)).toEqual(['Skipped breakfast']);
+  });
+
   it('removes one without touching entries already logged with it', () => {
     const { id } = createSavedSymptom(db, 'Hiccups');
     const logId = createSymptomLog(db, { items: [{ key: 'custom:Hiccups' }] });
@@ -51,6 +63,28 @@ describe('saved symptoms (My symptoms)', () => {
     createSavedSymptom(db, 'Hiccups');
     deleteAllData(db);
     expect(listSavedSymptoms(db)).toEqual([]);
+  });
+});
+
+describe('logging a lifestyle factor of your own', () => {
+  it('stores it as a tag beside the built-in ones and reads it back, built-ins first', () => {
+    const id = createSymptomLog(db, {
+      items: [{ key: 'heartburn' }],
+      tags: ['custom:Skipped breakfast', 'stress', 'custom:Cold shower'],
+    });
+
+    expect(getSymptomLog(db, id)?.tags).toEqual(['stress', 'custom:Cold shower', 'custom:Skipped breakfast']);
+  });
+
+  it('refuses an empty or untidy custom tag without repeating the text', () => {
+    for (const tag of ['custom:', 'custom: padded', `custom:${'x'.repeat(41)}`] as const) {
+      expect(() => createSymptomLog(db, { items: [{ key: 'heartburn' }], tags: [tag] })).toThrow(
+        'Invalid custom tag',
+      );
+    }
+    expect(() =>
+      createSymptomLog(db, { items: [{ key: 'heartburn' }], tags: ['nonsense' as never] }),
+    ).toThrow('Unknown tag');
   });
 });
 

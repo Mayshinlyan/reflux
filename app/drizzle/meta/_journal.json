@@ -57,6 +57,13 @@
       "when": 1791857449843,
       "tag": "0007_saved_symptoms",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791860568208,
+      "tag": "0008_saved_kind_zone",
+      "breakpoints": true
     }
   ]
 }

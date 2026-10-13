@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, inArray, lt } from 'drizzle-orm';
 
-import { LIFESTYLE_TAG_KEYS, type LifestyleTagKey } from '@/constants/lifestyleTags';
+import { isCustomTag, LIFESTYLE_TAG_KEYS, type LoggedTagKey } from '@/constants/lifestyleTags';
 import {
   cleanCustomSymptom,
   customSymptomLabel,
@@ -22,7 +22,7 @@ export type StoredSymptomItem = { key: LoggedSymptomKey; score: number };
 
 export type SymptomLogInput = {
   items: SymptomItemInput[];
-  tags?: LifestyleTagKey[];
+  tags?: LoggedTagKey[];
   notes?: string | null;
   /** Defaults to now. */
   loggedAt?: string;
@@ -33,7 +33,7 @@ export type SymptomLogInput = {
 
 export type SymptomLogWithDetails = SymptomLog & {
   items: StoredSymptomItem[];
-  tags: LifestyleTagKey[];
+  tags: LoggedTagKey[];
 };
 
 const MAX_NOTES_LENGTH = 1000;
@@ -53,7 +53,13 @@ function validate(input: SymptomLogInput): void {
     seen.add(item.key);
   }
   for (const tag of input.tags ?? []) {
-    if (!LIFESTYLE_TAG_KEYS.includes(tag)) throw new Error(`Unknown tag: ${tag}`);
+    // Like a custom symptom, a custom tag is the user's own text, so the message never repeats it.
+    if (isCustomTag(tag)) {
+      const text = customSymptomLabel(tag);
+      if (!text || cleanCustomSymptom(text) !== text) throw new Error('Invalid custom tag');
+    } else if (!LIFESTYLE_TAG_KEYS.includes(tag)) {
+      throw new Error(`Unknown tag: ${tag}`);
+    }
   }
   if ((input.notes?.length ?? 0) > MAX_NOTES_LENGTH) throw new Error('Notes are too long');
 }
@@ -131,7 +137,7 @@ export function removeSymptomFromLog(db: AppDb, id: number, key: LoggedSymptomKe
 }
 
 /** Takes one lifestyle tag off an entry. Unlike symptoms, tags are optional, so all of them can go. */
-export function removeTagFromLog(db: AppDb, id: number, tag: LifestyleTagKey): void {
+export function removeTagFromLog(db: AppDb, id: number, tag: LoggedTagKey): void {
   db.transaction((tx) => {
     const removed = tx
       .delete(symptomLogTags)
@@ -162,8 +168,8 @@ function withDetails(db: AppDb, logs: SymptomLog[]): SymptomLogWithDetails[] {
       .sort((a, b) => orderOf(SYMPTOM_KEYS, a.key) - orderOf(SYMPTOM_KEYS, b.key)),
     tags: tags
       .filter((tag) => tag.symptomLogId === log.id)
-      .map((tag) => tag.tagKey as LifestyleTagKey)
-      .sort((a, b) => orderOf(LIFESTYLE_TAG_KEYS, a) - orderOf(LIFESTYLE_TAG_KEYS, b)),
+      .map((tag) => tag.tagKey as LoggedTagKey)
+      .sort((a, b) => orderOf(LIFESTYLE_TAG_KEYS, a) - orderOf(LIFESTYLE_TAG_KEYS, b) || a.localeCompare(b)),
   }));
 }
 

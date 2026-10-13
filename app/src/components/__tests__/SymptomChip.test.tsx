@@ -33,15 +33,6 @@ describe('SymptomChip', () => {
     expect(onRemove).toHaveBeenCalledTimes(1);
   });
 
-  it('is a button, not a checkbox, when it is an action like "+ Add your own"', async () => {
-    const onToggle = jest.fn();
-    await render(<SymptomChip action label="+ Add your own" selected={false} onToggle={onToggle} />);
-
-    expect(screen.queryByRole('checkbox')).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: '+ Add your own' }));
-    expect(onToggle).toHaveBeenCalledTimes(1);
-  });
-
   it('has no minus button unless asked to', async () => {
     await render(<SymptomChip label="Heartburn" selected readOnly />);
     expect(screen.queryByRole('button', { name: /Remove/ })).toBeNull();

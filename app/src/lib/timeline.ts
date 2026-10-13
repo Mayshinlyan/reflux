@@ -1,5 +1,5 @@
 import { BODY_ZONES, type ZoneKey } from '@/constants/bodyZones';
-import { LIFESTYLE_TAGS } from '@/constants/lifestyleTags';
+import { isCustomTag, LIFESTYLE_TAGS } from '@/constants/lifestyleTags';
 import { MEDICATION_TYPES } from '@/constants/medicationTypes';
 import {
   customSymptomLabel,
@@ -78,7 +78,9 @@ export function groupSymptoms(items: readonly { key: LoggedSymptomKey }[]): Symp
   if (other.length > 0) groups.push({ zone: 'other', label: 'Other', keys: other });
   return groups;
 }
-export const tagLabel = (key: string) => tagLabels.get(key) ?? key;
+/** A built-in tag's label, or the text of one the user typed. */
+export const tagLabel = (key: string) =>
+  isCustomTag(key) ? customSymptomLabel(key) : (tagLabels.get(key) ?? key);
 export const medicationTypeLabel = (key: string) => medicationTypeLabels.get(key) ?? key;
 
 /**

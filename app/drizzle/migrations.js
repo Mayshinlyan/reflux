@@ -9,6 +9,7 @@ import m0004 from './0004_tearful_black_queen.sql';
 import m0005 from './0005_nosy_saracen.sql';
 import m0006 from './0006_food_details.sql';
 import m0007 from './0007_saved_symptoms.sql';
+import m0008 from './0008_saved_kind_zone.sql';
 
   export default {
     journal,
@@ -20,7 +21,8 @@ m0003,
 m0004,
 m0005,
 m0006,
-m0007
+m0007,
+m0008
     }
   }
   

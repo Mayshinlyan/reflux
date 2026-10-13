@@ -91,7 +91,7 @@ describe('Settings', () => {
       'Late-meal window, 3 hours',
       'My foods',
       'My medications',
-      'My symptoms',
+      'My additions',
       'Privacy and disclaimer',
       'Delete all my data',
     ]);
@@ -105,12 +105,12 @@ describe('Settings', () => {
     expect(mockPush.mock.calls).toEqual([[{ pathname: '/log/medication', params: { manage: '1' } }]]);
   });
 
-  it('opens My symptoms', async () => {
+  it('opens My additions', async () => {
     await render(<SettingsScreen />);
 
-    await press('button', 'My symptoms');
+    await press('button', 'My additions');
 
-    expect(mockPush.mock.calls).toEqual([['/my-symptoms']]);
+    expect(mockPush.mock.calls).toEqual([['/my-additions']]);
   });
 });
 
