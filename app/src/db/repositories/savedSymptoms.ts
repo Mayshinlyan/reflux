@@ -1,6 +1,6 @@
 import { asc, desc, eq, sql } from 'drizzle-orm';
 
-import type { ZoneKey } from '@/constants/bodyZones';
+import type { SymptomArea } from '@/constants/bodyZones';
 import { cleanCustomSymptom } from '@/constants/symptomItems';
 
 import { type SavedSymptom, savedSymptoms } from '../schema';
@@ -31,7 +31,7 @@ export function createSavedSymptom(
   db: AppDb,
   name: string,
   kind: SavedKind = 'symptom',
-  zone?: ZoneKey,
+  zone?: SymptomArea,
 ): SavedSymptom {
   const clean = cleanCustomSymptom(name);
   if (!clean) throw new Error('A saved symptom needs a name');

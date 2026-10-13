@@ -25,7 +25,7 @@ import { TimePill } from '@/components/TimePill';
 import { TimelineItem } from '@/components/TimelineItem';
 import { useToast } from '@/components/Toast';
 import { VerdictBadge } from '@/components/VerdictBadge';
-import { BODY_ZONES, type ZoneKey } from '@/constants/bodyZones';
+import { BODY_ZONES, OTHER_AREA_LABEL, type SymptomArea } from '@/constants/bodyZones';
 import {
   type CustomTagKey,
   isCustomTag,
@@ -133,7 +133,7 @@ export default function LogSymptomsScreen() {
   const [seenOwn, setSeenOwn] = useState<CustomSymptomKey[]>(() =>
     (existing?.items ?? []).map((item) => item.key).filter(isCustomSymptom),
   );
-  const [addedZone, setAddedZone] = useState<Record<string, ZoneKey>>({});
+  const [addedZone, setAddedZone] = useState<Record<string, SymptomArea>>({});
   const [seenTags, setSeenTags] = useState<CustomTagKey[]>(() => (existing?.tags ?? []).filter(isCustomTag));
   const [tags, setTags] = useState<Set<LoggedTagKey>>(() => new Set(existing?.tags ?? []));
   const [note, setNote] = useState(existing?.notes ?? '');
@@ -191,20 +191,21 @@ export default function LogSymptomsScreen() {
 
   // The typed symptoms of each group: the saved ones, then any seen on this screen that are not saved. Each
   // sits in the group it was added in; one with no known group (saved before groups existed, or on an old
-  // entry) goes under Chest.
+  // entry) goes under Other.
   const ownByZone = useMemo(() => {
-    const zoneNamed = (zone: string | null | undefined) => BODY_ZONES.find((z) => z.key === zone)?.key;
-    const zones = new Map<CustomSymptomKey, ZoneKey>();
+    const zoneNamed = (zone: string | null | undefined): SymptomArea | undefined =>
+      zone === 'other' ? 'other' : BODY_ZONES.find((z) => z.key === zone)?.key;
+    const zones = new Map<CustomSymptomKey, SymptomArea>();
     for (const row of saved) {
       if (row.kind === 'symptom') {
-        zones.set(`${CUSTOM_PREFIX}${row.name}`, zoneNamed(row.zone) ?? 'chest');
+        zones.set(`${CUSTOM_PREFIX}${row.name}`, zoneNamed(row.zone) ?? 'other');
       }
     }
     for (const key of seenOwn) {
-      const zone = zoneNamed(addedZone[key]) ?? zones.get(key) ?? 'chest';
+      const zone = zoneNamed(addedZone[key]) ?? zones.get(key) ?? 'other';
       zones.set(key, zone);
     }
-    const groups = new Map<ZoneKey, CustomSymptomKey[]>();
+    const groups = new Map<SymptomArea, CustomSymptomKey[]>();
     for (const [key, zone] of zones) groups.set(zone, [...(groups.get(zone) ?? []), key]);
     return groups;
   }, [saved, seenOwn, addedZone]);
@@ -253,7 +254,7 @@ export default function LogSymptomsScreen() {
   };
 
   /** Typed in a group's "+" chip: a built-in name picks that chip, anything else is saved to the group and picked. */
-  const addOwnSymptom = (text: string, zone: ZoneKey) => {
+  const addOwnSymptom = (text: string, zone: SymptomArea) => {
     const key = symptomKeyFromText(text);
     if (!key) return;
     if (isCustomSymptom(key)) {
@@ -394,6 +395,29 @@ export default function LogSymptomsScreen() {
                     </View>
                   </View>
                 ))}
+                <View
+                  style={styles.section}
+                  onLayout={(event) => {
+                    sectionY.current.other = event.nativeEvent.layout.y;
+                  }}>
+                  <AppText variant="section">{OTHER_AREA_LABEL}</AppText>
+                  <View style={styles.chips}>
+                    <InlineAddChip
+                      label={`Add your own to ${OTHER_AREA_LABEL}`}
+                      placeholder="e.g. Hiccups"
+                      onAdd={(text) => addOwnSymptom(text, 'other')}
+                      onOpen={() => reveal('other')}
+                    />
+                    {(ownByZone.get('other') ?? []).map((key) => (
+                      <SymptomChip
+                        key={key}
+                        label={customSymptomLabel(key)}
+                        selected={selected.has(key)}
+                        onToggle={() => toggleSymptom(key)}
+                      />
+                    ))}
+                  </View>
+                </View>
               </>
             ) : (
               <>

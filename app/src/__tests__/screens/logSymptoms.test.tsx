@@ -451,14 +451,25 @@ describe('Adding your own with a + chip', () => {
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.items).toEqual([{ key: 'custom:Dry mouth', score: 1 }]);
   });
 
-  it('puts a saved symptom with no known group under Chest, and never shows an Other group', async () => {
+  it('ends with an Other group that has a + chip, and puts a saved symptom with no known group there', async () => {
     createSavedSymptom(mockDb, 'Hiccups');
     await render(<LogSymptomsScreen />);
 
-    expect(screen.queryByText('Other')).toBeNull();
+    expect(screen.getByText('Other')).toBeTruthy();
     const names = screen.getAllByRole('checkbox').map((chip) => chip.props.accessibilityLabel as string);
-    expect(names.indexOf('Nagging cough')).toBeLessThan(names.indexOf('Hiccups'));
-    expect(names.indexOf('Hiccups')).toBeLessThan(names.indexOf('Stomach pain'));
+    expect(names.at(-1)).toBe('Hiccups');
+    expect(names.indexOf('Constipation')).toBeLessThan(names.indexOf('Hiccups'));
+  });
+
+  it('adds a symptom typed in Other to that group and saves it there', async () => {
+    await render(<LogSymptomsScreen />);
+
+    await addTo('Other', 'Jaw tightness');
+
+    expect(screen.getByRole('checkbox', { name: 'Jaw tightness' }).props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    expect(listSavedSymptoms(mockDb)).toMatchObject([{ name: 'Jaw tightness', zone: 'other' }]);
   });
 
   it('shows the same symptom in only one group when it is typed into a different one', async () => {
