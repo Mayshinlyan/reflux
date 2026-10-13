@@ -21,6 +21,7 @@ export const typography = {
   voice: { fontFamily: fontFamily.voice, fontSize: 22, lineHeight: 26, letterSpacing: -0.66 },
   voiceSmall: { fontFamily: fontFamily.voice, fontSize: 20, lineHeight: 24, letterSpacing: -0.6 },
   section: { fontFamily: fontFamily.bold, fontSize: 20, lineHeight: 26 },
+  sectionSm: { fontFamily: fontFamily.semibold, fontSize: 18, lineHeight: 24 },
   title: { fontFamily: fontFamily.bold, fontSize: 20, lineHeight: 26 },
   body: { fontFamily: fontFamily.regular, fontSize: 17, lineHeight: 25.5 },
   bodyEm: { fontFamily: fontFamily.semibold, fontSize: 17, lineHeight: 25.5 },

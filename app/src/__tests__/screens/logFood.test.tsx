@@ -382,6 +382,15 @@ describe('Log food screen (text)', () => {
     expect(screen.getByLabelText('Belly feels cautious')).toBeTruthy();
   });
 
+  it('lists the key ingredients in the why card', async () => {
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+    await type('mint tea');
+    await press('Check this meal');
+
+    expect(await screen.findByText(/Key ingredients:\s*Peppermint/)).toBeTruthy();
+  });
+
   it('goes back from the verdict to the typed text without saving anything', async () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);

@@ -58,18 +58,27 @@ export function MealResultCard({
 }
 
 /** Main ingredients by default (triggers always included); "Show all" reveals the rest. */
-function IngredientLine({ ingredients }: { ingredients: MealItem['ingredients'] }) {
+export function IngredientLine({
+  ingredients,
+  label,
+  linkColor = 'cta',
+}: {
+  ingredients: MealItem['ingredients'];
+  /** A fixed label. By default it reads "Main ingredients" while some are hidden, else "Ingredients". */
+  label?: string;
+  linkColor?: 'cta' | 'clayInk';
+}) {
   const colors = useColors();
   const [expanded, setExpanded] = useState(false);
   if (ingredients.length === 0) return null;
 
   const { shown, hiddenCount } = mainIngredients(ingredients);
   const visible = expanded ? ingredients : shown;
+  const heading = label ?? (expanded || hiddenCount === 0 ? 'Ingredients' : 'Main ingredients');
   return (
     <View>
       <AppText variant="caption" color="inkSoft">
-        {expanded || hiddenCount === 0 ? 'Ingredients: ' : 'Main ingredients: '}
-        {visible.map((ingredient) => ingredient.name).join(', ')}
+        {`${heading}: ${visible.map((ingredient) => ingredient.name).join(', ')}`}
       </AppText>
       {hiddenCount > 0 && (
         <Pressable
@@ -80,7 +89,7 @@ function IngredientLine({ ingredients }: { ingredients: MealItem['ingredients'] 
           accessibilityState={{ expanded }}
           onPress={() => setExpanded((value) => !value)}
           style={styles.toggle}>
-          <AppText variant="caption" style={{ color: colors.cta }}>
+          <AppText variant="caption" style={{ color: colors[linkColor] }}>
             {expanded ? 'Show fewer' : `Show all ${ingredients.length}`}
           </AppText>
         </Pressable>
