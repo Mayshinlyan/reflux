@@ -8,8 +8,6 @@ import { ClockSolid, HouseSolid, type TabIconProps } from './TabIcons';
 
 export type TabKey = 'log' | 'today' | 'history';
 
-/** Bottom space a tab screen leaves so its content scrolls clear of the bar and the raised Log button (Figma: 130). */
-export const TAB_BAR_CLEARANCE = 130;
 /** The olive Log button, and how far it rises above the bar's top edge. */
 export const LOG_BUTTON_SIZE = 64;
 export const LOG_BUTTON_RAISE = 24;
@@ -28,6 +26,10 @@ export const tabBarBottomPadding = (bottomInset: number) =>
   Math.max(bottomInset - INDICATOR_OVERLAP, MIN_BOTTOM_PAD);
 /** Height of the bar from the screen's bottom edge to its top edge (64 with no home indicator). */
 export const tabBarHeight = (bottomInset: number) => TOP_PAD + TAB_TARGET + tabBarBottomPadding(bottomInset);
+
+/** Bottom space a tab screen leaves so its content scrolls clear of the bar and the raised Log button, plus a gap. */
+export const tabBarClearance = (bottomInset: number) =>
+  tabBarHeight(bottomInset) + LOG_BUTTON_RAISE + space.s2;
 
 const TABS: { key: Exclude<TabKey, 'log'>; label: string; icon: ComponentType<TabIconProps> }[] = [
   { key: 'today', label: 'Today', icon: HouseSolid },

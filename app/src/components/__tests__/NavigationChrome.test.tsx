@@ -4,7 +4,7 @@ import { Pencil, Trash } from 'lucide-react-native';
 import { lightColors } from '@/theme';
 
 import { ActionMenu } from '../ActionMenu';
-import { FloatingTabBar, tabBarBottomPadding, tabBarHeight } from '../FloatingTabBar';
+import { FloatingTabBar, tabBarBottomPadding, tabBarClearance, tabBarHeight } from '../FloatingTabBar';
 import { TopBar } from '../TopBar';
 
 jest.mock('expo-router', () => ({
@@ -87,6 +87,11 @@ describe('FloatingTabBar', () => {
     expect(tabBarHeight(34)).toBe(78);
     expect(tabBarBottomPadding(10)).toBe(8);
     expect(tabBarBottomPadding(34)).toBe(22);
+  });
+
+  it('leaves content the bar, the raised Log button and a 16 gap of clearance', () => {
+    expect(tabBarClearance(0)).toBe(104);
+    expect(tabBarClearance(34)).toBe(118);
   });
 });
 

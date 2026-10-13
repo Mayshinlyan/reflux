@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { DateRangePicker } from '@/components/DateRangePicker';
-import { TAB_BAR_CLEARANCE } from '@/components/FloatingTabBar';
+import { tabBarClearance } from '@/components/FloatingTabBar';
 import { HistorySummary, statsCardHeight, statsScrollDistance } from '@/components/HistorySummary';
 import { RangeStepper } from '@/components/RangeStepper';
 import { Screen } from '@/components/Screen';
@@ -152,7 +152,8 @@ export default function HistoryScreen() {
   const scrollable = room.content - room.view;
   // The card fills the list from below the title and controls down to just above the floating tab bar.
   const [above, setAbove] = useState(0);
-  const cardHeight = statsCardHeight(room.view, above, useSafeAreaInsets().bottom);
+  const insets = useSafeAreaInsets();
+  const cardHeight = statsCardHeight(room.view, above, insets.bottom);
   const statsScroll = statsScrollDistance(cardHeight);
   const fade = useMemo(
     () =>
@@ -272,7 +273,7 @@ export default function HistoryScreen() {
         )}
         stickySectionHeadersEnabled={false}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: tabBarClearance(insets.bottom) }]}
         ListEmptyComponent={
           <View style={styles.empty}>
             <AppText variant="title" style={styles.emptyTitle}>
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
   },
   // The row above a label already leaves 12, so the label adds 20 to make the 32 between days.
   dayLabel: { marginTop: space.s4 - 12, marginBottom: 12 },
-  list: { paddingBottom: TAB_BAR_CLEARANCE, flexGrow: 1 },
+  list: { flexGrow: 1 },
   empty: { alignItems: 'center', paddingHorizontal: space.s3, paddingTop: space.s4 },
   emptyTitle: { marginBottom: space.s1 },
   emptyBody: { textAlign: 'center' },
