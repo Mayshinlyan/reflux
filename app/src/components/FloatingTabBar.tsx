@@ -46,8 +46,8 @@ type Props = {
 
 /**
  * Figma "Tab bar floating": a full-width `surface` bar on the bottom edge with rounded top corners. Today and
- * History are icon-only tabs of solid shapes with no backgrounds: the current one is `ink`, the other a pale
- * `surface2` silhouette (greyed out). The olive Log button sits raised in the middle so it reads as the one
+ * History are icon-only tabs of solid shapes with no backgrounds: the current one is `ink`, the other a
+ * muted `inkMuted` silhouette (greyed out, 3:1 on the bar). The olive Log button sits raised in the middle so it reads as the one
  * action. Icon-only, so every button carries a label.
  */
 export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect }: Props) {
@@ -63,7 +63,7 @@ export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect 
         accessibilityState={{ selected: isActive }}
         onPress={() => onSelect(key)}
         style={({ pressed }) => [styles.tab, { opacity: pressed ? 0.8 : 1 }]}>
-        <Icon size={24} color={isActive ? colors.ink : colors.surface2} cutout={colors.surface} />
+        <Icon size={24} color={isActive ? colors.ink : colors.inkMuted} cutout={colors.surface} />
       </Pressable>
     );
   };

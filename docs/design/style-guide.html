@@ -2,7 +2,7 @@
 <style>
   :root{
     --bg:#FAF1DE; --surface:#FFFBF3; --surface-2:#ECDAB9;
-    --ink:#3A2F25; --ink-soft:#65574A; --hairline:#EBDCC2;
+    --ink:#3A2F25; --ink-soft:#65574A; --ink-muted:#A08C74; --hairline:#EBDCC2;
     --clay:#C8664A; --clay-ink:#8A4531; --clay-tint:#F3D3C0;
     --sage:#8E9A6D; --sage-ink:#55612F; --sage-tint:#D8E0B6;
     --good:#5E8F63; --good-ink:#2F5A3A; --good-tint:#D3E8D6;
@@ -18,7 +18,7 @@
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
       --bg:#1F1B18; --surface:#2A2521; --surface-2:#332D28;
-      --ink:#F3ECE4; --ink-soft:#B3A89D; --hairline:#3D362F;
+      --ink:#F3ECE4; --ink-soft:#B3A89D; --ink-muted:#7D7268; --hairline:#3D362F;
       --clay:#E08260; --clay-ink:#F2C4B0; --clay-tint:#3A2620;
       --sage:#A9B58A; --sage-ink:#C9DDC5; --sage-tint:#263427;
     --good:#6FB07A; --good-ink:#BFE6C4; --good-tint:#1E3A26;
@@ -32,7 +32,7 @@
   }
   :root[data-theme="dark"]{
     --bg:#1F1B18; --surface:#2A2521; --surface-2:#332D28;
-    --ink:#F3ECE4; --ink-soft:#B3A89D; --hairline:#3D362F;
+    --ink:#F3ECE4; --ink-soft:#B3A89D; --ink-muted:#7D7268; --hairline:#3D362F;
     --clay:#E08260; --clay-ink:#F2C4B0; --clay-tint:#3A2620;
     --sage:#A9B58A; --sage-ink:#C9DDC5; --sage-tint:#263427;
     --honey:#E8BD6A; --honey-ink:#F0D39A; --honey-tint:#3A2E14;
@@ -193,7 +193,7 @@
     box-shadow:0 6px 16px -6px rgba(46,42,38,.18);
   }
   .tabbar__log svg{width:32px;height:32px}
-  .tabbar__item{flex:1;height:48px;display:flex;align-items:center;justify-content:center;color:var(--surface-2);background:none;border:none;font-family:inherit}
+  .tabbar__item{flex:1;height:48px;display:flex;align-items:center;justify-content:center;color:var(--ink-muted);background:none;border:none;font-family:inherit}
   .tabbar__item svg{width:24px;height:24px}
   .tabbar__item.active{color:var(--ink)}
   .tabbar__item .cut{stroke:var(--surface)}
@@ -411,6 +411,7 @@
       <div class="swatch"><div class="chip" style="background:var(--surface);border-bottom:1px solid var(--hairline)"></div><div class="meta"><div class="name">Surface</div><div class="hex">#FFFBF3</div><div class="use">Cards, rows, inputs, unselected pills, tab bar</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--ink)"></div><div class="meta"><div class="name">Ink</div><div class="hex">#3A2F25</div><div class="use">Primary text</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--ink-soft)"></div><div class="meta"><div class="name">Ink soft</div><div class="hex">#65574A</div><div class="use">Secondary text</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--ink-muted)"></div><div class="meta"><div class="name">Ink muted</div><div class="hex">#A08C74</div><div class="use">Unselected tab icons</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--clay)"></div><div class="meta"><div class="name">Clay</div><div class="hex">#C8664A</div><div class="use">Accents, marks, selected tag text</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--cta)"></div><div class="meta"><div class="name">Olive (primary)</div><div class="hex">#5F6B3A</div><div class="use">Primary button, active dots, today</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--good)"></div><div class="meta"><div class="name">Deep green</div><div class="hex">#5E8F63</div><div class="use">"Good", a verdict you set yourself</div></div></div>

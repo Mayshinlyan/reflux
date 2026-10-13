@@ -41,7 +41,7 @@ describe('FloatingTabBar', () => {
     }
   });
 
-  it('draws the selected tab solid ink and the other a pale surface2 silhouette, with details cut out', async () => {
+  it('draws the selected tab solid ink and the other an inkMuted silhouette, with details cut out', async () => {
     // react-native-svg hands colours to the native view as opaque ARGB numbers.
     const argb = (hex: string) => String(parseInt(`FF${hex.slice(1)}`, 16));
     await render(<FloatingTabBar active="history" bottomInset={0} onSelect={jest.fn()} />);
@@ -49,10 +49,10 @@ describe('FloatingTabBar', () => {
     const today = JSON.stringify(screen.getByRole('tab', { name: 'Today' }));
     const history = JSON.stringify(screen.getByRole('tab', { name: 'History' }));
 
-    expect(today).toContain(argb(lightColors.surface2));
+    expect(today).toContain(argb(lightColors.inkMuted));
     expect(today).not.toContain(argb(lightColors.ink));
     expect(history).toContain(argb(lightColors.ink));
-    expect(history).not.toContain(argb(lightColors.surface2));
+    expect(history).not.toContain(argb(lightColors.inkMuted));
     for (const tab of [today, history]) expect(tab).toContain(argb(lightColors.surface));
   });
 
