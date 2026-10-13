@@ -521,6 +521,13 @@ export function FoodFlow({
     }
   };
 
+  /** "Update verdict" or the keyboard's Done: closes the sheet and re-checks with the comment. */
+  const submitCorrection = () => {
+    if (!hasComment) return;
+    setTelling(false);
+    void updateVerdict();
+  };
+
   // Unchecked saves go to the diary; for My foods only a new food typed by name can skip the verdict.
   const canSaveUnchecked = !myFood || myFood.id === undefined;
   const reviewingPhoto = state.status !== 'done' && !busy && analyzed?.source === 'photo';
@@ -570,7 +577,21 @@ export function FoodFlow({
       />
     );
   } else if (showResult && shown) {
-    body = <FoodVerdict analysis={shown} when={formatMealTime(mealAt, now)} late={verdictLate} />;
+    body = (
+      <>
+        <FoodVerdict analysis={shown} when={formatMealTime(mealAt, now)} late={verdictLate} />
+        {/* Ticked before "I ate this", which logs the meal straight away. */}
+        {!myFood && !fromList && (
+          <View style={styles.keep}>
+            <CheckboxRow
+              label="Also save to My foods"
+              checked={details.keep}
+              onToggle={() => setDetails((current) => ({ ...current, keep: !current.keep }))}
+            />
+          </View>
+        )}
+      </>
+    );
   } else if (busy) {
     body = (
       <FoodLoading
@@ -648,14 +669,6 @@ export function FoodFlow({
   } else if (showResult) {
     footer = (
       <View style={styles.footer}>
-        {/* Ticked before "I ate this", which logs the meal straight away. */}
-        {!myFood && !fromList && (
-          <CheckboxRow
-            label="Also save to My foods"
-            checked={details.keep}
-            onToggle={() => setDetails((current) => ({ ...current, keep: !current.keep }))}
-          />
-        )}
         <Button label={myFood ? 'Save to My foods' : copy.saveLabel} onPress={save} />
         <Button label="Not quite right? Tell us more" variant="secondary" onPress={() => setTelling(true)} />
         {/* Quiet links, for someone only checking a food. The Food list's own check keeps it instead. */}
@@ -752,15 +765,9 @@ export function FoodFlow({
               placeholder="e.g. it's pumpkin soup, no cream"
               maxLength={MAX_TEXT}
               returnKeyType="done"
+              onSubmitEditing={submitCorrection}
             />
-            <Button
-              label={copy.updateLabel}
-              disabled={!hasComment}
-              onPress={() => {
-                setTelling(false);
-                void updateVerdict();
-              }}
-            />
+            <Button label={copy.updateLabel} disabled={!hasComment} onPress={submitCorrection} />
           </View>
         </BottomSheet>
         <MealTimeSheet
@@ -783,6 +790,7 @@ const styles = StyleSheet.create({
   content: { paddingBottom: space.s3 },
   actions: { gap: space.s1 },
   footer: { gap: 12, paddingTop: space.s2 },
+  keep: { marginTop: space.s1 },
   sheetActions: { gap: space.s2, marginTop: space.s2 },
   link: { minHeight: minTouchTarget, alignItems: 'center', justifyContent: 'center' },
   linkText: { ...typography.bodyEm, fontSize: 15, fontFamily: fontFamily.bold },
