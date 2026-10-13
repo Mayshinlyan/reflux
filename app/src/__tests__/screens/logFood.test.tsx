@@ -2,10 +2,9 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 import LogFoodScreen from '@/app/log/food';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { listDiaryFoodLogs, listMealTags } from '@/db/repositories/food';
+import { listDiaryFoodLogs } from '@/db/repositories/food';
 import { createSavedFood, listSavedFoods, saveCheckedFood } from '@/db/repositories/savedFoods';
 import { setSetting } from '@/db/repositories/settings';
-import { listSymptomLogs } from '@/db/repositories/symptoms';
 import { foodLogs } from '@/db/schema';
 import type { AppDb } from '@/db/types';
 import { AppError, friendlyMessages } from '@/lib/errors';
@@ -37,19 +36,10 @@ jest.mock('@/services/relayClient', () => ({ analyzeFood: jest.fn() }));
 jest.mock('@/services/photoPicker', () => ({ pickFoodPhoto: jest.fn() }));
 jest.mock('@/services/photoStore', () => ({ savePhoto: jest.fn(), deletePhoto: jest.fn() }));
 jest.mock('expo-image', () => ({ Image: () => null }));
-// The native wheel can't render here: the stand-in keeps its latest props so a test can "turn" it.
-let mockWheel: {
-  value: Date;
-  minimumDate: Date;
-  maximumDate: Date;
-  onValueChange: (event: unknown, date: Date) => void;
-} | null = null;
+// The native time wheel can't render here, and this screen no longer shows one.
 jest.mock('@react-native-community/datetimepicker', () => ({
   __esModule: true,
-  default: (props: NonNullable<typeof mockWheel>) => {
-    mockWheel = props;
-    return null;
-  },
+  default: () => null,
   DateTimePickerAndroid: { open: jest.fn() },
 }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -136,10 +126,9 @@ const result = {
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('Describe it'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
-/** "I ate this" logs it as eaten right now and opens the details; Done there closes the flow. */
+/** "I ate this" logs it as eaten right now and goes straight back to Today. */
 const ateThis = async () => {
   await press('I ate this');
-  await press('Done');
 };
 /** The photo card opens a sheet to take a photo or choose one. */
 const takePhoto = async () => {
@@ -249,7 +238,6 @@ describe('Log food screen: "Add a food" from the Food list', () => {
     await typeFood('Banana bread');
 
     await press('Log without checking');
-    await press('Done');
 
     expect(analyze).not.toHaveBeenCalled();
     expect(listDiaryFoodLogs(mockDb, ALL_TIME).map((food) => food.mealName)).toEqual(['Banana bread']);
@@ -406,7 +394,7 @@ describe('Log food screen (text)', () => {
     expect(mockToast).not.toHaveBeenCalled();
   });
 
-  it('saves the portion, lifestyle tags, symptoms and note from the details', async () => {
+  it('logs the meal and goes straight back to Today, with nothing more to add', async () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
     await type('mint tea');
@@ -414,21 +402,12 @@ describe('Log food screen (text)', () => {
     await screen.findByText('Mint is a common trigger.');
 
     await press('I ate this');
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1); // already logged, before any details
-    await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
-    await fireEvent.press(screen.getByRole('radio', { name: 'Large' }));
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Stress' }));
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Heartburn' }));
-    await fireEvent.changeText(screen.getByLabelText('Note'), '  felt heavy ');
-    await press('Done');
 
-    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
-    expect(meal).toMatchObject({ portion: 'large', notes: 'felt heavy' });
-    expect(listMealTags(mockDb, meal.id)).toEqual(['stress']);
-    const [symptomLog] = listSymptomLogs(mockDb, ALL_TIME);
-    expect(symptomLog).toMatchObject({ foodLogId: meal.id, loggedAt: meal.loggedAt });
-    expect(symptomLog.items.map((item) => item.key)).toEqual(['heartburn']);
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
+    expect(mockToast).toHaveBeenCalledWith('Added to your food diary', { top: true });
     expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Anything to add/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
   });
 });
 
@@ -680,21 +659,6 @@ describe('Food screen (updating the verdict with a comment)', () => {
     expect(analyze).toHaveBeenLastCalledWith({ text: 'soup', details: 'pumpkin' });
   });
 
-  it('keeps the portion chosen on the details on the diary meal, so History can show and edit it', async () => {
-    analyze.mockResolvedValue(result);
-    await render(<LogFoodScreen />);
-
-    await type('soup');
-    await press('Check this meal');
-    await screen.findByText('Mint is a common trigger.');
-    await press('I ate this');
-    await fireEvent.press(screen.getByRole('button', { name: 'Portion, Regular' }));
-    await fireEvent.press(screen.getByRole('radio', { name: 'Small' }));
-    await press('Done');
-
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)[0]).toMatchObject({ portion: 'small' });
-  });
-
   it('only lets "Update verdict" go once there is a comment', async () => {
     analyze.mockResolvedValue(result);
     await analyzeSoup();
@@ -896,20 +860,7 @@ describe('Food screen for My foods', () => {
   });
 });
 
-describe('Log food screen: when it was eaten (details)', () => {
-  /** Yesterday at 8:15 AM, local time: always in the past whenever the test runs. */
-  const yesterdayBreakfast = () => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 8, 15);
-  };
-  const turnWheel = async (date: Date) => act(() => mockWheel?.onValueChange({}, date));
-  const timePill = () => screen.getByRole('button', { name: /^(Today|Yesterday|[A-Z][a-z]{2} \d)/ });
-  /** Opens the wheel from the time pill, turns it to `date`, and confirms. */
-  const setTime = async (date: Date) => {
-    await fireEvent.press(timePill());
-    await turnWheel(date);
-    await press('Set time');
-  };
+describe('Log food screen: when it was eaten', () => {
   const checkMintTea = async () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
@@ -917,10 +868,6 @@ describe('Log food screen: when it was eaten (details)', () => {
     await press('Check this meal');
     await screen.findByText('Mint is a common trigger.');
   };
-
-  beforeEach(() => {
-    mockWheel = null;
-  });
 
   it('has no time picker up front or on the verdict', async () => {
     await render(<LogFoodScreen />);
@@ -930,29 +877,6 @@ describe('Log food screen: when it was eaten (details)', () => {
     await press('Check this meal');
     await screen.findByText('Mint is a common trigger.');
     expect(screen.queryByText('When did you eat this?')).toBeNull();
-  });
-
-  it('shows the time on the details, with a wheel limited to the past week', async () => {
-    await checkMintTea();
-    await press('I ate this');
-
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1); // logged as of now; the time can still change
-    await fireEvent.press(timePill());
-    expect(screen.getByText('When did you eat this?')).toBeTruthy();
-    const now = new Date();
-    expect(mockWheel?.maximumDate.getTime()).toBeLessThanOrEqual(Date.now());
-    expect(mockWheel?.minimumDate).toEqual(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6));
-  });
-
-  it('saves at the chosen time', async () => {
-    await checkMintTea();
-    await press('I ate this');
-    await setTime(yesterdayBreakfast());
-    await press('Done');
-
-    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
-    expect(meal.loggedAt).toBe(yesterdayBreakfast().toISOString());
-    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
   it('saves at noon of the day tapped in the week strip', async () => {
@@ -976,42 +900,6 @@ describe('Log food screen: when it was eaten (details)', () => {
 
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(new Date(meal.loggedAt).getTime()).toBeGreaterThanOrEqual(before - 1000);
-    expect(new Date(meal.loggedAt).getTime()).toBeLessThanOrEqual(Date.now());
-  });
-
-  it('keeps the logged time if the time sheet is dismissed', async () => {
-    await checkMintTea();
-    await press('I ate this');
-    const [before] = listDiaryFoodLogs(mockDb, ALL_TIME);
-    await fireEvent.press(timePill());
-    await fireEvent.press(screen.getAllByLabelText('Close', { includeHiddenElements: true })[0]);
-    await press('Done');
-
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)[0].loggedAt).toBe(before.loggedAt);
-  });
-
-  it('lets "Log without checking" change the time afterwards too', async () => {
-    await render(<LogFoodScreen />);
-    await type('toast and eggs');
-
-    await press('Log without checking');
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
-    await setTime(yesterdayBreakfast());
-    await press('Done');
-
-    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
-    expect(meal.mealName).toBe('toast and eggs');
-    expect(meal.loggedAt).toBe(yesterdayBreakfast().toISOString());
-  });
-
-  it('never saves a time that has not happened yet', async () => {
-    await render(<LogFoodScreen />);
-    await type('toast');
-    await press('Log without checking');
-    await setTime(new Date(Date.now() + 60 * 60 * 1000));
-    await press('Done');
-
-    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(new Date(meal.loggedAt).getTime()).toBeLessThanOrEqual(Date.now());
   });
 });
@@ -1056,7 +944,7 @@ describe('Log food screen: Quick log', () => {
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/food', params: { manage: '1' } });
   });
 
-  it('logs the saved food right away with its saved verdict, then opens the details', async () => {
+  it('logs the saved food right away with its saved verdict, then goes back to Today', async () => {
     const { id } = saveOatmeal();
     await render(<LogFoodScreen />);
 
@@ -1067,29 +955,9 @@ describe('Log food screen: Quick log', () => {
     const meals = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(meals).toHaveLength(1);
     expect(meals[0]).toMatchObject({ mealName: 'Oatmeal with banana', overallVerdict: 'caution' });
-    expect(screen.getByRole('header', { name: /Logged!/ })).toBeTruthy();
-    expect(screen.getByLabelText('Caution')).toBeTruthy();
     expect(mockToast).toHaveBeenCalledWith('Added to your food diary', { top: true });
-
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Stress' }));
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Heartburn' }));
-    const done = screen.getByRole('button', { name: 'Done' });
-    await fireEvent.press(done);
-    await fireEvent.press(done);
-
-    expect(listMealTags(mockDb, meals[0].id)).toEqual(['stress']);
-    expect(listSymptomLogs(mockDb, ALL_TIME)[0]).toMatchObject({ foodLogId: meals[0].id });
     expect(listSavedFoods(mockDb).map((food) => food.id)).toEqual([id]);
     expect(analyze).not.toHaveBeenCalled();
-    expect(mockBack).toHaveBeenCalledTimes(1);
-  });
-
-  it('ends the flow from the X on the details, keeping the meal that was logged', async () => {
-    saveOatmeal();
-    await render(<LogFoodScreen />);
-    await press('Oatmeal with banana');
-    await press('Close');
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 

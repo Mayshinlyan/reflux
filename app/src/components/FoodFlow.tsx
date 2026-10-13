@@ -11,10 +11,8 @@ import { Button } from '@/components/Button';
 import { CheckboxRow } from '@/components/CheckboxRow';
 import { FoodLoading } from '@/components/FoodLoading';
 import { FoodCapture } from '@/components/food/FoodCapture';
-import { FoodDetails, type MealDetailsState } from '@/components/food/FoodDetails';
 import { FoodVerdict } from '@/components/food/FoodVerdict';
 import { QuickLogRow } from '@/components/food/QuickLogRow';
-import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
 import { SwipeNav } from '@/components/SwipeNav';
 import { TextField } from '@/components/TextField';
@@ -25,7 +23,6 @@ import {
   createFoodLog,
   createUncheckedMeal,
   promoteCheckToDiary,
-  saveMealDetails,
   updateFoodCheck,
 } from '@/db/repositories/food';
 import {
@@ -37,7 +34,6 @@ import {
   type StoredSavedFood,
 } from '@/db/repositories/savedFoods';
 import { getSetting } from '@/db/repositories/settings';
-import { createSymptomLog } from '@/db/repositories/symptoms';
 import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
 import { playChing } from '@/lib/ching';
 import { AppError } from '@/lib/errors';
@@ -46,16 +42,12 @@ import { foodSwipe } from '@/lib/logSwipe';
 import { dayToLoggedAt, formatMealTime } from '@/lib/mealTime';
 import { isLateMeal } from '@/lib/mealTiming';
 import { currentTimeZone } from '@/lib/time';
-import { effectiveVerdict } from '@/lib/verdict';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
-import type { AppVerdict } from '@/types/analysis';
 
 const MAX_TEXT = 200;
-const MAX_NOTE = 500;
-const EXTRAS_FAILED = "Saved, but we couldn't keep the extras";
 /** The relay's cap on `details`; the newest words win when earlier notes and a correction overflow it. */
 const MAX_DETAILS = 300;
 const CAMERA_DENIED =
@@ -78,9 +70,6 @@ const copy = {
   notEatingLabel: 'Not eating this',
 } as const;
 
-/** A meal just logged, which the details step adds to. */
-type LoggedMeal = { id: number; name: string; verdict?: AppVerdict };
-
 /** What was actually sent, so an edit while loading can't mismatch the saved entry. */
 type Analyzed = { source: 'text'; text: string } | { source: 'photo'; uri: string };
 
@@ -88,12 +77,12 @@ type Analyzed = { source: 'text'; text: string } | { source: 'photo'; uri: strin
 export type MyFoodTarget = { id?: number; name?: string };
 
 /**
- * The one food screen, for a meal just eaten or one being considered, in three steps (Figma 03b to 03d):
- * capture (a photo or a typed description) → verdict (the belly's mood, why, matched triggers) → details
- * (time, portion, lifestyle tags, symptoms, a note). Saved foods sit on top of the capture step as a Quick
- * log row; tapping one skips straight to the details with its saved verdict. Each result is kept as a check (outside the diary);
- * "I ate this" opens the details, and Save promotes that check, reusing its analysis instead of calling
- * the relay again.
+ * The one food screen, for a meal just eaten or one being considered, in two steps (Figma 03b and 03c):
+ * capture (a photo or a typed description) → verdict (the belly's mood, why, matched triggers). Saved foods
+ * sit on top of the capture step as a Quick log row; tapping one logs it straight away with its saved
+ * verdict. Each result is kept as a check (outside the diary); "I ate this" promotes that check, reusing its
+ * analysis instead of calling the relay again, and the meal is logged: a toast, then back to Today. Portion,
+ * lifestyle tags and a note are added later by editing the entry.
  * `photoUri` is a photo the tab bar's Snap food already took and prepared: the flow starts on its review step.
  * `openCamera` opens the camera as soon as the screen appears (the tab bar falls back to it when it was denied camera
  * access, so this screen can say why).
@@ -134,11 +123,6 @@ export function FoodFlow({
   const [updated, setUpdated] = useState<AnalysisResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const { settings } = useSettings();
-  // The details step: which kind of save it is for (a checked meal, or one saved without a verdict).
-  // The meal that was just logged (by "I ate this", "Log without checking" or a Quick log chip); the optional
-  // details are about it.
-  const [logged, setLogged] = useState<LoggedMeal | null>(null);
-  const finishing = useRef(false);
   // The Quick log row is for logging what was eaten, so My foods and the Food list's own check leave it out.
   // Reloaded on focus, so foods edited or removed under "See all" are right when coming back.
   const [savedFoods, setSavedFoods] = useState<StoredSavedFood[]>([]);
@@ -153,15 +137,8 @@ export function FoodFlow({
   useFocusEffect(loadSavedFoods);
   /** When a meal logged straight away counts as eaten: now, or noon of the day picked in the week strip. */
   const logTime = () => (date ? dayToLoggedAt(date, new Date()) : null) ?? new Date();
-  const [eatenAt, setEatenAt] = useState(logTime);
-  const [details, setDetails] = useState<MealDetailsState>({
-    portion: 'regular',
-    tags: new Set(),
-    symptoms: new Set(),
-    note: '',
-    keep: false,
-  });
-  const [pickingTime, setPickingTime] = useState(false);
+  // "Also save to My foods", ticked on the verdict before the meal is logged.
+  const [keep, setKeep] = useState(false);
   const [choosingPhoto, setChoosingPhoto] = useState(false);
   // The picker opens only once the sheet has finished closing: iOS can't present it over a closing modal.
   const pendingPhoto = useRef<PhotoSource | null>(null);
@@ -273,54 +250,17 @@ export function FoodFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on arrival; checkPhoto's state is fresh then
   }, [openCamera]);
 
-  const pickTime = () => {
-    if (Platform.OS === 'android') pickTimeAndroid(eatenAt, setEatenAt);
-    else setPickingTime(true);
-  };
-
-  /** A meal was just logged: the nudge and the toast, then the optional details open on it. */
-  const mealLogged = (meal: LoggedMeal, at: Date, message: string) => {
+  /** A meal was just logged: the nudge and the toast, then back to Today. */
+  const mealLogged = (message: string) => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     playChing();
     toast(message, { top: true });
-    setEatenAt(at);
-    setLogged(meal);
-  };
-
-  /**
-   * "Done" on the details: the portion, lifestyle tags, note and time on the meal that is already logged,
-   * and any symptoms as a symptom log linked to it. Nothing is lost if the extras fail, the meal is saved.
-   */
-  const done = () => {
-    if (!logged || finishing.current) return;
-    finishing.current = true;
-    let kept = true;
-    try {
-      saveMealDetails(db, logged.id, {
-        loggedAt: eatenAt.toISOString(),
-        portion: details.portion,
-        tags: [...details.tags],
-        notes: details.note,
-      });
-      if (details.symptoms.size > 0) {
-        createSymptomLog(db, {
-          items: [...details.symptoms].map((key) => ({ key })),
-          foodLogId: logged.id,
-          loggedAt: eatenAt.toISOString(),
-        });
-      }
-    } catch {
-      // Code only: a raw error could echo the note.
-      logger.error('saveMealDetails', new AppError('INTERNAL'));
-      kept = false;
-    }
-    if (!kept) toast(EXTRAS_FAILED);
     router.dismissTo('/');
   };
 
   /**
    * "I ate this" (or "Save to My foods" for a My foods check): logs exactly the verdict on screen, with no
-   * further relay call. A diary meal is logged right away, as of now, and the details open on it.
+   * further relay call. A diary meal is logged right away, as of now, then the app goes back to Today.
    */
   const save = () => {
     if (!shown || !analyzed || saving.current) return;
@@ -368,7 +308,7 @@ export function FoodFlow({
       return;
     }
     if (diaryId !== null) {
-      if (details.keep) {
+      if (keep) {
         try {
           saveFoodFromLog(db, diaryId);
           savedMessage = copy.savedAndKept;
@@ -377,11 +317,7 @@ export function FoodFlow({
           logger.error('saveFoodFromLog', new AppError('INTERNAL'));
         }
       }
-      mealLogged(
-        { id: diaryId, name: analysis.mealName, verdict: effectiveVerdict(shown) },
-        at,
-        savedMessage,
-      );
+      mealLogged(savedMessage);
       return;
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -419,8 +355,8 @@ export function FoodFlow({
   };
 
   /**
-   * "Log without checking": what was typed becomes a plain diary entry, with no relay call (works offline), and
-   * the details open on it. For My foods it is added by name instead, which has no time or details.
+   * "Log without checking": what was typed becomes a plain diary entry, with no relay call (works offline).
+   * For My foods it is added by name instead, which has no time.
    */
   const saveUnchecked = () => {
     if (!trimmed || busy || saving.current) return;
@@ -448,17 +384,16 @@ export function FoodFlow({
       router.back();
       return;
     }
-    mealLogged({ id: mealId, name: trimmed }, at, copy.savedUnchecked);
+    mealLogged(copy.savedUnchecked);
   };
 
-  /** A Quick log chip: logs the food with the verdict it was saved with (no relay call), and opens the details. */
+  /** A Quick log chip: logs the food with the verdict it was saved with (no relay call). */
   const logQuick = (food: StoredSavedFood) => {
     if (busy || saving.current) return;
     saving.current = true;
     const at = logTime();
-    let mealId: number;
     try {
-      mealId = logSavedFood(db, food.id, at.toISOString());
+      logSavedFood(db, food.id, at.toISOString());
     } catch {
       saving.current = false;
       // Code only: a raw error could echo the food name.
@@ -466,15 +401,7 @@ export function FoodFlow({
       toast("We couldn't save that. Please try again.");
       return;
     }
-    mealLogged(
-      {
-        id: mealId,
-        name: food.mealName,
-        verdict: food.analysis ? effectiveVerdict(food.analysis) : undefined,
-      },
-      at,
-      copy.saved,
-    );
+    mealLogged(copy.saved);
   };
 
   /**
@@ -540,8 +467,7 @@ export function FoodFlow({
 
   // The plain Food screen (nothing saved yet) joins the swipe between log screens, but only while it
   // is empty, so a stray drag can't drop a typed description or a photo.
-  const swipeable =
-    !myFood && !fromList && !openCamera && !analyzed && !text && !draft && !busy && logged === null;
+  const swipeable = !myFood && !fromList && !openCamera && !analyzed && !text && !draft && !busy;
 
   const now = new Date();
   // The verdict is about the meal as it will be logged: now, or noon of the picked day.
@@ -549,34 +475,20 @@ export function FoodFlow({
   const verdictLate =
     shown !== null &&
     isLateMeal(mealAt.toISOString(), currentTimeZone(), settings.bedtime, settings.lateMealWindowMinutes);
-  // Back walks the steps: details → verdict → capture, then leaves.
+  // Back walks the steps: verdict → capture, then leaves.
   const backToCapture = () => {
     setCorrection('');
     setUpdated(null);
     reset();
   };
-  // Once logged there is nothing to step back to: the X ends the flow, like Done.
-  const onBack = logged ? () => router.dismissTo('/') : showResult ? backToCapture : undefined;
-  const onDetails = logged !== null;
+  const onBack = showResult ? backToCapture : undefined;
   const typed = trimmed.toLowerCase();
   const quickFoods = savedFoods
     .filter((food) => !typed || food.mealName.toLowerCase().includes(typed))
     .map((food) => ({ id: food.id, name: food.mealName }));
 
   let body;
-  if (onDetails) {
-    body = (
-      <FoodDetails
-        mealName={logged?.name ?? ''}
-        verdict={logged?.verdict}
-        whenLabel={formatMealTime(eatenAt, now)}
-        onPickTime={pickTime}
-        state={details}
-        onChange={setDetails}
-        maxNote={MAX_NOTE}
-      />
-    );
-  } else if (showResult && shown) {
+  if (showResult && shown) {
     body = (
       <>
         <FoodVerdict analysis={shown} when={formatMealTime(mealAt, now)} late={verdictLate} />
@@ -585,8 +497,8 @@ export function FoodFlow({
           <View style={styles.keep}>
             <CheckboxRow
               label="Also save to My foods"
-              checked={details.keep}
-              onToggle={() => setDetails((current) => ({ ...current, keep: !current.keep }))}
+              checked={keep}
+              onToggle={() => setKeep((current) => !current)}
             />
           </View>
         )}
@@ -660,13 +572,7 @@ export function FoodFlow({
 
   // Outside the scroll area so the main button is always on screen, however long the step is.
   let footer = null;
-  if (onDetails) {
-    footer = (
-      <View style={styles.footer}>
-        <Button label="Done" onPress={done} />
-      </View>
-    );
-  } else if (showResult) {
+  if (showResult) {
     footer = (
       <View style={styles.footer}>
         <Button label={myFood ? 'Save to My foods' : copy.saveLabel} onPress={save} />
@@ -711,12 +617,11 @@ export function FoodFlow({
         <BackHeader
           title={myFood ? (myFood.id === undefined ? 'Add a food' : 'Get a verdict') : undefined}
           onBack={onBack}
-          close={logged !== null}
         />
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
-            // A fresh scroll position for each step, so details don't open scrolled down from the verdict.
-            key={logged ? 'logged' : showResult ? 'verdict' : busy ? 'busy' : 'capture'}
+            // A fresh scroll position for each step.
+            key={showResult ? 'verdict' : busy ? 'busy' : 'capture'}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.content}>
             {body}
@@ -770,16 +675,6 @@ export function FoodFlow({
             <Button label={copy.updateLabel} disabled={!hasComment} onPress={submitCorrection} />
           </View>
         </BottomSheet>
-        <MealTimeSheet
-          visible={pickingTime}
-          question="When did you eat this?"
-          confirmLabel="Set time"
-          onConfirm={(at) => {
-            setPickingTime(false);
-            setEatenAt(at ?? new Date());
-          }}
-          onClose={() => setPickingTime(false)}
-        />
       </Screen>
     </SwipeNav>
   );

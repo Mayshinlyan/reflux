@@ -6,7 +6,6 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { CheckboxRow } from '@/components/CheckboxRow';
-import { MEAL_SYMPTOM_KEYS } from '@/components/food/FoodDetails';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { PortionSelect } from '@/components/PortionSelect';
 import { Screen } from '@/components/Screen';
@@ -41,6 +40,9 @@ import { effectiveVerdict } from '@/lib/verdict';
 import { analyzeFood } from '@/services/relayClient';
 import { space } from '@/theme';
 import type { Portion } from '@/types/analysis';
+
+/** The few symptoms a meal can be linked to when editing it; the full list lives on the Symptoms screen. */
+const MEAL_SYMPTOM_KEYS: SymptomKey[] = ['heartburn', 'burping', 'hoarseness', 'stomach_pain'];
 
 const MAX_NOTE = 500;
 const SAVE_FAILED = "We couldn't save that. Please try again.";
