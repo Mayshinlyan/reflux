@@ -215,6 +215,23 @@ describe('POST /v1/analyze-food: photo', () => {
     expect(claudeCalls).toHaveLength(1);
   });
 
+  it('accepts details, portion and conditions together with the photo (a corrected photo check)', async () => {
+    const { app, claudeCalls } = testApp();
+    const res = await post(app)
+      .field('details', 'it is kinako and sesame')
+      .field('portion', 'small')
+      .field('conditions', 'acid_reflux,lpr')
+      .attach('photo', jpeg, { filename: 'meal.jpg', contentType: 'image/jpeg' });
+
+    expect(res.status).toBe(200);
+    expect(claudeCalls[0]).toMatchObject({
+      kind: 'photo',
+      details: 'it is kinako and sesame',
+      portion: 'small',
+      conditions: ['acid_reflux', 'lpr'],
+    });
+  });
+
   it('rejects unknown multipart fields', async () => {
     const { app, claudeCalls } = testApp();
     const res = await post(app)

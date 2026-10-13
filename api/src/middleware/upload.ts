@@ -5,8 +5,9 @@ export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 const parser = multer({
   storage: multer.memoryStorage(), // photos never touch disk
-  // One optional text field (`details`) beside the photo; anything else is rejected.
-  limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 1, fieldSize: 4 * 1024, parts: 3 },
+  // Up to three optional text fields (`details`, `portion`, `conditions`) beside the photo; validateInput
+  // rejects any other name.
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 3, fieldSize: 4 * 1024, parts: 4 },
 }).single('photo');
 
 /** Parses multipart requests only; JSON requests pass straight through. MulterErrors are mapped in errorHandler. */
