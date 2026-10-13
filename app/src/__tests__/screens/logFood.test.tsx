@@ -698,6 +698,27 @@ describe('Food screen (updating the verdict with a comment)', () => {
     expect(screen.getByRole('button', { name: 'Update verdict' })).toBeEnabled();
   });
 
+  it('updates the verdict when Done is pressed on the keyboard, not only on the button', async () => {
+    analyze.mockResolvedValueOnce(result).mockResolvedValueOnce(corrected);
+    await analyzeSoup();
+
+    await tellUs('pumpkin');
+    await fireEvent(screen.getByLabelText('Tell us more'), 'submitEditing');
+
+    expect(await screen.findByText('Plain pumpkin soup.')).toBeTruthy();
+    expect(analyze).toHaveBeenLastCalledWith({ text: 'soup', details: 'pumpkin' });
+  });
+
+  it('does nothing on keyboard Done while the comment is blank', async () => {
+    analyze.mockResolvedValue(result);
+    await analyzeSoup();
+
+    await tellUs('   ');
+    await fireEvent(screen.getByLabelText('Tell us more'), 'submitEditing');
+
+    expect(analyze).toHaveBeenCalledTimes(1);
+  });
+
   it('shows the updated verdict before saving, then saves it with no further call', async () => {
     analyze.mockResolvedValueOnce(result).mockResolvedValueOnce(corrected);
     await analyzeSoup();

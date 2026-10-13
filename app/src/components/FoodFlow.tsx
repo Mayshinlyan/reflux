@@ -521,6 +521,13 @@ export function FoodFlow({
     }
   };
 
+  /** "Update verdict" or the keyboard's Done: closes the sheet and re-checks with the comment. */
+  const submitCorrection = () => {
+    if (!hasComment) return;
+    setTelling(false);
+    void updateVerdict();
+  };
+
   // Unchecked saves go to the diary; for My foods only a new food typed by name can skip the verdict.
   const canSaveUnchecked = !myFood || myFood.id === undefined;
   const reviewingPhoto = state.status !== 'done' && !busy && analyzed?.source === 'photo';
@@ -752,15 +759,9 @@ export function FoodFlow({
               placeholder="e.g. it's pumpkin soup, no cream"
               maxLength={MAX_TEXT}
               returnKeyType="done"
+              onSubmitEditing={submitCorrection}
             />
-            <Button
-              label={copy.updateLabel}
-              disabled={!hasComment}
-              onPress={() => {
-                setTelling(false);
-                void updateVerdict();
-              }}
-            />
+            <Button label={copy.updateLabel} disabled={!hasComment} onPress={submitCorrection} />
           </View>
         </BottomSheet>
         <MealTimeSheet
