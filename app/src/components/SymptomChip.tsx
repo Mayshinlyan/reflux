@@ -55,6 +55,7 @@ export function SymptomChip({ label, selected, onToggle, readOnly, onRemove, onC
         accessibilityLabel: label,
         accessibilityState: { checked: selected },
       } as const);
+  const labelColor = selected ? colors.sageInk : colors.ink;
 
   return (
     <Pressable
@@ -63,7 +64,7 @@ export function SymptomChip({ label, selected, onToggle, readOnly, onRemove, onC
       {...roleProps}
       hitSlop={3}
       style={[styles.chip, colorStyle]}>
-      <AppText style={[styles.label, { color: selected ? colors.sageInk : colors.ink }]}>{label}</AppText>
+      <AppText style={[styles.label, { color: labelColor }]}>{label}</AppText>
     </Pressable>
   );
 }

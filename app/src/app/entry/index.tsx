@@ -13,7 +13,6 @@ import { TagChip } from '@/components/TagChip';
 import { BackHeader } from '@/components/BackHeader';
 import { TopBarButton } from '@/components/TopBar';
 import { VerdictBadge } from '@/components/VerdictBadge';
-import { LIFESTYLE_TAGS } from '@/constants/lifestyleTags';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { getFoodLog, listMealTags } from '@/db/repositories/food';
 import { isFoodSaved } from '@/db/repositories/savedFoods';
@@ -23,11 +22,10 @@ import { type LoadedEntry, loadEntry } from '@/lib/entry';
 import { logger } from '@/lib/logger';
 import { formatTime, formatWhen } from '@/lib/localDay';
 import { isLateMeal } from '@/lib/mealTiming';
-import { medicationTypeLabel, symptomLabel } from '@/lib/timeline';
+import { possibleCauses } from '@/lib/possibleCauses';
+import { medicationTypeLabel, symptomLabel, tagLabel } from '@/lib/timeline';
 import { matchedTriggerLabels } from '@/lib/verdictReasons';
 import { radius, space, useColors } from '@/theme';
-
-const tagLabelOf = new Map<string, string>(LIFESTYLE_TAGS.map((tag) => [tag.key, tag.label]));
 
 /**
  * One diary entry in full (Figma 04b meal, 04f dose, 04h symptoms): a close X and a `…` menu on top, then the
@@ -201,7 +199,7 @@ function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] 
   const db = useDb();
   const { settings } = useSettings();
   const late = isLateMeal(log.loggedAt, log.tz, settings.bedtime, settings.lateMealWindowMinutes);
-  const lifestyle = listMealTags(db, log.id).map((key) => tagLabelOf.get(key) ?? key);
+  const lifestyle = listMealTags(db, log.id).map(tagLabel);
   const triggers = log.analysis ? matchedTriggerLabels(log.analysis, { late }) : late ? ['Late meal'] : [];
   const tags = [...new Set([...lifestyle, ...triggers])];
   const after = listSymptomLogsForMeal(db, log.id);
@@ -239,8 +237,15 @@ function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] 
 
 function SymptomView({ log }: { log: Extract<LoadedEntry, { kind: 'symptom' }>['log'] }) {
   const db = useDb();
+  const { settings } = useSettings();
   const meal = log.foodLogId !== null ? getFoodLog(db, log.foodLogId) : undefined;
-  const tags = log.tags.map((key) => tagLabelOf.get(key) ?? key);
+  const tags = log.tags.map(tagLabel);
+  const causes = possibleCauses({
+    symptomAt: log.loggedAt,
+    meal,
+    bedtime: settings.bedtime,
+    lateMealWindowMinutes: settings.lateMealWindowMinutes,
+  });
   return (
     <>
       <Heading>{log.items.map((item) => symptomLabel(item.key)).join(', ')}</Heading>
@@ -260,6 +265,18 @@ function SymptomView({ log }: { log: Extract<LoadedEntry, { kind: 'symptom' }>['
           </AppText>
         )}
       </Card>
+      {causes.length > 0 && (
+        <Card title="Possibly related">
+          {causes.map((cause) => (
+            <AppText key={cause} variant="small">
+              {cause}
+            </AppText>
+          ))}
+          <AppText variant="caption" color="inkSoft">
+            Worked out on your phone from what you logged. Not a diagnosis.
+          </AppText>
+        </Card>
+      )}
       <NoteCard notes={log.notes} />
     </>
   );

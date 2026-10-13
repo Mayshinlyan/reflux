@@ -1,8 +1,8 @@
 import type { StoredFoodLog } from '@/db/repositories/food';
 import type { SymptomLogWithDetails } from '@/db/repositories/symptoms';
 
-import type { LifestyleTagKey } from '@/constants/lifestyleTags';
-import type { SymptomKey } from '@/constants/symptomItems';
+import type { LoggedTagKey } from '@/constants/lifestyleTags';
+import type { LoggedSymptomKey } from '@/constants/symptomItems';
 
 import { donutSegments, goodLine, summarize } from '../historySummary';
 import type { TimelineEntry } from '../timeline';
@@ -16,7 +16,7 @@ const meal = (id: number, verdict: StoredFoodLog['overallVerdict'], day: string)
     log: { overallVerdict: verdict } as StoredFoodLog,
   }) as TimelineEntry;
 
-const symptom = (id: number, day: string, keys: SymptomKey[] = [], tags: LifestyleTagKey[] = []) =>
+const symptom = (id: number, day: string, keys: LoggedSymptomKey[] = [], tags: LoggedTagKey[] = []) =>
   ({
     kind: 'symptom',
     id,
@@ -26,6 +26,28 @@ const symptom = (id: number, day: string, keys: SymptomKey[] = [], tags: Lifesty
   }) as TimelineEntry;
 
 const dayOf = (entry: TimelineEntry) => entry.at.slice(0, 10);
+
+describe('summarize: lifestyle factors the user typed', () => {
+  it('lists them with the built-in tags once they are logged, ranked by count', () => {
+    const summary = summarize(
+      [
+        symptom(1, '2026-10-10', ['heartburn'], ['custom:Skipped breakfast', 'stress']),
+        symptom(2, '2026-10-09', ['heartburn'], ['custom:Skipped breakfast']),
+        symptom(3, '2026-10-08', ['heartburn'], ['custom:Skipped breakfast']),
+      ],
+      dayOf,
+    );
+
+    expect(summary.tags.slice(0, 2)).toEqual([
+      { key: 'custom:Skipped breakfast', label: 'Skipped breakfast', count: 3 },
+      { key: 'stress', label: 'Stress', count: 1 },
+    ]);
+  });
+
+  it('does not list one that was never logged in the period', () => {
+    expect(summarize([], dayOf).tags.some((tag) => tag.key.startsWith('custom:'))).toBe(false);
+  });
+});
 
 describe('summarize', () => {
   it('counts meals, the verdict mix, and the days that have symptoms', () => {
@@ -83,6 +105,20 @@ describe('summarize', () => {
     ]);
   });
 
+  it('ranks a symptom the user typed with the others, under their own words', () => {
+    const summary = summarize(
+      [
+        symptom(1, '2026-10-10', ['custom:Hiccups', 'heartburn']),
+        symptom(2, '2026-10-09', ['custom:Hiccups']),
+      ],
+      dayOf,
+    );
+    expect(summary.symptoms.slice(0, 2)).toEqual([
+      { key: 'custom:Hiccups', label: 'Hiccups', count: 2 },
+      { key: 'heartburn', label: 'Heartburn', count: 1 },
+    ]);
+  });
+
   it('ranks symptoms by how many entries have them, most first, and keeps the top six', () => {
     const summary = summarize(
       [
@@ -105,7 +141,7 @@ describe('summarize', () => {
         symptom(1, '2026-10-10', ['heartburn'], ['alcohol', 'stress']),
       ],
       dayOf,
-      new Map<number, LifestyleTagKey[]>([
+      new Map<number, LoggedTagKey[]>([
         [1, ['stress', 'large_meal']],
         [2, ['stress']],
       ]),

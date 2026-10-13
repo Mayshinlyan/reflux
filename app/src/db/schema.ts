@@ -181,6 +181,26 @@ export const savedFoods = sqliteTable(
   ],
 );
 
+/**
+ * "My additions": symptoms and lifestyle factors the user typed with a "+" chip, kept as quick-pick
+ * chips. Removing one only takes the chip away; entries already logged keep their `custom:<name>` item.
+ */
+export const savedSymptoms = sqliteTable(
+  'saved_symptoms',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    /** 'symptom' or 'lifestyle': what the typed text is. */
+    kind: text('kind', { enum: ['symptom', 'lifestyle'] })
+      .notNull()
+      .default('symptom'),
+    /** The body area a symptom was added in (a bodyZones key); null for lifestyle, or a symptom saved before areas. */
+    zone: text('zone'),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('saved_symptoms_name_uq').on(sql`lower(${t.name})`)],
+);
+
 /** Key/value settings. Values are JSON-encoded; see repositories/settings.ts for keys and defaults. */
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
@@ -192,4 +212,5 @@ export type SymptomLog = typeof symptomLogs.$inferSelect;
 export type FoodLog = typeof foodLogs.$inferSelect;
 export type Medication = typeof medications.$inferSelect;
 export type SavedFood = typeof savedFoods.$inferSelect;
+export type SavedSymptom = typeof savedSymptoms.$inferSelect;
 export type MedicationLog = typeof medicationLogs.$inferSelect;

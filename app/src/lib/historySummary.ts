@@ -1,4 +1,4 @@
-import { LIFESTYLE_TAGS, type LifestyleTagKey } from '@/constants/lifestyleTags';
+import { isCustomTag, LIFESTYLE_TAGS, type LoggedTagKey } from '@/constants/lifestyleTags';
 import { RETIRED_SYMPTOM_KEYS, SYMPTOM_ITEMS } from '@/constants/symptomItems';
 import type { AppVerdict } from '@/types/analysis';
 
@@ -37,7 +37,7 @@ const byCount = (a: RankedCount, b: RankedCount) => b.count - a.count;
 export function summarize(
   entries: readonly TimelineEntry[],
   dayKeyOf: (entry: TimelineEntry) => string,
-  mealTags: ReadonlyMap<number, readonly LifestyleTagKey[]> = new Map(),
+  mealTags: ReadonlyMap<number, readonly LoggedTagKey[]> = new Map(),
 ): HistorySummary {
   const verdicts: Record<AppVerdict, number> = { good: 0, ok: 0, caution: 0, trigger: 0 };
   const symptomDays = new Set<string>();
@@ -66,11 +66,18 @@ export function summarize(
     (item) => !symptomCounts.has(item.key) && !RETIRED_SYMPTOM_KEYS.includes(item.key),
   ).map((item) => ({ key: item.key, label: item.label, count: 0 }));
   const symptoms = [...logged, ...unlogged].slice(0, TOP_SYMPTOMS);
-  const tags = LIFESTYLE_TAGS.map((tag) => ({
-    key: tag.key,
-    label: tagLabel(tag.key),
-    count: tagCounts.get(tag.key) ?? 0,
-  })).sort(byCount);
+  // Built-in tags always show (0 when unused); the ones the user typed only once they are logged.
+  const typed = [...tagCounts]
+    .filter(([key]) => isCustomTag(key))
+    .map(([key, count]) => ({ key, label: tagLabel(key), count }));
+  const tags = [
+    ...LIFESTYLE_TAGS.map((tag) => ({
+      key: tag.key as string,
+      label: tagLabel(tag.key),
+      count: tagCounts.get(tag.key) ?? 0,
+    })),
+    ...typed,
+  ].sort(byCount);
   return { meals, symptomDays: symptomDays.size, verdicts, symptoms, tags };
 }
 

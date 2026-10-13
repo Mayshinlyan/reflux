@@ -2,7 +2,7 @@ import type { StoredFoodLog } from '@/db/repositories/food';
 import type { SymptomLogWithDetails } from '@/db/repositories/symptoms';
 import type { MedicationLog } from '@/db/schema';
 
-import { buildTimeline, groupSymptoms } from '../timeline';
+import { buildTimeline, groupSymptoms, symptomLabel, tagLabel } from '../timeline';
 
 const base = { createdAt: '', updatedAt: '', notes: null, foodLogId: null };
 
@@ -128,5 +128,16 @@ describe('groupSymptoms', () => {
 
     expect(groups.map((group) => group.label)).toEqual(['Chest', 'Other']);
     expect(groups[1]?.keys).toEqual(['sleep']);
+  });
+
+  it('puts a symptom the user typed under "Other" and labels it with their own text', () => {
+    const groups = groupSymptoms([{ key: 'custom:Hiccups' }, { key: 'cough' }]);
+
+    expect(groups.map((group) => group.label)).toEqual(['Chest', 'Other']);
+    expect(groups[1]?.keys).toEqual(['custom:Hiccups']);
+    expect(symptomLabel('custom:Hiccups')).toBe('Hiccups');
+    expect(symptomLabel('cough')).toBe('Nagging cough');
+    expect(tagLabel('custom:Skipped breakfast')).toBe('Skipped breakfast');
+    expect(tagLabel('large_meal')).toBe('Large meal');
   });
 });

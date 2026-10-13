@@ -4,6 +4,13 @@ import type { SymptomKey } from './symptomItems';
 export type ZoneKey = 'throat' | 'chest' | 'tummy';
 
 /**
+ * Where a symptom the user typed was added: one of the body areas, or Other, the last group of the pick
+ * screen, which has no built-in symptoms of its own.
+ */
+export type SymptomArea = ZoneKey | 'other';
+export const OTHER_AREA_LABEL = 'Other';
+
+/**
  * Body areas the symptom screen groups its chips under, each with its own symptoms. Every
  * symptom still offered belongs to exactly one area (enforced by a test); see RETIRED_SYMPTOM_KEYS.
  */
