@@ -170,7 +170,9 @@ export default function TodayScreen() {
                       </View>
                     ) : undefined
                   }
-                  onPress={() => router.push('/history')}
+                  onPress={() =>
+                    router.push({ pathname: '/entry', params: { kind: entry.kind, id: String(entry.id) } })
+                  }
                 />
               ))}
             </Animated.View>
