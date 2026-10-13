@@ -155,6 +155,15 @@ describe('Log symptoms screen: pick, then details', () => {
     });
   });
 
+  it('always lists Throat & voice, then Chest, then Tummy, whatever the condition', async () => {
+    setSetting(mockDb, 'conditions', ['gastritis']);
+    await render(<LogSymptomsScreen />);
+
+    const names = screen.getAllByRole('checkbox').map((chip) => chip.props.accessibilityLabel as string);
+    expect(names.indexOf('Hoarse voice')).toBe(0);
+    expect(names.indexOf('Heartburn')).toBeLessThan(names.indexOf('Stomach pain'));
+  });
+
   it('shows every symptom at once, grouped under its body area', async () => {
     await render(<LogSymptomsScreen />);
 
@@ -208,7 +217,7 @@ describe('Log symptoms screen: the meal they followed', () => {
     await press('button', 'Next');
   };
 
-  it('links the latest meal from the last three hours, and saves the link', async () => {
+  it('offers the latest meal from the last three hours, unlinked until you tap it', async () => {
     createUncheckedMeal(mockDb, { source: 'text', inputText: 'old pasta', loggedAt: minutesAgo(300) });
     createUncheckedMeal(mockDb, { source: 'text', inputText: 'spicy tacos', loggedAt: minutesAgo(90) });
     const tacos = createUncheckedMeal(mockDb, {
@@ -219,35 +228,40 @@ describe('Log symptoms screen: the meal they followed', () => {
     await render(<LogSymptomsScreen />);
     await toDetails();
 
-    expect(screen.getByText('Linked meal')).toBeTruthy();
+    expect(screen.getByText('Recent meal')).toBeTruthy();
     expect(screen.getByText('late tacos')).toBeTruthy();
     expect(screen.queryByText('old pasta')).toBeNull();
+    expect(screen.getByText('Tap to link it to these symptoms.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: late tacos/ }));
+    expect(screen.getByText('Linked to these symptoms. Tap to unlink.')).toBeTruthy();
     await press('button', 'Complete check-in');
 
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.foodLogId).toBe(tacos);
   });
 
-  it('can be unlinked, and linked again', async () => {
+  it('saves no link unless the meal was tapped, and a tap can be undone', async () => {
     createUncheckedMeal(mockDb, { source: 'text', inputText: 'late tacos', loggedAt: minutesAgo(30) });
     await render(<LogSymptomsScreen />);
     await toDetails();
-
-    expect(screen.getByText('Tap to unlink.')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: /^Meal: late tacos/ }));
-    expect(screen.getByText('Not linked. Tap to link.')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: /^Meal: late tacos/ }));
-    expect(screen.getByText('Tap to unlink.')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: /^Meal: late tacos/ }));
     await press('button', 'Complete check-in');
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.foodLogId).toBeNull();
+    await screen.unmount();
+
+    await render(<LogSymptomsScreen />);
+    await toDetails();
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: late tacos/ }));
+    await fireEvent.press(screen.getByRole('button', { name: /^Meal: late tacos/ }));
+    expect(screen.getByText('Tap to link it to these symptoms.')).toBeTruthy();
+    await press('button', 'Complete check-in');
+    expect(listSymptomLogs(mockDb, ALL_TIME)[1]?.foodLogId).toBeNull();
   });
 
-  it('has no linked meal section when nothing was eaten recently', async () => {
+  it('has no recent meal section when nothing was eaten recently', async () => {
     createUncheckedMeal(mockDb, { source: 'text', inputText: 'old pasta', loggedAt: minutesAgo(300) });
     await render(<LogSymptomsScreen />);
     await toDetails();
 
-    expect(screen.queryByText('Linked meal')).toBeNull();
+    expect(screen.queryByText('Recent meal')).toBeNull();
   });
 
   it('links the meal named by afterFood, however long ago it was', async () => {
@@ -285,7 +299,7 @@ describe('Log symptoms screen: editing', () => {
     await press('checkbox', 'Stress'); // untag
     expect(screen.getByLabelText('Note').props.value).toBe('original');
     // An entry being edited has no linked-meal section.
-    expect(screen.queryByText('Linked meal')).toBeNull();
+    expect(screen.queryByText('Recent meal')).toBeNull();
     await press('button', 'Save changes');
 
     expect(listSymptomLogs(mockDb, ALL_TIME)).toHaveLength(1);
@@ -437,12 +451,23 @@ describe('Adding your own with a + chip', () => {
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.items).toEqual([{ key: 'custom:Dry mouth', score: 1 }]);
   });
 
-  it('puts a saved symptom with no known group under Other', async () => {
+  it('puts a saved symptom with no known group under Chest, and never shows an Other group', async () => {
     createSavedSymptom(mockDb, 'Hiccups');
     await render(<LogSymptomsScreen />);
 
-    expect(screen.getByText('Other')).toBeTruthy();
-    expect(screen.getByRole('checkbox', { name: 'Hiccups' })).toBeTruthy();
+    expect(screen.queryByText('Other')).toBeNull();
+    const names = screen.getAllByRole('checkbox').map((chip) => chip.props.accessibilityLabel as string);
+    expect(names.indexOf('Nagging cough')).toBeLessThan(names.indexOf('Hiccups'));
+    expect(names.indexOf('Hiccups')).toBeLessThan(names.indexOf('Stomach pain'));
+  });
+
+  it('shows the same symptom in only one group when it is typed into a different one', async () => {
+    createSavedSymptom(mockDb, 'Hiccups', 'symptom', 'chest');
+    await render(<LogSymptomsScreen />);
+
+    await addTo('Tummy', 'hiccups');
+
+    expect(screen.getAllByRole('checkbox', { name: 'Hiccups' })).toHaveLength(1);
   });
 
   it('picks the built-in symptom when you type its name, without saving a copy', async () => {

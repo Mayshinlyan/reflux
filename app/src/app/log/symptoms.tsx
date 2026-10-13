@@ -25,7 +25,7 @@ import { TimePill } from '@/components/TimePill';
 import { TimelineItem } from '@/components/TimelineItem';
 import { useToast } from '@/components/Toast';
 import { VerdictBadge } from '@/components/VerdictBadge';
-import { orderedZones, type ZoneKey } from '@/constants/bodyZones';
+import { BODY_ZONES, type ZoneKey } from '@/constants/bodyZones';
 import {
   type CustomTagKey,
   isCustomTag,
@@ -87,7 +87,6 @@ export default function LogSymptomsScreen() {
   const db = useDb();
   // Read once per visit: settings change on other screens, never while logging.
   const usual = useMemo(() => getSetting(db, 'usualSymptoms'), [db]);
-  const conditions = useMemo(() => getSetting(db, 'conditions'), [db]);
   const toast = useToast();
   const navigation = useNavigation();
   const params = useLocalSearchParams<{ id?: string; afterFood?: string; date?: string }>();
@@ -144,8 +143,8 @@ export default function LogSymptomsScreen() {
     return params.date ? dayToLoggedAt(params.date, new Date()) : null;
   });
   const [timeOpen, setTimeOpen] = useState(false);
-  /** The meal the user unlinked, so a different meal (after a time change) starts linked again. */
-  const [unlinkedId, setUnlinkedId] = useState<number | null>(null);
+  /** The meal the user linked. None by default, so a different meal (after a time change) starts unlinked; a meal that opened this screen stays linked. */
+  const [linkedId, setLinkedId] = useState<number | null>(afterMeal?.id ?? null);
   const [step, setStep] = useState(1);
   const scroll = useRef<ScrollView>(null);
 
@@ -190,18 +189,23 @@ export default function LogSymptomsScreen() {
     [selected],
   );
 
-  // The typed symptoms of each group: the saved ones, then any seen on this screen that are not saved.
-  // One with no known group (saved before groups existed, or on an old entry) goes under "Other".
+  // The typed symptoms of each group: the saved ones, then any seen on this screen that are not saved. Each
+  // sits in the group it was added in; one with no known group (saved before groups existed, or on an old
+  // entry) goes under Chest.
   const ownByZone = useMemo(() => {
-    const groups = new Map<ZoneKey | 'other', CustomSymptomKey[]>();
-    const put = (zone: ZoneKey | 'other', key: CustomSymptomKey) => {
-      const keys = groups.get(zone) ?? [];
-      if (!keys.includes(key)) groups.set(zone, [...keys, key]);
-    };
+    const zoneNamed = (zone: string | null | undefined) => BODY_ZONES.find((z) => z.key === zone)?.key;
+    const zones = new Map<CustomSymptomKey, ZoneKey>();
     for (const row of saved) {
-      if (row.kind === 'symptom') put((row.zone as ZoneKey | null) ?? 'other', `${CUSTOM_PREFIX}${row.name}`);
+      if (row.kind === 'symptom') {
+        zones.set(`${CUSTOM_PREFIX}${row.name}`, zoneNamed(row.zone) ?? 'chest');
+      }
     }
-    for (const key of seenOwn) put(addedZone[key] ?? 'other', key);
+    for (const key of seenOwn) {
+      const zone = zoneNamed(addedZone[key]) ?? zones.get(key) ?? 'chest';
+      zones.set(key, zone);
+    }
+    const groups = new Map<ZoneKey, CustomSymptomKey[]>();
+    for (const [key, zone] of zones) groups.set(zone, [...(groups.get(zone) ?? []), key]);
     return groups;
   }, [saved, seenOwn, addedZone]);
   const ownTagKeys = useMemo(() => {
@@ -229,8 +233,7 @@ export default function LogSymptomsScreen() {
       return undefined;
     }
   }, [db, editingId, afterMeal, atTime, openedAt]);
-  const unlinked = candidate !== undefined && candidate.id === unlinkedId;
-  const linked = candidate && !unlinked ? candidate : undefined;
+  const linked = candidate && candidate.id === linkedId ? candidate : undefined;
 
   const toggleSymptom = (key: LoggedSymptomKey) => {
     Haptics.selectionAsync().catch(() => {});
@@ -357,7 +360,7 @@ export default function LogSymptomsScreen() {
                 <AppText color="inkSoft" style={styles.subtitle}>
                   Tap everything that applies.
                 </AppText>
-                {orderedZones(conditions).map((z) => (
+                {BODY_ZONES.map((z) => (
                   <View
                     key={z.key}
                     style={styles.section}
@@ -391,21 +394,6 @@ export default function LogSymptomsScreen() {
                     </View>
                   </View>
                 ))}
-                {(ownByZone.get('other') ?? []).length > 0 && (
-                  <View style={styles.section}>
-                    <AppText variant="section">Other</AppText>
-                    <View style={styles.chips}>
-                      {(ownByZone.get('other') ?? []).map((key) => (
-                        <SymptomChip
-                          key={key}
-                          label={customSymptomLabel(key)}
-                          selected={selected.has(key)}
-                          onToggle={() => toggleSymptom(key)}
-                        />
-                      ))}
-                    </View>
-                  </View>
-                )}
               </>
             ) : (
               <>
@@ -460,18 +448,20 @@ export default function LogSymptomsScreen() {
                 </View>
                 {candidate && (
                   <View style={styles.section}>
-                    <AppText variant="section">Linked meal</AppText>
-                    <View style={unlinked ? styles.dimmed : undefined}>
+                    <AppText variant="section">Recent meal</AppText>
+                    <View style={linked ? undefined : styles.dimmed}>
                       <TimelineItem
                         kind="food"
                         title={candidate.mealName}
                         time={formatClockTime(new Date(candidate.loggedAt))}
-                        onPress={() => setUnlinkedId(unlinked ? null : candidate.id)}
+                        onPress={() => setLinkedId(linked ? null : candidate.id)}
                         side={candidate.overallVerdict && <VerdictBadge verdict={candidate.overallVerdict} />}
                       />
                     </View>
                     <AppText variant="caption" color="inkSoft">
-                      {unlinked ? 'Not linked. Tap to link.' : 'Tap to unlink.'}
+                      {linked
+                        ? 'Linked to these symptoms. Tap to unlink.'
+                        : 'Tap to link it to these symptoms.'}
                     </AppText>
                   </View>
                 )}
