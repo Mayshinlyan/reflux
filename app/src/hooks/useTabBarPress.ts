@@ -1,13 +1,20 @@
-import { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
+import {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
-const PRESSED_SCALE = 1.04;
-const PRESS_SPRING = { damping: 15, stiffness: 300 };
-const RELEASE_SPRING = { damping: 12, stiffness: 180 };
+/** Very subtle: about 2% bigger (5 px wider), and eased in and out with no overshoot, so it never bounces. */
+const PRESSED_SCALE = 1.02;
+const PRESS_MS = 100;
+const RELEASE_MS = 180;
 
 /**
- * The tab bar's press feel: the whole pill grows a little while a finger is down on a tab and springs back on
- * release, like a physical button. Spread `pillStyle` on an `Animated.View` around the pill and call
- * `pressIn`/`pressOut` from the tabs. With Reduce Motion on, nothing moves.
+ * The tab bar's press feel: the whole pill grows a hair while a finger is down on a tab and eases back on release,
+ * like Instagram's tab bar. Spread `pillStyle` on an `Animated.View` around the pill and call `pressIn`/`pressOut`
+ * from the tabs. With Reduce Motion on, nothing moves.
  */
 export function useTabBarPress() {
   const reduceMotion = useReducedMotion();
@@ -15,10 +22,10 @@ export function useTabBarPress() {
 
   const pressIn = () => {
     if (reduceMotion) return;
-    scale.value = withSpring(PRESSED_SCALE, PRESS_SPRING);
+    scale.value = withTiming(PRESSED_SCALE, { duration: PRESS_MS, easing: Easing.out(Easing.quad) });
   };
   const pressOut = () => {
-    scale.value = withSpring(1, RELEASE_SPRING);
+    scale.value = withTiming(1, { duration: RELEASE_MS, easing: Easing.out(Easing.quad) });
   };
 
   const pillStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
