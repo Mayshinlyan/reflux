@@ -10,6 +10,22 @@ import type { AppDb } from '../types';
 
 export const MAX_SAVED_FOOD_NAME = 60;
 
+let onChange: (() => void) | null = null;
+
+/** Called after "My foods" changes (added, renamed, edited, removed, or wiped), so the home-screen widget can follow. */
+export function onSavedFoodsChange(listener: (() => void) | null): void {
+  onChange = listener;
+}
+
+/** Tells the listener, if any, that the list changed. A failing listener never breaks the save. */
+export function notifySavedFoodsChanged(): void {
+  try {
+    onChange?.();
+  } catch {
+    // The widget is a nicety; the change itself is already saved.
+  }
+}
+
 /** `analysis`, `analysisMeta` and `overallVerdict` are null for a food added by name only. */
 export type StoredSavedFood = Omit<SavedFood, 'analysis' | 'analysisMeta'> & {
   analysis: MealAnalysis | null;
@@ -32,11 +48,13 @@ export function listSavedFoods(db: AppDb): StoredSavedFood[] {
 export function createSavedFood(db: AppDb, name: string): number {
   const mealName = name.trim().slice(0, MAX_SAVED_FOOD_NAME);
   if (!mealName) throw new Error('A saved food needs a name');
-  return db
+  const id = db
     .insert(savedFoods)
     .values({ source: 'text', inputText: mealName, mealName })
     .returning({ id: savedFoods.id })
     .get().id;
+  notifySavedFoodsChanged();
+  return id;
 }
 
 /**
@@ -65,6 +83,7 @@ export function saveFoodFromLog(db: AppDb, foodLogId: number): { id: number; cre
     })
     .returning({ id: savedFoods.id })
     .get().id;
+  notifySavedFoodsChanged();
   return { id, created: true };
 }
 
@@ -79,6 +98,7 @@ export function renameSavedFood(db: AppDb, id: number, name: string): void {
     .returning({ id: savedFoods.id })
     .all();
   if (updated.length === 0) throw new Error(`Saved food ${id} not found`);
+  notifySavedFoodsChanged();
 }
 
 export type SavedFoodEdit = {
@@ -118,11 +138,13 @@ export function updateSavedFood(db: AppDb, id: number, edit: SavedFoodEdit): voi
     if (analysis) values.overallVerdict = effectiveVerdict(analysis);
   }
   db.update(savedFoods).set(values).where(eq(savedFoods.id, id)).run();
+  notifySavedFoodsChanged();
 }
 
 /** Removes a food from "My foods". Meals already logged from it stay in History. */
 export function removeSavedFood(db: AppDb, id: number): void {
   db.delete(savedFoods).where(eq(savedFoods.id, id)).run();
+  notifySavedFoodsChanged();
 }
 
 /** One-tap log: saves the food as a diary meal eaten at `eatenAt` (default now), reusing its stored verdict and photo (no relay call). */
@@ -196,6 +218,7 @@ export function saveCheckedFood(
       .set({ ...values, updatedAt: nowIso() })
       .where(eq(savedFoods.id, existing.id))
       .run();
+    notifySavedFoodsChanged();
     return { id: existing.id, created: false, mealName: existing.mealName };
   }
   const id = db
@@ -203,6 +226,7 @@ export function saveCheckedFood(
     .values({ ...values, mealName })
     .returning({ id: savedFoods.id })
     .get().id;
+  notifySavedFoodsChanged();
   return { id, created: true, mealName };
 }
 

@@ -32,6 +32,8 @@ export type Settings = {
   petAnimal: PetAnimal;
   /** The highest pet stage (0-2) the user has seen on Today; a higher derived stage plays the celebration once. */
   petSeenStage: number;
+  /** Made on this phone and only ever written to the home-screen widget; a link that logs a meal must carry it. */
+  widgetToken: string;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -45,6 +47,7 @@ export const DEFAULT_SETTINGS: Settings = {
   petName: PETS.mochi.defaultName,
   petAnimal: 'mochi',
   petSeenStage: 0,
+  widgetToken: '',
 };
 
 export type SettingKey = keyof Settings;
