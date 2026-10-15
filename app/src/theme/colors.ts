@@ -14,8 +14,8 @@ export const lightColors = {
   ink: '#3A2F25',
   // Figma has #75675A (3.98:1 on surface2); darkened so it clears WCAG AA everywhere.
   inkSoft: '#65574A',
-  // Unselected tab icons: 3.1:1 on surface (surface2 was 1.3:1).
-  inkMuted: '#A08C74',
+  // Unselected tab icons: about 4:1 on surface (surface2 was 1.3:1).
+  inkMuted: '#8A7660',
   hairline: '#EBDCC2',
   clay: '#C8664A',
   clayInk: '#8A4531',
