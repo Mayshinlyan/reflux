@@ -5,7 +5,7 @@ import { Animated, Pressable, StyleSheet, useWindowDimensions, View } from 'reac
 import { type ColorToken, shadow, useColors } from '@/theme';
 
 import { AppText } from './AppText';
-import { tabBarHeight } from './FloatingTabBar';
+import { LOG_CENTRE_BELOW_BAR_TOP, tabBarHeight } from './FloatingTabBar';
 
 export type LogKind = 'food' | 'symptoms' | 'medication';
 
@@ -19,8 +19,6 @@ const ITEMS: { kind: LogKind; label: string; icon: LucideIcon; tint: ColorToken;
 const RADIUS = 128;
 const BUTTON = 56;
 const LABEL_WIDTH = 96;
-/** The Log button's centre sits 8 below the bar's top edge (it is 64 tall and rises 24). */
-const LOG_CENTRE_BELOW_BAR_TOP = 8;
 /** Same dim as the bottom sheets. */
 const SCRIM = 'rgba(30,26,22,0.42)';
 

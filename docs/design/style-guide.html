@@ -2,7 +2,7 @@
 <style>
   :root{
     --bg:#FAF1DE; --surface:#FFFBF3; --surface-2:#ECDAB9;
-    --ink:#3A2F25; --ink-soft:#65574A; --ink-muted:#A08C74; --hairline:#EBDCC2;
+    --ink:#3A2F25; --ink-soft:#65574A; --ink-muted:#8A7660; --hairline:#EBDCC2;
     --clay:#C8664A; --clay-ink:#8A4531; --clay-tint:#F3D3C0;
     --sage:#8E9A6D; --sage-ink:#55612F; --sage-tint:#D8E0B6;
     --good:#5E8F63; --good-ink:#2F5A3A; --good-tint:#D3E8D6;
@@ -179,24 +179,26 @@
   .device__group:last-child{margin-bottom:0}
   .device__group-label{font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:12px}
 
-  /* Full-width bar on the bottom edge; the olive Log button rises 24 above it (Figma "Tab bar floating"). */
-  .tabbar-row{flex:none;position:relative;margin:0;padding-top:24px}
+  /* Floating pill above the bottom edge; the olive Log button, ringed in the page colour, rises 20 over it (Figma "Tab bar floating"). */
+  .tabbar-row{flex:none;position:relative;margin:0;padding:20px 0 16px;display:flex;justify-content:center}
   .tabbar{
-    display:flex;align-items:flex-start;height:64px;padding:8px 24px 8px;box-sizing:border-box;
-    background:var(--surface);border-radius:24px 24px 0 0;
-    box-shadow:0 -4px 16px rgba(46,42,38,.12);
+    position:relative;display:flex;align-items:center;width:264px;height:64px;padding:0 8px;box-sizing:border-box;
+    background:var(--surface);border-radius:32px;
+    box-shadow:0 4px 20px rgba(46,42,38,.12);
   }
-  .tabbar__slot{flex:none;width:64px}
+  .tabbar__slot{flex:none;width:72px}
   .tabbar__log{
-    position:absolute;top:0;left:50%;margin-left:-32px;width:64px;height:64px;display:flex;align-items:center;justify-content:center;border:none;
-    border-radius:var(--r-pill);background:var(--cta);color:var(--cta-ink);font-family:inherit;
+    position:absolute;top:0;left:50%;margin-left:-33px;width:66px;height:66px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;
+    border:5px solid var(--bg);border-radius:var(--r-pill);background:var(--cta);color:var(--cta-ink);font-family:inherit;
     box-shadow:0 6px 16px -6px rgba(46,42,38,.18);
   }
-  .tabbar__log svg{width:32px;height:32px}
-  .tabbar__item{flex:1;height:48px;display:flex;align-items:center;justify-content:center;color:var(--ink-muted);background:none;border:none;font-family:inherit}
+  .tabbar__log svg{width:28px;height:28px}
+  .tabbar__item{position:relative;isolation:isolate;flex:none;width:88px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--ink-muted);background:none;border:none;font-family:inherit}
   .tabbar__item svg{width:24px;height:24px}
   .tabbar__item.active{color:var(--ink)}
+  .tabbar__item.active::before{content:'';position:absolute;z-index:-1;width:44px;height:44px;border-radius:50%;background:var(--surface-2)}
   .tabbar__item .cut{stroke:var(--surface)}
+  .tabbar__item.active .cut{stroke:var(--surface-2)}
   .topbar{display:flex;align-items:center;justify-content:space-between;height:44px;position:relative}
   .topbar__btn{width:44px;height:44px;border-radius:50%;background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:center;border:none}
   .topbar__btn svg{width:22px;height:22px}
@@ -411,7 +413,7 @@
       <div class="swatch"><div class="chip" style="background:var(--surface);border-bottom:1px solid var(--hairline)"></div><div class="meta"><div class="name">Surface</div><div class="hex">#FFFBF3</div><div class="use">Cards, rows, inputs, unselected pills, tab bar</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--ink)"></div><div class="meta"><div class="name">Ink</div><div class="hex">#3A2F25</div><div class="use">Primary text</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--ink-soft)"></div><div class="meta"><div class="name">Ink soft</div><div class="hex">#65574A</div><div class="use">Secondary text</div></div></div>
-      <div class="swatch"><div class="chip" style="background:var(--ink-muted)"></div><div class="meta"><div class="name">Ink muted</div><div class="hex">#A08C74</div><div class="use">Unselected tab icons</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--ink-muted)"></div><div class="meta"><div class="name">Ink muted</div><div class="hex">#8A7660</div><div class="use">Unselected tab icons</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--clay)"></div><div class="meta"><div class="name">Clay</div><div class="hex">#C8664A</div><div class="use">Accents, marks, selected tag text</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--cta)"></div><div class="meta"><div class="name">Olive (primary)</div><div class="hex">#5F6B3A</div><div class="use">Primary button, active dots, today</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--good)"></div><div class="meta"><div class="name">Deep green</div><div class="hex">#5E8F63</div><div class="use">"Good", a verdict you set yourself</div></div></div>
@@ -756,7 +758,7 @@
           </button>
           <div class="tabbar__slot"></div>
           <button class="tabbar__item" type="button" role="tab" aria-selected="false" aria-label="History">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" fill="currentColor" stroke="currentColor"/><path class="cut" d="M12 6v6l4 2"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="11" fill="currentColor" stroke="currentColor"/><path class="cut" d="M12 5.4v6.6l4.4 2.2"/></svg>
           </button>
         </div>
         <button class="tabbar__log" type="button" aria-label="Log">
@@ -765,7 +767,7 @@
         </div>
       </div>
     </div>
-    <p class="caption-s" style="text-align:center;margin-top:10px">The tab bar stays fixed to the bottom edge, full width with 24pt rounded top corners; the content above scrolls beneath it. It is 64pt tall (8 above the icons, 48 for them, 8 below); on a phone with a home indicator the bar grows by the inset beyond 12pt, so the indicator sits inside the bar and the icons stay centred. Today and History are icon-only tabs: solid shapes (24pt icons in 48pt targets) with no outline or background. The current one is solid <code>ink</code> and the other is a pale <code>surface-2</code> silhouette, like a greyed-out version; the door and the clock hands are cut out in <code>surface</code>. Log is the one olive circle (64pt, 32pt icon), raised 24pt above the bar&rsquo;s top edge in the middle, so it reads as the action. Tapping it fans three round buttons in an arch above it (radius 128pt, at 140&deg;, 90&deg; and 40&deg;) over a dimmed screen: <em>Snap food</em> (honey tint, opens the camera straight away), <em>How I feel</em> (clay tint) and <em>Medication</em> (sage tint), each 56pt with a cream label under it. The Log button becomes a close icon while the arch is open, and the Android back button closes it. The belly ring and the week strip still open the full Log page. Profile is not a tab: a plain person icon on a 36pt <code>surface</code> circle sits at the top right of Today (48pt tap area) and opens it.</p>
+    <p class="caption-s" style="text-align:center;margin-top:10px">The tab bar is a compact pill (264&times;64pt, fully rounded, <code>surface</code>, a soft shadow below) centred above the bottom edge, so the page colour shows around it and the content above scrolls beneath it. It floats 16pt above the edge, or the home indicator inset minus 12pt when that is larger, so the indicator never touches it. Today and History are icon-only tabs: solid shapes (24pt icons in 88&times;48pt targets) with no outline. The current one is solid <code>ink</code> on a small <code>surface-2</code> circle (44pt) and the other is a muted <code>ink-muted</code> silhouette; the door and the clock hands are cut out in the colour behind the icon (<code>surface-2</code> on the circle, <code>surface</code> on the pill). Log is the one olive circle (56pt, 28pt icon) with a 5pt ring in the page colour, so it looks cut into the pill; it rises 20pt over the pill&rsquo;s top edge in the middle, so it reads as the action. When the tab changes the whole pill swells to 1.03 and settles, one soft light sweep crosses it in the direction of travel, and the circle slides across, stretching in flight (about 400ms, played once; none with Reduce Motion). Tapping it fans three round buttons in an arch above it (radius 128pt, at 140&deg;, 90&deg; and 40&deg;) over a dimmed screen: <em>Snap food</em> (honey tint, opens the camera straight away), <em>How I feel</em> (clay tint) and <em>Medication</em> (sage tint), each 56pt with a cream label under it. The Log button becomes a close icon while the arch is open, and the Android back button closes it. The belly ring and the week strip still open the full Log page. Profile is not a tab: a plain person icon on a 36pt <code>surface</code> circle sits at the top right of Today (48pt tap area) and opens it.</p>
 
     <div class="section-sub" style="margin-top:var(--s4)">
       <h3>Today</h3>

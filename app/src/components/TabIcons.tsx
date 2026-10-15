@@ -2,9 +2,9 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 export type TabIconProps = {
   size: number;
-  /** The solid shape: ink when its tab is selected, a pale surface2 when it is not. */
+  /** The solid shape: ink when its tab is selected, the muted inkMuted when it is not. */
   color: string;
-  /** The door and the clock hands are cut out of the shape in the bar's own colour. */
+  /** The door and the clock hands are cut out of the shape in the colour behind it: the pill, or the tan highlight. */
   cutout: string;
 };
 
@@ -29,8 +29,8 @@ export function HouseSolid({ size, color, cutout }: TabIconProps) {
 export function ClockSolid({ size, color, cutout }: TabIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={12} r={10} fill={color} stroke={color} {...STROKE} />
-      <Path d="M12 6v6l4 2" stroke={cutout} {...STROKE} />
+      <Circle cx={12} cy={12} r={11} fill={color} stroke={color} {...STROKE} />
+      <Path d="M12 5.4v6.6l4.4 2.2" stroke={cutout} {...STROKE} />
     </Svg>
   );
 }

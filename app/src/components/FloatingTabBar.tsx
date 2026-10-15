@@ -1,33 +1,44 @@
 import { Plus, X } from 'lucide-react-native';
 import type { ComponentType } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
+import { useTabBarSettle } from '@/hooks/useTabBarSettle';
 import { shadow, space, useColors } from '@/theme';
 
 import { ClockSolid, HouseSolid, type TabIconProps } from './TabIcons';
 
 export type TabKey = 'log' | 'today' | 'history';
 
-/** The olive Log button, and how far it rises above the bar's top edge. */
-export const LOG_BUTTON_SIZE = 64;
-export const LOG_BUTTON_RAISE = 24;
+/** The olive Log button, the cream ring around it, and how far the ring rises above the pill's top edge. */
+const LOG_BUTTON_SIZE = 56;
+const LOG_RING = 5;
+const LOG_OUTER = LOG_BUTTON_SIZE + LOG_RING * 2;
+export const LOG_BUTTON_RAISE = 20;
+/** The Log button's centre sits this far below the pill's top edge. */
+export const LOG_CENTRE_BELOW_BAR_TOP = LOG_OUTER / 2 - LOG_BUTTON_RAISE;
 
-const TAB_TARGET = 48;
-const TOP_PAD = 8;
-/**
- * Room under the icons. The home indicator sits inside the bar's bottom area, so only the inset beyond the 12 the
- * 48 target already leaves under its icon is added (at least 8): the icons look centred, not lofted up.
- */
-const MIN_BOTTOM_PAD = 8;
+const PILL_WIDTH = 264;
+const PILL_HEIGHT = 64;
+const PILL_PAD = 8;
+const TAB_WIDTH = 88;
+const TAB_HEIGHT = 48;
+const SLOT_WIDTH = 72;
+const HIGHLIGHT = 44;
+const SWEEP_WIDTH = 96;
+/** The highlight sits centred on the Today tab and travels to the History tab. */
+const HIGHLIGHT_LEFT = PILL_PAD + (TAB_WIDTH - HIGHLIGHT) / 2;
+const HIGHLIGHT_TRAVEL = TAB_WIDTH + SLOT_WIDTH;
+/** Room under the pill: the home indicator sits inside the part of the inset beyond 12, with at least 16 of air. */
+const MIN_GAP = 16;
 const INDICATOR_OVERLAP = 12;
-const BAR_RADIUS = space.s3;
 
-export const tabBarBottomPadding = (bottomInset: number) =>
-  Math.max(bottomInset - INDICATOR_OVERLAP, MIN_BOTTOM_PAD);
-/** Height of the bar from the screen's bottom edge to its top edge (64 with no home indicator). */
-export const tabBarHeight = (bottomInset: number) => TOP_PAD + TAB_TARGET + tabBarBottomPadding(bottomInset);
+export const tabBarGap = (bottomInset: number) => Math.max(bottomInset - INDICATOR_OVERLAP, MIN_GAP);
+/** Height from the screen's bottom edge to the pill's top edge (80 with no home indicator). */
+export const tabBarHeight = (bottomInset: number) => tabBarGap(bottomInset) + PILL_HEIGHT;
 
-/** Bottom space a tab screen leaves so its content scrolls clear of the bar and the raised Log button, plus a gap. */
+/** Bottom space a tab screen leaves so its content scrolls clear of the pill and the raised Log button, plus a gap. */
 export const tabBarClearance = (bottomInset: number) =>
   tabBarHeight(bottomInset) + LOG_BUTTON_RAISE + space.s2;
 
@@ -47,13 +58,19 @@ type Props = {
 };
 
 /**
- * Figma "Tab bar floating": a full-width `surface` bar on the bottom edge with rounded top corners. Today and
- * History are icon-only tabs of solid shapes with no backgrounds: the current one is `ink`, the other a
- * muted `inkMuted` silhouette (greyed out, 3:1 on the bar). The olive Log button sits raised in the middle so it reads as the one
- * action. Icon-only, so every button carries a label.
+ * Figma "Tab bar floating": a compact `surface` pill centred above the bottom edge. Today and History are
+ * icon-only tabs of solid shapes: the current one is `ink` on a small tan `surface2` circle, the other a muted
+ * `inkMuted` silhouette. The olive Log button, ringed in the page colour, rises over the pill's top edge. On a tab
+ * change the pill swells, a light sweep crosses it and the highlight slides (see `useTabBarSettle`). Icon-only, so
+ * every button carries a label.
  */
 export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect }: Props) {
   const colors = useColors();
+  const settle = useTabBarSettle(active === 'today' ? 0 : 1, {
+    travel: HIGHLIGHT_TRAVEL,
+    pillWidth: PILL_WIDTH,
+    sweepWidth: SWEEP_WIDTH,
+  });
   const LogIcon = logOpen ? X : Plus;
   const renderTab = ({ key, label, icon: Icon }: (typeof TABS)[number]) => {
     const isActive = key === active;
@@ -65,26 +82,46 @@ export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect 
         accessibilityState={{ selected: isActive }}
         onPress={() => onSelect(key)}
         style={({ pressed }) => [styles.tab, { opacity: pressed ? 0.8 : 1 }]}>
-        <Icon size={24} color={isActive ? colors.ink : colors.inkMuted} cutout={colors.surface} />
+        <Icon
+          size={24}
+          color={isActive ? colors.ink : colors.inkMuted}
+          cutout={isActive ? colors.surface2 : colors.surface}
+        />
       </Pressable>
     );
   };
   return (
-    <View pointerEvents="box-none" style={styles.root}>
-      <View
+    <View pointerEvents="box-none" style={[styles.root, { paddingBottom: tabBarGap(bottomInset) }]}>
+      <Animated.View
         accessibilityRole="tablist"
         style={[
-          styles.bar,
-          {
-            backgroundColor: colors.surface,
-            paddingBottom: tabBarBottomPadding(bottomInset),
-            boxShadow: shadow.tabBar,
-          },
+          styles.pill,
+          { backgroundColor: colors.surface, boxShadow: shadow.tabBar },
+          settle.pillStyle,
         ]}>
+        <Animated.View
+          testID="tab-highlight"
+          pointerEvents="none"
+          style={[styles.highlight, { backgroundColor: colors.surface2 }, settle.highlightStyle]}
+        />
         {renderTab(TABS[0])}
         <View accessible={false} importantForAccessibility="no-hide-descendants" style={styles.slot} />
         {renderTab(TABS[1])}
-      </View>
+        <View pointerEvents="none" style={styles.clip}>
+          <Animated.View style={[styles.sweep, settle.sweepStyle]}>
+            <Svg width={SWEEP_WIDTH} height={PILL_HEIGHT}>
+              <Defs>
+                <LinearGradient id="tabSweep" x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0} />
+                  <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity={0.35} />
+                  <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
+                </LinearGradient>
+              </Defs>
+              <Rect width={SWEEP_WIDTH} height={PILL_HEIGHT} fill="url(#tabSweep)" />
+            </Svg>
+          </Animated.View>
+        </View>
+      </Animated.View>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={logOpen ? 'Close' : 'Log'}
@@ -92,9 +129,14 @@ export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect 
         onPress={() => onSelect('log')}
         style={({ pressed }) => [
           styles.log,
-          { backgroundColor: colors.cta, boxShadow: shadow.softLift, opacity: pressed ? 0.85 : 1 },
+          {
+            backgroundColor: colors.cta,
+            borderColor: colors.bg,
+            boxShadow: shadow.softLift,
+            opacity: pressed ? 0.85 : 1,
+          },
         ]}>
-        <LogIcon size={32} color={colors.ctaInk} strokeWidth={2} />
+        <LogIcon size={28} color={colors.ctaInk} strokeWidth={2} />
       </Pressable>
     </View>
   );
@@ -102,24 +144,44 @@ export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect 
 
 const styles = StyleSheet.create({
   // The raised button lives inside this padding so it stays within bounds and is tappable on Android.
-  root: { paddingTop: LOG_BUTTON_RAISE },
-  bar: {
+  root: { paddingTop: LOG_BUTTON_RAISE, alignItems: 'center' },
+  pill: {
+    width: PILL_WIDTH,
+    height: PILL_HEIGHT,
     flexDirection: 'row',
-    paddingTop: TOP_PAD,
-    paddingHorizontal: space.s3,
-    borderTopLeftRadius: BAR_RADIUS,
-    borderTopRightRadius: BAR_RADIUS,
+    alignItems: 'center',
+    paddingHorizontal: PILL_PAD,
+    borderRadius: PILL_HEIGHT / 2,
   },
-  tab: { flex: 1, height: TAB_TARGET, alignItems: 'center', justifyContent: 'center' },
-  slot: { width: LOG_BUTTON_SIZE },
+  highlight: {
+    position: 'absolute',
+    left: HIGHLIGHT_LEFT,
+    top: (PILL_HEIGHT - HIGHLIGHT) / 2,
+    width: HIGHLIGHT,
+    height: HIGHLIGHT,
+    borderRadius: HIGHLIGHT / 2,
+  },
+  tab: { width: TAB_WIDTH, height: TAB_HEIGHT, alignItems: 'center', justifyContent: 'center' },
+  slot: { width: SLOT_WIDTH },
+  clip: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: PILL_HEIGHT / 2,
+    overflow: 'hidden',
+  },
+  sweep: { position: 'absolute', top: 0, left: 0, width: SWEEP_WIDTH, height: PILL_HEIGHT },
   log: {
     position: 'absolute',
     top: 0,
     left: '50%',
-    marginLeft: -LOG_BUTTON_SIZE / 2,
-    width: LOG_BUTTON_SIZE,
-    height: LOG_BUTTON_SIZE,
-    borderRadius: LOG_BUTTON_SIZE / 2,
+    marginLeft: -LOG_OUTER / 2,
+    width: LOG_OUTER,
+    height: LOG_OUTER,
+    borderRadius: LOG_OUTER / 2,
+    borderWidth: LOG_RING,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -4,11 +4,18 @@ import { Pencil, Trash } from 'lucide-react-native';
 import { lightColors } from '@/theme';
 
 import { ActionMenu } from '../ActionMenu';
-import { FloatingTabBar, tabBarBottomPadding, tabBarClearance, tabBarHeight } from '../FloatingTabBar';
+import { FloatingTabBar, tabBarClearance, tabBarGap, tabBarHeight } from '../FloatingTabBar';
 import { TopBar } from '../TopBar';
 
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), replace: jest.fn(), canGoBack: () => true },
+}));
+// Reanimated's native runtime can't load in Jest; use its mocks (which lack useReducedMotion).
+let mockReduceMotion = false;
+jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/lib/module/mock'));
+jest.mock('react-native-reanimated', () => ({
+  ...jest.requireActual('react-native-reanimated/mock'),
+  useReducedMotion: () => mockReduceMotion,
 }));
 
 describe('FloatingTabBar', () => {
@@ -27,7 +34,7 @@ describe('FloatingTabBar', () => {
     expect(onSelect).toHaveBeenNthCalledWith(2, 'log');
   });
 
-  it('marks only the current tab as selected, in ink, with no background on either tab', async () => {
+  it('marks only the current tab as selected, with a small tan circle behind it and no background on the tabs', async () => {
     await render(<FloatingTabBar active="history" bottomInset={0} onSelect={jest.fn()} />);
 
     expect(screen.getByRole('tab', { name: 'History' }).props.accessibilityState).toMatchObject({
@@ -39,6 +46,11 @@ describe('FloatingTabBar', () => {
     for (const name of ['Today', 'History']) {
       expect(screen.getByRole('tab', { name })).not.toHaveStyle({ backgroundColor: lightColors.surface2 });
     }
+    expect(screen.getByTestId('tab-highlight')).toHaveStyle({
+      backgroundColor: lightColors.surface2,
+      width: 44,
+      height: 44,
+    });
   });
 
   it('draws the selected tab solid ink and the other an inkMuted silhouette, with details cut out', async () => {
@@ -53,7 +65,21 @@ describe('FloatingTabBar', () => {
     expect(today).not.toContain(argb(lightColors.ink));
     expect(history).toContain(argb(lightColors.ink));
     expect(history).not.toContain(argb(lightColors.inkMuted));
-    for (const tab of [today, history]) expect(tab).toContain(argb(lightColors.surface));
+    // The cut-outs take the colour behind the icon: the pill for the muted one, the tan highlight for the selected one.
+    expect(today).toContain(argb(lightColors.surface));
+    expect(history).toContain(argb(lightColors.surface2));
+  });
+
+  it.each([false, true])('follows the selection when the tab changes (Reduce Motion %s)', async (reduce) => {
+    mockReduceMotion = reduce;
+    const { rerender } = await render(<FloatingTabBar active="today" bottomInset={0} onSelect={jest.fn()} />);
+    await rerender(<FloatingTabBar active="history" bottomInset={0} onSelect={jest.fn()} />);
+
+    expect(screen.getByRole('tab', { name: 'History' }).props.accessibilityState).toMatchObject({
+      selected: true,
+    });
+    expect(screen.getByTestId('tab-highlight')).toBeTruthy();
+    mockReduceMotion = false;
   });
 
   it('keeps Log outside the tabs: two tabs, with Log as a separate button', async () => {
@@ -67,10 +93,14 @@ describe('FloatingTabBar', () => {
     expect(screen.getByRole('button', { name: 'Log' })).toBeTruthy();
   });
 
-  it('keeps Log as the olive primary action whichever tab is current', async () => {
+  it('keeps Log as the olive primary action, ringed in the page colour, whichever tab is current', async () => {
     await render(<FloatingTabBar active="history" bottomInset={0} onSelect={jest.fn()} />);
 
-    expect(screen.getByRole('button', { name: 'Log' })).toHaveStyle({ backgroundColor: lightColors.cta });
+    expect(screen.getByRole('button', { name: 'Log' })).toHaveStyle({
+      backgroundColor: lightColors.cta,
+      borderColor: lightColors.bg,
+      borderWidth: 5,
+    });
   });
 
   it('turns Log into Close, reported as expanded, while the arch is open', async () => {
@@ -82,16 +112,17 @@ describe('FloatingTabBar', () => {
     });
   });
 
-  it('is 64 tall on a phone without a home indicator, and grows with the indicator inset', () => {
-    expect(tabBarHeight(0)).toBe(64);
-    expect(tabBarHeight(34)).toBe(78);
-    expect(tabBarBottomPadding(10)).toBe(8);
-    expect(tabBarBottomPadding(34)).toBe(22);
+  it('floats a 64 pill 16 above the edge without a home indicator, and lifts it with the indicator inset', () => {
+    expect(tabBarGap(0)).toBe(16);
+    expect(tabBarGap(20)).toBe(16);
+    expect(tabBarGap(34)).toBe(22);
+    expect(tabBarHeight(0)).toBe(80);
+    expect(tabBarHeight(34)).toBe(86);
   });
 
-  it('leaves content the bar, the raised Log button and a 16 gap of clearance', () => {
-    expect(tabBarClearance(0)).toBe(104);
-    expect(tabBarClearance(34)).toBe(118);
+  it('leaves content the pill, the raised Log button and a 16 gap of clearance', () => {
+    expect(tabBarClearance(0)).toBe(116);
+    expect(tabBarClearance(34)).toBe(122);
   });
 });
 
