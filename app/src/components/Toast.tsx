@@ -4,6 +4,7 @@ import { AccessibilityInfo, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { tabBarClearance } from '@/components/FloatingTabBar';
 import { radius, space, typography, useColors } from '@/theme';
 
 type ToastOptions = {
@@ -42,7 +43,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {message && (
         <View
           pointerEvents="none"
-          style={[styles.wrap, top ? { top: insets.top + space.s2 } : { bottom: insets.bottom + 96 }]}>
+          style={[
+            styles.wrap,
+            top ? { top: insets.top + space.s2 } : { bottom: tabBarClearance(insets.bottom) },
+          ]}>
           <Animated.View
             entering={FadeInDown.duration(200)}
             exiting={FadeOut.duration(200)}

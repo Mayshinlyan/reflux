@@ -48,7 +48,8 @@ export function BottomSheet({ visible, onClose, onDismissed, scrollToTopKey, chi
       animationType="slide"
       onRequestClose={onClose}
       onDismiss={onDismissed}
-      statusBarTranslucent>
+      statusBarTranslucent
+      navigationBarTranslucent>
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable
           style={styles.scrim}

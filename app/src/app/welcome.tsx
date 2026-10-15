@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { type ReactNode, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Belly } from '@/components/Belly';
@@ -60,7 +60,7 @@ export default function WelcomeScreen() {
       </View>
 
       {step === 'welcome' && (
-        <View style={styles.body}>
+        <Centered>
           <View style={styles.mark}>
             <Belly size={112} />
           </View>
@@ -70,7 +70,7 @@ export default function WelcomeScreen() {
           <AppText variant="voice" color="inkSoft">
             Log meals, notice patterns, and keep it gentle, one cozy day at a time.
           </AppText>
-        </View>
+        </Centered>
       )}
 
       {step === 'bellie' && <BellieSays text="Hi there! I'm Bellie!" />}
@@ -113,7 +113,7 @@ function SkipButton({ onPress }: { onPress: () => void }) {
 /** Bellie centred on the screen with a bubble above it (Figma 01b, 01h). */
 function BellieSays({ text, confetti = false }: { text: string; confetti?: boolean }) {
   return (
-    <View style={styles.center}>
+    <Centered>
       <View style={styles.group}>
         {confetti && <Confetti />}
         <SpeechBubble large tail="down" text={text} />
@@ -121,17 +121,31 @@ function BellieSays({ text, confetti = false }: { text: string; confetti?: boole
           <Belly size={168} />
         </View>
       </View>
-    </View>
+    </Centered>
+  );
+}
+
+/** Content centred in the space above the button; it scrolls instead of overflowing on a short screen or at a large text size. */
+function Centered({ children }: { children: ReactNode }) {
+  return (
+    <ScrollView
+      style={styles.fill}
+      contentContainerStyle={styles.centered}
+      showsVerticalScrollIndicator={false}
+      bounces={false}>
+      {children}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   // Centered on the top bar, between the (hidden) back circle and the spacer.
   dots: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-  body: { flex: 1, justifyContent: 'center' },
+  // Visible so the confetti can scatter above the bubble instead of being cut off at the top.
+  fill: { flex: 1, overflow: 'visible' },
+  centered: { flexGrow: 1, justifyContent: 'center' },
   mark: { marginBottom: space.s3, marginLeft: -space.s1 },
   title: { marginBottom: space.s2 },
-  center: { flex: 1, justifyContent: 'center' },
   // The confetti is anchored to the top of this group (the bubble), so it scatters around the bubble.
   group: { alignItems: 'center' },
   bellie: { marginTop: space.s1 },

@@ -45,7 +45,12 @@ const CELL_HEIGHT = 48;
 export function DateRangePicker(props: Props) {
   // Mounted only while open, so each opening starts fresh from `initial`.
   return (
-    <Modal visible={props.visible} animationType="slide" onRequestClose={props.onClose} statusBarTranslucent>
+    <Modal
+      visible={props.visible}
+      animationType="slide"
+      onRequestClose={props.onClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
       <PickerBody {...props} />
     </Modal>
   );

@@ -122,7 +122,13 @@ function EntryMenu({
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Close menu"

@@ -315,6 +315,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    // Wraps under the switcher on a narrow phone instead of squashing.
+    flexWrap: 'wrap',
+    gap: space.s2,
     marginBottom: space.s4,
   },
   entriesHead: {
