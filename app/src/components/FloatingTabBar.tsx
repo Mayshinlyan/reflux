@@ -2,9 +2,8 @@ import { Plus, X } from 'lucide-react-native';
 import type { ComponentType } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-import { useTabBarSettle } from '@/hooks/useTabBarSettle';
+import { useTabBarPress } from '@/hooks/useTabBarPress';
 import { shadow, space, useColors } from '@/theme';
 
 import { ClockSolid, HouseSolid, type TabIconProps } from './TabIcons';
@@ -26,8 +25,7 @@ const TAB_WIDTH = 88;
 const TAB_HEIGHT = 48;
 const SLOT_WIDTH = 72;
 const HIGHLIGHT = 44;
-const SWEEP_WIDTH = 96;
-/** The highlight sits centred on the Today tab and travels to the History tab. */
+/** The highlight is centred on the current tab. History's is one tab width plus the Log slot further right. */
 const HIGHLIGHT_LEFT = PILL_PAD + (TAB_WIDTH - HIGHLIGHT) / 2;
 const HIGHLIGHT_TRAVEL = TAB_WIDTH + SLOT_WIDTH;
 /** Room under the pill: the home indicator sits inside the part of the inset beyond 12, with at least 16 of air. */
@@ -60,17 +58,13 @@ type Props = {
 /**
  * Figma "Tab bar floating": a compact `surface` pill centred above the bottom edge. Today and History are
  * icon-only tabs of solid shapes: the current one is `ink` on a small tan `surface2` circle, the other a muted
- * `inkMuted` silhouette. The olive Log button, ringed in the page colour, rises over the pill's top edge. On a tab
- * change the pill swells, a light sweep crosses it and the highlight slides (see `useTabBarSettle`). Icon-only, so
- * every button carries a label.
+ * `inkMuted` silhouette; it just changes tab, it never slides. The olive Log button, ringed in the page colour, rises
+ * over the pill's top edge. While a tab is pressed the whole pill grows a little and springs back on release (see
+ * `useTabBarPress`). Icon-only, so every button carries a label.
  */
 export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect }: Props) {
   const colors = useColors();
-  const settle = useTabBarSettle(active === 'today' ? 0 : 1, {
-    travel: HIGHLIGHT_TRAVEL,
-    pillWidth: PILL_WIDTH,
-    sweepWidth: SWEEP_WIDTH,
-  });
+  const press = useTabBarPress();
   const LogIcon = logOpen ? X : Plus;
   const renderTab = ({ key, label, icon: Icon }: (typeof TABS)[number]) => {
     const isActive = key === active;
@@ -81,6 +75,8 @@ export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect 
         accessibilityLabel={label}
         accessibilityState={{ selected: isActive }}
         onPress={() => onSelect(key)}
+        onPressIn={press.pressIn}
+        onPressOut={press.pressOut}
         style={({ pressed }) => [styles.tab, { opacity: pressed ? 0.8 : 1 }]}>
         <Icon
           size={24}
@@ -94,33 +90,21 @@ export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect 
     <View pointerEvents="box-none" style={[styles.root, { paddingBottom: tabBarGap(bottomInset) }]}>
       <Animated.View
         accessibilityRole="tablist"
-        style={[
-          styles.pill,
-          { backgroundColor: colors.surface, boxShadow: shadow.tabBar },
-          settle.pillStyle,
-        ]}>
-        <Animated.View
+        style={[styles.pill, { backgroundColor: colors.surface, boxShadow: shadow.tabBar }, press.pillStyle]}>
+        <View
           testID="tab-highlight"
           pointerEvents="none"
-          style={[styles.highlight, { backgroundColor: colors.surface2 }, settle.highlightStyle]}
+          style={[
+            styles.highlight,
+            {
+              backgroundColor: colors.surface2,
+              left: HIGHLIGHT_LEFT + (active === 'history' ? HIGHLIGHT_TRAVEL : 0),
+            },
+          ]}
         />
         {renderTab(TABS[0])}
         <View accessible={false} importantForAccessibility="no-hide-descendants" style={styles.slot} />
         {renderTab(TABS[1])}
-        <View pointerEvents="none" style={styles.clip}>
-          <Animated.View style={[styles.sweep, settle.sweepStyle]}>
-            <Svg width={SWEEP_WIDTH} height={PILL_HEIGHT}>
-              <Defs>
-                <LinearGradient id="tabSweep" x1="0" y1="0" x2="1" y2="0">
-                  <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0} />
-                  <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity={0.35} />
-                  <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
-                </LinearGradient>
-              </Defs>
-              <Rect width={SWEEP_WIDTH} height={PILL_HEIGHT} fill="url(#tabSweep)" />
-            </Svg>
-          </Animated.View>
-        </View>
       </Animated.View>
       <Pressable
         accessibilityRole="button"
@@ -155,7 +139,6 @@ const styles = StyleSheet.create({
   },
   highlight: {
     position: 'absolute',
-    left: HIGHLIGHT_LEFT,
     top: (PILL_HEIGHT - HIGHLIGHT) / 2,
     width: HIGHLIGHT,
     height: HIGHLIGHT,
@@ -163,16 +146,6 @@ const styles = StyleSheet.create({
   },
   tab: { width: TAB_WIDTH, height: TAB_HEIGHT, alignItems: 'center', justifyContent: 'center' },
   slot: { width: SLOT_WIDTH },
-  clip: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: PILL_HEIGHT / 2,
-    overflow: 'hidden',
-  },
-  sweep: { position: 'absolute', top: 0, left: 0, width: SWEEP_WIDTH, height: PILL_HEIGHT },
   log: {
     position: 'absolute',
     top: 0,

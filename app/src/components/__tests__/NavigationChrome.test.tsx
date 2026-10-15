@@ -19,6 +19,10 @@ jest.mock('react-native-reanimated', () => ({
 }));
 
 describe('FloatingTabBar', () => {
+  afterEach(() => {
+    mockReduceMotion = false;
+  });
+
   it('has Log, Today and History, and reports the one tapped', async () => {
     const onSelect = jest.fn();
     await render(<FloatingTabBar active="today" bottomInset={0} onSelect={onSelect} />);
@@ -70,17 +74,33 @@ describe('FloatingTabBar', () => {
     expect(history).toContain(argb(lightColors.surface2));
   });
 
-  it.each([false, true])('follows the selection when the tab changes (Reduce Motion %s)', async (reduce) => {
-    mockReduceMotion = reduce;
+  it('puts the highlight on the selected tab and moves it with no animation when the tab changes', async () => {
     const { rerender } = await render(<FloatingTabBar active="today" bottomInset={0} onSelect={jest.fn()} />);
+    expect(screen.getByTestId('tab-highlight')).toHaveStyle({ left: 30 });
+
     await rerender(<FloatingTabBar active="history" bottomInset={0} onSelect={jest.fn()} />);
 
+    expect(screen.getByTestId('tab-highlight')).toHaveStyle({ left: 190 });
     expect(screen.getByRole('tab', { name: 'History' }).props.accessibilityState).toMatchObject({
       selected: true,
     });
-    expect(screen.getByTestId('tab-highlight')).toBeTruthy();
-    mockReduceMotion = false;
   });
+
+  it.each([false, true])(
+    'still works when a tab is pressed and released (Reduce Motion %s)',
+    async (reduce) => {
+      mockReduceMotion = reduce;
+      const onSelect = jest.fn();
+      await render(<FloatingTabBar active="today" bottomInset={0} onSelect={onSelect} />);
+
+      const history = screen.getByRole('tab', { name: 'History' });
+      await fireEvent(history, 'pressIn');
+      await fireEvent(history, 'pressOut');
+      await fireEvent.press(history);
+
+      expect(onSelect).toHaveBeenCalledWith('history');
+    },
+  );
 
   it('keeps Log outside the tabs: two tabs, with Log as a separate button', async () => {
     await render(<FloatingTabBar active="today" bottomInset={0} onSelect={jest.fn()} />);
