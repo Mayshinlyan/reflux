@@ -73,6 +73,17 @@ The relay code for `POST /v1/analyze-food` is built and tested with Claude and F
 4. Share the QR code / Expo Go link with testers. Tell them explicitly: **the dev server must stay running for the app to work, and deleting Expo Go deletes their local data** (no cloud backup in the MVP).
 5. Watch Cloud Logging and the Anthropic Console usage page while testers are active, especially in the first session.
 
+## Testing the home-screen widget (development build)
+
+The iOS home-screen widget (Snap food, plus saved foods on the medium size) is a native extension, so **Expo Go can't show it**; everything else in the app still runs in Expo Go (`scripts/test-app.sh` serves Expo Go by default). `expo-widgets` generates the widget target and its App Group (`group.com.mayshinlyan.adayinmybelly`) at prebuild; there is nothing to edit in `ios/`.
+
+1. Build a development build and install it on the phone, either locally (needs Xcode) with `cd app && npx expo run:ios --device`, or in the cloud with `cd app && npx eas-cli@latest build --profile development --platform ios` (register the phone first with `npx eas-cli@latest device:create`). Either way the Apple team must be able to use the App Groups capability.
+2. Serve to it with `scripts/test-app.sh --dev-build` and open the app once, so it can fill the widget.
+3. Long-press the home screen, tap +, and add **Snap food** in the small or medium size.
+4. Check: tapping the bubble opens the camera; the medium size lists up to three of My foods (A to Z); tapping one logs it and opens the check-in; renaming or removing a saved food updates the widget; **Delete all data** (You) empties it.
+
+A tapped food carries a token made on the phone, so a link from a web page or message can't log a meal; without it `?quickLog=` just opens the Food screen. Changing the widget's look means updating the Figma component *Widget/Bellie says* first, then re-exporting `app/assets/images/widget-bellie-says.png` at 3×.
+
 ## Milestone 2 additions (not yet applicable in MVP)
 
 - **Raising `MIN_APP_VERSION`:** set the env var, confirm the version-check middleware returns `426 UPGRADE_REQUIRED` for older installs, and post in the update notes why the bump was needed.

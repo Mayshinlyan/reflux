@@ -12,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -19,11 +20,13 @@ import { CheckInRouter } from '@/components/CheckInRouter';
 import { Screen } from '@/components/Screen';
 import { preloadChing } from '@/lib/ching';
 import { ToastProvider } from '@/components/Toast';
-import { DatabaseProvider } from '@/db/DatabaseProvider';
+import { DatabaseProvider, useDb } from '@/db/DatabaseProvider';
+import { onSavedFoodsChange } from '@/db/repositories/savedFoods';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { initSentry, wrapRoot } from '@/lib/sentry';
 import { setupReminders } from '@/services/reminders';
+import { syncWidget } from '@/services/widgetSync';
 import { lightColors, space } from '@/theme';
 
 initSentry();
@@ -40,6 +43,7 @@ function RootLayout() {
     Nunito_800ExtraBold,
   });
   const ready = fontsLoaded || fontError !== null;
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (fontError) logger.error('loadFonts', fontError);
@@ -53,10 +57,13 @@ function RootLayout() {
       <StatusBar style="dark" />
       <DatabaseProvider fallback={null} errorView={<DatabaseErrorScreen />}>
         <HideSplash />
+        <WidgetSync />
         <ToastProvider>
           <Stack
             screenOptions={{
               headerShown: false,
+              animation: reduceMotion ? 'none' : 'fade',
+              animationDuration: 250,
               contentStyle: { backgroundColor: lightColors.bg },
             }}>
             <Stack.Screen name="(tabs)" />
@@ -74,6 +81,18 @@ function HideSplash() {
     SplashScreen.hideAsync();
     preloadChing();
   }, []);
+  return null;
+}
+
+/** Keeps the home-screen widget's saved foods current: filled when the app opens, refilled when My foods changes. */
+function WidgetSync() {
+  const db = useDb();
+  useEffect(() => {
+    const sync = () => void syncWidget(db);
+    sync();
+    onSavedFoodsChange(sync);
+    return () => onSavedFoodsChange(null);
+  }, [db]);
   return null;
 }
 

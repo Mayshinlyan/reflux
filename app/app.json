@@ -52,7 +52,21 @@
           "recordAudioAndroid": false,
           "enableBackgroundPlayback": false
         }
-      ]
+      ],
+      [
+        "expo-widgets",
+        {
+          "widgets": [
+            {
+              "name": "FoodWidget",
+              "displayName": "Snap food",
+              "description": "Snap a meal, or log one of your saved foods, in one tap.",
+              "ios": { "supportedFamilies": ["systemSmall", "systemMedium"] }
+            }
+          ]
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

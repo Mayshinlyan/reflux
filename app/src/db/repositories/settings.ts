@@ -37,6 +37,8 @@ export type Settings = {
   checkInReminderMinutes: number | null;
   /** True once they have been asked about reminders (onboarding, the one-time sheet or Settings), so it's asked once. */
   reminderAsked: boolean;
+  /** Made on this phone and only ever written to the home-screen widget; a link that logs a meal must carry it. */
+  widgetToken: string;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -52,6 +54,7 @@ export const DEFAULT_SETTINGS: Settings = {
   petSeenStage: 0,
   checkInReminderMinutes: null,
   reminderAsked: false,
+  widgetToken: '',
 };
 
 export type SettingKey = keyof Settings;
