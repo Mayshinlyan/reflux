@@ -30,4 +30,21 @@ describe('TimelineItem icons', () => {
     await render(row('medication'));
     expect(screen.getByText('icon:Pill')).toBeTruthy();
   });
+
+  it('uses the leaf, and names the row "Lifestyle", for a check-in with no symptoms', async () => {
+    await render(
+      <TimelineItem
+        kind="symptom"
+        lifestyle
+        title="Stress"
+        time="9:10 PM"
+        onPress={() => {}}
+        side={<Text />}
+      />,
+    );
+
+    expect(screen.getByText('icon:Leaf')).toBeTruthy();
+    expect(screen.queryByText('icon:Activity')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Lifestyle: Stress, 9:10 PM' })).toBeTruthy();
+  });
 });

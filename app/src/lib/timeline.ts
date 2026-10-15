@@ -26,6 +26,8 @@ export type TimelineEntry =
       time: string;
       /** The line under the title: time, plus a count for symptom entries. */
       meta: string;
+      /** A check-in with lifestyle factors and no symptoms: shown with the lifestyle icon. */
+      lifestyleOnly: boolean;
       log: SymptomLogWithDetails;
     }
   | {
@@ -93,6 +95,15 @@ function symptomTitle(items: readonly { key: LoggedSymptomKey }[]): string {
 /** A built-in tag's label, or the text of one the user typed. */
 export const tagLabel = (key: string) =>
   isCustomTag(key) ? customSymptomLabel(key) : (tagLabels.get(key) ?? key);
+
+/** The factors of a lifestyle-only check-in by name; past three, the rest are counted ("+2 more"). */
+function lifestyleTitle(tags: readonly string[]): string {
+  const names = tags.map(tagLabel);
+  if (names.length === 0) return 'Lifestyle';
+  const shown = names.slice(0, TITLE_SYMPTOMS).join(', ');
+  const rest = names.length - TITLE_SYMPTOMS;
+  return rest > 0 ? `${shown} +${rest} more` : shown;
+}
 export const medicationTypeLabel = (key: string) => medicationTypeLabels.get(key) ?? key;
 
 /**
@@ -109,14 +120,18 @@ export function buildTimeline(
   if (filter === 'all' || filter === 'symptom') {
     for (const log of data.symptoms) {
       const time = formatTime(log.loggedAt, log.tz);
+      const lifestyleOnly = log.items.length === 0;
       entries.push({
         kind: 'symptom',
         id: log.id,
         at: log.loggedAt,
         tz: log.tz,
-        title: symptomTitle(log.items),
+        title: lifestyleOnly ? lifestyleTitle(log.tags) : symptomTitle(log.items),
         time,
-        meta: `${log.items.length} ${log.items.length === 1 ? 'symptom' : 'symptoms'} · ${time}`,
+        meta: lifestyleOnly
+          ? time
+          : `${log.items.length} ${log.items.length === 1 ? 'symptom' : 'symptoms'} · ${time}`,
+        lifestyleOnly,
         log,
       });
     }

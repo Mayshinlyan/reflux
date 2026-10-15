@@ -158,6 +158,7 @@ export default function TodayScreen() {
                 <TimelineItem
                   key={`${entry.kind}-${entry.id}`}
                   kind={entry.kind}
+                  lifestyle={entry.kind === 'symptom' && entry.lifestyleOnly}
                   title={entry.title}
                   time={entry.meta}
                   side={

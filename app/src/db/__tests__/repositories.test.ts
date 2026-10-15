@@ -348,9 +348,25 @@ describe('symptom logs', () => {
     });
   });
 
+  it('keeps a lifestyle-only check-in: no symptoms, one or more factors, and reads it back', () => {
+    const { db } = createTestDb();
+    const id = createSymptomLog(db, { items: [], tags: ['stress', 'custom:Skipped breakfast'] });
+    const log = getSymptomLog(db, id);
+    expect(log?.items).toEqual([]);
+    expect(log?.tags.sort()).toEqual(['custom:Skipped breakfast', 'stress']);
+
+    // It can be edited, and gain symptoms; one with neither symptoms nor factors is still refused.
+    updateSymptomLog(db, id, { items: [], tags: ['alcohol'] });
+    expect(getSymptomLog(db, id)?.tags).toEqual(['alcohol']);
+    expect(() => updateSymptomLog(db, id, { items: [], tags: [] })).toThrow(/symptom or a lifestyle factor/);
+    updateSymptomLog(db, id, { items: [{ key: 'cough' }], tags: ['alcohol'] });
+    expect(getSymptomLog(db, id)?.items.map((item) => item.key)).toEqual(['cough']);
+  });
+
   it('rejects empty logs, unknown keys and duplicates', () => {
     const { db } = createTestDb();
-    expect(() => createSymptomLog(db, { items: [] })).toThrow();
+    expect(() => createSymptomLog(db, { items: [] })).toThrow(/symptom or a lifestyle factor/);
+    expect(() => createSymptomLog(db, { items: [], tags: [] })).toThrow(/symptom or a lifestyle factor/);
     // @ts-expect-error unknown key
     expect(() => createSymptomLog(db, { items: [{ key: 'nausea' }] })).toThrow();
     expect(() =>

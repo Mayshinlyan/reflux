@@ -259,6 +259,7 @@ export default function HistoryScreen() {
           <Animated.View style={{ opacity: fade }}>
             <TimelineItem
               kind={item.kind}
+              lifestyle={item.kind === 'symptom' && item.lifestyleOnly}
               title={item.title}
               time={item.meta}
               side={

@@ -21,6 +21,7 @@ export type SymptomItemInput = { key: LoggedSymptomKey };
 export type StoredSymptomItem = { key: LoggedSymptomKey; score: number };
 
 export type SymptomLogInput = {
+  /** May be empty when `tags` is not: a lifestyle-only check-in ("Just checking in"). */
   items: SymptomItemInput[];
   tags?: LoggedTagKey[];
   notes?: string | null;
@@ -39,7 +40,9 @@ export type SymptomLogWithDetails = SymptomLog & {
 const MAX_NOTES_LENGTH = 1000;
 
 function validate(input: SymptomLogInput): void {
-  if (input.items.length === 0) throw new Error('A symptom log needs at least one symptom');
+  if (input.items.length === 0 && (input.tags ?? []).length === 0) {
+    throw new Error('A log needs a symptom or a lifestyle factor');
+  }
   const seen = new Set<string>();
   for (const item of input.items) {
     // A custom symptom is the user's own text, so the messages never repeat it.
@@ -65,9 +68,11 @@ function validate(input: SymptomLogInput): void {
 }
 
 function writeChildren(tx: AppDb, logId: number, input: SymptomLogInput): void {
-  tx.insert(symptomLogItems)
-    .values(input.items.map((item) => ({ symptomLogId: logId, itemKey: item.key, score: QUICK_LOG_SCORE })))
-    .run();
+  if (input.items.length > 0) {
+    tx.insert(symptomLogItems)
+      .values(input.items.map((item) => ({ symptomLogId: logId, itemKey: item.key, score: QUICK_LOG_SCORE })))
+      .run();
+  }
   const tags = [...new Set(input.tags ?? [])];
   if (tags.length > 0) {
     tx.insert(symptomLogTags)

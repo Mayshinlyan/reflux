@@ -31,7 +31,7 @@ describe('Log: choose a type', () => {
     await render(<LogChooseScreen />);
 
     expect(screen.getByRole('header', { name: 'What would you like to log?' })).toBeTruthy();
-    for (const name of ['Food', 'Symptoms', 'Medication']) {
+    for (const name of ['Food', 'How I feel', 'Medication']) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
     expect(
@@ -43,7 +43,7 @@ describe('Log: choose a type', () => {
     await render(<LogChooseScreen />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Food' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Symptoms' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'How I feel' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Medication' }));
 
     expect(mockReplace.mock.calls).toEqual([['/log/food'], ['/log/symptoms'], ['/log/medication']]);
@@ -53,7 +53,7 @@ describe('Log: choose a type', () => {
     mockParams = { date: '2026-10-08' };
     await render(<LogChooseScreen />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Symptoms' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'How I feel' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Food' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Medication' }));
 
@@ -70,7 +70,7 @@ describe('Log: choose a type', () => {
     expect(screen.getByRole('button', { name: 'Food' })).toHaveStyle({
       backgroundColor: lightColors.honeyTint,
     });
-    expect(screen.getByRole('button', { name: 'Symptoms' })).toHaveStyle({
+    expect(screen.getByRole('button', { name: 'How I feel' })).toHaveStyle({
       backgroundColor: lightColors.clayTint,
     });
     expect(screen.getByRole('button', { name: 'Medication' })).toHaveStyle({

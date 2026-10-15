@@ -306,6 +306,10 @@ export default function LogSymptomsScreen() {
     else setTimeOpen(true);
   };
 
+  // Something to save: a symptom, or a lifestyle factor on its own ("Just checking in").
+  const canSave = selected.size > 0 || tags.size > 0;
+  const saveHint = canSave ? undefined : 'Pick a symptom or something going on first';
+
   const save = () => {
     // An entry being edited keeps its time (and time zone) unless the time pill was used.
     const timeChanged = at !== null && !(existing && at.getTime() === new Date(existing.loggedAt).getTime());
@@ -313,7 +317,8 @@ export default function LogSymptomsScreen() {
       items: picked.map((item) => ({ key: item.key })),
       tags: [...tags],
       notes: note,
-      foodLogId: linked?.id,
+      // The link to a meal is about symptoms that followed it, so a lifestyle-only check-in has none.
+      foodLogId: picked.length > 0 ? linked?.id : undefined,
       ...(timeChanged && at ? { loggedAt: at.toISOString(), tz: currentTimeZone() } : {}),
     };
     try {
@@ -326,7 +331,9 @@ export default function LogSymptomsScreen() {
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     if (editingId === undefined) playChing();
-    toast(editingId !== undefined ? 'Entry updated' : 'Symptoms logged');
+    toast(
+      editingId !== undefined ? 'Entry updated' : picked.length > 0 ? 'Symptoms logged' : 'Lifestyle logged',
+    );
     router.back();
   };
 
@@ -340,7 +347,7 @@ export default function LogSymptomsScreen() {
   }
 
   // Swiping between log screens is only for a fresh, untouched log, so it can't drop a half-finished one.
-  const pristine = editingId === undefined && step === 1 && selected.size === 0;
+  const pristine = editingId === undefined && step === 1 && selected.size === 0 && tags.size === 0;
   const now = new Date();
 
   return (
@@ -422,7 +429,7 @@ export default function LogSymptomsScreen() {
             ) : (
               <>
                 <AppText variant="display" accessibilityRole="header">
-                  {symptomsTitle(picked.map((item) => item.label))}
+                  {picked.length > 0 ? symptomsTitle(picked.map((item) => item.label)) : 'Just checking in'}
                 </AppText>
                 <AppText color="inkSoft" style={styles.subtitle}>
                   Anything else? All optional.
@@ -470,7 +477,7 @@ export default function LogSymptomsScreen() {
                     ))}
                   </View>
                 </View>
-                {candidate && (
+                {candidate && picked.length > 0 && (
                   <View style={styles.section}>
                     <AppText variant="section">Recent meal</AppText>
                     <View style={linked ? undefined : styles.dimmed}>
@@ -496,22 +503,22 @@ export default function LogSymptomsScreen() {
           <View style={styles.footer}>
             {step === 1 ? (
               <>
-                <Button
-                  label="Next"
-                  onPress={() => setStep(2)}
-                  disabled={selected.size === 0}
-                  accessibilityHint={selected.size === 0 ? 'Choose at least one symptom first' : undefined}
-                />
+                <Button label="Next" onPress={() => setStep(2)} />
                 <Button
                   variant="quiet"
                   label={editingId !== undefined ? 'Save changes' : 'Complete check-in'}
                   onPress={save}
-                  disabled={selected.size === 0}
-                  accessibilityHint={selected.size === 0 ? 'Choose at least one symptom first' : undefined}
+                  disabled={!canSave}
+                  accessibilityHint={saveHint}
                 />
               </>
             ) : (
-              <Button label={editingId !== undefined ? 'Save changes' : 'Complete check-in'} onPress={save} />
+              <Button
+                label={editingId !== undefined ? 'Save changes' : 'Complete check-in'}
+                onPress={save}
+                disabled={!canSave}
+                accessibilityHint={saveHint}
+              />
             )}
           </View>
         </KeyboardAvoidingView>

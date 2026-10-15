@@ -192,6 +192,25 @@ describe('Entry: a symptom entry', () => {
     expect(screen.getByText('Worse lying down.')).toBeTruthy();
   });
 
+  it('names a lifestyle-only check-in by its factors, with no symptoms or possibly related card', async () => {
+    const id = createSymptomLog(mockDb, {
+      items: [],
+      tags: ['stress', 'custom:Skipped breakfast'],
+      notes: 'Rushed morning.',
+      loggedAt: at(10, 21, 40),
+    });
+    mockParams = { kind: 'symptom', id: String(id) };
+    await render(<EntryScreen />);
+
+    expect(screen.getByRole('header', { name: 'Stress, Skipped breakfast' })).toBeTruthy();
+    expect(screen.getByText('Sat, Oct 10 · 9:40 PM')).toBeTruthy();
+    // The factors name the entry, so they are not repeated as tag chips under the date.
+    expect(screen.queryAllByText('Stress')).toHaveLength(0);
+    expect(screen.queryByText('Symptoms')).toBeNull();
+    expect(screen.queryByText('Possibly related')).toBeNull();
+    expect(screen.getByText('Rushed morning.')).toBeTruthy();
+  });
+
   it('shows what is possibly related, worked out from the meal it followed', async () => {
     const mealId = seedTacos();
     const id = createSymptomLog(mockDb, {

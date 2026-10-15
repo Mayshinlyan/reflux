@@ -53,7 +53,8 @@ export function summarize(
       if (entry.log.overallVerdict) verdicts[entry.log.overallVerdict] += 1;
       countTags(mealTags.get(entry.id) ?? []);
     } else if (entry.kind === 'symptom') {
-      symptomDays.add(dayKeyOf(entry));
+      // A lifestyle-only check-in has no symptoms, so it is not a symptom day.
+      if (entry.log.items.length > 0) symptomDays.add(dayKeyOf(entry));
       for (const item of entry.log.items) symptomCounts.set(item.key, (symptomCounts.get(item.key) ?? 0) + 1);
       countTags(entry.log.tags);
     }
