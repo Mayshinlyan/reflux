@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { type BottomTabBarProps, Tabs } from 'expo-router/js-tabs';
 import { useEffect, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { FloatingTabBar, type TabKey } from '@/components/FloatingTabBar';
 import { type LogKind, QuickLogArch } from '@/components/QuickLogArch';
@@ -100,10 +101,15 @@ function TabBar({ state, navigation, insets }: BottomTabBarProps) {
 }
 
 export default function TabsLayout() {
+  const reduceMotion = useReducedMotion();
   return (
     <Tabs
       tabBar={(props) => <TabBar {...props} />}
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: lightColors.bg } }}>
+      screenOptions={{
+        headerShown: false,
+        animation: reduceMotion ? 'none' : 'fade',
+        sceneStyle: { backgroundColor: lightColors.bg },
+      }}>
       <Tabs.Screen name="index" />
       <Tabs.Screen name="history" />
     </Tabs>
