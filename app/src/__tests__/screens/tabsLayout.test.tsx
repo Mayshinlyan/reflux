@@ -74,7 +74,7 @@ describe('Quick log arch', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
-    for (const name of ['Snap food', 'Symptom', 'Medication']) {
+    for (const name of ['Snap food', 'How I feel', 'Medication']) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
     expect(mockPush).not.toHaveBeenCalled();
@@ -91,7 +91,7 @@ describe('Quick log arch', () => {
 
     expect(pick).toHaveBeenCalledWith('camera');
     expect(mockPush).not.toHaveBeenCalled(); // nothing behind the camera
-    expect(screen.queryByRole('button', { name: 'Symptom' })).toBeNull(); // and the arch has closed
+    expect(screen.queryByRole('button', { name: 'How I feel' })).toBeNull(); // and the arch has closed
     await act(async () => finish({ status: 'canceled' }));
   });
 
@@ -160,7 +160,7 @@ describe('Quick log arch', () => {
     await render(<TabsLayout />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Symptom' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'How I feel' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Medication' }));
 

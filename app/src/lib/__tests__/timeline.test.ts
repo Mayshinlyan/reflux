@@ -53,6 +53,30 @@ describe('buildTimeline', () => {
     ]);
   });
 
+  it('names a lifestyle-only check-in by its factors, with just the time under it and the lifestyle flag', () => {
+    const log: SymptomLogWithDetails = {
+      ...symptom(3, '2026-09-28T20:10:00.000Z'),
+      items: [],
+      tags: ['stress', 'lay_down_after_eating', 'custom:Skipped breakfast', 'alcohol'],
+    };
+    const [entry] = buildTimeline(
+      { symptoms: [log], food: [], medications: [] },
+      'symptom',
+      now,
+      'Europe/London',
+    ).flatMap((section) => section.entries);
+
+    expect(entry).toMatchObject({
+      kind: 'symptom',
+      lifestyleOnly: true,
+      title: 'Stress, Lay down after eating, Skipped breakfast +1 more',
+      meta: entry?.time,
+    });
+    // A check-in with symptoms is not flagged.
+    const [withSymptoms] = buildTimeline(data, 'symptom', now, 'Europe/London').flatMap((s) => s.entries);
+    expect(withSymptoms).toMatchObject({ lifestyleOnly: false });
+  });
+
   it('names up to three symptoms and counts the rest', () => {
     const many: SymptomLogWithDetails = {
       ...symptom(5, '2026-09-28T19:00:00.000Z'),

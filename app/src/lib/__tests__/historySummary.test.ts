@@ -49,6 +49,23 @@ describe('summarize: lifestyle factors the user typed', () => {
   });
 });
 
+describe('summarize: lifestyle-only check-ins', () => {
+  it('counts their factors but not the day as a symptom day', () => {
+    const summary = summarize(
+      [
+        symptom(1, '2026-10-10', [], ['stress', 'custom:Skipped breakfast']),
+        symptom(2, '2026-10-09', ['cough']),
+      ],
+      dayOf,
+    );
+
+    expect(summary.symptomDays).toBe(1);
+    expect(summary.tags.find((tag) => tag.key === 'stress')).toMatchObject({ count: 1 });
+    expect(summary.tags.find((tag) => tag.key === 'custom:Skipped breakfast')).toMatchObject({ count: 1 });
+    expect(summary.symptoms.find((item) => item.key === 'cough')).toMatchObject({ count: 1 });
+  });
+});
+
 describe('summarize', () => {
   it('counts meals, the verdict mix, and the days that have symptoms', () => {
     const summary = summarize(
@@ -57,9 +74,9 @@ describe('summarize', () => {
         meal(2, 'caution', '2026-10-10'),
         meal(3, 'trigger', '2026-10-09'),
         meal(4, null, '2026-10-09'),
-        symptom(1, '2026-10-10'),
-        symptom(2, '2026-10-10'),
-        symptom(3, '2026-10-08'),
+        symptom(1, '2026-10-10', ['heartburn']),
+        symptom(2, '2026-10-10', ['burping']),
+        symptom(3, '2026-10-08', ['heartburn']),
       ],
       dayOf,
     );

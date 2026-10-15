@@ -35,7 +35,7 @@ export default function LogChooseScreen() {
             onPress={() => router.replace(withDate('/log/food', date))}
           />
           <LogTile
-            label="Symptoms"
+            label="How I feel"
             icon={Activity}
             tint="clayTint"
             onPress={() => router.replace(withDate('/log/symptoms', date))}

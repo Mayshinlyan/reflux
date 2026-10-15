@@ -108,9 +108,12 @@ describe('Log symptoms screen: pick, then details', () => {
   it('chooses symptoms across areas, then saves them with lifestyle chips and a note', async () => {
     await render(<LogSymptomsScreen />);
 
-    // Pick: nothing is chosen, so Next is disabled.
+    // Pick: nothing is chosen yet. Next is on (it skips to the details); there is nothing to complete.
     expect(screen.getByText('How do you feel?')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Next' }).props.accessibilityState).toMatchObject({
+    expect(screen.getByRole('button', { name: 'Next' }).props.accessibilityState).not.toMatchObject({
+      disabled: true,
+    });
+    expect(screen.getByRole('button', { name: 'Complete check-in' }).props.accessibilityState).toMatchObject({
       disabled: true,
     });
 
@@ -325,14 +328,17 @@ describe('Log symptoms screen: editing', () => {
     expect(getSymptomLog(mockDb, id)?.items.map((item) => item.key)).toEqual(['cough', 'heartburn', 'sleep']);
   });
 
-  it('will not go on when an edit leaves nothing chosen', async () => {
+  it('will not save an edit that leaves nothing chosen', async () => {
     const id = createSymptomLog(mockDb, { items: [{ key: 'cough' }] });
     mockParams = { id: String(id) };
     await render(<LogSymptomsScreen />);
 
     await press('checkbox', 'Nagging cough'); // deselect the only symptom
 
-    expect(screen.getByRole('button', { name: 'Next' }).props.accessibilityState).toMatchObject({
+    expect(screen.getByRole('button', { name: 'Save changes' }).props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+    expect(screen.getByRole('button', { name: 'Next' }).props.accessibilityState).not.toMatchObject({
       disabled: true,
     });
   });
@@ -602,5 +608,57 @@ describe('Adding your own with a + chip', () => {
     expect(screen.getByRole('checkbox', { name: 'Hiccups' }).props.accessibilityState).toMatchObject({
       checked: true,
     });
+  });
+});
+
+describe('Log symptoms screen: lifestyle on its own', () => {
+  const minutesAgo = (n: number) => new Date(Date.now() - n * 60 * 1000).toISOString();
+  const isDisabled = (name: string) =>
+    Boolean(screen.getByRole('button', { name }).props.accessibilityState?.disabled);
+
+  it('goes on with nothing picked, titles the details "Just checking in", and saves once something is picked', async () => {
+    await render(<LogSymptomsScreen />);
+    expect(isDisabled('Next')).toBe(false);
+    await press('button', 'Next');
+
+    expect(screen.getByText('Just checking in')).toBeTruthy();
+    expect(isDisabled('Complete check-in')).toBe(true); // nothing to save yet
+
+    await press('checkbox', 'Stress');
+    await press('checkbox', 'Lay down after eating');
+    expect(isDisabled('Complete check-in')).toBe(false);
+    await press('button', 'Complete check-in');
+
+    const [log] = listSymptomLogs(mockDb, ALL_TIME);
+    expect(log?.items).toEqual([]);
+    expect(log?.tags.sort()).toEqual(['lay_down_after_eating', 'stress']);
+    expect(mockToast).toHaveBeenCalledWith('Lifestyle logged');
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('offers no meal to link, and saves no link, when there are no symptoms', async () => {
+    createUncheckedMeal(mockDb, { source: 'text', inputText: 'late tacos', loggedAt: minutesAgo(30) });
+    await render(<LogSymptomsScreen />);
+    await press('button', 'Next');
+
+    expect(screen.queryByText('Recent meal')).toBeNull();
+    await press('checkbox', 'Stress');
+    await press('button', 'Complete check-in');
+    expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.foodLogId).toBeNull();
+  });
+
+  it('lets a lifestyle-only entry be saved from the first step when edited', async () => {
+    const id = createSymptomLog(mockDb, { items: [], tags: ['stress'] });
+    mockParams = { id: String(id) };
+    await render(<LogSymptomsScreen />);
+
+    expect(isDisabled('Save changes')).toBe(false);
+    await press('button', 'Next');
+    expect(screen.getByText('Just checking in')).toBeTruthy();
+    await press('checkbox', 'Alcohol');
+    await press('button', 'Save changes');
+
+    expect(getSymptomLog(mockDb, id)?.tags.sort()).toEqual(['alcohol', 'stress']);
+    expect(getSymptomLog(mockDb, id)?.items).toEqual([]);
   });
 });

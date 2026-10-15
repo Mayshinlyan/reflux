@@ -240,31 +240,39 @@ function SymptomView({ log }: { log: Extract<LoadedEntry, { kind: 'symptom' }>['
   const { settings } = useSettings();
   const meal = log.foodLogId !== null ? getFoodLog(db, log.foodLogId) : undefined;
   const tags = log.tags.map(tagLabel);
-  const causes = possibleCauses({
-    symptomAt: log.loggedAt,
-    meal,
-    bedtime: settings.bedtime,
-    lateMealWindowMinutes: settings.lateMealWindowMinutes,
-  });
+  // A check-in with no symptoms is named by its lifestyle factors, which then are not repeated as tags.
+  const lifestyleOnly = log.items.length === 0;
+  const causes = lifestyleOnly
+    ? []
+    : possibleCauses({
+        symptomAt: log.loggedAt,
+        meal,
+        bedtime: settings.bedtime,
+        lateMealWindowMinutes: settings.lateMealWindowMinutes,
+      });
   return (
     <>
-      <Heading>{log.items.map((item) => symptomLabel(item.key)).join(', ')}</Heading>
+      <Heading>
+        {lifestyleOnly ? tags.join(', ') : log.items.map((item) => symptomLabel(item.key)).join(', ')}
+      </Heading>
       <Card>
         <AppText variant="bodyEm">{formatWhen(log.loggedAt, log.tz)}</AppText>
-        <Tags labels={tags} />
+        {!lifestyleOnly && <Tags labels={tags} />}
       </Card>
-      <Card title="Symptoms">
-        <View style={styles.chips}>
-          {log.items.map((item) => (
-            <SymptomChip key={item.key} label={symptomLabel(item.key)} selected readOnly />
-          ))}
-        </View>
-        {meal && (
-          <AppText variant="caption" color="inkSoft">
-            {`After ${meal.mealName}`}
-          </AppText>
-        )}
-      </Card>
+      {!lifestyleOnly && (
+        <Card title="Symptoms">
+          <View style={styles.chips}>
+            {log.items.map((item) => (
+              <SymptomChip key={item.key} label={symptomLabel(item.key)} selected readOnly />
+            ))}
+          </View>
+          {meal && (
+            <AppText variant="caption" color="inkSoft">
+              {`After ${meal.mealName}`}
+            </AppText>
+          )}
+        </Card>
+      )}
       {causes.length > 0 && (
         <Card title="Possibly related">
           {causes.map((cause) => (

@@ -11,7 +11,7 @@ export type LogKind = 'food' | 'symptoms' | 'medication';
 
 const ITEMS: { kind: LogKind; label: string; icon: LucideIcon; tint: ColorToken; angle: number }[] = [
   { kind: 'food', label: 'Snap food', icon: Camera, tint: 'honeyTint', angle: 140 },
-  { kind: 'symptoms', label: 'Symptom', icon: Activity, tint: 'clayTint', angle: 90 },
+  { kind: 'symptoms', label: 'How I feel', icon: Activity, tint: 'clayTint', angle: 90 },
   { kind: 'medication', label: 'Medication', icon: Pill, tint: 'sageTint', angle: 40 },
 ];
 

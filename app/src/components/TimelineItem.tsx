@@ -1,4 +1,4 @@
-import { Activity, type LucideIcon, Pill, Utensils } from 'lucide-react-native';
+import { Activity, Leaf, type LucideIcon, Pill, Utensils } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -14,8 +14,13 @@ const KIND_STYLE: Record<TimelineKind, { icon: LucideIcon; bg: ColorToken; fg: C
   medication: { icon: Pill, bg: 'clayTint', fg: 'clayInk', noun: 'Medication' },
 };
 
+/** A check-in with lifestyle factors and no symptoms: the leaf, not the pulse. */
+const LIFESTYLE_STYLE = { icon: Leaf, bg: 'surface2', fg: 'ink', noun: 'Lifestyle' } as const;
+
 type Props = {
   kind: TimelineKind;
+  /** A symptom-kind entry that has no symptoms, only lifestyle factors. */
+  lifestyle?: boolean;
   title: string;
   time: string;
   onPress: () => void;
@@ -26,9 +31,9 @@ type Props = {
 };
 
 /** One diary row (Figma "Meal row" / "Medication row"): filled `surface`, no border. Doses carry a "Taken" pill. */
-export function TimelineItem({ kind, title, time, onPress, side, onDelete }: Props) {
+export function TimelineItem({ kind, lifestyle, title, time, onPress, side, onDelete }: Props) {
   const colors = useColors();
-  const { icon: Icon, bg, fg, noun } = KIND_STYLE[kind];
+  const { icon: Icon, bg, fg, noun } = lifestyle ? LIFESTYLE_STYLE : KIND_STYLE[kind];
   const canSwipe = Boolean(onDelete);
   const row = (
     <Pressable
