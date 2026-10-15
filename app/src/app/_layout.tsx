@@ -12,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -37,6 +38,7 @@ function RootLayout() {
     Nunito_800ExtraBold,
   });
   const ready = fontsLoaded || fontError !== null;
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (fontError) logger.error('loadFonts', fontError);
@@ -54,6 +56,8 @@ function RootLayout() {
           <Stack
             screenOptions={{
               headerShown: false,
+              animation: reduceMotion ? 'none' : 'fade',
+              animationDuration: 250,
               contentStyle: { backgroundColor: lightColors.bg },
             }}>
             <Stack.Screen name="(tabs)" />
