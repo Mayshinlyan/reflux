@@ -1,7 +1,7 @@
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import { User } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
@@ -62,6 +62,9 @@ export default function TodayScreen() {
     [scrollY, scrollable, entriesY],
   );
 
+  // Short phones (iPhone SE) can't spare the roomier top gap.
+  const { height } = useWindowDimensions();
+
   // Back from Log, the strip is plain again; leaving Today (another tab) drops a pending pick.
   useFocusEffect(
     useCallback(() => {
@@ -87,7 +90,7 @@ export default function TodayScreen() {
   const mood = bellyMoodFor(meals[meals.length - 1]?.verdict);
 
   return (
-    <Screen edges={['top', 'left', 'right']} style={styles.screen}>
+    <Screen edges={['top', 'left', 'right']} style={height < 700 ? styles.screenShort : styles.screen}>
       <Animated.ScrollView
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
           useNativeDriver: true,
@@ -186,6 +189,7 @@ export default function TodayScreen() {
 
 const styles = StyleSheet.create({
   screen: { paddingTop: 58 - space.s2 },
+  screenShort: { paddingTop: space.s2 },
   content: { gap: space.s3 },
   grow: { flexGrow: 1 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: space.s2 },
