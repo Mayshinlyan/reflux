@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, inArray, lt } from 'drizzle-orm';
 
-import { LIFESTYLE_TAG_KEYS, type LifestyleTagKey } from '@/constants/lifestyleTags';
+import { isCustomTag, LIFESTYLE_TAG_KEYS, type LoggedTagKey } from '@/constants/lifestyleTags';
+import { cleanCustomSymptom, customSymptomLabel } from '@/constants/symptomItems';
 import { currentTimeZone, nowIso } from '@/lib/time';
 import { effectiveVerdict, withUserVerdict } from '@/lib/verdict';
 import type { AnalysisMeta, AppVerdict, MealAnalysis, Portion } from '@/types/analysis';
@@ -193,18 +194,26 @@ export type MealDetails = {
   /** When it was eaten; the time zone becomes the current one. Omitted keeps the stored time. */
   loggedAt?: string;
   portion?: Portion;
-  tags?: LifestyleTagKey[];
+  tags?: LoggedTagKey[];
   notes?: string | null;
 };
 
 /**
- * The details step after a verdict: when it was eaten, how much, lifestyle tags and a note. Replaces the
- * meal's tags, so an empty list clears them. Works on diary meals and checks alike (a check is promoted
- * separately).
+ * The details step after a verdict: when it was eaten, how much, lifestyle tags and a note. A tag is a
+ * built-in factor or one the user typed (`custom:<text>`). Replaces the meal's tags, so an empty list clears
+ * them. Works on diary meals and checks alike (a check is promoted separately).
  */
 export function saveMealDetails(db: AppDb, id: number, details: MealDetails): void {
   const tags = [...new Set(details.tags ?? [])];
-  for (const tag of tags) if (!LIFESTYLE_TAG_KEYS.includes(tag)) throw new Error(`Unknown tag: ${tag}`);
+  for (const tag of tags) {
+    if (isCustomTag(tag)) {
+      // The user's own text, so the message never repeats it.
+      const text = customSymptomLabel(tag);
+      if (!text || cleanCustomSymptom(text) !== text) throw new Error('Invalid custom tag');
+    } else if (!LIFESTYLE_TAG_KEYS.includes(tag)) {
+      throw new Error(`Unknown tag: ${tag}`);
+    }
+  }
   const values: Partial<FoodLog> = {
     notes: details.notes?.trim().slice(0, MAX_NOTES_LENGTH) || null,
     updatedAt: nowIso(),
@@ -232,18 +241,18 @@ export function saveMealDetails(db: AppDb, id: number, details: MealDetails): vo
 }
 
 /** The lifestyle tags on a meal. */
-export function listMealTags(db: AppDb, id: number): LifestyleTagKey[] {
+export function listMealTags(db: AppDb, id: number): LoggedTagKey[] {
   return db
     .select({ tagKey: foodLogTags.tagKey })
     .from(foodLogTags)
     .where(eq(foodLogTags.foodLogId, id))
     .all()
-    .map((row) => row.tagKey as LifestyleTagKey);
+    .map((row) => row.tagKey as LoggedTagKey);
 }
 
 /** The lifestyle tags of several meals at once, by meal id; a meal without tags is absent. */
-export function listMealTagsFor(db: AppDb, ids: readonly number[]): Map<number, LifestyleTagKey[]> {
-  const byMeal = new Map<number, LifestyleTagKey[]>();
+export function listMealTagsFor(db: AppDb, ids: readonly number[]): Map<number, LoggedTagKey[]> {
+  const byMeal = new Map<number, LoggedTagKey[]>();
   // Chunked so a long history stays under SQLite's limit on bound values.
   for (let i = 0; i < ids.length; i += 500) {
     const rows = db
@@ -252,7 +261,7 @@ export function listMealTagsFor(db: AppDb, ids: readonly number[]): Map<number, 
       .where(inArray(foodLogTags.foodLogId, ids.slice(i, i + 500)))
       .all();
     for (const row of rows) {
-      byMeal.set(row.foodLogId, [...(byMeal.get(row.foodLogId) ?? []), row.tagKey as LifestyleTagKey]);
+      byMeal.set(row.foodLogId, [...(byMeal.get(row.foodLogId) ?? []), row.tagKey as LoggedTagKey]);
     }
   }
   return byMeal;

@@ -115,10 +115,10 @@ const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.00
 const allRows = () => mockDb.select().from(foodLogs).all();
 const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('Describe it'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
-/** "I ate this" opens the details; Save there logs it as eaten right now. */
+/** "I ate this" opens the details; Complete check-in there closes the flow. */
 const ateThis = async () => {
   await press('I ate this');
-  await press('Done');
+  await press('Complete check-in');
 };
 /** The photo card opens a sheet to take a photo or choose one. */
 const takePhoto = async () => {
@@ -279,7 +279,7 @@ describe('Food screen: saving without a verdict', () => {
 
     await type('  grilled fish  ');
     await press('Log without checking');
-    await press('Done');
+    await press('Complete check-in');
 
     expect(analyze).not.toHaveBeenCalled();
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
@@ -317,7 +317,7 @@ describe('Food screen: saving without a verdict', () => {
     expect(await screen.findByText(friendlyMessages.OFFLINE)).toBeTruthy();
 
     await press('Log without checking');
-    await press('Done');
+    await press('Complete check-in');
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
       { inputText: 'rice and beans', overallVerdict: null },

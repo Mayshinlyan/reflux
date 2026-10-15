@@ -20,7 +20,7 @@ import { listDiaryFoodLogs, listMealTagsFor } from '@/db/repositories/food';
 import { listMedicationLogs } from '@/db/repositories/medications';
 import { listSymptomLogs } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
-import type { LifestyleTagKey } from '@/constants/lifestyleTags';
+import type { LoggedTagKey } from '@/constants/lifestyleTags';
 import { useDeleteEntry } from '@/hooks/useDeleteEntry';
 import { friendlyMessages } from '@/lib/errors';
 import { summarize } from '@/lib/historySummary';
@@ -86,7 +86,7 @@ export default function HistoryScreen() {
   const [picking, setPicking] = useState(false);
   const [dayCounts, setDayCounts] = useState<ReadonlyMap<string, number>>(new Map());
   const [sections, setSections] = useState<TimelineSection[]>([]);
-  const [mealTags, setMealTags] = useState<ReadonlyMap<number, readonly LifestyleTagKey[]>>(new Map());
+  const [mealTags, setMealTags] = useState<ReadonlyMap<number, readonly LoggedTagKey[]>>(new Map());
   const [todayKey, setTodayKey] = useState(todayKeyNow);
   const [firstDayKey, setFirstDayKey] = useState<string | undefined>(undefined);
   const [loadFailed, setLoadFailed] = useState(false);

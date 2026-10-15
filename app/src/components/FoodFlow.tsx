@@ -39,6 +39,7 @@ import {
 import { getSetting } from '@/db/repositories/settings';
 import { createSymptomLog } from '@/db/repositories/symptoms';
 import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
+import { useSavedAdditions } from '@/hooks/useSavedAdditions';
 import { playChing } from '@/lib/ching';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -90,7 +91,8 @@ export type MyFoodTarget = { id?: number; name?: string };
 /**
  * The one food screen, for a meal just eaten or one being considered, in three steps (Figma 03b to 03d):
  * capture (a photo or a typed description) → verdict (the belly's mood, why, matched triggers) → details
- * (time, portion, lifestyle tags, symptoms, a note). Saved foods sit on top of the capture step as a Quick
+ * (a How I feel-style check-in: time, lifestyle tags, symptoms, a note; all optional, each group with a "+"
+ * to add your own). Saved foods sit on top of the capture step as a Quick
  * log row; tapping one skips straight to the details with its saved verdict. Each result is kept as a check (outside the diary);
  * "I ate this" opens the details, and Save promotes that check, reusing its analysis instead of calling
  * the relay again.
@@ -155,13 +157,27 @@ export function FoodFlow({
   const logTime = () => (date ? dayToLoggedAt(date, new Date()) : null) ?? new Date();
   const [eatenAt, setEatenAt] = useState(logTime);
   const [details, setDetails] = useState<MealDetailsState>({
-    portion: 'regular',
     tags: new Set(),
     symptoms: new Set(),
     note: '',
     keep: false,
   });
   const [pickingTime, setPickingTime] = useState(false);
+  const scroll = useRef<ScrollView>(null);
+  const additions = useSavedAdditions();
+  /** Typed in a "+" chip on the details: saved to My additions and picked on this meal. */
+  const addTag = (text: string) => {
+    const key = additions.addTag(text);
+    if (!key) return;
+    Haptics.selectionAsync().catch(() => {});
+    setDetails((current) => ({ ...current, tags: new Set(current.tags).add(key) }));
+  };
+  const addSymptom = (text: string) => {
+    const key = additions.addSymptom(text);
+    if (!key) return;
+    Haptics.selectionAsync().catch(() => {});
+    setDetails((current) => ({ ...current, symptoms: new Set(current.symptoms).add(key) }));
+  };
   const [choosingPhoto, setChoosingPhoto] = useState(false);
   // The picker opens only once the sheet has finished closing: iOS can't present it over a closing modal.
   const pendingPhoto = useRef<PhotoSource | null>(null);
@@ -288,8 +304,9 @@ export function FoodFlow({
   };
 
   /**
-   * "Done" on the details: the portion, lifestyle tags, note and time on the meal that is already logged,
-   * and any symptoms as a symptom log linked to it. Nothing is lost if the extras fail, the meal is saved.
+   * "Complete check-in" on the details: the lifestyle tags, note and time on the meal that is already logged,
+   * and any symptoms as a symptom log linked to it. The meal's portion is left as it was. Nothing is lost if
+   * the extras fail, the meal is saved.
    */
   const done = () => {
     if (!logged || finishing.current) return;
@@ -298,7 +315,6 @@ export function FoodFlow({
     try {
       saveMealDetails(db, logged.id, {
         loggedAt: eatenAt.toISOString(),
-        portion: details.portion,
         tags: [...details.tags],
         notes: details.note,
       });
@@ -574,6 +590,11 @@ export function FoodFlow({
         state={details}
         onChange={setDetails}
         maxNote={MAX_NOTE}
+        ownTags={additions.ownTagKeys}
+        ownSymptoms={additions.ownSymptomKeys}
+        onAddTag={addTag}
+        onAddSymptom={addSymptom}
+        onReveal={(y) => scroll.current?.scrollTo({ y: Math.max(0, y - space.s2), animated: true })}
       />
     );
   } else if (showResult && shown) {
@@ -663,7 +684,7 @@ export function FoodFlow({
   if (onDetails) {
     footer = (
       <View style={styles.footer}>
-        <Button label="Done" onPress={done} />
+        <Button label="Complete check-in" onPress={done} />
       </View>
     );
   } else if (showResult) {
@@ -715,6 +736,7 @@ export function FoodFlow({
         />
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
+            ref={scroll}
             // A fresh scroll position for each step, so details don't open scrolled down from the verdict.
             key={logged ? 'logged' : showResult ? 'verdict' : busy ? 'busy' : 'capture'}
             keyboardShouldPersistTaps="handled"

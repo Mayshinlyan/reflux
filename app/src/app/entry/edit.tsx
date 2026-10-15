@@ -17,8 +17,8 @@ import { TimePill } from '@/components/TimePill';
 import { BackHeader } from '@/components/BackHeader';
 import { useToast } from '@/components/Toast';
 import { VerdictBadge } from '@/components/VerdictBadge';
-import { LIFESTYLE_TAGS, type LifestyleTagKey } from '@/constants/lifestyleTags';
-import { SYMPTOM_ITEMS, type SymptomKey } from '@/constants/symptomItems';
+import { isCustomTag, LIFESTYLE_TAGS, type LoggedTagKey } from '@/constants/lifestyleTags';
+import { customSymptomLabel, SYMPTOM_ITEMS, type SymptomKey } from '@/constants/symptomItems';
 import { analysisConditions } from '@/constants/conditions';
 import { useDb } from '@/db/DatabaseProvider';
 import {
@@ -140,7 +140,9 @@ function MealEdit({ log }: { log: StoredFoodLog }) {
 
   const time = useTimePick(new Date(log.loggedAt));
   const [portion, setPortion] = useState<Portion>(originalPortion);
-  const [tags, setTags] = useState<Set<LifestyleTagKey>>(() => new Set(listMealTags(db, log.id)));
+  const [tags, setTags] = useState<Set<LoggedTagKey>>(() => new Set(listMealTags(db, log.id)));
+  // Factors the user typed when logging this meal, offered as chips so they can be taken off and put back.
+  const [ownTags] = useState(() => listMealTags(db, log.id).filter(isCustomTag));
   const [symptoms, setSymptoms] = useState<Set<SymptomKey>>(
     () =>
       new Set(
@@ -246,6 +248,14 @@ function MealEdit({ log }: { log: StoredFoodLog }) {
                   label={tag.label}
                   selected={tags.has(tag.key)}
                   onPress={() => setTags((current) => toggled(current, tag.key))}
+                />
+              ))}
+              {ownTags.map((key) => (
+                <TagChip
+                  key={key}
+                  label={customSymptomLabel(key)}
+                  selected={tags.has(key)}
+                  onPress={() => setTags((current) => toggled(current, key))}
                 />
               ))}
             </View>
