@@ -49,6 +49,7 @@ import { isLateMeal } from '@/lib/mealTiming';
 import { currentTimeZone } from '@/lib/time';
 import { effectiveVerdict } from '@/lib/verdict';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
+import { cancelCheckIn, scheduleCheckIn } from '@/services/reminders';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
@@ -301,6 +302,17 @@ export function FoodFlow({
     toast(message, { top: true });
     setEatenAt(at);
     setLogged(meal);
+    // The check-in reminder, if they turned it on. It checks the time and the phone's permission itself.
+    const reminderMinutes = settings.checkInReminderMinutes;
+    if (typeof reminderMinutes === 'number') {
+      void scheduleCheckIn({
+        mealId: meal.id,
+        mealName: meal.name,
+        eatenAt: at,
+        minutes: reminderMinutes,
+        bedtime: settings.bedtime,
+      });
+    }
   };
 
   /**
@@ -324,6 +336,8 @@ export function FoodFlow({
           foodLogId: logged.id,
           loggedAt: eatenAt.toISOString(),
         });
+        // They just checked in, so the reminder isn't needed.
+        void cancelCheckIn(logged.id);
       }
     } catch {
       // Code only: a raw error could echo the note.

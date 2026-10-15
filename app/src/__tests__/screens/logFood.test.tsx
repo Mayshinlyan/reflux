@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import * as Notifications from 'expo-notifications';
 
 import LogFoodScreen from '@/app/log/food';
 import { createTestDb } from '@/db/__tests__/testDb';
@@ -19,6 +20,8 @@ let closeDb: () => void;
 const mockBack = jest.fn();
 const mockPush = jest.fn();
 const mockToast = jest.fn();
+let mockReminderMinutes: number | null = null;
+let mockBedtime = '22:30';
 let mockParams: {
   photoUri?: string;
   camera?: string;
@@ -30,7 +33,13 @@ let mockParams: {
 
 jest.mock('@/db/DatabaseProvider', () => ({
   useDb: () => mockDb,
-  useSettings: () => ({ settings: { bedtime: '22:30', lateMealWindowMinutes: 180 } }),
+  useSettings: () => ({
+    settings: {
+      bedtime: mockBedtime,
+      lateMealWindowMinutes: 180,
+      checkInReminderMinutes: mockReminderMinutes,
+    },
+  }),
 }));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
@@ -170,6 +179,10 @@ beforeEach(() => {
   mockBack.mockClear();
   mockPush.mockClear();
   mockToast.mockClear();
+  mockReminderMinutes = null;
+  mockBedtime = '22:30';
+  jest.mocked(Notifications.scheduleNotificationAsync).mockClear();
+  jest.mocked(Notifications.cancelScheduledNotificationAsync).mockClear();
   mockParams = {};
   analyze.mockReset();
   pick.mockReset();
@@ -447,6 +460,71 @@ describe('Log food screen (text)', () => {
     expect(symptomLog).toMatchObject({ foodLogId: meal.id, loggedAt: meal.loggedAt });
     expect(symptomLog.items.map((item) => item.key)).toEqual(['heartburn']);
     expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  describe('the check-in reminder', () => {
+    /** A bedtime 12 hours from now, so the reminder never lands in the quiet hours whatever time the test runs. */
+    const bedtimeFarFromNow = () => {
+      const later = new Date(Date.now() + 12 * 3_600_000);
+      return `${String(later.getHours()).padStart(2, '0')}:${String(later.getMinutes()).padStart(2, '0')}`;
+    };
+    const logMint = async () => {
+      analyze.mockResolvedValue(result);
+      await render(<LogFoodScreen />);
+      await type('mint tea');
+      await press('Check this meal');
+      await screen.findByText('Mint is a common trigger.');
+      await press('I ate this');
+      return listDiaryFoodLogs(mockDb, ALL_TIME)[0];
+    };
+
+    it('is scheduled for the meal when the reminder is on', async () => {
+      mockReminderMinutes = 120;
+      mockBedtime = bedtimeFarFromNow();
+
+      const meal = await logMint();
+
+      await waitFor(() => expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1));
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: `meal-${meal.id}`,
+          content: expect.objectContaining({
+            body: 'You had Mint tea about 2 hours ago. Tap to check in.',
+            data: { foodLogId: meal.id },
+          }),
+        }),
+      );
+    });
+
+    it('is not scheduled when the reminder is off', async () => {
+      mockBedtime = bedtimeFarFromNow();
+
+      await logMint();
+      await act(async () => {});
+
+      expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
+
+    it('is dropped when the check-in adds a symptom, because they just checked in', async () => {
+      mockReminderMinutes = 120;
+      mockBedtime = bedtimeFarFromNow();
+      const meal = await logMint();
+
+      await fireEvent.press(screen.getByRole('checkbox', { name: 'Heartburn' }));
+      await press('Complete check-in');
+
+      expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(`meal-${meal.id}`);
+    });
+
+    it('stays when the check-in is completed with no symptoms', async () => {
+      mockReminderMinutes = 120;
+      mockBedtime = bedtimeFarFromNow();
+      await logMint();
+
+      await press('Complete check-in');
+
+      expect(Notifications.cancelScheduledNotificationAsync).not.toHaveBeenCalled();
+    });
   });
 
   /** Opens a "+" chip, types, and presses return. */
