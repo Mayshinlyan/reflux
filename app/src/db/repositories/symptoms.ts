@@ -122,8 +122,9 @@ export function updateSymptomLog(db: AppDb, id: number, input: SymptomLogInput):
 }
 
 /**
- * Takes one symptom off an entry, keeping its other symptoms, tags and note. An entry must
- * keep at least one symptom, so removing the last one is refused (delete the entry instead).
+ * Takes one symptom off an entry, keeping its other symptoms, tags and note. An entry must keep
+ * a symptom or a lifestyle tag, so removing the last symptom is refused when there are no tags
+ * (delete the entry instead); with tags it becomes a lifestyle-only entry.
  */
 export function removeSymptomFromLog(db: AppDb, id: number, key: LoggedSymptomKey): void {
   db.transaction((tx) => {
@@ -133,7 +134,14 @@ export function removeSymptomFromLog(db: AppDb, id: number, key: LoggedSymptomKe
       .where(eq(symptomLogItems.symptomLogId, id))
       .all();
     if (!items.some((item) => item.itemKey === key)) throw new Error('That symptom is not on this entry');
-    if (items.length <= 1) throw new Error('An entry needs at least one symptom');
+    if (items.length <= 1) {
+      const tag = tx
+        .select({ id: symptomLogTags.id })
+        .from(symptomLogTags)
+        .where(eq(symptomLogTags.symptomLogId, id))
+        .get();
+      if (!tag) throw new Error('An entry needs at least one symptom or lifestyle factor');
+    }
     tx.delete(symptomLogItems)
       .where(and(eq(symptomLogItems.symptomLogId, id), eq(symptomLogItems.itemKey, key)))
       .run();
@@ -214,7 +222,8 @@ export function listSymptomLogsForMeal(db: AppDb, foodLogId: number): SymptomLog
 /**
  * Makes the `managed` symptoms on a meal's follow-up logs match `keys`: ones no longer wanted come off
  * (a log left with nothing is deleted), new ones go into one new log linked to the meal. Symptoms outside
- * `managed`, which the meal screen can't show, are left alone.
+ * `managed`, which the meal screen can't show, are left alone. A log left with no symptoms keeps
+ * going as a lifestyle-only entry if it has tags.
  */
 export function setMealSymptoms(
   db: AppDb,
@@ -233,7 +242,7 @@ export function setMealSymptoms(
         .filter((key) => managed.includes(key) && !wanted.has(key));
       log.items.forEach((item) => managed.includes(item.key) && present.add(item.key));
       if (drop.length === 0) continue;
-      if (drop.length === log.items.length) deleteSymptomLog(scope, log.id);
+      if (drop.length === log.items.length && log.tags.length === 0) deleteSymptomLog(scope, log.id);
       else drop.forEach((key) => removeSymptomFromLog(scope, log.id, key));
       drop.forEach((key) => present.delete(key));
     }

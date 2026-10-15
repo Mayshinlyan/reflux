@@ -19,10 +19,12 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { preloadChing } from '@/lib/ching';
 import { ToastProvider } from '@/components/Toast';
-import { DatabaseProvider } from '@/db/DatabaseProvider';
+import { DatabaseProvider, useDb } from '@/db/DatabaseProvider';
+import { onSavedFoodsChange } from '@/db/repositories/savedFoods';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { initSentry, wrapRoot } from '@/lib/sentry';
+import { syncWidget } from '@/services/widgetSync';
 import { lightColors, space } from '@/theme';
 
 initSentry();
@@ -52,6 +54,7 @@ function RootLayout() {
       <StatusBar style="dark" />
       <DatabaseProvider fallback={null} errorView={<DatabaseErrorScreen />}>
         <HideSplash />
+        <WidgetSync />
         <ToastProvider>
           <Stack
             screenOptions={{
@@ -74,6 +77,18 @@ function HideSplash() {
     SplashScreen.hideAsync();
     preloadChing();
   }, []);
+  return null;
+}
+
+/** Keeps the home-screen widget's saved foods current: filled when the app opens, refilled when My foods changes. */
+function WidgetSync() {
+  const db = useDb();
+  useEffect(() => {
+    const sync = () => void syncWidget(db);
+    sync();
+    onSavedFoodsChange(sync);
+    return () => onSavedFoodsChange(null);
+  }, [db]);
   return null;
 }
 

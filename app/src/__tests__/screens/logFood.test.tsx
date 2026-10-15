@@ -26,6 +26,8 @@ let mockParams: {
   food?: string;
   check?: string;
   date?: string;
+  quickLog?: string;
+  t?: string;
 } = {};
 
 jest.mock('@/db/DatabaseProvider', () => ({
@@ -1149,6 +1151,50 @@ describe('Log food screen: Quick log', () => {
     expect(listSavedFoods(mockDb).map((food) => food.id)).toEqual([id]);
     expect(analyze).not.toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  describe('from the home-screen widget (?quickLog=<id>&t=<token>)', () => {
+    it('logs the saved food on arrival, once, and opens the check-in', async () => {
+      const { id } = saveOatmeal();
+      setSetting(mockDb, 'widgetToken', 'secret-token');
+      mockParams = { quickLog: String(id), t: 'secret-token' };
+      await render(<LogFoodScreen />);
+
+      const meals = listDiaryFoodLogs(mockDb, ALL_TIME);
+      expect(meals).toHaveLength(1);
+      expect(meals[0]).toMatchObject({ mealName: 'Oatmeal with banana', overallVerdict: 'caution' });
+      expect(screen.getByRole('header', { name: 'Oatmeal with banana' })).toBeTruthy();
+      expect(mockToast).toHaveBeenCalledWith('Added to your food diary', { top: true });
+      expect(analyze).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['wrong', 'guess'],
+      ['missing', undefined],
+    ])('logs nothing when the token is %s, and is just the Food screen', async (_case, t) => {
+      const { id } = saveOatmeal();
+      setSetting(mockDb, 'widgetToken', 'secret-token');
+      mockParams = { quickLog: String(id), t };
+      await render(<LogFoodScreen />);
+
+      expect(screen.getByText('Quick log')).toBeTruthy();
+      expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    });
+
+    it('logs nothing before a widget token exists, even for an empty token', async () => {
+      const { id } = saveOatmeal();
+      mockParams = { quickLog: String(id), t: '' };
+      await render(<LogFoodScreen />);
+      expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    });
+
+    it('falls back to the Food screen for a food that was removed', async () => {
+      setSetting(mockDb, 'widgetToken', 'secret-token');
+      mockParams = { quickLog: '999', t: 'secret-token' };
+      await render(<LogFoodScreen />);
+      expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+      expect(screen.getByLabelText('Describe it')).toBeTruthy();
+    });
   });
 
   it('ends the flow from the X on the details, keeping the meal that was logged', async () => {

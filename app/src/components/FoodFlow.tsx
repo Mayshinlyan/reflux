@@ -103,6 +103,8 @@ export type MyFoodTarget = { id?: number; name?: string };
  * `fromList` ("Log a new food" on the Food list) also offers saving the result to My foods only; saving
  * without a verdict still logs the meal to the diary.
  * `date` (a day tapped in Today's week strip) logs the meal at noon of that earlier day instead of now.
+ * `quickLog` (a saved food tapped on the home-screen widget) logs that food as soon as the screen appears, exactly
+ * like tapping its Quick log chip.
  */
 export function FoodFlow({
   photoUri,
@@ -110,12 +112,14 @@ export function FoodFlow({
   myFood,
   fromList = false,
   date,
+  quickLog,
 }: {
   photoUri?: string;
   openCamera?: boolean;
   myFood?: MyFoodTarget;
   fromList?: boolean;
   date?: string;
+  quickLog?: StoredSavedFood;
 }) {
   const colors = useColors();
   const db = useDb();
@@ -263,8 +267,12 @@ export function FoodFlow({
       });
       if (!alive.current) return;
       if (picked.status === 'denied') setNotice(CAMERA_DENIED);
-      // Closing the camera that `openCamera` opened means "never mind": back to where the user came from.
-      if (picked.status === 'canceled' && fromScan) router.back();
+      // Closing the camera that `openCamera` opened means "never mind": back to where the user came from
+      // (or Today, when a widget link opened the app straight here and there is nowhere to go back to).
+      if (picked.status === 'canceled' && fromScan) {
+        if (router.canGoBack()) router.back();
+        else router.replace('/');
+      }
       if (picked.status !== 'ok') return;
       // Not analyzed yet: the review step lets the user add optional details first.
       setAnalyzed({ source: 'photo', uri: picked.photo.uri });
@@ -492,6 +500,15 @@ export function FoodFlow({
       copy.saved,
     );
   };
+
+  // `quickLog`: log the saved food straight away, once.
+  const quickLogged = useRef(false);
+  useEffect(() => {
+    if (!quickLog || quickLogged.current) return;
+    quickLogged.current = true;
+    logQuick(quickLog);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on arrival; logQuick's state is fresh then
+  }, [quickLog]);
 
   /**
    * "Update verdict": the AI re-checks the food with the user's comment and the new verdict is shown

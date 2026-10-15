@@ -6,18 +6,22 @@
 # app/.env from the main checkout if this worktree has none, and installs dependencies when
 # package-lock.json changed since the last install here.
 #
-# Usage: scripts/test-app.sh [--prepare-only]
+# Usage: scripts/test-app.sh [--prepare-only] [--dev-build]
 #   --prepare-only  set everything up but do not start Expo
+#   --dev-build     serve to the development build (needed for the home-screen widget) instead of Expo Go
 #
 # To test another branch, run it from a worktree on that branch.
 set -euo pipefail
 
 START=1
+# expo-dev-client is installed, which makes `expo start` target a development build; Expo Go stays the default.
+TARGET="--go"
 for arg in "$@"; do
   case "$arg" in
     --prepare-only) START=0 ;;
+    --dev-build) TARGET="--dev-client" ;;
     -h | --help)
-      sed -n '2,12p' "$0"
+      sed -n '2,13p' "$0"
       exit 0
       ;;
     *)
@@ -91,4 +95,4 @@ fi
 
 echo "✓ Starting Expo from $APP on port $PORT"
 cd "$APP"
-exec npx expo start --clear --port "$PORT"
+exec npx expo start --clear --port "$PORT" "$TARGET"

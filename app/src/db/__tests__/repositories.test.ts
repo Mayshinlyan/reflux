@@ -335,6 +335,15 @@ describe('symptom logs', () => {
       expect(getSymptomLog(db, id)).toMatchObject({ items: [{ key: 'cough' }], notes: 'still here' });
     });
 
+    it('lets the last symptom go when the entry has lifestyle tags, leaving a lifestyle-only entry', () => {
+      const { db } = createTestDb();
+      const id = createSymptomLog(db, { items: [{ key: 'cough' }], tags: ['stress'], notes: 'still here' });
+
+      removeSymptomFromLog(db, id, 'cough');
+
+      expect(getSymptomLog(db, id)).toMatchObject({ items: [], tags: ['stress'], notes: 'still here' });
+    });
+
     it('refuses a symptom that is not on the entry, and only touches that entry', () => {
       const { db } = createTestDb();
       const a = createSymptomLog(db, { items: [{ key: 'cough' }, { key: 'lump' }] });
@@ -427,6 +436,20 @@ describe('symptoms after a meal', () => {
 
     expect(listSymptomLogsForMeal(db, mealId)).toEqual([]);
     expect(db.select().from(symptomLogs).all()).toHaveLength(0);
+  });
+
+  it('keeps a log that still has lifestyle tags when all its symptoms are cleared', () => {
+    const { db } = createTestDb();
+    const mealId = meal(db);
+    const id = createSymptomLog(db, {
+      items: [{ key: 'heartburn' }],
+      tags: ['stress'],
+      foodLogId: mealId,
+      loggedAt: AT,
+    });
+    setMealSymptoms(db, mealId, [], MANAGED, AT);
+
+    expect(getSymptomLog(db, id)).toMatchObject({ items: [], tags: ['stress'] });
   });
 
   it('leaves symptoms the meal screen cannot show alone', () => {
