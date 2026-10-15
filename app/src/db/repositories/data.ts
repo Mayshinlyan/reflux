@@ -15,6 +15,7 @@ import {
   symptomLogTags,
 } from '../schema';
 import type { AppDb } from '../types';
+import { notifySavedFoodsChanged } from './savedFoods';
 
 /**
  * Deletes everything the user has logged (symptoms, meals and checks, medications and their
@@ -36,6 +37,7 @@ export function deleteAllData(db: AppDb): void {
     tx.delete(savedSymptoms).run();
     tx.delete(appSettings).where(ne(appSettings.key, 'onboardingDone')).run();
   });
+  notifySavedFoodsChanged(); // the widget lists saved foods and holds a token that was just reset
 }
 
 /** Time zones are at most 14 hours apart, so entries within 36 hours of the oldest may be on an earlier local day. */
