@@ -6,11 +6,11 @@ import { radius, space, useColors } from '@/theme';
 import { AppText } from './AppText';
 
 const POINTS: readonly { icon: LucideIcon; title: string; body: string }[] = [
-  { icon: Shield, title: 'Stored on your phone', body: 'Your entries never leave your device.' },
+  { icon: Shield, title: 'Stored on your phone', body: 'Your diary stays on your phone.' },
   {
     icon: Camera,
     title: 'Meal checks use AI',
-    body: "Only the photo or description you add, and what you're managing, is sent to check a meal.",
+    body: "Only the photo or description you add, and what you're managing, is sent to Claude (by Anthropic) to check a meal.",
   },
   {
     icon: Check,
