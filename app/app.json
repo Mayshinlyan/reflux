@@ -44,7 +44,8 @@
         "expo-image-picker",
         {
           "cameraPermission": "a day in my belly uses the camera to photograph meals so it can check them for reflux triggers. Photos stay on your phone.",
-          "photosPermission": "a day in my belly reads a meal photo you choose so it can check it for reflux triggers."
+          "photosPermission": "a day in my belly reads a meal photo you choose so it can check it for reflux triggers.",
+          "microphonePermission": false
         }
       ],
       "@react-native-community/datetimepicker",
@@ -65,7 +66,9 @@
               "name": "FoodWidget",
               "displayName": "Snap food",
               "description": "Snap a meal, or log one of your saved foods, in one tap.",
-              "ios": { "supportedFamilies": ["systemSmall", "systemMedium"] }
+              "ios": {
+                "supportedFamilies": ["systemSmall", "systemMedium"]
+              }
             }
           ]
         }
@@ -79,6 +82,27 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "backgroundColor": "#FAF1DE"
+    "backgroundColor": "#FAF1DE",
+    "extra": {
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "ExpoWidgetsTarget",
+                  "bundleIdentifier": "com.mayshinlyan.adayinmybelly.ExpoWidgetsTarget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": ["group.com.mayshinlyan.adayinmybelly"]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "c05e6643-cc1c-4bbd-8010-501e31dac826"
+      }
+    },
+    "owner": "lotusmaycreates"
   }
 }
