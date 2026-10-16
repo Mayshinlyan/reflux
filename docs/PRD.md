@@ -99,7 +99,7 @@ Photos are compressed and stripped of metadata (including EXIF/GPS) on-device be
 
 Anthropic processes the food photo/text to produce the analysis; under Anthropic's commercial API terms, inputs aren't used for model training by default. This will be confirmed and stated plainly in the privacy policy before any public launch.
 
-**Honest promise to users:** "Your health data never leaves your phone."
+**Honest promise to users:** "Your diary stays on your phone. Only the food you ask us to check is sent for analysis."
 
 ## 8. Security Model
 

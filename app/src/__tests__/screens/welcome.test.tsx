@@ -110,7 +110,7 @@ describe('Welcome', () => {
       ['Omeprazole', '20mg', 'ppi'],
     ]);
 
-    expect(screen.getByRole('header', { name: 'Your data stays with you.' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Your diary stays with you.' })).toBeTruthy();
     expect(screen.getByRole('progressbar', { name: 'Step 7 of 7' })).toBeTruthy();
     await press('Continue');
 
@@ -211,7 +211,7 @@ describe('Welcome', () => {
     await press('Skip for now');
 
     expect(listMedications(mockDb)).toEqual([]);
-    expect(screen.getByRole('header', { name: 'Your data stays with you.' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Your diary stays with you.' })).toBeTruthy();
   });
 
   it('keeps a medication picked earlier, without duplicating it, when they come back', async () => {
