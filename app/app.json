@@ -9,7 +9,11 @@
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.mayshinlyan.adayinmybelly",
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.mayshinlyan.adayinmybelly",
@@ -68,6 +72,9 @@
       ],
       "expo-asset"
     ],
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

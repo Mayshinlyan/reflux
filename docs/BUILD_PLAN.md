@@ -53,7 +53,7 @@ Superseded earlier choices: Cloud SQL, Prisma, GCS photo storage and account lin
 | Logging | pino → Cloud Logging / Error Reporting, error contract, request IDs, Sentry for JS errors (scrubbed) |
 | Dev / CI / CD | One GCP/Firebase project + Firebase emulators locally; CI tests (incl. security tests), Dependabot, secret scanning (CodeQL deferred, see Security); relay auto-deploys to Cloud Run |
 | Docs | Skills installed, PRD, short runbook, mockups |
-| Distribution | `npx expo start --tunnel`; testers open the app in Expo Go (the dev server must be running) |
+| Distribution | `npx expo start --tunnel`; testers open the app in Expo Go (the dev server must be running). Since the home-screen widget, EAS builds also exist: dev builds for testing it and TestFlight internal testing (see the runbook) |
 
 ### Milestone 2 — public beta & store launch
 
