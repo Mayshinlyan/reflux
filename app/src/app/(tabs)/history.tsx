@@ -8,6 +8,7 @@ import { AppText } from '@/components/AppText';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { tabBarClearance } from '@/components/FloatingTabBar';
 import { HistorySummary, statsCardHeight, statsScrollDistance } from '@/components/HistorySummary';
+import { ProfileButton } from '@/components/ProfileButton';
 import { RangeStepper } from '@/components/RangeStepper';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -217,9 +218,12 @@ export default function HistoryScreen() {
                 const { height } = event.nativeEvent.layout;
                 setAbove(height);
               }}>
-              <AppText variant="display" accessibilityRole="header" style={styles.title}>
-                History
-              </AppText>
+              <View style={styles.header}>
+                <AppText variant="display" accessibilityRole="header" style={styles.title}>
+                  History
+                </AppText>
+                <ProfileButton />
+              </View>
               <View style={styles.controls}>
                 <SegmentedControl
                   options={SEGMENTS}
@@ -310,7 +314,8 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
-  title: { marginBottom: space.s4 },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: space.s2, marginBottom: space.s4 },
+  title: { flex: 1 },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',

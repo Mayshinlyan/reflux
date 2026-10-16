@@ -138,6 +138,14 @@ describe('History: the week', () => {
     expect(screen.queryByText('Old pasta')).toBeNull();
   });
 
+  it('opens Profile from the round button beside the title', async () => {
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Profile' }));
+
+    expect(router.push).toHaveBeenCalledWith('/profile');
+  });
+
   it('starts on Week with the range pill showing the week', async () => {
     await render(<HistoryScreen />);
 
