@@ -43,8 +43,8 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "a day in my belly uses the camera to photograph meals so it can check them for reflux triggers. Photos stay on your phone.",
-          "photosPermission": "a day in my belly reads a meal photo you choose so it can check it for reflux triggers.",
+          "cameraPermission": "a day in my belly uses the camera to photograph your meals.",
+          "photosPermission": "a day in my belly reads a meal photo you choose.",
           "microphonePermission": false
         }
       ],
