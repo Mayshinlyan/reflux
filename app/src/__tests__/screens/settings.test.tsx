@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Alert, type AlertButton } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import { Alert, type AlertButton, Linking } from 'react-native';
 
 import SettingsScreen from '@/app/settings';
 import { createTestDb } from '@/db/__tests__/testDb';
@@ -55,6 +56,7 @@ const mockDeleteAllPhotos = jest.fn();
 jest.mock('@/services/photoStore', () => ({ deleteAllPhotos: () => mockDeleteAllPhotos() }));
 
 beforeEach(() => {
+  jest.clearAllMocks();
   const { db, sqlite } = createTestDb();
   mockDb = db;
   closeDb = () => sqlite.close();
@@ -85,10 +87,11 @@ describe('Settings', () => {
     const rows = screen
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
-      .filter((label) => /^(Bedtime|Late-meal|Condition|My |Privacy|Delete)/.test(label ?? ''));
+      .filter((label) => /^(Bedtime|Late-meal|Check-in|Condition|My |Privacy|Delete)/.test(label ?? ''));
     expect(rows).toEqual([
       'Bedtime, 10:30 PM',
       'Late-meal window, 3 hours',
+      'Check-in reminder, Off',
       'My foods',
       'My medications',
       'My additions',
@@ -198,6 +201,82 @@ describe('Settings: bedtime', () => {
   });
 });
 
+describe('Settings: check-in reminder', () => {
+  const mocked = jest.mocked(Notifications);
+  const turnOnAt = async (label: string) => {
+    await press('button', 'Check-in reminder, Off');
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: label }));
+    });
+  };
+
+  it('is off until chosen', async () => {
+    await render(<SettingsScreen />);
+
+    expect(screen.getByRole('button', { name: 'Check-in reminder, Off' })).toBeTruthy();
+  });
+
+  it('offers Off and one to three hours after a meal, with the current choice marked', async () => {
+    await render(<SettingsScreen />);
+    await press('button', 'Check-in reminder, Off');
+
+    const options = screen.getAllByRole('radio');
+    expect(options.map((o) => o.props.accessibilityLabel)).toEqual([
+      'Off',
+      '1 hour after a meal',
+      '2 hours after a meal',
+      '3 hours after a meal',
+    ]);
+    expect(
+      options.filter((o) => o.props.accessibilityState?.checked).map((o) => o.props.accessibilityLabel),
+    ).toEqual(['Off']);
+    expect(screen.getByText('Stays on your phone. Nothing is sent anywhere.')).toBeTruthy();
+  });
+
+  it('turns it on once the phone allows it, saves the time, marks it asked, and closes the sheet', async () => {
+    await render(<SettingsScreen />);
+
+    await turnOnAt('2 hours after a meal');
+
+    expect(getSetting(mockDb, 'checkInReminderMinutes')).toBe(120);
+    expect(getSetting(mockDb, 'reminderAsked')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Check-in reminder, 2 hours' })).toBeTruthy();
+    expect(screen.queryByRole('radio', { name: '1 hour after a meal' })).toBeNull();
+  });
+
+  it('turns it off, drops every pending reminder, and still counts as asked', async () => {
+    setSetting(mockDb, 'checkInReminderMinutes', 120);
+    await render(<SettingsScreen />);
+    await press('button', 'Check-in reminder, 2 hours');
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Off' }));
+    });
+
+    expect(getSetting(mockDb, 'checkInReminderMinutes')).toBeNull();
+    expect(getSetting(mockDb, 'reminderAsked')).toBe(true);
+    expect(mocked.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Check-in reminder, Off' })).toBeTruthy();
+  });
+
+  it('stays off and explains when the phone is blocking notifications, with a way to the phone settings', async () => {
+    const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+    mocked.getPermissionsAsync.mockResolvedValueOnce({ granted: false } as never);
+    mocked.requestPermissionsAsync.mockResolvedValueOnce({ granted: false } as never);
+    await render(<SettingsScreen />);
+
+    await turnOnAt('1 hour after a meal');
+
+    expect(getSetting(mockDb, 'checkInReminderMinutes')).toBeNull();
+    expect(getSetting(mockDb, 'reminderAsked')).toBe(false);
+    expect(screen.getByText(/Notifications are off for this app/)).toBeTruthy();
+
+    await press('button', 'Open Settings');
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    openSettings.mockRestore();
+  });
+});
+
 describe('Settings: delete all my data', () => {
   const pressAlertButton = (spy: jest.SpyInstance, text: string) => {
     const buttons = spy.mock.calls.at(-1)?.[2] as AlertButton[];
@@ -232,6 +311,7 @@ describe('Settings: delete all my data', () => {
     expect(mockDeleteAllPhotos).toHaveBeenCalledTimes(1);
     expect(getSetting(mockDb, 'onboardingDone')).toBe(true);
     expect(mockToast).toHaveBeenCalledWith('All your data was deleted');
+    expect(Notifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
   });
 
   it('still reports success if a leftover photo file cannot be removed', async () => {

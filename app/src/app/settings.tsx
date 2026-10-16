@@ -1,11 +1,13 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Activity, Clock, Moon, Pill, Shield, Trash2, Utensils } from 'lucide-react-native';
+import { Activity, Bell, Clock, Moon, Pill, Shield, Trash2, Utensils } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
 
+import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { BedtimeSheet } from '@/components/BedtimeSheet';
+import { Button } from '@/components/Button';
 import { OptionSheet } from '@/components/OptionSheet';
 import { PrivacySheet } from '@/components/profile/PrivacySheet';
 import { Screen } from '@/components/Screen';
@@ -17,15 +19,23 @@ import { deleteAllData } from '@/db/repositories/data';
 import { formatClock, formatWindow, LATE_MEAL_WINDOW_OPTIONS } from '@/lib/clock';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { formatReminder, REMINDER_OPTIONS, reminderOptionLabel } from '@/lib/reminderTiming';
 import { deleteAllPhotos } from '@/services/photoStore';
+import { askForReminders, cancelAllCheckIns } from '@/services/reminders';
 import { space } from '@/theme';
 
-type Sheet = 'bedtime' | 'window' | 'privacy' | null;
+type Sheet = 'bedtime' | 'window' | 'reminder' | 'privacy' | null;
 
 const WINDOWS = LATE_MEAL_WINDOW_OPTIONS.map((minutes) => ({
   value: String(minutes),
   label: formatWindow(minutes),
 }));
+
+const OFF = 'off';
+const REMINDERS = [
+  { value: OFF, label: 'Off' },
+  ...REMINDER_OPTIONS.map((minutes) => ({ value: String(minutes), label: reminderOptionLabel(minutes) })),
+];
 
 /** Settings, opened from the gear on You (Figma 05). */
 export default function SettingsScreen() {
@@ -34,10 +44,13 @@ export default function SettingsScreen() {
   const { settings, update, reload } = useSettings();
   const [sheet, setSheet] = useState<Sheet>(null);
   const [saveFailed, setSaveFailed] = useState(false);
+  // The phone is blocking notifications for this app, so turning the reminder on can't work from here.
+  const [remindersBlocked, setRemindersBlocked] = useState(false);
 
   const closeSheet = () => {
     setSheet(null);
     setSaveFailed(false);
+    setRemindersBlocked(false);
   };
 
   const persist = (write: () => void, what: string) => {
@@ -50,6 +63,20 @@ export default function SettingsScreen() {
     }
     Haptics.selectionAsync().catch(() => {});
     closeSheet();
+  };
+
+  const chooseReminder = async (choice: string) => {
+    const minutes = choice === OFF ? null : Number(choice);
+    if (minutes !== null && !(await askForReminders())) {
+      setRemindersBlocked(true);
+      return;
+    }
+    // Asked either way, so the one-time sheet on Today doesn't offer it again.
+    persist(() => {
+      update('checkInReminderMinutes', minutes);
+      update('reminderAsked', true);
+    }, 'saveReminder');
+    if (minutes === null) void cancelAllCheckIns();
   };
 
   const confirmDeleteAll = () => {
@@ -75,6 +102,7 @@ export default function SettingsScreen() {
               // Rows are already gone; a leftover file is the lesser problem, so still report success.
               logger.error('deleteAllPhotos', error);
             }
+            void cancelAllCheckIns();
             reload();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             toast('All your data was deleted');
@@ -100,6 +128,12 @@ export default function SettingsScreen() {
           label="Late-meal window"
           value={formatWindow(settings.lateMealWindowMinutes)}
           onPress={() => setSheet('window')}
+        />
+        <SettingsRow
+          icon={Bell}
+          label="Check-in reminder"
+          value={formatReminder(settings.checkInReminderMinutes)}
+          onPress={() => setSheet('reminder')}
         />
 
         <SectionTitle>Your lists</SectionTitle>
@@ -143,6 +177,29 @@ export default function SettingsScreen() {
         onClose={closeSheet}
         saveFailed={saveFailed}
       />
+      <OptionSheet
+        visible={sheet === 'reminder'}
+        variant="cards"
+        title="Check-in reminder"
+        note="A gentle nudge to log how you feel after a meal."
+        footnote="Stays on your phone. Nothing is sent anywhere."
+        options={REMINDERS}
+        value={settings.checkInReminderMinutes === null ? OFF : String(settings.checkInReminderMinutes)}
+        onChoose={chooseReminder}
+        onClose={closeSheet}
+        saveFailed={saveFailed}
+        footer={
+          remindersBlocked ? (
+            <View style={styles.blocked}>
+              <AppText color="redInk">
+                Notifications are off for this app. Turn them on in your phone&apos;s Settings, then pick a
+                time.
+              </AppText>
+              <Button label="Open Settings" variant="secondary" onPress={() => Linking.openSettings()} />
+            </View>
+          ) : undefined
+        }
+      />
       <PrivacySheet visible={sheet === 'privacy'} onClose={closeSheet} />
     </Screen>
   );
@@ -150,4 +207,5 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   danger: { marginTop: space.s2 },
+  blocked: { marginTop: space.s2, gap: space.s1 },
 });

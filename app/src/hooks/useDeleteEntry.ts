@@ -10,6 +10,7 @@ import { deleteSymptomLog } from '@/db/repositories/symptoms';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import type { TimelineKind } from '@/lib/timeline';
+import { cancelCheckIn } from '@/services/reminders';
 
 /**
  * Asks "Delete this entry?" and, if confirmed, deletes it, says so in a toast and calls `onDeleted`. Shared by
@@ -28,7 +29,10 @@ export function useDeleteEntry(onDeleted: () => void) {
           onPress: () => {
             try {
               if (entry.kind === 'symptom') deleteSymptomLog(db, entry.id);
-              if (entry.kind === 'food') deleteFoodLog(db, entry.id);
+              if (entry.kind === 'food') {
+                deleteFoodLog(db, entry.id);
+                void cancelCheckIn(entry.id);
+              }
               if (entry.kind === 'medication') deleteMedicationLog(db, entry.id);
             } catch (error) {
               logger.error('deleteEntry', error);

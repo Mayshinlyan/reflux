@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, lt } from 'drizzle-orm';
+import { and, asc, count, eq, gte, inArray, lt } from 'drizzle-orm';
 
 import { isCustomTag, LIFESTYLE_TAG_KEYS, type LoggedTagKey } from '@/constants/lifestyleTags';
 import { cleanCustomSymptom, customSymptomLabel } from '@/constants/symptomItems';
@@ -108,6 +108,11 @@ export function listDiaryFoodLogs(db: AppDb, range: { from: string; to: string }
     .orderBy(asc(foodLogs.loggedAt), asc(foodLogs.id))
     .all()
     .map(toStored);
+}
+
+/** How many meals are in the diary, ever. Checks are not part of it. */
+export function countDiaryMeals(db: AppDb): number {
+  return db.select({ n: count() }).from(foodLogs).where(eq(foodLogs.entryType, 'diary')).get()?.n ?? 0;
 }
 
 /** Replaces a check's analysis after the user updated its verdict with a comment. Diary meals are left alone. */

@@ -1,5 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import * as Notifications from 'expo-notifications';
 import { Alert, type AlertButton } from 'react-native';
 import { router } from 'expo-router';
 
@@ -320,6 +321,28 @@ describe('Entry: the menu', () => {
 
     expect(getFoodLog(mockDb, id)).toBeDefined();
     expect(router.back).not.toHaveBeenCalled();
+  });
+
+  it('drops a meal’s check-in reminder when the meal is deleted, but not for other entries', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    jest.mocked(Notifications.cancelScheduledNotificationAsync).mockClear();
+    const symptomId = createSymptomLog(mockDb, { items: [{ key: 'cough' }], loggedAt: at(10, 9) });
+    mockParams = { kind: 'symptom', id: String(symptomId) };
+    const { unmount } = await render(<EntryScreen />);
+    await openMenu();
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'Delete entry' }));
+    await act(async () => pressAlertButton(alert, 'Delete'));
+    expect(Notifications.cancelScheduledNotificationAsync).not.toHaveBeenCalled();
+    await unmount();
+
+    const id = seedTacos();
+    mockParams = { kind: 'food', id: String(id) };
+    await render(<EntryScreen />);
+    await openMenu();
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'Delete entry' }));
+    await act(async () => pressAlertButton(alert, 'Delete'));
+
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(`meal-${id}`);
   });
 
   it('deletes the entry once confirmed and goes back to History', async () => {

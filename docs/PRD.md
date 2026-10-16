@@ -59,6 +59,14 @@ A bedtime setting (default 22:30); any meal logged within 3 hours of bedtime is 
 
 The Today screen is led by a companion pet, **Mochi** (a flat illustration; the user can rename it). A dog (default name Buddy, pre-rendered 3D clips) already exists in code and will be offered as a choice once the pet picker ships; more animals, ideally as Rive animations, can follow. The pet grows through three stages (Little Mochi → Growing Mochi → Grown Mochi; for the dog, Puppy → Young dog → Grown dog) as the user logs consistently, and shows a happy or unwell mood based on the latest entry. The pet is always gently moving (Mochi breathes and bounces; the dog plays mood clips). Tapping it gets a bounce, a heart, a haptic and a friendly speech bubble. Taps are just for play and never affect progress, and reduced motion is respected. Tone is always encouraging: the pet never dies or disappears, and it is decorative feedback, not a medical judgement. Progress is derived from the log history (so edits and deletes stay consistent); only the pet's name and animal are stored. Logging symptoms always gives a small boost (never a penalty), since checking in is the behaviour to encourage. Other rules and constants are in the build plan. Clinician review of pet wording is post-MVP.
 
+### 5.6.1 Check-in reminder
+
+An opt-in nudge that asks how the user is feeling a while after they log a meal, so the after-meal symptom check-in (which trigger learning and discovery cards depend on) is not forgotten. It is a **local notification scheduled on the phone**: no push token, no server, and nothing about the meal leaves the device (see 7). Off by default.
+
+- **Offer:** a step at the end of onboarding (after Privacy, before "Ready"), and, for anyone who chose "Maybe later", a one-time sheet on Today after the third logged meal. Either answer counts as asked; it is never offered a third time. The phone's own permission prompt appears only after "Turn on".
+- **Setting:** Settings › Preferences › Check-in reminder: Off, or 1, 2 or 3 hours after a meal (2 hours when turned on from an offer). Turning it on from Settings asks for permission; if the phone is blocking notifications it says so and offers a link to the phone's settings.
+- **Behaviour:** one notification per logged meal, "How are you feeling?" with the meal and how long ago. It is skipped when it would fire in the past (an older meal) or in the 8 hours after bedtime, and cancelled when the user checks in for that meal, deletes the meal, turns reminders off or deletes all data. Tapping it opens the symptom check-in linked to that meal. The text names the meal, so depending on the phone's lock-screen settings it may be visible there.
+
 ### 5.7 Gamification: coins, discovery and collection
 
 One principle runs through all of it: **reward checking in, never the outcome.** A trigger meal or a bad symptom day earns exactly what a good one does, so the user is never nudged to skip logging the honest entries that trigger-finding depends on. Nothing here is a medical judgement, and nothing is ever taken away as a penalty.
@@ -151,7 +159,7 @@ On-device SQLite tables: `symptom_logs` / `symptom_log_items` / `symptom_log_tag
 
 **MVP → Milestone 2 → Backlog.** Full scope tables and phased build order live in the build plan (`~/.claude/plans/i-want-to-build-pure-eagle.md` during development; this PRD is the durable reference once the plan is executed).
 
-Backlog highlights: pet extras (a pet picker offering the dog, more animals/stages, Rive animations, clinician review of pet copy), gamification (logging-only pet growth, discovery cards, a coin shop for the collection, weekly challenges; see 5.7), on-device personalized trigger learning (correlating a user's own symptom history against their food/medication/timing history), opt-in end-to-end encrypted backup/sync, a doctor-shareable PDF summary, barcode scanning, app lock + database encryption, editable ingredients with re-assessment, "was this verdict right?" feedback, local reminders, localization.
+Backlog highlights: pet extras (a pet picker offering the dog, more animals/stages, Rive animations, clinician review of pet copy), gamification (logging-only pet growth, discovery cards, a coin shop for the collection, weekly challenges; see 5.7), on-device personalized trigger learning (correlating a user's own symptom history against their food/medication/timing history), opt-in end-to-end encrypted backup/sync, a doctor-shareable PDF summary, barcode scanning, app lock + database encryption, editable ingredients with re-assessment, "was this verdict right?" feedback, localization.
 
 ## 15. Open Questions
 

@@ -75,7 +75,7 @@ Superseded earlier choices: Cloud SQL, Prisma, GCS photo storage and account lin
 - **Barcode scanning** (e.g. the Open Food Facts database).
 - App lock (Face ID / fingerprint) + SQLCipher database encryption.
 - Edit ingredients → re-assess; "Was this right?" feedback on verdicts.
-- Local reminders; localization; staging environment.
+- Localization; staging environment. (Local check-in reminders are built, see PRD 5.6.1.)
 - **Pet extras:** clinician/dietitian review of pet copy (with the ruleset review), more animals/stages/accessories.
 
 ## Step 0 — Skills, product docs & mockups (before any app code)

@@ -11,6 +11,8 @@ type Props = {
   onDismissed?: () => void;
   /** When this changes the sheet scrolls back to the top, e.g. when it swaps from viewing to editing. */
   scrollToTopKey?: unknown;
+  /** The sheet's fill: `surface` (default), or the page `bg` when the content sits on `surface` cards (Figma 08b, 08c). */
+  tone?: 'surface' | 'bg';
   children: ReactNode;
 };
 
@@ -18,7 +20,14 @@ type Props = {
 const ANDROID_CLOSE_MS = 300;
 
 /** The mockup's bottom sheet: a scrim, a rounded surface with a handle, content that scrolls if long. */
-export function BottomSheet({ visible, onClose, onDismissed, scrollToTopKey, children }: Props) {
+export function BottomSheet({
+  visible,
+  onClose,
+  onDismissed,
+  scrollToTopKey,
+  tone = 'surface',
+  children,
+}: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const wasVisible = useRef(false);
@@ -60,7 +69,7 @@ export function BottomSheet({ visible, onClose, onDismissed, scrollToTopKey, chi
         <View
           style={[
             styles.sheet,
-            { backgroundColor: colors.surface, paddingBottom: Math.max(insets.bottom, space.s3) },
+            { backgroundColor: colors[tone], paddingBottom: Math.max(insets.bottom, space.s3) },
           ]}
           accessibilityViewIsModal>
           <View style={[styles.handle, { backgroundColor: colors.hairline }]} />

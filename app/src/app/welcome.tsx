@@ -10,6 +10,7 @@ import { BedtimeStep } from '@/components/onboarding/BedtimeStep';
 import { ConditionStep } from '@/components/onboarding/ConditionStep';
 import { MedicationsStep } from '@/components/onboarding/MedicationsStep';
 import { PrivacyStep } from '@/components/onboarding/PrivacyStep';
+import { RemindersStep } from '@/components/onboarding/RemindersStep';
 import { SymptomsStep } from '@/components/onboarding/SymptomsStep';
 import { ProgressDots } from '@/components/ProgressDots';
 import { Screen } from '@/components/Screen';
@@ -22,14 +23,14 @@ import { minTouchTarget, space } from '@/theme';
 
 /** The steps that show progress dots, in order (Figma 01a to 01g); the dots count this list. */
 const STEPS = ['welcome', 'bellie', 'condition', 'symptoms', 'bedtime', 'medications', 'privacy'] as const;
-/** After the last step: the closing celebration, with no dots. */
-const READY = STEPS.length;
+/** After the dotted steps, with no dots: the reminders offer (Figma 01h), then the closing celebration (01i). */
+const FLOW = [...STEPS, 'reminders', 'ready'] as const;
 
-/** First launch: say hello, meet Bellie, ask the setup questions, then finish (Figma 01a to 01h). */
+/** First launch: say hello, meet Bellie, ask the setup questions, then finish (Figma 01a to 01i). */
 export default function WelcomeScreen() {
   const { update } = useSettings();
   const [index, setIndex] = useState(0);
-  const step = index === READY ? 'ready' : STEPS[index];
+  const step = FLOW[index];
   const next = () => setIndex(index + 1);
 
   const finish = () => {
@@ -52,7 +53,7 @@ export default function WelcomeScreen() {
           onBack={() => setIndex(index - 1)}
           right={step === 'symptoms' ? <SkipButton onPress={next} /> : undefined}
         />
-        {index < READY && (
+        {index < STEPS.length && (
           <View pointerEvents="none" style={styles.dots}>
             <ProgressDots step={index + 1} total={STEPS.length} />
           </View>
@@ -81,6 +82,7 @@ export default function WelcomeScreen() {
       {step === 'bedtime' && <BedtimeStep onNext={next} />}
       {step === 'medications' && <MedicationsStep onNext={next} />}
       {step === 'privacy' && <PrivacyStep onNext={next} />}
+      {step === 'reminders' && <RemindersStep onNext={next} />}
 
       {(step === 'welcome' || step === 'bellie' || step === 'ready') && (
         <View style={styles.bottom}>

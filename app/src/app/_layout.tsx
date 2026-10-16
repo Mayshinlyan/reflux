@@ -16,6 +16,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { CheckInRouter } from '@/components/CheckInRouter';
 import { Screen } from '@/components/Screen';
 import { preloadChing } from '@/lib/ching';
 import { ToastProvider } from '@/components/Toast';
@@ -24,10 +25,12 @@ import { onSavedFoodsChange } from '@/db/repositories/savedFoods';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { initSentry, wrapRoot } from '@/lib/sentry';
+import { setupReminders } from '@/services/reminders';
 import { syncWidget } from '@/services/widgetSync';
 import { lightColors, space } from '@/theme';
 
 initSentry();
+setupReminders();
 SplashScreen.preventAutoHideAsync();
 
 function RootLayout() {
@@ -66,6 +69,7 @@ function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
           </Stack>
+          <CheckInRouter />
         </ToastProvider>
       </DatabaseProvider>
     </GestureHandlerRootView>

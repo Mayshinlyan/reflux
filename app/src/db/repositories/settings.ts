@@ -4,6 +4,7 @@ import { AVATAR_KEYS, type AvatarKey } from '@/constants/avatars';
 import { CONDITION_KEYS, type ConditionKey, legacyCondition, readConditions } from '@/constants/conditions';
 import { RETIRED_SYMPTOM_KEYS, SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
 import { type PetAnimal, PETS } from '@/lib/pets';
+import { REMINDER_OPTIONS } from '@/lib/reminderTiming';
 import { nowIso } from '@/lib/time';
 
 import { appSettings } from '../schema';
@@ -32,6 +33,10 @@ export type Settings = {
   petAnimal: PetAnimal;
   /** The highest pet stage (0-2) the user has seen on Today; a higher derived stage plays the celebration once. */
   petSeenStage: number;
+  /** Minutes after a meal when the check-in reminder fires; null = off (the default). */
+  checkInReminderMinutes: number | null;
+  /** True once they have been asked about reminders (onboarding, the one-time sheet or Settings), so it's asked once. */
+  reminderAsked: boolean;
   /** Made on this phone and only ever written to the home-screen widget; a link that logs a meal must carry it. */
   widgetToken: string;
 };
@@ -47,6 +52,8 @@ export const DEFAULT_SETTINGS: Settings = {
   petName: PETS.mochi.defaultName,
   petAnimal: 'mochi',
   petSeenStage: 0,
+  checkInReminderMinutes: null,
+  reminderAsked: false,
   widgetToken: '',
 };
 
@@ -92,6 +99,12 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
   if (key === 'petSeenStage') {
     const stage = value as number;
     if (!Number.isInteger(stage) || stage < 0 || stage > 2) throw new Error('petSeenStage must be 0–2');
+  }
+  if (key === 'checkInReminderMinutes') {
+    const minutes = value as number | null;
+    if (minutes !== null && !REMINDER_OPTIONS.includes(minutes)) {
+      throw new Error('checkInReminderMinutes must be null or one of the offered options');
+    }
   }
   if (key === 'lateMealWindowMinutes') {
     const minutes = value as number;

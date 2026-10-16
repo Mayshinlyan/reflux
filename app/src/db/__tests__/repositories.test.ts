@@ -6,6 +6,7 @@ import type { MealAnalysis } from '@/types/analysis';
 
 import { countLoggedEntries, deleteAllData, earliestEntryDayKey } from '../repositories/data';
 import {
+  countDiaryMeals,
   createFoodLog,
   createUncheckedMeal,
   deleteFoodLog,
@@ -98,6 +99,22 @@ describe('settings', () => {
 
     expect(getSetting(db, 'onboardingDone')).toBe(true);
     expect(getAllSettings(db)).toMatchObject({ bedtime: '21:45', petName: 'Biscuit', onboardingDone: true });
+  });
+
+  it('has the check-in reminder off and unasked, stores the offered times, and rejects others', () => {
+    const { db } = createTestDb();
+    expect(getSetting(db, 'checkInReminderMinutes')).toBeNull();
+    expect(getSetting(db, 'reminderAsked')).toBe(false);
+
+    setSetting(db, 'checkInReminderMinutes', 120);
+    setSetting(db, 'reminderAsked', true);
+    expect(getAllSettings(db)).toMatchObject({ checkInReminderMinutes: 120, reminderAsked: true });
+
+    setSetting(db, 'checkInReminderMinutes', null);
+    expect(getSetting(db, 'checkInReminderMinutes')).toBeNull();
+
+    expect(() => setSetting(db, 'checkInReminderMinutes', 45)).toThrow();
+    expect(() => setSetting(db, 'checkInReminderMinutes', 0)).toThrow();
   });
 
   it('has no user name until one is set, then trims it and allows clearing it', () => {
@@ -552,6 +569,23 @@ describe('food logs', () => {
     expect(diary[0]).toMatchObject({ id: diaryId, mealName: 'Mint tea', overallVerdict: 'caution' });
     expect(diary[0]?.analysis?.items[0]?.matchedTriggers[0]?.category).toBe('mint');
     expect(diary[0]?.analysisMeta).toEqual(meta);
+  });
+
+  it('counts diary meals only, across all days', () => {
+    const { db } = createTestDb();
+    expect(countDiaryMeals(db)).toBe(0);
+
+    createFoodLog(db, { entryType: 'diary', source: 'text', analysis: mintTea, meta, loggedAt: DAY.from });
+    createFoodLog(db, {
+      entryType: 'diary',
+      source: 'text',
+      analysis: mintTea,
+      meta,
+      loggedAt: '2026-01-02T08:00:00.000Z',
+    });
+    createFoodLog(db, { entryType: 'check', source: 'text', analysis: mintTea, meta, loggedAt: DAY.from });
+
+    expect(countDiaryMeals(db)).toBe(2);
   });
 
   it('promotes a check into the diary without changing the analysis', () => {
