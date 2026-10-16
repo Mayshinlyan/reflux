@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import * as Notifications from 'expo-notifications';
 
 import WelcomeScreen from '@/app/welcome';
 import { createTestDb } from '@/db/__tests__/testDb';
@@ -37,6 +38,8 @@ beforeEach(() => {
   mockUpdate.mockReset();
   mockReplace.mockReset();
   mockSignIn.mockClear();
+  jest.mocked(Notifications.getPermissionsAsync).mockClear();
+  jest.mocked(Notifications.requestPermissionsAsync).mockClear();
 });
 
 afterEach(() => closeDb());
@@ -111,6 +114,11 @@ describe('Welcome', () => {
     expect(screen.getByRole('progressbar', { name: 'Step 7 of 7' })).toBeTruthy();
     await press('Continue');
 
+    // The reminders offer sits between Privacy and Ready, with no dots.
+    expect(screen.getByRole('header', { name: 'Want a gentle nudge?' })).toBeTruthy();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    await press('Maybe later');
+
     expect(screen.getByText('Ready when you are!')).toBeTruthy();
     expect(screen.queryByRole('progressbar')).toBeNull();
     expect(mockUpdate).not.toHaveBeenCalledWith('onboardingDone', true);
@@ -121,6 +129,59 @@ describe('Welcome', () => {
     expect(mockUpdate).toHaveBeenCalledWith('onboardingDone', true);
     expect(mockSignIn).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith('/');
+  });
+
+  describe('reminders step', () => {
+    async function toReminders() {
+      await render(<WelcomeScreen />);
+      await toCondition();
+      await press('Continue');
+      await press('Skip');
+      await press('Continue');
+      await press('Skip for now');
+      await press('Continue');
+      expect(screen.getByRole('header', { name: 'Want a gentle nudge?' })).toBeTruthy();
+    }
+
+    it('previews the reminder and says it stays on the phone', async () => {
+      await toReminders();
+
+      expect(screen.getByText('How are you feeling?')).toBeTruthy();
+      expect(screen.getByText(/stays on your phone/)).toBeTruthy();
+    });
+
+    it('turns it on at two hours and marks it asked once the phone allows it', async () => {
+      await toReminders();
+      await press('Turn on notifications');
+      await act(async () => {});
+
+      expect(Notifications.getPermissionsAsync).toHaveBeenCalled();
+      expect(mockUpdate).toHaveBeenCalledWith('reminderAsked', true);
+      expect(mockUpdate).toHaveBeenCalledWith('checkInReminderMinutes', 120);
+      expect(screen.getByText('Ready when you are!')).toBeTruthy();
+    });
+
+    it('marks it asked but leaves it off when the phone says no', async () => {
+      (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValueOnce({ granted: false });
+      (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({ granted: false });
+      await toReminders();
+      await press('Turn on notifications');
+      await act(async () => {});
+
+      expect(mockUpdate).toHaveBeenCalledWith('reminderAsked', true);
+      expect(mockUpdate).not.toHaveBeenCalledWith('checkInReminderMinutes', expect.anything());
+      expect(screen.getByText('Ready when you are!')).toBeTruthy();
+    });
+
+    it('"Maybe later" saves nothing, so the one-time sheet can still offer it', async () => {
+      await toReminders();
+      await press('Maybe later');
+
+      expect(mockUpdate).not.toHaveBeenCalledWith('reminderAsked', expect.anything());
+      expect(mockUpdate).not.toHaveBeenCalledWith('checkInReminderMinutes', expect.anything());
+      expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+      expect(screen.getByText('Ready when you are!')).toBeTruthy();
+    });
   });
 
   it('starts the usual symptoms from the chosen conditions', async () => {

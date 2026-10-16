@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import * as Notifications from 'expo-notifications';
 
 import LogSymptomsScreen, { symptomsTitle } from '@/app/log/symptoms';
 import { createTestDb } from '@/db/__tests__/testDb';
@@ -57,6 +58,7 @@ async function choose(...symptoms: string[]) {
 }
 
 beforeEach(() => {
+  jest.mocked(Notifications.cancelScheduledNotificationAsync).mockClear();
   const { db, sqlite } = createTestDb();
   mockDb = db;
   closeDb = () => sqlite.close();
@@ -279,6 +281,28 @@ describe('Log symptoms screen: the meal they followed', () => {
     await press('button', 'Complete check-in');
 
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.foodLogId).toBe(id);
+  });
+
+  it('drops the meal’s check-in reminder once the check-in is saved', async () => {
+    const id = createUncheckedMeal(mockDb, {
+      source: 'text',
+      inputText: 'old pasta',
+      loggedAt: minutesAgo(300),
+    });
+    mockParams = { afterFood: String(id) };
+    await render(<LogSymptomsScreen />);
+    await toDetails();
+    await press('button', 'Complete check-in');
+
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(`meal-${id}`);
+  });
+
+  it('leaves reminders alone for a check-in that is not about a meal', async () => {
+    await render(<LogSymptomsScreen />);
+    await toDetails();
+    await press('button', 'Complete check-in');
+
+    expect(Notifications.cancelScheduledNotificationAsync).not.toHaveBeenCalled();
   });
 });
 

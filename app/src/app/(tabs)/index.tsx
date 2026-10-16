@@ -7,12 +7,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '@/components/AppText';
 import { HomeRing } from '@/components/HomeRing';
 import { LateMealBadge } from '@/components/LateMealBadge';
+import { ReminderPromptSheet } from '@/components/ReminderPromptSheet';
 import { Screen } from '@/components/Screen';
 import { tabBarClearance } from '@/components/FloatingTabBar';
 import { TimelineItem } from '@/components/TimelineItem';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { WeekStrip } from '@/components/WeekStrip';
 import { useSettings } from '@/db/DatabaseProvider';
+import { useReminderPrompt } from '@/hooks/useReminderPrompt';
 import { useTodayData } from '@/hooks/useTodayData';
 import { bellyMoodFor } from '@/lib/belly';
 import { isLateMeal } from '@/lib/mealTiming';
@@ -41,6 +43,7 @@ export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
   const { week, loggedDays, entries, meals } = useTodayData();
+  const reminder = useReminderPrompt();
   const now = new Date();
   const [picked, setPicked] = useState<string | null>(null);
   const pickTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -183,6 +186,12 @@ export default function TodayScreen() {
           </View>
         )}
       </Animated.ScrollView>
+      <ReminderPromptSheet
+        visible={reminder.visible}
+        onHide={reminder.hide}
+        onYes={reminder.accept}
+        onNotNow={reminder.decline}
+      />
     </Screen>
   );
 }

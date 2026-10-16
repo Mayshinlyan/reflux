@@ -56,6 +56,7 @@ import { symptomsSwipe } from '@/lib/logSwipe';
 import { dayToLoggedAt, formatClockTime, formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { symptomLabel, tagLabel } from '@/lib/timeline';
+import { cancelCheckIn } from '@/services/reminders';
 import { space } from '@/theme';
 
 const MAX_NOTE_LENGTH = 1000;
@@ -329,6 +330,8 @@ export default function LogSymptomsScreen() {
       Alert.alert("Couldn't save", friendlyMessages.INTERNAL);
       return;
     }
+    // Checking in after a meal answers its reminder.
+    if (editingId === undefined && linked) void cancelCheckIn(linked.id);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     if (editingId === undefined) playChing();
     toast(

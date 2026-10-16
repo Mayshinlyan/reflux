@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import * as Notifications from 'expo-notifications';
 
 import TodayScreen from '@/app/(tabs)/index';
 import { createTestDb } from '@/db/__tests__/testDb';
@@ -12,6 +13,10 @@ let closeDb: () => void;
 let mockOnboardingDone = true;
 let mockUserName = '';
 let mockReduceMotion = true;
+let mockReminderAsked = true;
+let mockReminderMinutes: number | null = null;
+const mockUpdate = jest.fn();
+const mockToast = jest.fn();
 const mockPush = jest.fn();
 const mockRedirect = jest.fn();
 
@@ -23,9 +28,13 @@ jest.mock('@/db/DatabaseProvider', () => ({
       userName: mockUserName,
       bedtime: '22:30',
       lateMealWindowMinutes: 180,
+      reminderAsked: mockReminderAsked,
+      checkInReminderMinutes: mockReminderMinutes,
     },
+    update: mockUpdate,
   }),
 }));
+jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 // Reanimated's native runtime can't load in Jest; use its mocks (which lack useReducedMotion).
 jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/lib/module/mock'));
 jest.mock('react-native-reanimated', () => ({
@@ -60,6 +69,11 @@ beforeEach(() => {
   mockOnboardingDone = true;
   mockUserName = '';
   mockReduceMotion = true;
+  mockReminderAsked = true;
+  mockReminderMinutes = null;
+  mockUpdate.mockClear();
+  mockToast.mockClear();
+  jest.mocked(Notifications.requestPermissionsAsync).mockClear();
   mockPush.mockClear();
   mockRedirect.mockClear();
 });
@@ -295,5 +309,93 @@ describe('Today: after logging', () => {
       pathname: '/entry',
       params: { kind: 'medication', id: String(doseId) },
     });
+  });
+});
+
+describe('Today: the one-time reminder offer', () => {
+  const seedMeals = (n: number) => {
+    for (let i = 0; i < n; i++) seedMeal(`Meal ${i}`, 'good', `2026-10-1${i}T08:00:00.000Z`);
+  };
+  const offer = () => screen.queryByRole('header', { name: 'Want a gentle nudge?' });
+
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('appears once there are three meals and they have not been asked', async () => {
+    mockReminderAsked = false;
+    seedMeals(3);
+    await render(<TodayScreen />);
+
+    expect(offer()).toBeTruthy();
+  });
+
+  it('waits until the third meal', async () => {
+    mockReminderAsked = false;
+    seedMeals(2);
+    await render(<TodayScreen />);
+
+    expect(offer()).toBeNull();
+  });
+
+  it('stays away once they have been asked', async () => {
+    seedMeals(3);
+    await render(<TodayScreen />);
+    expect(offer()).toBeNull();
+  });
+
+  it('stays away when reminders are already on', async () => {
+    mockReminderAsked = false;
+    mockReminderMinutes = 120;
+    seedMeals(3);
+    await render(<TodayScreen />);
+
+    expect(offer()).toBeNull();
+  });
+
+  it('"Not now" counts as asked and leaves reminders off', async () => {
+    mockReminderAsked = false;
+    seedMeals(3);
+    await render(<TodayScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Not now' }));
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(mockUpdate).toHaveBeenCalledWith('reminderAsked', true);
+    expect(mockUpdate).not.toHaveBeenCalledWith('checkInReminderMinutes', expect.anything());
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('"Yes please" turns it on at two hours once the phone allows it', async () => {
+    mockReminderAsked = false;
+    seedMeals(3);
+    await render(<TodayScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Yes please' }));
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(mockUpdate).toHaveBeenCalledWith('reminderAsked', true);
+    expect(mockUpdate).toHaveBeenCalledWith('checkInReminderMinutes', 120);
+    expect(mockToast).toHaveBeenCalledWith('Reminders are on');
+  });
+
+  it('"Yes please" still counts as asked, with reminders left off, when the phone says no', async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValueOnce({ granted: false });
+    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({ granted: false });
+    mockReminderAsked = false;
+    seedMeals(3);
+    await render(<TodayScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Yes please' }));
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(mockUpdate).toHaveBeenCalledWith('reminderAsked', true);
+    expect(mockUpdate).not.toHaveBeenCalledWith('checkInReminderMinutes', expect.anything());
+    expect(mockToast).not.toHaveBeenCalled();
   });
 });

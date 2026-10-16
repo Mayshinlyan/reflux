@@ -18,6 +18,7 @@ export const fontFamily = {
 export const typography = {
   hero: { fontFamily: fontFamily.voiceBold, fontSize: 46, lineHeight: 50, letterSpacing: -1.38 },
   display: { fontFamily: fontFamily.voiceBold, fontSize: 38, lineHeight: 42, letterSpacing: -1.14 },
+  displaySmall: { fontFamily: fontFamily.voiceBold, fontSize: 28, lineHeight: 32, letterSpacing: -0.84 },
   voice: { fontFamily: fontFamily.voice, fontSize: 22, lineHeight: 26, letterSpacing: -0.66 },
   voiceSmall: { fontFamily: fontFamily.voice, fontSize: 20, lineHeight: 24, letterSpacing: -0.6 },
   section: { fontFamily: fontFamily.bold, fontSize: 20, lineHeight: 26 },

@@ -8,7 +8,7 @@ type Props = TextProps & {
 };
 
 // Headlines have tight line heights and fixed room around them, so they scale less than body text.
-const HEADLINES: readonly TypographyVariant[] = ['hero', 'display', 'voice', 'voiceSmall'];
+const HEADLINES: readonly TypographyVariant[] = ['hero', 'display', 'displaySmall', 'voice', 'voiceSmall'];
 const HEADLINE_MAX_SCALE = 1.2;
 const TEXT_MAX_SCALE = 1.4;
 
