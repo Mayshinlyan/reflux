@@ -7,7 +7,7 @@ import { Avatar } from '../Avatar';
 import { Button } from '../Button';
 import { CheckboxRow } from '../CheckboxRow';
 import { ChoiceCard } from '../ChoiceCard';
-import { ProgressDots } from '../ProgressDots';
+import { ProgressBar } from '../ProgressBar';
 import { SegmentedControl } from '../SegmentedControl';
 import { SettingsRow } from '../SettingsRow';
 import { SymptomChip } from '../SymptomChip';
@@ -128,9 +128,9 @@ describe('SegmentedControl', () => {
   });
 });
 
-describe('ProgressDots', () => {
+describe('ProgressBar', () => {
   it('announces the step', async () => {
-    await render(<ProgressDots step={2} total={6} />);
+    await render(<ProgressBar step={2} total={6} />);
 
     expect(screen.getByLabelText('Step 2 of 6')).toBeTruthy();
   });

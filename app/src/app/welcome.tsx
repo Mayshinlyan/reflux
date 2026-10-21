@@ -12,7 +12,7 @@ import { MedicationsStep } from '@/components/onboarding/MedicationsStep';
 import { PrivacyStep } from '@/components/onboarding/PrivacyStep';
 import { RemindersStep } from '@/components/onboarding/RemindersStep';
 import { SymptomsStep } from '@/components/onboarding/SymptomsStep';
-import { ProgressDots } from '@/components/ProgressDots';
+import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
 import { SpeechBubble } from '@/components/SpeechBubble';
 import { TopBar } from '@/components/TopBar';
@@ -21,7 +21,7 @@ import { logger } from '@/lib/logger';
 import { ensureAnonymousSession } from '@/services/firebase';
 import { minTouchTarget, space } from '@/theme';
 
-/** The steps that show progress dots, in order (Figma 01a to 01g); the dots count this list. */
+/** The steps that show the progress bar, in order (Figma 01a to 01g); the bar counts this list. */
 const STEPS = ['welcome', 'bellie', 'condition', 'symptoms', 'bedtime', 'medications', 'privacy'] as const;
 /** After the dotted steps, with no dots: the reminders offer (Figma 01h), then the closing celebration (01i). */
 const FLOW = [...STEPS, 'reminders', 'ready'] as const;
@@ -54,8 +54,8 @@ export default function WelcomeScreen() {
           right={step === 'symptoms' ? <SkipButton onPress={next} /> : undefined}
         />
         {index < STEPS.length && (
-          <View pointerEvents="none" style={styles.dots}>
-            <ProgressDots step={index + 1} total={STEPS.length} />
+          <View pointerEvents="none" style={styles.bar}>
+            <ProgressBar step={index + 1} total={STEPS.length} />
           </View>
         )}
       </View>
@@ -141,8 +141,8 @@ function Centered({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  // Centered on the top bar, between the (hidden) back circle and the spacer.
-  dots: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
+  // Runs from just after the back circle to the right edge of the top bar (Figma "Progress bar").
+  bar: { ...StyleSheet.absoluteFill, left: 44 + space.s2, justifyContent: 'center' },
   // Visible so the confetti can scatter above the bubble instead of being cut off at the top.
   fill: { flex: 1, overflow: 'visible' },
   centered: { flexGrow: 1, justifyContent: 'center' },
