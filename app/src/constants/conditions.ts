@@ -7,15 +7,29 @@ export const CONDITIONS = [
     label: 'Acid reflux or GERD',
     short: 'acid reflux',
     hint: 'Heartburn, sour taste, burping',
+    feeling: 'Burning in my chest',
   },
-  { key: 'lpr', label: 'Silent reflux (LPR)', short: 'silent reflux', hint: 'Hoarse voice, throat clearing' },
+  {
+    key: 'lpr',
+    label: 'Silent reflux (LPR)',
+    short: 'silent reflux',
+    hint: 'Hoarse voice, throat clearing',
+    feeling: 'Hoarse voice, throat clearing',
+  },
   {
     key: 'gastritis',
     label: 'Gastritis',
     short: 'gastritis',
     hint: 'Stomach irritation, pain, feeling full',
+    feeling: 'Stomach pain or feeling full',
   },
-  { key: 'unsure', label: 'Not sure yet', short: '', hint: 'Track first, decide later' },
+  {
+    key: 'unsure',
+    label: 'Not sure yet',
+    short: '',
+    hint: 'Track first, decide later',
+    feeling: "I'm not sure yet",
+  },
 ] as const;
 
 export type ConditionKey = (typeof CONDITIONS)[number]['key'];
@@ -51,6 +65,17 @@ export function toggleCondition(current: readonly ConditionKey[], key: Condition
   const next = rest.includes(key) ? rest.filter((item) => item !== key) : [...rest, key];
   const ordered = CONDITION_KEYS.filter((item) => next.includes(item));
   return ordered.length > 0 ? ordered : ['unsure'];
+}
+
+/**
+ * Onboarding's version of a tap (Figma 01c): nothing is picked to start, so the list can be empty. "Not sure yet"
+ * clears the rest and any other pick clears "Not sure yet".
+ */
+export function pickCondition(current: readonly ConditionKey[], key: ConditionKey): ConditionKey[] {
+  if (key === 'unsure') return current.includes('unsure') ? [] : ['unsure'];
+  const rest: ConditionKey[] = current.filter((item) => item !== 'unsure');
+  const next = rest.includes(key) ? rest.filter((item) => item !== key) : [...rest, key];
+  return CONDITION_KEYS.filter((item) => next.includes(item));
 }
 
 /** The line under the name on the Profile, e.g. "Managing acid reflux and silent reflux". */

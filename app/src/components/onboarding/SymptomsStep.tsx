@@ -2,22 +2,19 @@ import { useState } from 'react';
 
 import { Button } from '@/components/Button';
 import { SymptomZones } from '@/components/SymptomZones';
-import { suggestedSymptoms } from '@/constants/conditions';
 import { SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
 import { useSettings } from '@/db/DatabaseProvider';
 import { logger } from '@/lib/logger';
 
 import { StepLayout } from './StepLayout';
 
-/** The symptoms they usually feel, any number (Figma 01d). Skip lives in the top bar, set by the stepper. */
+/**
+ * The symptoms they usually feel, any number (Figma 01d). Nothing is picked to start. With nothing picked the button is
+ * a secondary "Skip for now"; once something is picked it becomes the primary "Continue".
+ */
 export function SymptomsStep({ onNext }: { onNext: () => void }) {
   const { settings, update } = useSettings();
-  const [selected, setSelected] = useState<ReadonlySet<SymptomKey>>(
-    // Nothing chosen yet: start from what the chosen conditions usually bring, easy to untap.
-    new Set(
-      settings.usualSymptoms.length > 0 ? settings.usualSymptoms : suggestedSymptoms(settings.conditions),
-    ),
-  );
+  const [selected, setSelected] = useState<ReadonlySet<SymptomKey>>(new Set(settings.usualSymptoms));
   const [saveFailed, setSaveFailed] = useState(false);
 
   const toggle = (key: SymptomKey) =>
@@ -29,11 +26,14 @@ export function SymptomsStep({ onNext }: { onNext: () => void }) {
 
   const next = () => {
     try {
-      // In catalog order, so the saved list doesn't depend on tap order.
-      update(
-        'usualSymptoms',
-        SYMPTOM_KEYS.filter((key) => selected.has(key)),
-      );
+      // Skipping with nothing picked saves nothing, unless they picked some earlier and then cleared them.
+      if (selected.size > 0 || settings.usualSymptoms.length > 0) {
+        // In catalog order, so the saved list doesn't depend on tap order.
+        update(
+          'usualSymptoms',
+          SYMPTOM_KEYS.filter((key) => selected.has(key)),
+        );
+      }
     } catch (error) {
       logger.error('saveUsualSymptoms', error);
       setSaveFailed(true);
@@ -47,7 +47,13 @@ export function SymptomsStep({ onNext }: { onNext: () => void }) {
       title="What do you usually feel?"
       subtitle="Pick any that apply. We'll show them first when you log."
       saveFailed={saveFailed}
-      footer={<Button label="Continue" onPress={next} />}>
+      footer={
+        selected.size === 0 ? (
+          <Button label="Skip for now" variant="secondary" onPress={next} />
+        ) : (
+          <Button label="Continue" onPress={next} />
+        )
+      }>
       <SymptomZones selected={selected} onToggle={toggle} conditions={settings.conditions} />
     </StepLayout>
   );

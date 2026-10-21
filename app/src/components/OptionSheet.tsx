@@ -3,10 +3,11 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { friendlyMessages } from '@/lib/errors';
-import { fontFamily, minTouchTarget, radius, space, useColors } from '@/theme';
+import { fontFamily, minTouchTarget, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { BottomSheet } from './BottomSheet';
+import { OptionRow } from './OptionRow';
 
 export type Option = { value: string; label: string };
 
@@ -62,33 +63,12 @@ export function OptionSheet({
           const selected = option.value === value;
           if (cards) {
             return (
-              <Pressable
+              <OptionRow
                 key={option.value}
-                accessibilityRole="radio"
-                accessibilityLabel={option.label}
-                accessibilityState={{ checked: selected }}
+                label={option.label}
+                selected={selected}
                 onPress={() => onChoose(option.value)}
-                style={({ pressed }) => [
-                  styles.card,
-                  {
-                    backgroundColor: selected ? colors.clayTint : colors.surface,
-                    opacity: pressed ? 0.85 : 1,
-                  },
-                ]}>
-                <AppText variant="bodyEm" style={styles.cardLabel}>
-                  {option.label}
-                </AppText>
-                {/* The radio ring is a functional stroke; chosen, it fills with clay. */}
-                <View
-                  style={[
-                    styles.radio,
-                    selected
-                      ? { backgroundColor: colors.clay }
-                      : { borderWidth: 1.5, borderColor: colors.inkSoft },
-                  ]}>
-                  {selected && <Check size={14} color={colors.surface} strokeWidth={3} />}
-                </View>
-              </Pressable>
+              />
             );
           }
           return (
@@ -139,16 +119,6 @@ const styles = StyleSheet.create({
   optionText: { fontSize: 16 },
   cardsNote: { marginTop: space.s1 },
   cardsGroup: { marginTop: space.s2, gap: space.s1 },
-  card: {
-    minHeight: Math.max(minTouchTarget, 52),
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.s2,
-    paddingHorizontal: space.s2,
-    borderRadius: radius.lg,
-  },
-  cardLabel: { flex: 1 },
-  radio: { width: 24, height: 24, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   footnote: { marginTop: space.s1 },
   error: { marginBottom: space.s1 },
 });

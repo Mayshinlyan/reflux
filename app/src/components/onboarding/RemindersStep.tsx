@@ -1,63 +1,72 @@
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { OptionRow } from '@/components/OptionRow';
+import { formatWindow } from '@/lib/clock';
 import { useSettings } from '@/db/DatabaseProvider';
 import { logger } from '@/lib/logger';
-import { DEFAULT_REMINDER_MINUTES } from '@/lib/reminderTiming';
-import { askForReminders } from '@/services/reminders';
+import { DEFAULT_REMINDER_MINUTES, REMINDER_OPTIONS } from '@/lib/reminderTiming';
 import { space } from '@/theme';
 
-import { NotificationPreview } from './NotificationPreview';
 import { StepLayout } from './StepLayout';
 
+type Props = {
+  /** What was chosen the last time they were here (coming back); null means "No reminders". */
+  initial: number | null;
+  /** The minutes chosen, or null for no reminders. Nothing is asked of the phone yet. */
+  onNext: (minutes: number | null) => void;
+};
+
 /**
- * Offers the check-in reminder (Figma 01h): turning it on asks the phone for permission and sets "about 2 hours
- * after a meal". "Maybe later" leaves it off and unasked, so the one-time sheet can still offer it on Today.
+ * When Bellie should check in after a meal (Figma 01h). Two hours is chosen to start. This only records the choice; the
+ * phone's permission prompt comes on the next screen. "No reminders" is saved as asked, so the Today sheet doesn't nag.
  */
-export function RemindersStep({ onNext }: { onNext: () => void }) {
+export function RemindersStep({ initial, onNext }: Props) {
   const { update } = useSettings();
-  const [busy, setBusy] = useState(false);
+  const [choice, setChoice] = useState<number | null>(initial);
   const [saveFailed, setSaveFailed] = useState(false);
 
-  const turnOn = async () => {
-    if (busy) return;
-    setBusy(true);
-    const allowed = await askForReminders();
-    try {
-      // Asked now, whatever they answered, so the phone's one-time prompt isn't followed by ours.
-      update('reminderAsked', true);
-      if (allowed) update('checkInReminderMinutes', DEFAULT_REMINDER_MINUTES);
-    } catch (error) {
-      logger.error('saveReminders', error);
-      setSaveFailed(true);
-      setBusy(false);
-      return;
+  const next = () => {
+    if (choice === null) {
+      try {
+        update('reminderAsked', true);
+        update('checkInReminderMinutes', null);
+      } catch (error) {
+        logger.error('saveReminders', error);
+        setSaveFailed(true);
+        return;
+      }
     }
-    setBusy(false);
-    onNext();
+    onNext(choice);
   };
 
   return (
     <StepLayout
-      title="Want a gentle nudge?"
-      subtitle="Turning on notifications helps you log how you feel after meals, so your patterns show up sooner."
+      title="When should Bellie check in?"
+      subtitle="A short nudge after a meal, to ask how you feel."
       saveFailed={saveFailed}
-      footer={
-        <>
-          <Button label="Turn on notifications" onPress={turnOn} disabled={busy} />
-          <Button label="Maybe later" variant="secondary" onPress={onNext} disabled={busy} />
-        </>
-      }>
-      <NotificationPreview />
+      footer={<Button label="Continue" onPress={next} />}>
+      <View accessibilityRole="radiogroup" style={styles.list}>
+        {REMINDER_OPTIONS.map((minutes) => (
+          <OptionRow
+            key={minutes}
+            label={`${formatWindow(minutes)} after I eat`}
+            selected={choice === minutes}
+            onPress={() => setChoice(minutes)}
+          />
+        ))}
+        <OptionRow label="No reminders" selected={choice === null} onPress={() => setChoice(null)} />
+      </View>
       <AppText variant="caption" color="inkSoft" style={styles.hint}>
-        About 2 hours after a meal. It stays on your phone, and you can change it any time in Settings.
+        {`${formatWindow(DEFAULT_REMINDER_MINUTES)} is a good start. It stays on your phone, and you can change it any time in Settings.`}
       </AppText>
     </StepLayout>
   );
 }
 
 const styles = StyleSheet.create({
+  list: { gap: 12 },
   hint: { marginTop: space.s2 },
 });

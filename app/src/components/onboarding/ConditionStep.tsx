@@ -2,16 +2,25 @@ import { useState } from 'react';
 
 import { Button } from '@/components/Button';
 import { ConditionChoices } from '@/components/ConditionChoices';
-import { toggleCondition } from '@/constants/conditions';
+import { type ConditionKey, pickCondition } from '@/constants/conditions';
 import { useSettings } from '@/db/DatabaseProvider';
 import { logger } from '@/lib/logger';
 
 import { StepLayout } from './StepLayout';
 
-/** What the user is managing, pick all that apply (Figma 01c). */
-export function ConditionStep({ onNext }: { onNext: () => void }) {
-  const { settings, update } = useSettings();
-  const [conditions, setConditions] = useState(settings.conditions);
+type Props = {
+  /** What was picked the last time they were here (coming back), or nothing. */
+  initial: readonly ConditionKey[];
+  onNext: (conditions: ConditionKey[]) => void;
+};
+
+/**
+ * What's been bothering them, pick all that apply (Figma 01c). Nothing is picked to start, and Continue waits for a
+ * choice; "I'm not sure yet" is a choice.
+ */
+export function ConditionStep({ initial, onNext }: Props) {
+  const { update } = useSettings();
+  const [conditions, setConditions] = useState<ConditionKey[]>([...initial]);
   const [saveFailed, setSaveFailed] = useState(false);
 
   const next = () => {
@@ -22,18 +31,19 @@ export function ConditionStep({ onNext }: { onNext: () => void }) {
       setSaveFailed(true);
       return;
     }
-    onNext();
+    onNext(conditions);
   };
 
   return (
     <StepLayout
-      title="What would you like to manage?"
-      subtitle="Pick all that apply. We'll tailor what you track. You can change this later."
+      title="What's bothering you?"
+      subtitle="Pick all that apply. Not sure? That's fine too."
       saveFailed={saveFailed}
-      footer={<Button label="Continue" onPress={next} />}>
+      footer={<Button label="Continue" onPress={next} disabled={conditions.length === 0} />}>
       <ConditionChoices
+        variant="feeling"
         value={conditions}
-        onToggle={(key) => setConditions((current) => toggleCondition(current, key))}
+        onToggle={(key) => setConditions((current) => pickCondition(current, key))}
       />
     </StepLayout>
   );
