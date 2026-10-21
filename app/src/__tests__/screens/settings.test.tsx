@@ -87,12 +87,14 @@ describe('Settings', () => {
     const rows = screen
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
-      .filter((label) => /^(Bedtime|Late-meal|Check-in|Condition|My |Privacy|Delete)/.test(label ?? ''));
+      .filter((label) =>
+        /^(Bedtime|Late-meal|Check-in|Condition|Favorite|My |Privacy|Delete)/.test(label ?? ''),
+      );
     expect(rows).toEqual([
       'Bedtime, 10:30 PM',
       'Late-meal window, 3 hours',
       'Check-in reminder, Off',
-      'My foods',
+      'Favorite foods',
       'My medications',
       'My additions',
       'Privacy and disclaimer',

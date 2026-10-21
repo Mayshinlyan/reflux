@@ -42,6 +42,10 @@ export type MealAnalysis = {
     verdict: Verdict;
     confidence: 'low' | 'medium' | 'high';
     reasoning: string;
+    /** One plain sentence for the top of the verdict screen. Absent on meals checked before prompt v7. */
+    summary?: string;
+    /** A concrete "better next time" change for a caution or trigger meal. */
+    tip?: string;
     /** The verdict the user chose over the AI's `verdict`. The AI's own stays here for "The AI said …". */
     userVerdict?: AppVerdict;
   };

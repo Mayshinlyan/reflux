@@ -1,4 +1,4 @@
-import { Activity, Camera, type LucideIcon, Pill } from 'lucide-react-native';
+import { Activity, type LucideIcon, Pill, Utensils } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Animated, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
@@ -10,7 +10,7 @@ import { LOG_CENTRE_BELOW_BAR_TOP, tabBarHeight } from './FloatingTabBar';
 export type LogKind = 'food' | 'symptoms' | 'medication';
 
 const ITEMS: { kind: LogKind; label: string; icon: LucideIcon; tint: ColorToken; angle: number }[] = [
-  { kind: 'food', label: 'Snap food', icon: Camera, tint: 'honeyTint', angle: 140 },
+  { kind: 'food', label: 'Log food', icon: Utensils, tint: 'honeyTint', angle: 140 },
   { kind: 'symptoms', label: 'How I feel', icon: Activity, tint: 'clayTint', angle: 90 },
   { kind: 'medication', label: 'Medication', icon: Pill, tint: 'sageTint', angle: 40 },
 ];

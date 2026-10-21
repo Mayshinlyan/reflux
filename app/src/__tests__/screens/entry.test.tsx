@@ -132,7 +132,7 @@ describe('Entry: a meal', () => {
     expect(screen.getByText('Spicy')).toBeTruthy();
     expect(screen.getByText('Late meal')).toBeTruthy();
     expect(screen.getByText('Large')).toBeTruthy();
-    expect(screen.getByText('Saved to My foods')).toBeTruthy();
+    expect(screen.getByText('Saved to favorite foods')).toBeTruthy();
     expect(screen.getByText('No')).toBeTruthy();
     expect(screen.getByText('Symptoms')).toBeTruthy();
     expect(screen.getByText('Heartburn')).toBeTruthy();
@@ -141,7 +141,7 @@ describe('Entry: a meal', () => {
     expect(screen.getByText('Felt fine until later.')).toBeTruthy();
   });
 
-  it('says Yes once the meal is in My foods', async () => {
+  it('says Yes once the meal is in favorite foods', async () => {
     const id = seedTacos();
     saveFoodFromLog(mockDb, id);
     mockParams = { kind: 'food', id: String(id) };

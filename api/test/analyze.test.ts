@@ -400,6 +400,8 @@ describe('POST /v1/analyze-food: model output', () => {
       'overlong reasoning',
       { ...goodAnalysis, overall: { ...goodAnalysis.overall, reasoning: 'x'.repeat(401) } },
     ],
+    ['overlong summary', { ...goodAnalysis, overall: { ...goodAnalysis.overall, summary: 'x'.repeat(161) } }],
+    ['overlong tip', { ...goodAnalysis, overall: { ...goodAnalysis.overall, tip: 'x'.repeat(161) } }],
     ['too many items', { ...goodAnalysis, items: Array.from({ length: 9 }, () => goodAnalysis.items[0]) }],
     ['a string instead of an object', 'Sure! Here is the analysis'],
     ['null', null],
@@ -410,6 +412,27 @@ describe('POST /v1/analyze-food: model output', () => {
 
     expect(res.status).toBe(502);
     expect(res.body.error.code).toBe('AI_INVALID_OUTPUT');
+  });
+
+  it('passes the summary and tip through, and accepts an answer without them', async () => {
+    const withExtras = {
+      ...goodAnalysis,
+      overall: {
+        ...goodAnalysis.overall,
+        summary: 'Mint can relax the valve that keeps acid down.',
+        tip: 'Try ginger or chamomile tea instead.',
+      },
+    };
+    const first = testApp({}, { claude: fakeClaude(() => withExtras).service });
+    const res = await post(first.app).send({ text: 'tea' });
+    expect(res.status).toBe(200);
+    expect(res.body.overall.summary).toBe('Mint can relax the valve that keeps acid down.');
+    expect(res.body.overall.tip).toBe('Try ginger or chamomile tea instead.');
+
+    const second = testApp({}, { claude: fakeClaude(() => goodAnalysis).service });
+    const plain = await post(second.app).send({ text: 'tea' });
+    expect(plain.status).toBe(200);
+    expect(plain.body.overall.summary).toBeUndefined();
   });
 
   it('retries once when the first answer is off-schema, then succeeds', async () => {

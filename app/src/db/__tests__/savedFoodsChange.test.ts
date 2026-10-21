@@ -27,7 +27,7 @@ afterEach(() => {
   close();
 });
 
-describe('telling the widget that My foods changed', () => {
+describe('telling the widget that Favorite foods changed', () => {
   it('fires once for each way the list changes', () => {
     const id = createSavedFood(db, 'Oatmeal');
     expect(listener).toHaveBeenCalledTimes(1);
@@ -42,7 +42,7 @@ describe('telling the widget that My foods changed', () => {
     expect(listener).toHaveBeenCalledTimes(4);
   });
 
-  it('fires when a logged meal is saved to My foods, but not when it was already saved', () => {
+  it('fires when a logged meal is saved to favorite foods, but not when it was already saved', () => {
     const mealId = createUncheckedMeal(db, { source: 'text', inputText: 'Toast' });
     expect(saveFoodFromLog(db, mealId).created).toBe(true);
     expect(listener).toHaveBeenCalledTimes(1);

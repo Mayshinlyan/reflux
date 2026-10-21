@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { Belly } from '@/components/Belly';
 import { IngredientLine } from '@/components/MealResultCard';
+import { SpeechBubble } from '@/components/SpeechBubble';
 import { TagChip } from '@/components/TagChip';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { BELLY_VERDICT_HEADLINE, bellyMoodFor } from '@/lib/belly';
@@ -13,31 +14,42 @@ import type { MealAnalysis, MealItem } from '@/types/analysis';
 
 type Props = {
   analysis: MealAnalysis;
-  /** "Today, 7:45 PM": when the meal is being logged for. */
-  when: string;
   /** Eaten close to bedtime. */
   late: boolean;
 };
 
-/** Figma "03c Food: verdict": the belly's mood, a headline, why, and which triggers matched. */
-export function FoodVerdict({ analysis, when, late }: Props) {
+/**
+ * Figma "03c.1 Food: verdict": Bellie under a speech bubble that carries the verdict, then the AI's one-line
+ * summary, the triggers that matched, a "Better next time" tip, and why.
+ */
+export function FoodVerdict({ analysis, late }: Props) {
   const colors = useColors();
   const verdict = effectiveVerdict(analysis);
   const reasons = verdictReasons(analysis, { late });
   const triggers = matchedTriggerLabels(analysis, { late });
   const ingredients = uniqueIngredients(analysis);
+  const { summary, tip } = analysis.overall;
   return (
     <View style={styles.wrap}>
       <View style={styles.result}>
-        <Belly mood={bellyMoodFor(verdict)} size={80} />
+        <SpeechBubble card tail="down" text={BELLY_VERDICT_HEADLINE[verdict]} accessibilityRole="header" />
+        <Belly mood={bellyMoodFor(verdict)} size={120} />
         <VerdictBadge verdict={verdict} />
-        <AppText variant="hero" accessibilityRole="header">
-          {BELLY_VERDICT_HEADLINE[verdict]}
-        </AppText>
-        <AppText variant="caption" color="inkSoft">
-          {`${analysis.mealName} · ${when}`}
-        </AppText>
+        {summary ? <AppText style={styles.summary}>{summary}</AppText> : null}
+        {triggers.length > 0 && (
+          <View style={styles.tags}>
+            {triggers.map((label) => (
+              <TagChip key={label} label={label} selected={false} readOnly />
+            ))}
+          </View>
+        )}
       </View>
+      {tip ? (
+        <View style={[styles.card, { backgroundColor: colors.sageTint }]}>
+          <AppText variant="sectionSm">Better next time</AppText>
+          <AppText variant="small">{tip}</AppText>
+        </View>
+      ) : null}
       {(reasons.length > 0 || ingredients.length > 0) && (
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <AppText variant="sectionSm">Why we think so</AppText>
@@ -50,16 +62,6 @@ export function FoodVerdict({ analysis, when, late }: Props) {
             </View>
           ))}
           <IngredientLine ingredients={ingredients} label="Key ingredients" linkColor="clayInk" />
-        </View>
-      )}
-      {triggers.length > 0 && (
-        <View style={styles.triggers}>
-          <AppText variant="sectionSm">Matched triggers</AppText>
-          <View style={styles.tags}>
-            {triggers.map((label) => (
-              <TagChip key={label} label={label} selected={false} readOnly />
-            ))}
-          </View>
         </View>
       )}
       <AppText variant="caption" color="inkSoft">
@@ -84,12 +86,12 @@ function uniqueIngredients(analysis: MealAnalysis): MealItem['ingredients'] {
 
 const styles = StyleSheet.create({
   wrap: { gap: space.s3 },
-  result: { gap: 16, alignItems: 'flex-start' },
+  result: { gap: 12, alignItems: 'center' },
+  summary: { textAlign: 'center' },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.s1 },
   card: { borderRadius: radius.lg, padding: space.s2, gap: 12 },
   reason: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   // Sits on the first line's x-height, like the Figma bullet.
   dot: { width: 6, height: 6, borderRadius: 3, marginTop: 8 },
   reasonText: { flex: 1 },
-  triggers: { gap: 12 },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
 });

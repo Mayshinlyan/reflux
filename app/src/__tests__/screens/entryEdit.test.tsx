@@ -217,22 +217,22 @@ describe('Edit entry: a meal', () => {
     expect(getFoodLog(mockDb, id)?.notes).toBeNull();
   });
 
-  it('also saves to My foods when ticked, and only offers it when the meal is not saved yet', async () => {
+  it('also saves to favorite foods when ticked, and only offers it when the meal is not saved yet', async () => {
     const id = seedMeal();
     await editMeal(id);
 
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Also save to My foods' }));
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Also save to favorite foods' }));
     await save();
 
     expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Spicy chicken tacos']);
   });
 
-  it('hides "Also save to My foods" for a meal that is already saved', async () => {
+  it('hides "Also save to favorite foods" for a meal that is already saved', async () => {
     const id = seedMeal();
     saveFoodFromLog(mockDb, id);
     await editMeal(id);
 
-    expect(screen.queryByRole('checkbox', { name: 'Also save to My foods' })).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: 'Also save to favorite foods' })).toBeNull();
   });
 
   it('moves the meal to the time chosen on the wheel', async () => {

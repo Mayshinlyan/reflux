@@ -64,6 +64,10 @@ export const mealAnalysisSchema = z.strictObject({
     verdict,
     confidence: z.enum(['low', 'medium', 'high']),
     reasoning: z.string().max(400),
+    /** One plain sentence for the top of the verdict screen. Optional so one missing field never fails a check. */
+    summary: z.string().max(160).optional(),
+    /** A concrete "better next time" change; left out when the verdict is ok. */
+    tip: z.string().max(160).optional(),
   }),
 });
 

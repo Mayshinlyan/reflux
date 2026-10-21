@@ -44,7 +44,7 @@ function copyArt(directory: string): Promise<string | null> {
 
 /**
  * Gives the home-screen widget what it shows: Bellie's picture and the first few saved foods. Called when the
- * app opens and whenever My foods changes. It does nothing off iOS, and in Expo Go (which has no widget module),
+ * app opens and whenever Favorite foods changes. It does nothing off iOS, and in Expo Go (which has no widget module),
  * where the app simply carries on; a development build is needed to see the widget.
  */
 export async function syncWidget(db: AppDb): Promise<void> {

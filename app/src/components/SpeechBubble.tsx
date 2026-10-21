@@ -10,10 +10,13 @@ type Props = {
   tail?: 'up' | 'down';
   /** The roomier onboarding size, for the mascot talking on its own screen. */
   large?: boolean;
+  /** The verdict's bubble: a wrapping Gaegu headline in a rounded card rather than a one-line pill. */
+  card?: boolean;
+  accessibilityRole?: 'header';
 };
 
 /** Figma "Speech bubble": a short Gaegu line in a `surface` pill, its tail pointing at what is talking. */
-export function SpeechBubble({ text, tail = 'up', large = false }: Props) {
+export function SpeechBubble({ text, tail = 'up', large = false, card = false, accessibilityRole }: Props) {
   const colors = useColors();
   const pointer = (
     <View
@@ -28,8 +31,17 @@ export function SpeechBubble({ text, tail = 'up', large = false }: Props) {
   return (
     <View style={styles.wrap}>
       {tail === 'up' && pointer}
-      <View style={[styles.bubble, large && styles.large, { backgroundColor: colors.surface }]}>
-        <AppText variant={large ? 'voice' : 'voiceSmall'} style={large && styles.largeText}>
+      <View
+        style={[
+          styles.bubble,
+          large && styles.large,
+          card && styles.card,
+          { backgroundColor: colors.surface },
+        ]}>
+        <AppText
+          variant={card ? 'displaySmall' : large ? 'voice' : 'voiceSmall'}
+          accessibilityRole={accessibilityRole}
+          style={[large && styles.largeText, card && styles.cardText]}>
           {text}
         </AppText>
       </View>
@@ -52,4 +64,6 @@ const styles = StyleSheet.create({
   bubble: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: radius.pill },
   large: { paddingHorizontal: 24, paddingVertical: 12 },
   largeText: { fontSize: 26, lineHeight: 30, textAlign: 'center' },
+  card: { paddingHorizontal: 20, paddingVertical: 16, borderRadius: 24 },
+  cardText: { textAlign: 'center' },
 });

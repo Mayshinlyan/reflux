@@ -222,7 +222,7 @@ function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] 
       </Card>
       <Card title="Details">
         <DetailRow label="Portion" value={PORTION_LABELS[log.portion ?? 'regular']} />
-        <DetailRow label="Saved to My foods" value={isFoodSaved(db, log.mealName) ? 'Yes' : 'No'} />
+        <DetailRow label="Saved to favorite foods" value={isFoodSaved(db, log.mealName) ? 'Yes' : 'No'} />
       </Card>
       {keys.length > 0 && first && (
         <Card title="Symptoms">
