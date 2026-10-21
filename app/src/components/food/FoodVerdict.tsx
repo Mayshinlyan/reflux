@@ -34,7 +34,7 @@ export function FoodVerdict({ analysis, late }: Props) {
       <View style={styles.result}>
         <SpeechBubble card tail="down" text={BELLY_VERDICT_HEADLINE[verdict]} accessibilityRole="header" />
         <Belly mood={bellyMoodFor(verdict)} size={120} />
-        <VerdictBadge verdict={verdict} />
+        <VerdictBadge verdict={verdict} style={styles.badge} />
         {summary ? <AppText style={styles.summary}>{summary}</AppText> : null}
         {triggers.length > 0 && (
           <View style={styles.tags}>
@@ -87,6 +87,8 @@ function uniqueIngredients(analysis: MealAnalysis): MealItem['ingredients'] {
 const styles = StyleSheet.create({
   wrap: { gap: space.s3 },
   result: { gap: 12, alignItems: 'center' },
+  // The badge starts at the left of its row by default; this screen is centred.
+  badge: { alignSelf: 'center' },
   summary: { textAlign: 'center' },
   tags: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.s1 },
   card: { borderRadius: radius.lg, padding: space.s2, gap: 12 },
