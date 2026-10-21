@@ -1,5 +1,5 @@
 import { BadgeCheck, CircleAlert, CircleCheck, TriangleAlert } from 'lucide-react-native';
-import { StyleSheet, View } from 'react-native';
+import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { radius, verdictColors, useColors } from '@/theme';
 import type { AppVerdict } from '@/types/analysis';
@@ -21,14 +21,17 @@ export const VERDICT_ICONS = {
   trigger: TriangleAlert,
 } as const;
 
-/** Verdict colours are always paired with an icon and a label, never colour alone. */
-export function VerdictBadge({ verdict }: { verdict: AppVerdict }) {
+/**
+ * Verdict colours are always paired with an icon and a label, never colour alone. It sits at the start of its
+ * row; pass `style={{ alignSelf: 'center' }}` where the screen is centred.
+ */
+export function VerdictBadge({ verdict, style }: { verdict: AppVerdict; style?: StyleProp<ViewStyle> }) {
   const colors = useColors();
   const { fg, bg } = verdictColors[verdict];
   const Icon = VERDICT_ICONS[verdict];
   return (
     <View
-      style={[styles.badge, { backgroundColor: colors[bg] }]}
+      style={[styles.badge, { backgroundColor: colors[bg] }, style]}
       accessible
       accessibilityLabel={VERDICT_LABELS[verdict]}>
       <Icon size={16} color={colors[fg]} strokeWidth={2.4} />

@@ -156,9 +156,9 @@ describe('ChoiceCard', () => {
 describe('CheckboxRow', () => {
   it('toggles and reports its state', async () => {
     const onToggle = jest.fn();
-    await render(<CheckboxRow label="Also save to My foods" checked={false} onToggle={onToggle} />);
+    await render(<CheckboxRow label="Also save to favorite foods" checked={false} onToggle={onToggle} />);
 
-    const row = screen.getByRole('checkbox', { name: 'Also save to My foods' });
+    const row = screen.getByRole('checkbox', { name: 'Also save to favorite foods' });
     expect(row.props.accessibilityState).toMatchObject({ checked: false });
     await fireEvent.press(row);
 

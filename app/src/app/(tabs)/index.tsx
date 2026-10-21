@@ -130,7 +130,7 @@ export default function TodayScreen() {
         />
 
         <View style={[styles.ring, empty && styles.ringEmpty]}>
-          <HomeRing meals={meals} mood={mood} onPress={() => router.push('/log')} />
+          <HomeRing meals={meals} mood={mood} onPress={() => router.push('/log/food')} />
         </View>
 
         {!empty && (

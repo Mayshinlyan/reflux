@@ -139,7 +139,7 @@ export default function SettingsScreen() {
         <SectionTitle>Your lists</SectionTitle>
         <SettingsRow
           icon={Utensils}
-          label="My foods"
+          label="Favorite foods"
           onPress={() => router.push({ pathname: '/log/food', params: { manage: '1' } })}
         />
         <SettingsRow

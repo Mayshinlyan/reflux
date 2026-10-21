@@ -931,7 +931,7 @@ describe('medications', () => {
   });
 });
 
-describe('saved foods (My foods)', () => {
+describe('saved foods (Favorite foods)', () => {
   it('saves a logged meal with its verdict and photo, and logs it again without a relay call', () => {
     const { db } = createTestDb();
     const logId = createFoodLog(db, {

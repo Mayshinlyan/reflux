@@ -125,13 +125,13 @@ describe('Today: an empty day', () => {
     expect(mockPush).toHaveBeenCalledWith('/profile');
   });
 
-  it('opens the Log page at once when the belly is tapped and Reduce Motion is on', async () => {
+  it('opens the Food screen at once when the belly is tapped and Reduce Motion is on', async () => {
     await render(<TodayScreen />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
     expect(mockPush).toHaveBeenCalledTimes(1);
-    expect(mockPush).toHaveBeenCalledWith('/log');
+    expect(mockPush).toHaveBeenCalledWith('/log/food');
   });
 
   describe('with motion on', () => {
@@ -141,7 +141,7 @@ describe('Today: an empty day', () => {
     });
     afterEach(() => jest.useRealTimers());
 
-    it('lets the belly jiggle first, then opens the Log page', async () => {
+    it('lets the belly jiggle first, then opens the Food screen', async () => {
       await render(<TodayScreen />);
 
       await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
@@ -151,7 +151,7 @@ describe('Today: an empty day', () => {
         jest.advanceTimersByTime(400);
       });
       expect(mockPush).toHaveBeenCalledTimes(1);
-      expect(mockPush).toHaveBeenCalledWith('/log');
+      expect(mockPush).toHaveBeenCalledWith('/log/food');
     });
 
     it('ignores a second tap while the jiggle is playing', async () => {
