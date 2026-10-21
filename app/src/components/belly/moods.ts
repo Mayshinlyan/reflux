@@ -1,9 +1,14 @@
-// Generated from the Figma "Belly mascot" component set (42:376), one SVG per mood. Paths are verbatim.
+// From the Figma "Belly" component set (42:377), one SVG per mood: soft belly body with a sprout (2026-10-21).
 
 export const BELLY_SVG = {
   happy: `<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="Belly">
-<path id="Vector" d="M54 11C47 11 43 17 38 24C21 44 10 60 10 80C10 101 32 111 60 111C88 111 110 101 110 80C110 60 95 46 79 27C69 14 62 11 54 11Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
+<g id="Sprout">
+<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
+<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+</g>
+<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
 <path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_4" d="M40 67C44 61.6667 48 61.6667 52 67" stroke="#6B4423" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -13,7 +18,12 @@ export const BELLY_SVG = {
 </svg>`,
   okay: `<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="Belly">
-<path id="Vector" d="M54 11C47 11 43 17 38 24C21 44 10 60 10 80C10 101 32 111 60 111C88 111 110 101 110 80C110 60 95 46 79 27C69 14 62 11 54 11Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
+<g id="Sprout">
+<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
+<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+</g>
+<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
 <path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_4" d="M46 69.2C47.7673 69.2 49.2 67.7673 49.2 66C49.2 64.2327 47.7673 62.8 46 62.8C44.2327 62.8 42.8 64.2327 42.8 66C42.8 67.7673 44.2327 69.2 46 69.2Z" fill="#6B4423"/>
@@ -23,7 +33,12 @@ export const BELLY_SVG = {
 </svg>`,
   caution: `<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="Belly">
-<path id="Vector" d="M54 11C47 11 43 17 38 24C21 44 10 60 10 80C10 101 32 111 60 111C88 111 110 101 110 80C110 60 95 46 79 27C69 14 62 11 54 11Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
+<g id="Sprout">
+<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
+<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+</g>
+<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
 <path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_4" d="M46 69.2C47.7673 69.2 49.2 67.7673 49.2 66C49.2 64.2327 47.7673 62.8 46 62.8C44.2327 62.8 42.8 64.2327 42.8 66C42.8 67.7673 44.2327 69.2 46 69.2Z" fill="#6B4423"/>
@@ -34,7 +49,12 @@ export const BELLY_SVG = {
 </svg>`,
   avoid: `<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="Belly">
-<path id="Vector" d="M54 11C47 11 43 17 38 24C21 44 10 60 10 80C10 101 32 111 60 111C88 111 110 101 110 80C110 60 95 46 79 27C69 14 62 11 54 11Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
+<g id="Sprout">
+<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
+<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+</g>
+<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
 <path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_4" d="M38 58L52 54" stroke="#6B4423" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>

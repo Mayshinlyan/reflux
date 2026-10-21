@@ -829,8 +829,11 @@
         <span style="background:var(--surface);border-radius:999px;padding:12px 24px;font-family:'Gaegu',cursive;font-size:26px;line-height:30px">Hi there! I&rsquo;m Bellie!</span>
         <span style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:8px solid var(--surface)"></span>
       </div>
-      <p class="caption-s" style="margin-top:8px">Onboarding (Welcome, then Meet Bellie, then Ready): Bellie is the mascot and speaks in a large bubble (Gaegu 26, padding 12/24) above it, tail down. Bellie talks about feelings and food only, never weight, size or shape. The closing screen has no progress dots and scatters about fourteen small confetti pieces (10&times;14 or 14&times;8, radius 2, rotated) in olive, clay tint, sage tint and honey around the bubble. The name is not asked in onboarding; it is set under You, &ldquo;Your name&rdquo;, and shown in Today&rsquo;s greeting.</p>
-      <p class="caption-s" style="margin-top:8px">Onboarding questions (condition, usual symptoms, bedtime, medications, privacy): seven progress dots run across the flow. After Privacy comes the reminders offer (Figma 01h, &ldquo;Want a gentle nudge?&rdquo;) and then &ldquo;Ready&rdquo;, both without dots: a preview of the notification (a <code>surface</code> card, radius 22, the belly in a 40 app-icon square, the title in Nunito Bold 15 and the body in caption), a caption saying when and that it stays on the phone, then a Primary &ldquo;Turn on notifications&rdquo; over a secondary &ldquo;Maybe later&rdquo;. Each question is a display title, a Gaegu 20 line under it in ink soft (8 below the title), then the answer 24 below, with the buttons pinned under a scrolling body (16 above, 24 below). Answers use the existing parts: choice cards with a radio for one pick (or a checkbox for pick-all-that-apply, as the condition question uses; &ldquo;Not sure yet&rdquo; clears the others), sage symptom chips grouped by area, a dropdown for the late-meal window, and a Primary Continue button. A question that can be skipped says so: a plain &ldquo;Skip&rdquo; at the end of the top bar, or a secondary &ldquo;Skip for now&rdquo; button under Continue. The bedtime card is a surface card with a moon, the time in Gaegu 44 and &ldquo;Tap to change&rdquo;, which opens the bedtime sheet.</p>
+      <p class="caption-s" style="margin-top:8px">Onboarding (Welcome, then Meet Bellie, then Ready): Bellie is the mascot (a soft, slightly lopsided belly body with a small olive sprout on top, never a pointed bun) and speaks in a large bubble (Gaegu 26, padding 12/24) above it, tail down. Bellie talks about feelings and food only, never weight, size or shape. The closing screen has no progress bar, ends with a Primary &ldquo;Log my first meal&rdquo; over a secondary &ldquo;Look around&rdquo;, and scatters about fourteen small confetti pieces (10&times;14 or 14&times;8, radius 2, rotated) in olive, clay tint, sage tint and honey around the bubble. The name is not asked in onboarding; it is set under You, &ldquo;Your name&rdquo;, and shown in Today&rsquo;s greeting.</p>
+      <div role="img" aria-label="Progress bar, step 3 of 10" style="width:290px;height:6px;border-radius:999px;background:var(--surface-2);margin-top:var(--s2);overflow:hidden"><span style="display:block;width:30%;height:6px;border-radius:999px;background:var(--cta)"></span></div>
+      <p class="caption-s" style="margin-top:8px">Progress bar (onboarding): a 6pt <code>surface-2</code> track with a <code>cta</code> olive fill, both fully rounded. It runs from just after the back circle (16 gap) to the right edge of the top bar, and fills step by step. Welcome and Ready have none.</p>
+      <div role="img" aria-label="Add row" style="display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:20px;padding:12px;width:354px;max-width:100%;margin-top:var(--s2)"><span style="width:34px;height:34px;border-radius:999px;background:var(--sage-tint);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px">+</span><span style="font-weight:700;font-size:17px">Add a medication</span></div>
+      <p class="caption-s" style="margin-top:8px">Onboarding flow (Figma row 01): Welcome, Meet Bellie, How it works (a photo tile, a chevron and a meal row with a verdict, all marked &ldquo;Example&rdquo;), Example insight (a <code>surface</code> card with a Caution Bellie, marked &ldquo;Example&rdquo;, no made-up numbers), then the questions: condition, usual symptoms, bedtime, medications, privacy, reminder timing, the phone&rsquo;s permission screen, a recap, and Ready. The progress bar counts ten steps; the permission screen shares its step with the timing question and is skipped when they choose &ldquo;No reminders&rdquo;. Each question is a display title, a Gaegu 20 line under it in ink soft (8 below the title), then the answer 24 below, with the buttons pinned under a scrolling body (16 above, 24 below). Nothing is preselected. Condition rows lead with how it feels and put the medical name under it (&ldquo;Burning in my chest&rdquo;, &ldquo;Acid reflux or GERD&rdquo;); pick all that apply, &ldquo;I&rsquo;m not sure yet&rdquo; clears the others, and Continue waits for a choice. A question that can be skipped swaps its button: with nothing chosen it is a secondary &ldquo;Skip for now&rdquo;, and once something is chosen the primary &ldquo;Continue&rdquo; (usual symptoms, medications). Medications use an Add row (a <code>surface</code> row, radius 20, a 34 sage-tint circle with a plus, a Nunito Bold label) that opens a sheet like My medications: common ones grouped by type, then an optional dose, or &ldquo;Not listed? Enter your own&rdquo; with a name, a type and an optional dose; added ones are rows with a sage &ldquo;Remove&rdquo; pill. Reminder timing uses Option rows (1, 2 or 3 hours after I eat, or No reminders; 2 hours is chosen to start). The permission screen is only a centred headline while the phone&rsquo;s own prompt is up. The recap is three icon rows (Watching for, Bedtime, Check-ins) read from what they chose. Other answers use the existing parts: sage symptom chips grouped by area, a dropdown for the late-meal window, and the bedtime card (a surface card with a moon, the time in Gaegu 44 and &ldquo;Tap to change&rdquo;, which opens the bedtime sheet).</p>
       <div style="display:flex;gap:var(--s3);flex-wrap:wrap;margin-top:var(--s3)" role="img" aria-label="Log tiles">
         <span style="width:120px;height:120px;border-radius:999px;background:var(--honey-tint);display:flex;align-items:center;justify-content:center;font-weight:600">Food</span>
         <span style="width:120px;height:120px;border-radius:999px;background:var(--clay-tint);display:flex;align-items:center;justify-content:center;font-weight:600">Symptoms</span>
@@ -839,7 +842,12 @@
       <p class="caption-s" style="margin-top:8px">Log tile: the Log page is three big round tinted tiles, an icon over a label with no subtext (Food honey, How I feel clay, Medication sage; icons Utensils, Activity, Pill).</p>
       <div style="display:flex;gap:var(--s3);flex-wrap:wrap;align-items:center;margin-top:var(--s2)"><figure style="margin:0;text-align:center"><svg width="72" height="72" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="Belly">
-<path id="Vector" d="M54 11C47 11 43 17 38 24C21 44 10 60 10 80C10 101 32 111 60 111C88 111 110 101 110 80C110 60 95 46 79 27C69 14 62 11 54 11Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
+<g id="Sprout">
+<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
+<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+</g>
+<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
 <path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_4" d="M40 67C44 61.6667 48 61.6667 52 67" stroke="#6B4423" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -848,7 +856,12 @@
 </g>
 </svg><figcaption class="caption-s">Happy · Good</figcaption></figure><figure style="margin:0;text-align:center"><svg width="72" height="72" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="Belly">
-<path id="Vector" d="M54 11C47 11 43 17 38 24C21 44 10 60 10 80C10 101 32 111 60 111C88 111 110 101 110 80C110 60 95 46 79 27C69 14 62 11 54 11Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
+<g id="Sprout">
+<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
+<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+</g>
+<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
 <path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_4" d="M46 69.2C47.7673 69.2 49.2 67.7673 49.2 66C49.2 64.2327 47.7673 62.8 46 62.8C44.2327 62.8 42.8 64.2327 42.8 66C42.8 67.7673 44.2327 69.2 46 69.2Z" fill="#6B4423"/>
@@ -857,7 +870,12 @@
 </g>
 </svg><figcaption class="caption-s">Okay</figcaption></figure><figure style="margin:0;text-align:center"><svg width="72" height="72" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="Belly">
-<path id="Vector" d="M54 11C47 11 43 17 38 24C21 44 10 60 10 80C10 101 32 111 60 111C88 111 110 101 110 80C110 60 95 46 79 27C69 14 62 11 54 11Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
+<g id="Sprout">
+<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
+<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+</g>
+<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
 <path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_4" d="M46 69.2C47.7673 69.2 49.2 67.7673 49.2 66C49.2 64.2327 47.7673 62.8 46 62.8C44.2327 62.8 42.8 64.2327 42.8 66C42.8 67.7673 44.2327 69.2 46 69.2Z" fill="#6B4423"/>
@@ -867,7 +885,12 @@
 </g>
 </svg><figcaption class="caption-s">Caution · Caution</figcaption></figure><figure style="margin:0;text-align:center"><svg width="72" height="72" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="Belly">
-<path id="Vector" d="M54 11C47 11 43 17 38 24C21 44 10 60 10 80C10 101 32 111 60 111C88 111 110 101 110 80C110 60 95 46 79 27C69 14 62 11 54 11Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
+<g id="Sprout">
+<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
+<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+</g>
+<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
 <path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_4" d="M38 58L52 54" stroke="#6B4423" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -881,7 +904,12 @@
       <div style="display:flex;gap:var(--s4);flex-wrap:wrap;align-items:center;margin-top:var(--s3)">
         <svg width="190" height="190" viewBox="0 0 260 260" role="img" aria-label="Empty home ring"><circle cx="130" cy="130" r="126" stroke="var(--surface-2)" stroke-width="8" fill="none"/><g transform="translate(82 60)"><svg width="96" height="96" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="Belly">
-<path id="Vector" d="M54 11C47 11 43 17 38 24C21 44 10 60 10 80C10 101 32 111 60 111C88 111 110 101 110 80C110 60 95 46 79 27C69 14 62 11 54 11Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
+<g id="Sprout">
+<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
+<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+</g>
+<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
 <path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_4" d="M40 67C44 61.6667 48 61.6667 52 67" stroke="#6B4423" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -891,7 +919,12 @@
 </svg></g></svg>
         <svg width="190" height="190" viewBox="0 0 260 260" role="img" aria-label="Home ring with three meals"><circle cx="130" cy="130" r="126" stroke="var(--surface-2)" stroke-width="8" fill="none"/><path d="M 136.594 4.173 A 126 126 0 0 1 242.267 187.203" stroke="var(--good)" stroke-width="8" fill="none"/><path d="M 235.672 198.625 A 126 126 0 0 1 24.328 198.625" stroke="var(--honey)" stroke-width="8" fill="none"/><path d="M 17.733 187.203 A 126 126 0 0 1 123.406 4.173" stroke="var(--sage)" stroke-width="8" fill="none"/><g transform="translate(102 70)"><svg width="56" height="56" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="Belly">
-<path id="Vector" d="M54 11C47 11 43 17 38 24C21 44 10 60 10 80C10 101 32 111 60 111C88 111 110 101 110 80C110 60 95 46 79 27C69 14 62 11 54 11Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
+<g id="Sprout">
+<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
+<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
+</g>
+<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
 <path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
 <path id="Vector_4" d="M46 69.2C47.7673 69.2 49.2 67.7673 49.2 66C49.2 64.2327 47.7673 62.8 46 62.8C44.2327 62.8 42.8 64.2327 42.8 66C42.8 67.7673 44.2327 69.2 46 69.2Z" fill="#6B4423"/>

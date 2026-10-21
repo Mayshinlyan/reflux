@@ -3,6 +3,7 @@ import {
   conditionsForAnalysis,
   legacyCondition,
   managingLine,
+  pickCondition,
   readConditions,
   suggestedSymptoms,
   toggleCondition,
@@ -15,6 +16,15 @@ describe('conditions', () => {
     expect(toggleCondition(['lpr'], 'acid_reflux')).toEqual(['acid_reflux', 'lpr']);
     expect(toggleCondition(['acid_reflux', 'lpr'], 'lpr')).toEqual(['acid_reflux']);
     expect(toggleCondition(['gastritis'], 'gastritis')).toEqual(['unsure']);
+  });
+
+  it('onboarding starts with nothing picked: any pick clears "Not sure yet", which clears the rest, and the list may be empty', () => {
+    expect(pickCondition([], 'lpr')).toEqual(['lpr']);
+    expect(pickCondition(['lpr'], 'acid_reflux')).toEqual(['acid_reflux', 'lpr']);
+    expect(pickCondition(['acid_reflux', 'lpr'], 'unsure')).toEqual(['unsure']);
+    expect(pickCondition(['unsure'], 'gastritis')).toEqual(['gastritis']);
+    expect(pickCondition(['gastritis'], 'gastritis')).toEqual([]);
+    expect(pickCondition(['unsure'], 'unsure')).toEqual([]);
   });
 
   it('describes what you are managing', () => {
