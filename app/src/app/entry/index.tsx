@@ -11,6 +11,7 @@ import { Screen } from '@/components/Screen';
 import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
 import { BackHeader } from '@/components/BackHeader';
+import { VerdictHero, VerdictTip, VerdictWhy } from '@/components/food/FoodVerdict';
 import { TopBarButton } from '@/components/TopBar';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
@@ -157,6 +158,18 @@ function Card({ title, children }: { title?: string; children: ReactNode }) {
   );
 }
 
+/** A titled block with no card of its own, for sections that sit together on one sheet. */
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <AppText variant="section" accessibilityRole="header">
+        {title}
+      </AppText>
+      {children}
+    </View>
+  );
+}
+
 /** "Label ... value" inside a Details card. */
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -203,6 +216,7 @@ const PORTION_LABELS = { small: 'Small', regular: 'Regular', large: 'Large' } as
 
 function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] }) {
   const db = useDb();
+  const colors = useColors();
   const { settings } = useSettings();
   const late = isLateMeal(log.loggedAt, log.tz, settings.bedtime, settings.lateMealWindowMinutes);
   const lifestyle = listMealTags(db, log.id).map(tagLabel);
@@ -211,6 +225,52 @@ function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] 
   const after = listSymptomLogsForMeal(db, log.id);
   const keys = [...new Set(after.flatMap((symptoms) => symptoms.items.map((item) => item.key)))];
   const first = after[0];
+  const { analysis } = log;
+  // A meal with a stored verdict shows it the way the verdict screen did (Figma 04b.1): Bellie and the verdict
+  // on top, the details on one sheet, and the tip and why at the bottom of it.
+  if (analysis) {
+    return (
+      <>
+        <VerdictHero analysis={analysis} late={late} showTriggers={false} />
+        <View style={styles.meal}>
+          <AppText variant="display" accessibilityRole="header" style={styles.centered}>
+            {log.mealName}
+          </AppText>
+          <AppText variant="small" color="inkSoft" style={styles.centered}>
+            {`${formatWhen(log.loggedAt, log.tz)} · ${PORTION_LABELS[log.portion ?? 'regular']} portion`}
+          </AppText>
+          {tags.length > 0 && (
+            <View style={[styles.chips, styles.centeredChips]}>
+              {tags.map((label) => (
+                <TagChip key={label} label={label} selected={false} readOnly />
+              ))}
+            </View>
+          )}
+        </View>
+        <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
+          {keys.length > 0 && first && (
+            <Section title="Symptoms">
+              <View style={styles.chips}>
+                {keys.map((key) => (
+                  <SymptomChip key={key} label={symptomLabel(key)} selected readOnly />
+                ))}
+              </View>
+              <AppText variant="caption" color="inkSoft">
+                {`Logged at ${formatTime(first.loggedAt, first.tz)}`}
+              </AppText>
+            </Section>
+          )}
+          {log.notes ? (
+            <Section title="Note">
+              <AppText variant="small">{log.notes}</AppText>
+            </Section>
+          ) : null}
+          <VerdictTip tip={analysis.overall.tip} />
+          <VerdictWhy analysis={analysis} late={late} plain />
+        </View>
+      </>
+    );
+  }
   return (
     <>
       <Heading badge={log.overallVerdict ? <VerdictBadge verdict={log.overallVerdict} /> : undefined}>
@@ -315,6 +375,12 @@ const styles = StyleSheet.create({
   content: { gap: space.s3, paddingBottom: space.s4 },
   heading: { gap: space.s2 },
   card: { borderRadius: radius.lg, padding: space.s2, gap: 12 },
+  // The logged-meal page: the name, when and tags sit open on the page, the rest on one sheet.
+  meal: { gap: 8, alignItems: 'center' },
+  centered: { textAlign: 'center' },
+  centeredChips: { justifyContent: 'center' },
+  sheet: { borderRadius: 24, padding: space.s2 + 4, gap: space.s3 },
+  section: { gap: 12 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: space.s1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(58,47,37,0.45)' },
