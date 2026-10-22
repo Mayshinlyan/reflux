@@ -49,14 +49,14 @@ afterEach(() => {
   closeDb();
 });
 
-describe('My additions', () => {
+describe('Symptoms and lifestyles', () => {
   it('lists what you added, symptoms then lifestyle, each A to Z, with its kind and the swipe hint', async () => {
     createSavedSymptom(mockDb, 'Jaw tightness');
     createSavedSymptom(mockDb, 'Dry mouth');
     createSavedSymptom(mockDb, 'Skipped breakfast', 'lifestyle');
     await render(<MyAdditionsScreen />);
 
-    expect(screen.getByRole('header', { name: 'My additions' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Symptoms and lifestyles' })).toBeTruthy();
     expect(screen.getByText('Swipe left to remove one.')).toBeTruthy();
     expect(
       screen

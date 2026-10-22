@@ -12,10 +12,14 @@ import { lightColors } from '@/theme';
 const ROUTE_FOR: Record<Exclude<TabKey, 'log'>, string> = {
   today: 'index',
   history: 'history',
+  profile: 'profile',
+  settings: 'settings',
 };
 const TAB_FOR: Record<string, Exclude<TabKey, 'log'>> = {
   index: 'today',
   history: 'history',
+  profile: 'profile',
+  settings: 'settings',
 };
 
 /**
@@ -86,6 +90,8 @@ export default function TabsLayout() {
       }}>
       <Tabs.Screen name="index" />
       <Tabs.Screen name="history" />
+      <Tabs.Screen name="profile" />
+      <Tabs.Screen name="settings" />
     </Tabs>
   );
 }

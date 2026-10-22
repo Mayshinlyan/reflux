@@ -80,7 +80,7 @@ function loadEatenToday(db: AppDb): EatenToday {
 }
 
 /**
- * Favorite foods (Settings > Favorite foods, and "See all" in the food capture's Quick log row): the saved foods as
+ * Favorite foods (Profile > Favorite foods, and "See all" in the food capture's Quick log row): the saved foods as
  * filled cards. Tapping a card opens it to rename, re-check or remove, the Log button logs it (now, or earlier
  * in the past week) with the verdict it was saved with and no new analysis, and a left swipe deletes it.
  * "Log a new food" checks one from a photo or a description; the result can be logged as eaten, saved to this

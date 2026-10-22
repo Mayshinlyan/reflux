@@ -1,28 +1,32 @@
 import { router } from 'expo-router';
-import { Pencil, Settings } from 'lucide-react-native';
+import { Activity, Pencil, Pill, Utensils } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { Avatar } from '@/components/Avatar';
+import { tabBarClearance } from '@/components/FloatingTabBar';
 import { AvatarSheet } from '@/components/profile/AvatarSheet';
 import { ConditionSheet } from '@/components/profile/ConditionSheet';
 import { NameSheet } from '@/components/profile/NameSheet';
 import { SymptomsSheet } from '@/components/profile/SymptomsSheet';
 import { Screen } from '@/components/Screen';
+import { SectionTitle } from '@/components/SectionTitle';
+import { SettingsRow } from '@/components/SettingsRow';
 import { SymptomChip } from '@/components/SymptomChip';
 import { symptomLabel } from '@/components/SymptomZones';
-import { TopBar, TopBarButton } from '@/components/TopBar';
 import { conditionLabels, managingLine } from '@/constants/conditions';
 import { useSettings } from '@/db/DatabaseProvider';
 import { radius, space, useColors } from '@/theme';
 
 type Sheet = 'avatar' | 'name' | 'condition' | 'symptoms' | null;
 
-/** You: who you are and what you're managing (Figma 06). Opened from the profile button on Today; the gear opens Settings. */
+/** You: who you are, what you're managing and your lists (Figma 06). A tab on the bottom bar. */
 export default function ProfileScreen() {
   const colors = useColors();
   const { settings } = useSettings();
+  const insets = useSafeAreaInsets();
   const [sheet, setSheet] = useState<Sheet>(null);
   // Bumped on every open, so each sheet starts fresh from the saved values (see the sheets' `key` note).
   const [opened, setOpened] = useState(0);
@@ -35,11 +39,10 @@ export default function ProfileScreen() {
   const named = settings.userName.length > 0;
 
   return (
-    <Screen>
-      <TopBar
-        right={<TopBarButton icon={Settings} label="Settings" onPress={() => router.push('/settings')} />}
-      />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <Screen edges={['top', 'left', 'right']}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance(insets.bottom) }]}
+        showsVerticalScrollIndicator={false}>
         <View style={styles.identity}>
           <Pressable
             accessibilityRole="button"
@@ -112,6 +115,25 @@ export default function ProfileScreen() {
             </AppText>
           )}
         </Pressable>
+
+        <View style={styles.lists}>
+          <SectionTitle first>Your lists</SectionTitle>
+        </View>
+        <SettingsRow
+          icon={Utensils}
+          label="Favorite foods"
+          onPress={() => router.push({ pathname: '/log/food', params: { manage: '1' } })}
+        />
+        <SettingsRow
+          icon={Pill}
+          label="Medications"
+          onPress={() => router.push({ pathname: '/log/medication', params: { manage: '1' } })}
+        />
+        <SettingsRow
+          icon={Activity}
+          label="Symptoms and lifestyles"
+          onPress={() => router.push('/my-additions')}
+        />
       </ScrollView>
 
       <AvatarSheet key={`avatar-${opened}`} visible={sheet === 'avatar'} onClose={close} />
@@ -123,7 +145,9 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingTop: space.s3, paddingBottom: space.s4 },
+  content: { paddingTop: space.s2 },
+  // The card above leaves 16, so this adds 16 for the 32 between groups.
+  lists: { marginTop: space.s2 },
   identity: { alignItems: 'center', marginBottom: space.s4 },
   name: { marginTop: space.s1 },
   badge: {

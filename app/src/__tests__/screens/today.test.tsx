@@ -117,12 +117,10 @@ describe('Today: an empty day', () => {
     expect(screen.getByRole('header', { name: /^Good (morning|afternoon|evening), May$/ })).toBeTruthy();
   });
 
-  it('opens Profile from the round button beside the greeting', async () => {
+  it('has no round profile button beside the greeting, since Profile is a tab', async () => {
     await render(<TodayScreen />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Profile' }));
-
-    expect(mockPush).toHaveBeenCalledWith('/profile');
+    expect(screen.queryByRole('button', { name: 'Profile' })).toBeNull();
   });
 
   it('opens the Food screen at once when the belly is tapped and Reduce Motion is on', async () => {

@@ -90,15 +90,15 @@ const doseLabel = (med: Pick<Medication, 'name' | 'defaultDose'>) =>
   med.defaultDose ? `${med.name} ${med.defaultDose}` : med.name;
 
 /**
- * "My medications": one tap logs a saved medication; tap a medication to see it, then edit or remove it;
- * "Log a new medication" saves a new one. Reached from Log → Medication and from Settings.
+ * "Medications": one tap logs a saved medication; tap a medication to see it, then edit or remove it;
+ * "Log a new medication" saves a new one. Reached from Log → Medication and from Profile.
  */
 export default function MedicationScreen() {
   const colors = useColors();
   const db = useDb();
   const toast = useToast();
   const navigation = useNavigation();
-  // From Settings > My medications: tap to edit, with a Log button. From Log: tap to log.
+  // From Profile > Medications: tap to edit, with a Log button. From Log: tap to log.
   const { manage: manageParam, date } = useLocalSearchParams<{ manage?: string; date?: string }>();
   const manage = manageParam === '1';
   // A day tapped in Today's week strip: doses are logged at noon of that earlier day instead of now.
@@ -551,7 +551,7 @@ export default function MedicationScreen() {
         <BackHeader />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <AppText variant="display" accessibilityRole="header">
-            {manage ? 'My medications' : 'Which medication?'}
+            {manage ? 'Medications' : 'Which medication?'}
           </AppText>
           <AppText color="inkSoft" style={styles.subtitle}>
             {manage ? 'Tap a medication to see it.' : 'Tap to log a dose now.'}

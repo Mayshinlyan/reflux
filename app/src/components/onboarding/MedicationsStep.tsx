@@ -91,7 +91,7 @@ export function MedicationsStep({ onNext }: { onNext: () => void }) {
         />
       </View>
       <AppText variant="caption" color="inkSoft" style={styles.note}>
-        You can edit this list anytime in Settings.
+        You can edit this list anytime in Profile.
       </AppText>
       <AddMedicationSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} onAdd={add} />
     </StepLayout>

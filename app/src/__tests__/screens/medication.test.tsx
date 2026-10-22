@@ -71,7 +71,7 @@ beforeEach(() => {
   closeDb = () => sqlite.close();
   mockBack.mockClear();
   mockToast.mockClear();
-  // Most tests are of Settings > My medications; "from Log" tests clear this.
+  // Most tests are of Profile > Medications; "from Log" tests clear this.
   mockParams = { manage: '1' };
 });
 afterEach(() => {
@@ -83,7 +83,7 @@ const seedOmeprazole = () =>
   createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20mg' });
 
 describe('Medications: logging', () => {
-  it('has a "Which medication?" title from Log and "My medications" from Settings', async () => {
+  it('has a "Which medication?" title from Log and "Medications" from Profile', async () => {
     seedOmeprazole();
     mockParams = {};
     await render(<MedicationScreen />);
@@ -93,7 +93,7 @@ describe('Medications: logging', () => {
 
     mockParams = { manage: '1' };
     await render(<MedicationScreen />);
-    expect(screen.getByRole('header', { name: 'My medications' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Medications' })).toBeTruthy();
   });
 
   it('logs a dose right now from its Log pill, with no sheet and no symptom question', async () => {
