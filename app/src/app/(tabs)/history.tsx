@@ -64,6 +64,14 @@ const AnimatedSectionList = Animated.createAnimatedComponent(SectionList) as unk
 
 const todayKeyNow = () => localDayKey(new Date().toISOString(), currentTimeZone());
 
+/** The warm line under "History" (Figma 04a), like the date under Today's greeting. */
+function subtitleFor(kind: Kind, current: boolean): string {
+  if (kind === 'all') return 'Everything so far';
+  if (kind === 'custom') return 'The dates you picked';
+  const unit = kind === 'month' ? 'month' : 'week';
+  return current ? `Here's how your ${unit} went` : `Here's how that ${unit} went`;
+}
+
 /** Everything logged in the period, by day. Loads a day either side so other zones aren't clipped, then trims. */
 function loadPeriod(db: AppDb, period: Period): TimelineSection[] {
   const range = loadWindow(period);
@@ -219,9 +227,14 @@ export default function HistoryScreen() {
                 setAbove(height);
               }}>
               <View style={styles.header}>
-                <AppText variant="display" accessibilityRole="header" style={styles.title}>
-                  History
-                </AppText>
+                <View style={styles.heading}>
+                  <AppText variant="display" accessibilityRole="header">
+                    History
+                  </AppText>
+                  <AppText variant="voiceSmall" color="inkSoft">
+                    {subtitleFor(kind, isCurrent(period, todayKey))}
+                  </AppText>
+                </View>
                 <ProfileButton />
               </View>
               <View style={styles.controls}>
@@ -315,7 +328,7 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: space.s2, marginBottom: space.s4 },
-  title: { flex: 1 },
+  heading: { flex: 1, gap: space.s1 },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
