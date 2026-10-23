@@ -14,8 +14,13 @@ import {
   createUnavailableClaudeService,
   modelParams,
 } from '../src/services/claudeService.js';
+import {
+  INSIGHT_SYSTEM_PROMPT,
+  INSIGHT_TOOL_NAME,
+  insightUserMessage,
+} from '../src/prompts/insightPrompt.js';
 import { mealAnalysisSchema } from '../src/schemas.js';
-import { goodAnalysis } from './helpers.js';
+import { goodAnalysis, goodInsight } from './helpers.js';
 
 function message(overrides: Record<string, unknown> = {}) {
   return {
@@ -59,6 +64,47 @@ describe('claudeService request', () => {
       '<food_description>\nmint tea\n</food_description>',
     );
     expect(result.raw).toEqual(goodAnalysis);
+  });
+
+  it("asks for Bellie's summary with its own cached system prompt and tool, and the logs as data", async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValue(
+        message({ content: [{ type: 'tool_use', id: 'tu_2', name: INSIGHT_TOOL_NAME, input: goodInsight }] }),
+      );
+    const input = {
+      range: 'day' as const,
+      meals: [{ name: 'Mint tea', verdict: 'caution' as const, when: 'Today 7:45 PM' }],
+      symptoms: [],
+      tags: [],
+    };
+    const result = await serviceWith(create).insight(input);
+
+    expect(create).toHaveBeenCalledTimes(1);
+    const request = create.mock.calls[0]?.[0];
+    expect(request.system).toEqual([
+      { type: 'text', text: INSIGHT_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+    ]);
+    expect(request.tools).toHaveLength(1);
+    expect(request.tools[0].name).toBe(INSIGHT_TOOL_NAME);
+    expect(request.messages[0].content[0].text).toBe(insightUserMessage(input));
+    expect(result.raw).toEqual(goodInsight);
+  });
+
+  it('forces the insight tool by name on a model that allows forced tool use', async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValue(
+        message({ content: [{ type: 'tool_use', id: 'tu_3', name: INSIGHT_TOOL_NAME, input: goodInsight }] }),
+      );
+    await serviceWith(create, 'claude-haiku-4-5-20251001').insight({
+      range: 'week',
+      meals: [],
+      symptoms: [{ name: 'Heartburn', when: 'Mon 9:40 PM' }],
+      tags: [],
+    });
+
+    expect(create.mock.calls[0]?.[0].tool_choice).toEqual({ type: 'tool', name: INSIGHT_TOOL_NAME });
   });
 
   it('sends photos as a base64 JPEG image block', async () => {

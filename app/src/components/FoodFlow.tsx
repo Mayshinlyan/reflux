@@ -8,7 +8,6 @@ import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
-import { CheckboxRow } from '@/components/CheckboxRow';
 import { FoodLoading } from '@/components/FoodLoading';
 import { FoodCapture } from '@/components/food/FoodCapture';
 import { FoodDetails, type MealDetailsState } from '@/components/food/FoodDetails';
@@ -30,6 +29,7 @@ import {
 } from '@/db/repositories/food';
 import {
   createSavedFood,
+  isFoodSaved,
   listSavedFoods,
   logSavedFood,
   saveCheckedFood,
@@ -47,13 +47,11 @@ import { foodSwipe } from '@/lib/logSwipe';
 import { dayToLoggedAt, formatMealTime } from '@/lib/mealTime';
 import { isLateMeal } from '@/lib/mealTiming';
 import { currentTimeZone } from '@/lib/time';
-import { effectiveVerdict } from '@/lib/verdict';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { cancelCheckIn, scheduleCheckIn } from '@/services/reminders';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
-import type { AppVerdict } from '@/types/analysis';
 
 const MAX_TEXT = 200;
 const MAX_NOTE = 500;
@@ -67,26 +65,25 @@ const copy = {
   title: 'Log food',
   textLabel: 'What did you eat?',
   textPlaceholder: 'What did you eat?',
-  // A food saved to My foods may not have been eaten yet.
+  // A food saved to favorite foods may not have been eaten yet.
   myFoodTextLabel: "What's the food?",
   analyzeLabel: 'Check this meal',
   saveLabel: 'I ate this',
   updateLabel: 'Update verdict',
   saveUncheckedLabel: 'Log without checking',
-  savedUnchecked: 'Saved without a verdict',
-  saved: 'Added to your food diary',
-  savedAndKept: 'Added to your food diary and My foods',
-  keepOnlyLabel: 'Save to My foods only',
+  favoriteAdded: 'Added to favorite foods',
+  keepOnlyLabel: 'Save to favorite foods only',
   notEatingLabel: 'Not eating this',
+  skipLabel: 'Skip for now',
 } as const;
 
-/** A meal just logged, which the details step adds to. */
-type LoggedMeal = { id: number; name: string; verdict?: AppVerdict };
+/** A meal just logged, which the details step adds to. `canFavorite`: it isn't one of the favorite foods yet. */
+type LoggedMeal = { id: number; name: string; canFavorite: boolean };
 
 /** What was actually sent, so an edit while loading can't mismatch the saved entry. */
 type Analyzed = { source: 'text'; text: string } | { source: 'photo'; uri: string };
 
-/** Checking a food for "My foods" instead of the diary: a new one, or (with `id`) one already saved. */
+/** Checking a food for "Favorite foods" instead of the diary: a new one, or (with `id`) one already saved. */
 export type MyFoodTarget = { id?: number; name?: string };
 
 /**
@@ -97,11 +94,11 @@ export type MyFoodTarget = { id?: number; name?: string };
  * log row; tapping one skips straight to the details with its saved verdict. Each result is kept as a check (outside the diary);
  * "I ate this" opens the details, and Save promotes that check, reusing its analysis instead of calling
  * the relay again.
- * `photoUri` is a photo the tab bar's Snap food already took and prepared: the flow starts on its review step.
- * `openCamera` opens the camera as soon as the screen appears (the tab bar falls back to it when it was denied camera
- * access, so this screen can say why).
- * With `myFood`, the verdict is saved to "My foods" instead, and nothing goes into the diary.
- * `fromList` ("Log a new food" on the Food list) also offers saving the result to My foods only; saving
+ * `photoUri` is a photo already taken and prepared: the flow starts on its review step.
+ * `openCamera` opens the camera as soon as the screen appears (the widget's "Snap food" bubble; a denied camera
+ * keeps this screen and says why).
+ * With `myFood`, the verdict is saved to "Favorite foods" instead, and nothing goes into the diary.
+ * `fromList` ("Log a new food" on the Food list) also offers saving the result to favorite foods only; saving
  * without a verdict still logs the meal to the diary.
  * `date` (a day tapped in Today's week strip) logs the meal at noon of that earlier day instead of now.
  * `quickLog` (a saved food tapped on the home-screen widget) logs that food as soon as the screen appears, exactly
@@ -146,7 +143,7 @@ export function FoodFlow({
   // details are about it.
   const [logged, setLogged] = useState<LoggedMeal | null>(null);
   const finishing = useRef(false);
-  // The Quick log row is for logging what was eaten, so My foods and the Food list's own check leave it out.
+  // The Quick log row is for logging what was eaten, so Favorite foods and the Food list's own check leave it out.
   // Reloaded on focus, so foods edited or removed under "See all" are right when coming back.
   const [savedFoods, setSavedFoods] = useState<StoredSavedFood[]>([]);
   const loadSavedFoods = useCallback(() => {
@@ -200,7 +197,7 @@ export function FoodFlow({
   const checkId = useRef<number | null>(null);
   const checkedResult = useRef<AnalysisResult | null>(null);
   useEffect(() => {
-    // A My foods check isn't a meal being considered, so it isn't kept as a check.
+    // A Favorite foods check isn't a meal being considered, so it isn't kept as a check.
     if (state.status !== 'done' || !analyzed || myFood) return;
     if (checkedResult.current === state.result) return;
     checkedResult.current = state.result;
@@ -224,7 +221,7 @@ export function FoodFlow({
     }
   }, [state, analyzed, db, myFood]);
 
-  // My foods checks add to the list; an unchecked save then means "by name", not the diary.
+  // Favorite foods checks add to the list; an unchecked save then means "by name", not the diary.
   const addsToList = Boolean(myFood);
   const foodListMode = addsToList || fromList;
   const busy = preparing || correcting || state.status === 'loading';
@@ -303,13 +300,18 @@ export function FoodFlow({
     else setPickingTime(true);
   };
 
-  /** A meal was just logged: the nudge and the toast, then the optional details open on it. */
-  const mealLogged = (meal: LoggedMeal, at: Date, message: string) => {
+  /** A meal was just logged: the nudge, then the check-in opens on it (it says "Added to today" itself). */
+  const mealLogged = (meal: { id: number; name: string }, at: Date) => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     playChing();
-    toast(message, { top: true });
     setEatenAt(at);
-    setLogged(meal);
+    let canFavorite = false;
+    try {
+      canFavorite = !isFoodSaved(db, meal.name);
+    } catch {
+      // Not offering "Add to favorite foods" is fine; the meal is logged either way.
+    }
+    setLogged({ ...meal, canFavorite });
     // The check-in reminder, if they turned it on. It checks the time and the phone's permission itself.
     const reminderMinutes = settings.checkInReminderMinutes;
     if (typeof reminderMinutes === 'number') {
@@ -324,41 +326,54 @@ export function FoodFlow({
   };
 
   /**
-   * "Complete check-in" on the details: the lifestyle tags, note and time on the meal that is already logged,
-   * and any symptoms as a symptom log linked to it. The meal's portion is left as it was. Nothing is lost if
-   * the extras fail, the meal is saved.
+   * Leaves the check-in. "Complete check-in" (`withExtras`) puts the lifestyle tags, note and time on the meal
+   * that is already logged, and any symptoms as a symptom log linked to it; "Skip for now" and the X leave
+   * those out. A starred favorite is kept either way. The meal's portion is left as it was. Nothing is lost
+   * if the extras fail, the meal is saved.
    */
-  const done = () => {
+  const leave = (withExtras: boolean) => {
     if (!logged || finishing.current) return;
     finishing.current = true;
-    let kept = true;
-    try {
-      saveMealDetails(db, logged.id, {
-        loggedAt: eatenAt.toISOString(),
-        tags: [...details.tags],
-        notes: details.note,
-      });
-      if (details.symptoms.size > 0) {
-        createSymptomLog(db, {
-          items: [...details.symptoms].map((key) => ({ key })),
-          foodLogId: logged.id,
+    let message: string | null = null;
+    if (withExtras) {
+      try {
+        saveMealDetails(db, logged.id, {
           loggedAt: eatenAt.toISOString(),
+          tags: [...details.tags],
+          notes: details.note,
         });
-        // They just checked in, so the reminder isn't needed.
-        void cancelCheckIn(logged.id);
+        if (details.symptoms.size > 0) {
+          createSymptomLog(db, {
+            items: [...details.symptoms].map((key) => ({ key })),
+            foodLogId: logged.id,
+            loggedAt: eatenAt.toISOString(),
+          });
+          // They just checked in, so the reminder isn't needed.
+          void cancelCheckIn(logged.id);
+        }
+      } catch {
+        // Code only: a raw error could echo the note.
+        logger.error('saveMealDetails', new AppError('INTERNAL'));
+        message = EXTRAS_FAILED;
       }
-    } catch {
-      // Code only: a raw error could echo the note.
-      logger.error('saveMealDetails', new AppError('INTERNAL'));
-      kept = false;
     }
-    if (!kept) toast(EXTRAS_FAILED);
+    if (details.keep) {
+      try {
+        saveFoodFromLog(db, logged.id);
+        message ??= copy.favoriteAdded;
+      } catch {
+        // Code only. Not fatal: the meal is in the diary, and can be added to favorite foods from its entry.
+        logger.error('saveFoodFromLog', new AppError('INTERNAL'));
+      }
+    }
+    if (message) toast(message);
     router.dismissTo('/');
   };
 
   /**
-   * "I ate this" (or "Save to My foods" for a My foods check): logs exactly the verdict on screen, with no
-   * further relay call. A diary meal is logged right away, as of now, and the details open on it.
+   * "I ate this" (or "Save to favorite foods" for a Favorite foods check): logs exactly the verdict on screen, with no
+   * further relay call. A diary meal is logged right away, as of now, and the check-in opens on it. If the
+   * stored check can't be promoted, the meal is written to the diary straight from the verdict on screen.
    */
   const save = () => {
     if (!shown || !analyzed || saving.current) return;
@@ -366,7 +381,7 @@ export function FoodFlow({
     const { meta, ...analysis } = shown;
     const at = logTime();
     let storedPhoto: string | null = null;
-    let savedMessage: string = copy.saved;
+    let savedMessage = '';
     let diaryId: number | null = null;
     try {
       if (myFood) {
@@ -380,12 +395,18 @@ export function FoodFlow({
           meta,
         });
         savedMessage = saved.created
-          ? `${saved.mealName} added to My foods`
-          : `Updated ${saved.mealName} in My foods`;
+          ? `${saved.mealName} added to favorite foods`
+          : `Updated ${saved.mealName} in favorite foods`;
       } else if (checkId.current !== null) {
-        promoteCheckToDiary(db, checkId.current, at.toISOString());
-        diaryId = checkId.current;
-      } else {
+        try {
+          promoteCheckToDiary(db, checkId.current, at.toISOString());
+          diaryId = checkId.current;
+        } catch {
+          // Code only. The verdict on screen is still written below, so "I ate this" always logs the meal.
+          logger.error('promoteCheckToDiary', new AppError('INTERNAL'));
+        }
+      }
+      if (!myFood && diaryId === null) {
         if (analyzed.source === 'photo') storedPhoto = savePhoto(analyzed.uri);
         diaryId = createFoodLog(db, {
           entryType: 'diary',
@@ -406,20 +427,7 @@ export function FoodFlow({
       return;
     }
     if (diaryId !== null) {
-      if (details.keep) {
-        try {
-          saveFoodFromLog(db, diaryId);
-          savedMessage = copy.savedAndKept;
-        } catch {
-          // Code only. Not fatal: the meal is in the diary, and can be saved from Your Logs later.
-          logger.error('saveFoodFromLog', new AppError('INTERNAL'));
-        }
-      }
-      mealLogged(
-        { id: diaryId, name: analysis.mealName, verdict: effectiveVerdict(shown) },
-        at,
-        savedMessage,
-      );
+      mealLogged({ id: diaryId, name: analysis.mealName }, at);
       return;
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -427,7 +435,7 @@ export function FoodFlow({
     router.back();
   };
 
-  /** "Save to My foods only" (from the Food list): keeps the verdict for one-tap logging, without eating it now. */
+  /** "Save to favorite foods only" (from the Food list): keeps the verdict for one-tap logging, without eating it now. */
   const saveOnly = () => {
     if (!shown || !analyzed || saving.current) return;
     saving.current = true;
@@ -452,13 +460,17 @@ export function FoodFlow({
       return;
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    toast(saved.created ? `${saved.mealName} added to My foods` : `Updated ${saved.mealName} in My foods`);
+    toast(
+      saved.created
+        ? `${saved.mealName} added to favorite foods`
+        : `Updated ${saved.mealName} in favorite foods`,
+    );
     router.back();
   };
 
   /**
    * "Log without checking": what was typed becomes a plain diary entry, with no relay call (works offline), and
-   * the details open on it. For My foods it is added by name instead, which has no time or details.
+   * the details open on it. For Favorite foods it is added by name instead, which has no time or details.
    */
   const saveUnchecked = () => {
     if (!trimmed || busy || saving.current) return;
@@ -482,11 +494,11 @@ export function FoodFlow({
     }
     if (mealId === null) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      toast(`${trimmed} added to My foods`);
+      toast(`${trimmed} added to favorite foods`);
       router.back();
       return;
     }
-    mealLogged({ id: mealId, name: trimmed }, at, copy.savedUnchecked);
+    mealLogged({ id: mealId, name: trimmed }, at);
   };
 
   /** A Quick log chip: logs the food with the verdict it was saved with (no relay call), and opens the details. */
@@ -504,15 +516,7 @@ export function FoodFlow({
       toast("We couldn't save that. Please try again.");
       return;
     }
-    mealLogged(
-      {
-        id: mealId,
-        name: food.mealName,
-        verdict: food.analysis ? effectiveVerdict(food.analysis) : undefined,
-      },
-      at,
-      copy.saved,
-    );
+    mealLogged({ id: mealId, name: food.mealName }, at);
   };
 
   // `quickLog`: log the saved food straight away, once.
@@ -575,7 +579,7 @@ export function FoodFlow({
     void updateVerdict();
   };
 
-  // Unchecked saves go to the diary; for My foods only a new food typed by name can skip the verdict.
+  // Unchecked saves go to the diary; for Favorite foods only a new food typed by name can skip the verdict.
   const canSaveUnchecked = !myFood || myFood.id === undefined;
   const reviewingPhoto = state.status !== 'done' && !busy && analyzed?.source === 'photo';
   const errorText = notice ?? (state.status === 'error' ? state.error.friendlyMessage : '');
@@ -602,8 +606,8 @@ export function FoodFlow({
     setUpdated(null);
     reset();
   };
-  // Once logged there is nothing to step back to: the X ends the flow, like Done.
-  const onBack = logged ? () => router.dismissTo('/') : showResult ? backToCapture : undefined;
+  // Once logged there is nothing to step back to: the X ends the flow, like "Skip for now".
+  const onBack = logged ? () => leave(false) : showResult ? backToCapture : undefined;
   const onDetails = logged !== null;
   const typed = trimmed.toLowerCase();
   const quickFoods = savedFoods
@@ -615,7 +619,7 @@ export function FoodFlow({
     body = (
       <FoodDetails
         mealName={logged?.name ?? ''}
-        verdict={logged?.verdict}
+        canFavorite={logged?.canFavorite ?? false}
         whenLabel={formatMealTime(eatenAt, now)}
         onPickTime={pickTime}
         state={details}
@@ -629,21 +633,7 @@ export function FoodFlow({
       />
     );
   } else if (showResult && shown) {
-    body = (
-      <>
-        <FoodVerdict analysis={shown} when={formatMealTime(mealAt, now)} late={verdictLate} />
-        {/* Ticked before "I ate this", which logs the meal straight away. */}
-        {!myFood && !fromList && (
-          <View style={styles.keep}>
-            <CheckboxRow
-              label="Also save to My foods"
-              checked={details.keep}
-              onToggle={() => setDetails((current) => ({ ...current, keep: !current.keep }))}
-            />
-          </View>
-        )}
-      </>
-    );
+    body = <FoodVerdict analysis={shown} late={verdictLate} />;
   } else if (busy) {
     body = (
       <FoodLoading
@@ -715,13 +705,16 @@ export function FoodFlow({
   if (onDetails) {
     footer = (
       <View style={styles.footer}>
-        <Button label="Complete check-in" onPress={done} />
+        <Button label="Complete check-in" onPress={() => leave(true)} />
+        <Pressable accessibilityRole="button" onPress={() => leave(false)} style={styles.link}>
+          <AppText style={[styles.linkText, { color: colors.clayInk }]}>{copy.skipLabel}</AppText>
+        </Pressable>
       </View>
     );
   } else if (showResult) {
     footer = (
       <View style={styles.footer}>
-        <Button label={myFood ? 'Save to My foods' : copy.saveLabel} onPress={save} />
+        <Button label={myFood ? 'Save to favorite foods' : copy.saveLabel} onPress={save} />
         <Button label="Not quite right? Tell us more" variant="secondary" onPress={() => setTelling(true)} />
         {/* Quiet links, for someone only checking a food. The Food list's own check keeps it instead. */}
         {fromList && (
@@ -843,7 +836,6 @@ const styles = StyleSheet.create({
   content: { paddingBottom: space.s3 },
   actions: { gap: space.s1 },
   footer: { gap: 12, paddingTop: space.s2 },
-  keep: { marginTop: space.s1 },
   sheetActions: { gap: space.s2, marginTop: space.s2 },
   link: { minHeight: minTouchTarget, alignItems: 'center', justifyContent: 'center' },
   linkText: { ...typography.bodyEm, fontSize: 15, fontFamily: fontFamily.bold },

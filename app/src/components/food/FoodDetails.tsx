@@ -1,5 +1,6 @@
+import { Check, Star } from 'lucide-react-native';
 import { useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { InlineAddChip } from '@/components/InlineAddChip';
@@ -7,7 +8,6 @@ import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { TimePill } from '@/components/TimePill';
-import { VerdictBadge } from '@/components/VerdictBadge';
 import { type CustomTagKey, LIFESTYLE_TAGS, type LoggedTagKey } from '@/constants/lifestyleTags';
 import {
   type CustomSymptomKey,
@@ -16,8 +16,7 @@ import {
   SYMPTOM_ITEMS,
   type SymptomKey,
 } from '@/constants/symptomItems';
-import { space } from '@/theme';
-import type { AppVerdict } from '@/types/analysis';
+import { minTouchTarget, radius, space, useColors } from '@/theme';
 
 /** The few symptoms offered right after a meal; the full list lives on the How I feel screen. */
 export const MEAL_SYMPTOM_KEYS: SymptomKey[] = ['heartburn', 'burping', 'hoarseness', 'stomach_pain'];
@@ -29,14 +28,14 @@ export type MealDetailsState = {
   tags: Set<LoggedTagKey>;
   symptoms: Set<LoggedSymptomKey>;
   note: string;
-  /** "Also save to My foods", ticked on the verdict before the meal is logged. */
+  /** "Add to favorite foods", ticked here after the meal is logged. */
   keep: boolean;
 };
 
 type Props = {
   mealName: string;
-  /** Absent for a meal logged without a verdict. */
-  verdict?: AppVerdict;
+  /** Offer "Add to favorite foods": false when the meal is already one of them. */
+  canFavorite: boolean;
   whenLabel: string;
   onPickTime: () => void;
   state: MealDetailsState;
@@ -59,13 +58,14 @@ const toggled = <T,>(set: Set<T>, value: T) => {
 };
 
 /**
- * Figma "03d.1 Food: check-in": shown after the meal is already logged, so everything here is optional. It
- * follows How I feel: the food as the big title, a short line under it, then tap-only chips (each group
- * starting with a "+" to add your own) before the one-line note.
+ * Figma "03d.3 Food: check-in (saved, skippable)": shown after the meal is already logged, so it says so and
+ * everything else is optional. It follows How I feel: a saved confirmation, the food as the big title, a short
+ * line under it, then tap-only chips (each group starting with a "+" to add your own), the one-line note, and
+ * "Add to favorite foods".
  */
 export function FoodDetails({
   mealName,
-  verdict,
+  canFavorite,
   whenLabel,
   onPickTime,
   state,
@@ -77,20 +77,26 @@ export function FoodDetails({
   onAddSymptom,
   onReveal,
 }: Props) {
+  const colors = useColors();
   const sectionY = useRef<Record<string, number>>({});
   const reveal = (key: string) => onReveal(sectionY.current[key] ?? 0);
 
   return (
     <View style={styles.wrap}>
-      <AppText variant="display" accessibilityRole="header">
-        {mealName}
-      </AppText>
-      <AppText color="inkSoft" style={styles.subtitle}>
-        Anything else? All optional.
-      </AppText>
+      <View style={styles.heading}>
+        <View style={[styles.saved, { backgroundColor: colors.sageTint }]}>
+          <Check size={16} color={colors.sageInk} strokeWidth={3} />
+          <AppText variant="label">Added to today</AppText>
+        </View>
+        <AppText variant="display" accessibilityRole="header">
+          {mealName}
+        </AppText>
+        <AppText variant="voice" color="inkSoft">
+          How&apos;s your belly? You can skip this.
+        </AppText>
+      </View>
       <View style={styles.timeRow}>
         <TimePill label={whenLabel} onPress={onPickTime} />
-        {verdict && <VerdictBadge verdict={verdict} />}
       </View>
       <View
         style={styles.section}
@@ -163,14 +169,48 @@ export function FoodDetails({
         maxLength={maxNote}
         returnKeyType="done"
       />
+      {canFavorite && (
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityLabel="Add to favorite foods"
+          accessibilityState={{ checked: state.keep }}
+          onPress={() => onChange({ ...state, keep: !state.keep })}
+          style={styles.favorite}>
+          <Star
+            size={22}
+            color={colors.clayInk}
+            fill={state.keep ? colors.clayInk : 'none'}
+            strokeWidth={2}
+          />
+          <View style={styles.favoriteText}>
+            <AppText variant="bodyEm" style={styles.favoriteLabel}>
+              Add to favorite foods
+            </AppText>
+            <AppText variant="caption" color="inkSoft">
+              Log it in one tap next time.
+            </AppText>
+          </View>
+        </Pressable>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { gap: space.s4 },
-  subtitle: { fontSize: 15, lineHeight: 21, marginTop: -space.s2, marginBottom: space.s1 },
+  heading: { gap: 12, alignItems: 'flex-start' },
+  saved: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+  },
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  favorite: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: minTouchTarget },
+  favoriteText: { gap: 2 },
+  favoriteLabel: { fontSize: 15 },
   section: { gap: 12 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
 });

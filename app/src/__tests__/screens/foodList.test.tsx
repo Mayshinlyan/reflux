@@ -139,11 +139,11 @@ describe('Food screen: which view', () => {
   });
 });
 
-describe('Food screen: My foods', () => {
-  it('has a "My foods" heading and a subtitle', async () => {
+describe('Food screen: Favorite foods', () => {
+  it('has a "Favorite foods" heading and a subtitle', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
-    expect(screen.getByRole('header', { name: 'My foods' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Favorite foods' })).toBeTruthy();
     expect(screen.getByText('Tap a food to edit it.')).toBeTruthy();
     expect(screen.queryByText('Quick Log')).toBeNull();
   });

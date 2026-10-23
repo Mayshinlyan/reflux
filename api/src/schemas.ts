@@ -64,8 +64,57 @@ export const mealAnalysisSchema = z.strictObject({
     verdict,
     confidence: z.enum(['low', 'medium', 'high']),
     reasoning: z.string().max(400),
+    /** One plain sentence for the top of the verdict screen. Optional so one missing field never fails a check. */
+    summary: z.string().max(160).optional(),
+    /** A concrete "better next time" change; left out when the verdict is ok. */
+    tip: z.string().max(160).optional(),
   }),
 });
+
+/** A short label from the app (a meal name, a symptom, a tag): sanitized like food text, never empty. */
+const label = (max: number) => z.string().max(max).transform(sanitizeFoodText).pipe(z.string().min(1));
+
+/**
+ * What Bellie's summary is built from (POST /v1/insight): only meal names, their verdicts, symptom names and
+ * lifestyle tags, each with a short "when". Never notes, photos or the person's name. Unknown fields are rejected.
+ */
+export const insightBodySchema = z
+  .strictObject({
+    range: z.enum(['day', 'week']),
+    meals: z
+      .array(
+        z.strictObject({
+          name: label(100),
+          verdict: z.enum(['ok', 'caution', 'trigger', 'good']),
+          when: label(24),
+        }),
+      )
+      .max(60),
+    symptoms: z.array(z.strictObject({ name: label(60), when: label(24) })).max(60),
+    tags: z.array(label(40)).max(30),
+  })
+  .refine((body) => body.meals.length + body.symptoms.length > 0, { message: 'nothing to summarize' });
+
+export type InsightInput = z.infer<typeof insightBodySchema>;
+
+/**
+ * Bellie's summary. The prompt asks for tighter lengths (line 40, summary 160, tips 120); these caps leave a
+ * margin so a slightly long answer doesn't fail the check.
+ */
+export const insightSchema = z.strictObject({
+  tone: z.enum(['cheer', 'nudge', 'neutral']),
+  bellieLine: z.string().min(1).max(50),
+  summary: z.string().min(1).max(200),
+  tips: z.array(z.string().min(1).max(140)).max(3),
+});
+
+export type Insight = z.infer<typeof insightSchema>;
+
+/** JSON Schema handed to Claude as the insight tool's input schema. */
+export function insightJsonSchema() {
+  const { $schema: _ignored, ...schema } = z.toJSONSchema(insightSchema) as Record<string, unknown>;
+  return schema as { type: 'object'; [key: string]: unknown };
+}
 
 export type Portion = z.infer<typeof portionSchema>;
 

@@ -7,7 +7,7 @@ import { StepLayout } from './StepLayout';
 export function PrivacyStep({ onNext }: { onNext: () => void }) {
   return (
     <StepLayout title="Your diary stays with you." footer={<Button label="Continue" onPress={onNext} />}>
-      <PrivacyPoints />
+      <PrivacyPoints welcome />
     </StepLayout>
   );
 }

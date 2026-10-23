@@ -83,7 +83,7 @@ const FoodWidgetView = (props: FoodWidgetProps, environment: WidgetEnvironment) 
           pills
         ) : (
           <Text modifiers={[font({ design: 'rounded', size: 14 }), foregroundStyle(inkSoft), lineLimit(3)]}>
-            Save foods in My foods to log them from here.
+            Add favorite foods to log them from here.
           </Text>
         )}
       </VStack>

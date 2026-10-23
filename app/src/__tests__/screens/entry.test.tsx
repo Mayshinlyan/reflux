@@ -8,7 +8,7 @@ import EntryScreen from '@/app/entry/index';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createFoodLog, getFoodLog, saveMealDetails, updateFoodLog } from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
-import { saveFoodFromLog } from '@/db/repositories/savedFoods';
+import { createSavedFood } from '@/db/repositories/savedFoods';
 import { createSymptomLog, getSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 
@@ -84,7 +84,7 @@ afterEach(() => {
 
 const at = (day: number, hour: number, minute = 0) => new Date(2026, 9, day, hour, minute).toISOString();
 
-const seedTacos = (loggedAt = at(10, 19, 45)) =>
+const seedTacos = (loggedAt = at(10, 19, 45), advice: { summary?: string; tip?: string } = {}) =>
   createFoodLog(mockDb, {
     entryType: 'diary',
     source: 'text',
@@ -102,7 +102,7 @@ const seedTacos = (loggedAt = at(10, 19, 45)) =>
           matchedTriggers: [{ category: 'spicy', evidence: 'chili' }],
         },
       ],
-      overall: { verdict: 'caution', confidence: 'medium', reasoning: 'Chili can irritate.' },
+      overall: { verdict: 'caution', confidence: 'medium', reasoning: 'Chili can irritate.', ...advice },
     },
     meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
   });
@@ -113,7 +113,7 @@ const pressAlertButton = (spy: jest.SpyInstance, text: string) => {
 };
 
 describe('Entry: a meal', () => {
-  it('shows the verdict, name, when, tags, details, symptoms after and note', async () => {
+  it('shows the verdict on top, then the name, when and portion, tags, symptoms after and note', async () => {
     const id = seedTacos();
     saveMealDetails(mockDb, id, { portion: 'large', tags: ['large_meal'], notes: 'Felt fine until later.' });
     createSymptomLog(mockDb, {
@@ -124,33 +124,51 @@ describe('Entry: a meal', () => {
     mockParams = { kind: 'food', id: String(id) };
     await render(<EntryScreen />);
 
+    // The same verdict the verdict screen gave: Bellie, a bubble with the headline, and the badge.
+    expect(screen.getByRole('header', { name: 'Your belly might not love this.' })).toBeTruthy();
+    expect(screen.getByLabelText('Belly feels cautious')).toBeTruthy();
     expect(screen.getByLabelText('Caution')).toBeTruthy();
     expect(screen.getByRole('header', { name: 'Spicy chicken tacos' })).toBeTruthy();
-    expect(screen.getByText('Sat, Oct 10 · 7:45 PM')).toBeTruthy();
+    expect(screen.getByText('Sat, Oct 10 · 7:45 PM · Large portion')).toBeTruthy();
     // Lifestyle tags, matched triggers, and Late meal (7:45 PM is within 3 hours of 10:30 PM).
     expect(screen.getByText('Large meal')).toBeTruthy();
     expect(screen.getByText('Spicy')).toBeTruthy();
     expect(screen.getByText('Late meal')).toBeTruthy();
-    expect(screen.getByText('Large')).toBeTruthy();
-    expect(screen.getByText('Saved to My foods')).toBeTruthy();
-    expect(screen.getByText('No')).toBeTruthy();
     expect(screen.getByText('Symptoms')).toBeTruthy();
     expect(screen.getByText('Heartburn')).toBeTruthy();
     expect(screen.getByText('Burping')).toBeTruthy();
     expect(screen.getByText('Logged at 9:40 PM')).toBeTruthy();
     expect(screen.getByText('Felt fine until later.')).toBeTruthy();
+    // No Details card on a meal with a verdict: the portion is on the line under the name.
+    expect(screen.queryByText('Details')).toBeNull();
   });
 
-  it('says Yes once the meal is in My foods', async () => {
-    const id = seedTacos();
-    saveFoodFromLog(mockDb, id);
+  it('ends with why the verdict is what it is, plus the AI summary and tip when there are any', async () => {
+    const id = seedTacos(at(10, 19, 45), {
+      summary: 'Spicy and acidic, and eaten close to bedtime.',
+      tip: 'Try a milder salsa, or have it earlier.',
+    });
     mockParams = { kind: 'food', id: String(id) };
     await render(<EntryScreen />);
 
-    expect(screen.getByText('Yes')).toBeTruthy();
+    expect(screen.getByText('Spicy and acidic, and eaten close to bedtime.')).toBeTruthy();
+    expect(screen.getByText('Better next time')).toBeTruthy();
+    expect(screen.getByText('Try a milder salsa, or have it earlier.')).toBeTruthy();
+    expect(screen.getByText('Why we think so')).toBeTruthy();
+    expect(screen.getByText('Chili can irritate.')).toBeTruthy();
+    expect(screen.getByText(/Key ingredients:\s*chili/)).toBeTruthy();
   });
 
-  it('leaves out the symptoms, note and tags cards when there is nothing to show', async () => {
+  it('leaves out the tip when the meal was checked before tips existed', async () => {
+    const id = seedTacos();
+    mockParams = { kind: 'food', id: String(id) };
+    await render(<EntryScreen />);
+
+    expect(screen.queryByText('Better next time')).toBeNull();
+    expect(screen.getByText('Why we think so')).toBeTruthy();
+  });
+
+  it('leaves out the symptoms, note and tags when there is nothing to show', async () => {
     const id = seedTacos(at(10, 8, 0));
     updateFoodLog(mockDb, id, { name: 'Oatmeal' });
     mockParams = { kind: 'food', id: String(id) };
@@ -159,7 +177,21 @@ describe('Entry: a meal', () => {
     expect(screen.queryByText('Symptoms')).toBeNull();
     expect(screen.queryByText('Note')).toBeNull();
     expect(screen.queryByText('Late meal')).toBeNull();
-    expect(screen.getByText('Regular')).toBeTruthy();
+    expect(screen.getByText('Sat, Oct 10 · 8:00 AM · Regular portion')).toBeTruthy();
+  });
+
+  it('says whether a meal saved without a verdict is in favorite foods', async () => {
+    const id = seedTacos();
+    mockSqlite.exec('UPDATE food_logs SET overall_verdict = NULL, analysis = NULL, analysis_meta = NULL');
+    mockParams = { kind: 'food', id: String(id) };
+    const { unmount } = await render(<EntryScreen />);
+    expect(screen.getByText('Saved to favorite foods')).toBeTruthy();
+    expect(screen.getByText('No')).toBeTruthy();
+    await unmount();
+
+    createSavedFood(mockDb, 'Spicy chicken tacos');
+    await render(<EntryScreen />);
+    expect(screen.getByText('Yes')).toBeTruthy();
   });
 
   it('shows a meal saved without a verdict with no badge', async () => {

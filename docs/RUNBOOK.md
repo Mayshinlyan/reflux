@@ -11,7 +11,7 @@ gcloud run services update reflux-relay --region <region> \
   --set-env-vars ANALYSIS_ENABLED=false
 ```
 
-Every `POST /v1/analyze-food` request now returns `503 SERVICE_BUSY` immediately, with no Claude call made. Re-enable with `ANALYSIS_ENABLED=true`.
+Every `POST /v1/analyze-food` and `POST /v1/insight` (Bellie's day and week summaries) request now returns `503 SERVICE_BUSY` immediately, with no Claude call made. Re-enable with `ANALYSIS_ENABLED=true`.
 
 ## Anthropic API key rotation
 
@@ -28,6 +28,8 @@ Per-user daily limit and the global daily circuit breaker are both env vars on t
 gcloud run services update reflux-relay --region <region> \
   --set-env-vars PER_USER_DAILY_LIMIT=30,GLOBAL_DAILY_LIMIT=300
 ```
+
+Bellie's summaries (`POST /v1/insight`) have their own per-user daily allowance, `PER_USER_DAILY_INSIGHT_LIMIT` (default 20), so they never use up meal checks; both kinds of call count toward `GLOBAL_DAILY_LIMIT`.
 
 Raise `GLOBAL_DAILY_LIMIT` when onboarding more pilot testers; lower it if you suspect abuse. Check current usage first via the Firestore `rate_limits` collection or the relay's Claude-call log count for today.
 
@@ -80,7 +82,7 @@ The iOS home-screen widget (Snap food, plus saved foods on the medium size) is a
 1. Build a development build and install it on the phone, either locally (needs Xcode) with `cd app && npx expo run:ios --device`, or in the cloud with `cd app && npx eas-cli@latest build --profile development --platform ios` (register the phone first with `npx eas-cli@latest device:create`). Either way the Apple team must be able to use the App Groups capability.
 2. Serve to it with `scripts/test-app.sh --dev-build` and open the app once, so it can fill the widget.
 3. Long-press the home screen, tap +, and add **Snap food** in the small or medium size.
-4. Check: tapping the bubble opens the camera; the medium size lists up to three of My foods (A to Z); tapping one logs it and opens the check-in; renaming or removing a saved food updates the widget; **Delete all data** (You) empties it.
+4. Check: tapping the bubble opens the camera; the medium size lists up to three of Favorite foods (A to Z); tapping one logs it and opens the check-in; renaming or removing a saved food updates the widget; **Delete all data** (You) empties it.
 
 A tapped food carries a token made on the phone, so a link from a web page or message can't log a meal; without it `?quickLog=` just opens the Food screen. Changing the widget's look means updating the Figma component *Widget/Bellie says* first, then re-exporting `app/assets/images/widget-bellie-says.png` at 3×.
 

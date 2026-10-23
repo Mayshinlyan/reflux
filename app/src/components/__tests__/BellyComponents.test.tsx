@@ -7,7 +7,7 @@ import { Avatar } from '../Avatar';
 import { Button } from '../Button';
 import { CheckboxRow } from '../CheckboxRow';
 import { ChoiceCard } from '../ChoiceCard';
-import { ProgressDots } from '../ProgressDots';
+import { ProgressBar } from '../ProgressBar';
 import { SegmentedControl } from '../SegmentedControl';
 import { SettingsRow } from '../SettingsRow';
 import { SymptomChip } from '../SymptomChip';
@@ -128,9 +128,9 @@ describe('SegmentedControl', () => {
   });
 });
 
-describe('ProgressDots', () => {
+describe('ProgressBar', () => {
   it('announces the step', async () => {
-    await render(<ProgressDots step={2} total={6} />);
+    await render(<ProgressBar step={2} total={6} />);
 
     expect(screen.getByLabelText('Step 2 of 6')).toBeTruthy();
   });
@@ -156,9 +156,9 @@ describe('ChoiceCard', () => {
 describe('CheckboxRow', () => {
   it('toggles and reports its state', async () => {
     const onToggle = jest.fn();
-    await render(<CheckboxRow label="Also save to My foods" checked={false} onToggle={onToggle} />);
+    await render(<CheckboxRow label="Also save to favorite foods" checked={false} onToggle={onToggle} />);
 
-    const row = screen.getByRole('checkbox', { name: 'Also save to My foods' });
+    const row = screen.getByRole('checkbox', { name: 'Also save to favorite foods' });
     expect(row.props.accessibilityState).toMatchObject({ checked: false });
     await fireEvent.press(row);
 

@@ -156,7 +156,7 @@ export const medicationLogs = sqliteTable(
 );
 
 /**
- * "My foods": meals the user eats often, saved for one-tap logging. Each row is a snapshot of a meal
+ * "Favorite foods": meals the user eats often, saved for one-tap logging. Each row is a snapshot of a meal
  * (like a food log, minus the time), so logging it reuses the stored verdict and never calls the relay.
  * Logged meals are copies, so removing a saved food never touches History.
  */

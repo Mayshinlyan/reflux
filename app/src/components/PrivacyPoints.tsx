@@ -1,16 +1,13 @@
 import { Camera, Check, type LucideIcon, Shield } from 'lucide-react-native';
-import { StyleSheet, View } from 'react-native';
 
-import { radius, space, useColors } from '@/theme';
-
-import { AppText } from './AppText';
+import { PointList } from './PointList';
 
 const POINTS: readonly { icon: LucideIcon; title: string; body: string }[] = [
   { icon: Shield, title: 'Stored on your phone', body: 'Your diary stays on your phone.' },
   {
     icon: Camera,
     title: 'Meal checks use AI',
-    body: "Only the photo or description you add, and what you're managing, is sent to an AI service to check a meal.",
+    body: "Only the photo or description you add, and what you're managing, is sent to an AI service to check a meal. Bellie's daily and weekly summaries send it meal names, verdicts and tags too, never your notes or name.",
   },
   {
     icon: Check,
@@ -19,31 +16,8 @@ const POINTS: readonly { icon: LucideIcon; title: string; body: string }[] = [
   },
 ];
 
-/** What happens to their data, and that this isn't medical advice (onboarding and Settings). */
-export function PrivacyPoints() {
-  const colors = useColors();
-  return (
-    <View style={styles.list}>
-      {POINTS.map(({ icon: Icon, title, body }) => (
-        <View key={title} style={styles.row}>
-          <View style={[styles.icon, { backgroundColor: colors.surface2 }]}>
-            <Icon size={20} color={colors.ink} strokeWidth={2} />
-          </View>
-          <View style={styles.text}>
-            <AppText variant="bodyEm">{title}</AppText>
-            <AppText variant="caption" color="inkSoft">
-              {body}
-            </AppText>
-          </View>
-        </View>
-      ))}
-    </View>
-  );
+/** What happens to their data, and that this isn't medical advice (onboarding and Settings). `welcome` words the first point as a benefit (Figma 01g). */
+export function PrivacyPoints({ welcome = false }: { welcome?: boolean }) {
+  const points = welcome ? [{ ...POINTS[0], title: 'Private by default' }, ...POINTS.slice(1)] : POINTS;
+  return <PointList points={points} />;
 }
-
-const styles = StyleSheet.create({
-  list: { gap: space.s2 },
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: space.s2 },
-  icon: { width: 42, height: 42, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
-  text: { flex: 1, gap: 2 },
-});

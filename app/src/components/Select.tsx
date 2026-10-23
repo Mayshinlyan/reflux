@@ -2,7 +2,7 @@ import { Check, ChevronDown } from 'lucide-react-native';
 import { useState } from 'react';
 import { type DimensionValue, Pressable, StyleSheet, View } from 'react-native';
 
-import { fontFamily, minTouchTarget, radius, useColors } from '@/theme';
+import { minTouchTarget, radius, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -39,7 +39,7 @@ export function Select<T extends string>({ options, value, onChange, label, widt
                 setOpen(false);
               }}
               style={[styles.row, index > 0 && { borderTopWidth: 1, borderTopColor: colors.hairline }]}>
-              <AppText style={styles.text}>{option.label}</AppText>
+              <AppText variant="button">{option.label}</AppText>
               {option.value === value && <Check size={18} color={colors.inkSoft} strokeWidth={2.4} />}
             </Pressable>
           ))}
@@ -51,7 +51,7 @@ export function Select<T extends string>({ options, value, onChange, label, widt
           accessibilityState={{ expanded: false }}
           onPress={() => setOpen(true)}
           style={styles.row}>
-          <AppText style={styles.text}>{current?.label}</AppText>
+          <AppText variant="button">{current?.label}</AppText>
           <ChevronDown size={20} color={colors.inkSoft} strokeWidth={2.2} />
         </Pressable>
       )}
@@ -69,5 +69,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  text: { fontFamily: fontFamily.bold, fontSize: 15, lineHeight: 22 },
 });

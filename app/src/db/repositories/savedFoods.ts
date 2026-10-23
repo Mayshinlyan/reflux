@@ -12,7 +12,7 @@ export const MAX_SAVED_FOOD_NAME = 60;
 
 let onChange: (() => void) | null = null;
 
-/** Called after "My foods" changes (added, renamed, edited, removed, or wiped), so the home-screen widget can follow. */
+/** Called after "Favorite foods" changes (added, renamed, edited, removed, or wiped), so the home-screen widget can follow. */
 export function onSavedFoodsChange(listener: (() => void) | null): void {
   onChange = listener;
 }
@@ -34,7 +34,7 @@ export type StoredSavedFood = Omit<SavedFood, 'analysis' | 'analysisMeta'> & {
 
 const toStored = (row: SavedFood) => row as StoredSavedFood;
 
-/** "My foods", A to Z. */
+/** "Favorite foods", A to Z. */
 export function listSavedFoods(db: AppDb): StoredSavedFood[] {
   return db
     .select()
@@ -58,7 +58,7 @@ export function createSavedFood(db: AppDb, name: string): number {
 }
 
 /**
- * Saves a copy of a logged meal to "My foods", keeping its verdict and photo. Saving a meal whose name
+ * Saves a copy of a logged meal to "Favorite foods", keeping its verdict and photo. Saving a meal whose name
  * is already saved changes nothing and returns the existing id, so a second tap can't add a duplicate.
  */
 export function saveFoodFromLog(db: AppDb, foodLogId: number): { id: number; created: boolean } {
@@ -141,7 +141,7 @@ export function updateSavedFood(db: AppDb, id: number, edit: SavedFoodEdit): voi
   notifySavedFoodsChanged();
 }
 
-/** Removes a food from "My foods". Meals already logged from it stay in History. */
+/** Removes a food from "Favorite foods". Meals already logged from it stay in History. */
 export function removeSavedFood(db: AppDb, id: number): void {
   db.delete(savedFoods).where(eq(savedFoods.id, id)).run();
   notifySavedFoodsChanged();
@@ -186,7 +186,7 @@ export type CheckedFoodInput = {
 };
 
 /**
- * Saves a verdict to "My foods" without logging a meal. A new food is named by the analysis; if that
+ * Saves a verdict to "Favorite foods" without logging a meal. A new food is named by the analysis; if that
  * name is already saved, that food takes the new verdict instead of being duplicated. A text check
  * keeps the food's existing photo.
  */
@@ -230,7 +230,7 @@ export function saveCheckedFood(
   return { id, created: true, mealName };
 }
 
-/** Whether a meal of this name is already in "My foods" (the same match `saveFoodFromLog` uses). */
+/** Whether a meal of this name is already in "Favorite foods" (the same match `saveFoodFromLog` uses). */
 export function isFoodSaved(db: AppDb, mealName: string): boolean {
   return (
     db

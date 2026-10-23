@@ -12,11 +12,12 @@ import { isQuickLogAllowed } from '@/lib/widgetLinks';
 
 /**
  * The Food screen: straight to "What did you eat?" (a photo or a typed description), with the saved foods as a
- * Quick log row on top. `?manage=1` (Settings > My foods, and "See all") lists the saved foods to edit or log
- * instead. `?check=1` ("+ Log a new food" there) is the same check, which can also save the result to My foods.
- * `?photoUri=` (Snap food on the tab bar, which took the photo itself) starts on that photo's review step.
- * `?camera=1` opens the camera straight away (what Snap food falls back to when camera access was denied, so
- * this screen can say why). `?myFood=1&food=<id>` re-checks a saved food ("Get a verdict" / "Check again"),
+ * Quick log row on top. `?manage=1` (Profile > Favorite foods, and "See all") lists the saved foods to edit or log
+ * instead. `?check=1` ("+ Log a new food" there) is the same check, which can also save the result to favorite foods.
+ * `?photoUri=` (a photo already taken and prepared) starts on that photo's review step.
+ * `?camera=1` opens the camera straight away (the home-screen widget's "Snap food" bubble; a denied camera
+ * keeps this screen and says why). The tab bar's "+" and Bellie on Today both open this screen plain.
+ * `?myFood=1&food=<id>` re-checks a saved food ("Get a verdict" / "Check again"),
  * saving the verdict to it and not the diary. `?date=` (a day tapped in Today's week strip) logs the meal on
  * that day. `?quickLog=<id>&t=<token>` (a saved food on the home-screen widget) logs that saved food at once,
  * like its Quick log chip; without the widget's token, or for a removed food, it is just this screen.

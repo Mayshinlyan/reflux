@@ -7,6 +7,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requestContext } from './middleware/requestContext.js';
 import { type AnalyzeDeps, analyzeRoutes } from './routes/analyze.routes.js';
 import { healthRoutes } from './routes/health.routes.js';
+import { insightRoutes } from './routes/insight.routes.js';
 
 export type AppDeps = { env: Env; logger: Logger } & Omit<AnalyzeDeps, 'env'>;
 
@@ -23,6 +24,7 @@ export function createApp({ env, logger, verifier, rateLimitStore, claude }: App
 
   app.use(healthRoutes());
   app.use(analyzeRoutes({ env, verifier, rateLimitStore, claude }));
+  app.use(insightRoutes({ env, verifier, rateLimitStore, claude }));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

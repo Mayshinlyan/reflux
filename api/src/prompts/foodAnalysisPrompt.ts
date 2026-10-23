@@ -1,7 +1,7 @@
 import { CATEGORIES, type Condition, CONDITIONS, ruleset } from '../config/ruleset.js';
 import type { Portion } from '../schemas.js';
 
-export const PROMPT_VERSION = 'food-analysis-v6';
+export const PROMPT_VERSION = 'food-analysis-v7';
 export const TOOL_NAME = 'report_meal_analysis';
 
 function rulesetSection(): string {
@@ -47,6 +47,8 @@ ${conditionsSection()}
 - Never give medication, supplement, dosing or treatment advice, and never diagnose. Only talk about foods and the ruleset categories.
 - Use only category names from the ruleset. Do not invent categories. Evidence must quote a concrete ingredient or preparation from the meal.
 - The category names are internal codes for the category field only. In every text field (meal name, item and overall reasoning, evidence) write plain words instead, such as "large portion" or "high fat", and never a code with underscores.
+- Always write overall.summary: one plain sentence, under 140 characters, that tells the person what matters most about this meal for their reflux, in friendly everyday words. Do not just repeat the verdict word.
+- Write overall.tip only when the overall verdict is caution or trigger: one concrete, practical change for next time, under 140 characters, such as a milder swap for the trigger ingredient, a smaller portion, or eating earlier in the evening. It may only talk about food, portion and timing of the meal. Leave it out when the verdict is ok.
 - Keep it short: at most 8 items, item reasoning under 300 characters, overall reasoning under 400 characters. Plain text only, no markdown.
 - Ingredients: list the main ingredients only, usually 3 to 6 and at most 8 per item. Include an ingredient when it is a prominent part of the item, or when it matches a ruleset category even in a small amount (for example garlic, chili, tomato, mint, coffee, citrus, cream, fried batter). Skip trace items such as salt, water, cooking oil and small garnishes unless they are the trigger. Always list every ingredient that matches a category, even if that goes past 8, because your reasoning cites it. Put the category-matching ingredients first, then the rest by prominence.
 - When you are guessing the ingredients of a described dish or a photo, do not pad the list with more guesses: keep it short and set confidence to low.

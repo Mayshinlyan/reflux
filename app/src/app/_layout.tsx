@@ -84,7 +84,7 @@ function HideSplash() {
   return null;
 }
 
-/** Keeps the home-screen widget's saved foods current: filled when the app opens, refilled when My foods changes. */
+/** Keeps the home-screen widget's saved foods current: filled when the app opens, refilled when Favorite foods changes. */
 function WidgetSync() {
   const db = useDb();
   useEffect(() => {

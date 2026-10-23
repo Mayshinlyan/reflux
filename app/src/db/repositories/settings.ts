@@ -39,6 +39,8 @@ export type Settings = {
   reminderAsked: boolean;
   /** Made on this phone and only ever written to the home-screen widget; a link that logs a meal must carry it. */
   widgetToken: string;
+  /** True once Today's insight cards have given their little sideways nudge, so it plays only once. */
+  insightNudged: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -55,6 +57,7 @@ export const DEFAULT_SETTINGS: Settings = {
   checkInReminderMinutes: null,
   reminderAsked: false,
   widgetToken: '',
+  insightNudged: false,
 };
 
 export type SettingKey = keyof Settings;

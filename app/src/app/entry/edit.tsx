@@ -286,7 +286,11 @@ function MealEdit({ log }: { log: StoredFoodLog }) {
             />
           </View>
           {!alreadySaved && (
-            <CheckboxRow label="Also save to My foods" checked={keep} onToggle={() => setKeep((on) => !on)} />
+            <CheckboxRow
+              label="Also save to favorite foods"
+              checked={keep}
+              onToggle={() => setKeep((on) => !on)}
+            />
           )}
         </ScrollView>
         <Footer>

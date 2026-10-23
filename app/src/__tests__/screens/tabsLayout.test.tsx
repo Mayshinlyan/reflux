@@ -1,18 +1,15 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { BackHandler } from 'react-native';
 
 import TabsLayout from '@/app/(tabs)/_layout';
-import { pickFoodPhoto } from '@/services/photoPicker';
 
 const mockPush = jest.fn();
 const mockNavigate = jest.fn();
 let mockActiveRoute = 'index';
 
 jest.mock('expo-router', () => ({ router: { push: (href: unknown) => mockPush(href) } }));
-jest.mock('@/services/photoPicker', () => ({ pickFoodPhoto: jest.fn() }));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 
-const pick = pickFoodPhoto as jest.Mock;
 // Reanimated's native runtime can't load in Jest; use its mocks (which lack useReducedMotion).
 jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/lib/module/mock'));
 jest.mock('react-native-reanimated', () => ({
@@ -38,7 +35,6 @@ jest.mock('expo-router/js-tabs', () => {
 });
 
 beforeEach(() => {
-  pick.mockReset();
   mockPush.mockClear();
   mockNavigate.mockClear();
   mockActiveRoute = 'index';
@@ -57,11 +53,37 @@ describe('Tabs layout', () => {
     });
   });
 
-  it('has no Profile tab: Profile opens from Today', async () => {
+  it('has Today, History, Profile and Settings tabs', async () => {
     await render(<TabsLayout />);
 
-    expect(screen.queryByRole('tab', { name: 'You' })).toBeNull();
-    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual([
+      'Today',
+      'History',
+      'Profile',
+      'Settings',
+    ]);
+  });
+
+  it.each([
+    ['profile', 'Profile'],
+    ['settings', 'Settings'],
+  ])('marks the %s tab when that screen is current', async (route, name) => {
+    mockActiveRoute = route;
+    await render(<TabsLayout />);
+
+    expect(screen.getByRole('tab', { name }).props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByRole('tab', { name: 'Today' }).props.accessibilityState).toMatchObject({
+      selected: false,
+    });
+  });
+
+  it('opens Profile and Settings from their tabs', async () => {
+    await render(<TabsLayout />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Profile' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Settings' }));
+
+    expect(mockNavigate.mock.calls).toEqual([['profile'], ['settings']]);
   });
 
   it('switches to the tab that is tapped, and ignores a tap on the current one', async () => {
@@ -77,90 +99,25 @@ describe('Tabs layout', () => {
 describe('Quick log arch', () => {
   it('stays closed until Log is tapped, then fans out food, symptom and medication', async () => {
     await render(<TabsLayout />);
-    expect(screen.queryByRole('button', { name: 'Snap food' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Log food' })).toBeNull();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
-    for (const name of ['Snap food', 'How I feel', 'Medication']) {
+    for (const name of ['Log food', 'How I feel', 'Medication']) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
     expect(mockPush).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('opens the camera itself for Snap food, without opening the Food screen first', async () => {
-    let finish: (value: unknown) => void = () => {};
-    pick.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+  it('opens the plain Food screen for Log food, the same one Bellie opens, and closes the arch', async () => {
     await render(<TabsLayout />);
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Log food' }));
 
-    expect(pick).toHaveBeenCalledWith('camera');
-    expect(mockPush).not.toHaveBeenCalled(); // nothing behind the camera
-    expect(screen.queryByRole('button', { name: 'How I feel' })).toBeNull(); // and the arch has closed
-    await act(async () => finish({ status: 'canceled' }));
-  });
-
-  it('opens the Food screen on the photo that was taken', async () => {
-    pick.mockResolvedValue({ status: 'ok', photo: { uri: 'file:///cache/meal.jpg', width: 1, height: 1 } });
-    await render(<TabsLayout />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
-
-    await waitFor(() =>
-      expect(mockPush).toHaveBeenCalledWith({
-        pathname: '/log/food',
-        params: { photoUri: 'file:///cache/meal.jpg' },
-      }),
-    );
-  });
-
-  it('stays where you were when the camera is closed without a photo', async () => {
-    pick.mockResolvedValue({ status: 'canceled' });
-    await render(<TabsLayout />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
-
-    await waitFor(() => expect(pick).toHaveBeenCalledTimes(1));
-    expect(mockPush).not.toHaveBeenCalled();
-  });
-
-  it('opens the Food screen to explain when camera access is denied', async () => {
-    pick.mockResolvedValue({ status: 'denied' });
-    await render(<TabsLayout />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
-
-    await waitFor(() =>
-      expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/food', params: { camera: '1' } }),
-    );
-  });
-
-  it('opens the plain Food screen when the photo cannot be read', async () => {
-    pick.mockRejectedValue(new Error('file:///private/path failed'));
-    await render(<TabsLayout />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
-
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/log/food'));
-  });
-
-  it('opens only one camera when Snap food is tapped again while it is busy', async () => {
-    let finish: (value: unknown) => void = () => {};
-    pick.mockReturnValue(new Promise((resolve) => (finish = resolve)));
-    await render(<TabsLayout />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Snap food' }));
-
-    expect(pick).toHaveBeenCalledTimes(1);
-    await act(async () => finish({ status: 'canceled' }));
+    expect(mockPush.mock.calls).toEqual([['/log/food']]);
+    expect(screen.queryByRole('button', { name: 'How I feel' })).toBeNull();
   });
 
   it('opens the symptom and medication flows', async () => {
@@ -180,7 +137,7 @@ describe('Quick log arch', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
 
-    expect(screen.queryByRole('button', { name: 'Snap food' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Log food' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Log' })).toBeTruthy();
     expect(mockPush).not.toHaveBeenCalled();
   });
@@ -191,7 +148,7 @@ describe('Quick log arch', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Dismiss quick log' }));
 
-    expect(screen.queryByRole('button', { name: 'Snap food' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Log food' })).toBeNull();
   });
 
   it('closes when a tab is tapped, and still switches to it', async () => {
@@ -200,7 +157,7 @@ describe('Quick log arch', () => {
 
     await fireEvent.press(screen.getByRole('tab', { name: 'History' }));
 
-    expect(screen.queryByRole('button', { name: 'Snap food' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Log food' })).toBeNull();
     expect(mockNavigate).toHaveBeenCalledWith('history');
   });
 
@@ -216,7 +173,7 @@ describe('Quick log arch', () => {
     const handled = await act(async () => onBack(undefined as never));
 
     expect(handled).toBe(true);
-    expect(screen.queryByRole('button', { name: 'Snap food' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Log food' })).toBeNull();
     add.mockRestore();
   });
 });

@@ -9,6 +9,9 @@ import { AppText } from './AppText';
 
 const SIZE = 44;
 
+/** Width of the back/more circle, so other things in the bar (the onboarding progress bar) can sit beside it. */
+export const TOP_BAR_BUTTON_SIZE = SIZE;
+
 type ButtonProps = { icon: LucideIcon; label: string; onPress: () => void };
 
 /** The 44pt filled circle used at either end of the top bar (back, more). */

@@ -177,7 +177,7 @@ describe('Food screen: checks and "I ate this"', () => {
     });
     expect(diary[0].analysis?.items[0].matchedTriggers[0]?.category).toBe('mint');
     expect(allRows()).toHaveLength(1); // the check itself was promoted, not copied
-    expect(mockToast).toHaveBeenCalledWith('Added to your food diary', { top: true });
+    expect(mockToast).not.toHaveBeenCalled(); // the check-in says "Added to today" itself
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
@@ -279,6 +279,7 @@ describe('Food screen: saving without a verdict', () => {
 
     await type('  grilled fish  ');
     await press('Log without checking');
+    expect(screen.getByText('Added to today')).toBeTruthy();
     await press('Complete check-in');
 
     expect(analyze).not.toHaveBeenCalled();
@@ -293,7 +294,7 @@ describe('Food screen: saving without a verdict', () => {
         analysisMeta: null,
       },
     ]);
-    expect(mockToast).toHaveBeenCalledWith('Saved without a verdict', { top: true });
+    expect(mockToast).not.toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 

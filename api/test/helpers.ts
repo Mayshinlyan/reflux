@@ -4,6 +4,7 @@ import { createApp } from '../src/app.js';
 import { type Env, loadEnv } from '../src/config/env.js';
 import { createLogger } from '../src/lib/logger.js';
 import { InMemoryRateLimitStore, type RateLimitStore } from '../src/lib/rateLimitStore.js';
+import type { InsightInput } from '../src/schemas.js';
 import type { ClaudeInput, ClaudeResult, ClaudeService } from '../src/services/claudeService.js';
 import type { TokenVerifier } from '../src/services/tokenVerifier.js';
 
@@ -46,28 +47,42 @@ export const goodAnalysis = {
   overall: { verdict: 'caution', confidence: 'high', reasoning: 'Contains mint.' },
 };
 
-export function fakeClaude(respond: (input: ClaudeInput) => unknown | Promise<unknown> = () => goodAnalysis) {
+export const goodInsight = {
+  tone: 'nudge',
+  bellieLine: 'Easy on the spice tonight?',
+  summary: 'Spicy tacos late, then heartburn. Chili and tomato keep showing up.',
+  tips: ['Have spicy food earlier in the day.', 'Try a milder salsa.'],
+};
+
+const telemetry = {
+  model: 'claude-test-model',
+  latencyMs: 12,
+  inputTokens: 100,
+  outputTokens: 50,
+  cacheReadTokens: 80,
+  cacheCreationTokens: 0,
+  anthropicRequestId: 'req_test',
+  retries: 0,
+};
+
+export function fakeClaude(
+  respond: (input: ClaudeInput) => unknown | Promise<unknown> = () => goodAnalysis,
+  respondInsight: (input: InsightInput) => unknown | Promise<unknown> = () => goodInsight,
+) {
   const calls: ClaudeInput[] = [];
+  const insightCalls: InsightInput[] = [];
   const service: ClaudeService = {
     model: 'claude-test-model',
     async analyze(input): Promise<ClaudeResult> {
       calls.push(input);
-      return {
-        raw: await respond(input),
-        telemetry: {
-          model: 'claude-test-model',
-          latencyMs: 12,
-          inputTokens: 100,
-          outputTokens: 50,
-          cacheReadTokens: 80,
-          cacheCreationTokens: 0,
-          anthropicRequestId: 'req_test',
-          retries: 0,
-        },
-      };
+      return { raw: await respond(input), telemetry };
+    },
+    async insight(input): Promise<ClaudeResult> {
+      insightCalls.push(input);
+      return { raw: await respondInsight(input), telemetry };
     },
   };
-  return { service, calls };
+  return { service, calls, insightCalls };
 }
 
 export function testApp(

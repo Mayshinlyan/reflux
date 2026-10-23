@@ -5,7 +5,9 @@ import { AppState } from 'react-native';
 import type { ConditionKey } from '@/constants/conditions';
 import { relayBaseUrl } from '@/lib/config';
 import { AppError, isRelayErrorCode } from '@/lib/errors';
+import { isInsight } from '@/lib/insight';
 import type { AnalysisMeta, MealAnalysis, Portion } from '@/types/analysis';
+import type { Insight, InsightRequest } from '@/types/insight';
 
 import { getIdToken } from './firebase';
 
@@ -62,16 +64,19 @@ async function toAppError(response: Response, fallbackRequestId: string): Promis
   }
 }
 
-export async function analyzeFood(input: AnalyzeInput, signal?: AbortSignal): Promise<AnalysisResult> {
-  const id = requestId();
-  let token: string;
+/** The signed-in token for a call; signing in needs internet too, so offline then is "offline", not "sign-in failed". */
+async function tokenFor(id: string): Promise<string> {
   try {
-    token = await getIdToken();
+    return await getIdToken();
   } catch (error) {
-    // Signing in needs internet too, so a first-run offline check is "offline", not "sign-in failed".
     if (await isOffline()) throw new AppError('OFFLINE', id);
     throw error;
   }
+}
+
+export async function analyzeFood(input: AnalyzeInput, signal?: AbortSignal): Promise<AnalysisResult> {
+  const id = requestId();
+  const token = await tokenFor(id);
 
   const headers: Record<string, string> = { Authorization: `Bearer ${token}`, 'X-Request-Id': id };
   const buildBody = (): string | FormData => {
@@ -124,4 +129,42 @@ export async function analyzeFood(input: AnalyzeInput, signal?: AbortSignal): Pr
   } catch {
     throw new AppError('AI_INVALID_OUTPUT', id);
   }
+}
+
+// A summary is a small, quick call, so it gives up sooner than a meal check.
+const INSIGHT_TIMEOUT_MS = 30_000;
+
+/**
+ * Asks the relay for Bellie's summary of a day or week. The request carries only meal names, verdicts, symptom
+ * names and tags (see `InsightRequest`). Throws an AppError like `analyzeFood`; callers fall back to local words.
+ */
+export async function fetchInsight(request: InsightRequest, signal?: AbortSignal): Promise<Insight> {
+  const id = requestId();
+  const token = await tokenFor(id);
+  const timeout = AbortSignal.timeout(INSIGHT_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${relayBaseUrl()}/v1/insight`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'X-Request-Id': id, 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (!timeout.aborted && (await isOffline())) throw new AppError('OFFLINE', id);
+    throw new AppError(timeout.aborted ? 'AI_TIMEOUT' : 'NETWORK', id);
+  }
+
+  if (!response.ok) throw await toAppError(response, id);
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new AppError('AI_INVALID_OUTPUT', id);
+  }
+  if (!isInsight(body)) throw new AppError('AI_INVALID_OUTPUT', id);
+  // Only the fields we show, so nothing else the relay adds (like `meta`) gets cached.
+  const { tone, bellieLine, summary, tips } = body;
+  return { tone, bellieLine, summary, tips };
 }

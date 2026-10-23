@@ -8,7 +8,6 @@ import { AppText } from '@/components/AppText';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { tabBarClearance } from '@/components/FloatingTabBar';
 import { HistorySummary, statsCardHeight, statsScrollDistance } from '@/components/HistorySummary';
-import { ProfileButton } from '@/components/ProfileButton';
 import { RangeStepper } from '@/components/RangeStepper';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -23,8 +22,10 @@ import { listSymptomLogs } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 import type { LoggedTagKey } from '@/constants/lifestyleTags';
 import { useDeleteEntry } from '@/hooks/useDeleteEntry';
+import { useInsight } from '@/hooks/useInsight';
 import { friendlyMessages } from '@/lib/errors';
 import { summarize } from '@/lib/historySummary';
+import { buildInsightRequest } from '@/lib/insight';
 import { localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
 import {
@@ -63,6 +64,14 @@ const FADED = 0.4;
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList) as unknown as typeof SectionList;
 
 const todayKeyNow = () => localDayKey(new Date().toISOString(), currentTimeZone());
+
+/** The warm line under "History" (Figma 04a), like the date under Today's greeting. */
+function subtitleFor(kind: Kind, current: boolean): string {
+  if (kind === 'all') return 'Everything so far';
+  if (kind === 'custom') return 'The dates you picked';
+  const unit = kind === 'month' ? 'month' : 'week';
+  return current ? `Here's how your ${unit} went` : `Here's how that ${unit} went`;
+}
 
 /** Everything logged in the period, by day. Loads a day either side so other zones aren't clipped, then trims. */
 function loadPeriod(db: AppDb, period: Period): TimelineSection[] {
@@ -134,6 +143,18 @@ export default function HistoryScreen() {
       ),
     [sections, mealTags],
   );
+  // Bellie's summary of the shown week, the first stats card; not for a month, all time or picked dates.
+  const weekRequest = useMemo(
+    () =>
+      kind === 'week'
+        ? buildInsightRequest(
+            'week',
+            sections.flatMap((section) => section.entries),
+          )
+        : null,
+    [kind, sections],
+  );
+  const weekInsight = useInsight('week', period.startKey, weekRequest);
   const shown = useMemo(
     () =>
       filter === 'all'
@@ -219,10 +240,14 @@ export default function HistoryScreen() {
                 setAbove(height);
               }}>
               <View style={styles.header}>
-                <AppText variant="display" accessibilityRole="header" style={styles.title}>
-                  History
-                </AppText>
-                <ProfileButton />
+                <View style={styles.heading}>
+                  <AppText variant="display" accessibilityRole="header">
+                    History
+                  </AppText>
+                  <AppText variant="voiceSmall" color="inkSoft">
+                    {subtitleFor(kind, isCurrent(period, todayKey))}
+                  </AppText>
+                </View>
               </View>
               <View style={styles.controls}>
                 <SegmentedControl
@@ -243,7 +268,7 @@ export default function HistoryScreen() {
                 />
               </View>
             </View>
-            <HistorySummary summary={summary} height={cardHeight} />
+            <HistorySummary summary={summary} height={cardHeight} insight={weekInsight} />
             <View style={styles.entriesHead}>
               <AppText variant="section" accessibilityRole="header">
                 Entries
@@ -315,7 +340,7 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: space.s2, marginBottom: space.s4 },
-  title: { flex: 1 },
+  heading: { flex: 1, gap: space.s1 },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
