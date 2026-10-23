@@ -139,7 +139,7 @@ function Card({
 function Header({ title, aside }: { title: string; aside?: string }) {
   return (
     <View>
-      <AppText variant="display" accessibilityRole="header">
+      <AppText variant="displaySmall" accessibilityRole="header">
         {title}
       </AppText>
       {aside ? (
@@ -213,7 +213,7 @@ function FoodCard({ summary, width, height }: CardProps) {
             )}
           </Svg>
           <View style={styles.centre}>
-            <AppText variant="display">{String(summary.meals)}</AppText>
+            <AppText variant="displaySmall">{String(summary.meals)}</AppText>
             <AppText color="inkSoft">{mealWord}</AppText>
           </View>
         </View>
@@ -229,7 +229,9 @@ function FoodCard({ summary, width, height }: CardProps) {
           ))}
         </View>
       </View>
-      <AppText color="inkSoft">{goodLine(summary)}</AppText>
+      <AppText variant="voiceSmall" color="inkSoft">
+        {goodLine(summary)}
+      </AppText>
     </Card>
   );
 }

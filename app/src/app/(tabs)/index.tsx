@@ -7,7 +7,6 @@ import { AppText } from '@/components/AppText';
 import { HomeBellie } from '@/components/HomeBellie';
 import { InsightCards } from '@/components/InsightCards';
 import { LateMealBadge } from '@/components/LateMealBadge';
-import { ProfileButton } from '@/components/ProfileButton';
 import { ReminderPromptSheet } from '@/components/ReminderPromptSheet';
 import { Screen } from '@/components/Screen';
 import { tabBarClearance } from '@/components/FloatingTabBar';
@@ -129,7 +128,6 @@ export default function TodayScreen() {
               {now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
             </AppText>
           </View>
-          <ProfileButton />
         </View>
 
         <WeekStrip

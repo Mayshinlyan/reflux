@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
 import { Alert, type AlertButton, Linking } from 'react-native';
 
-import SettingsScreen from '@/app/settings';
+import SettingsScreen from '@/app/(tabs)/settings';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createMedication, listMedications } from '@/db/repositories/medications';
 import { getSetting, setSetting } from '@/db/repositories/settings';
@@ -38,6 +38,12 @@ jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+// Reanimated's native runtime can't load in Jest; use its mocks (which lack useReducedMotion).
+jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/lib/module/mock'));
+jest.mock('react-native-reanimated', () => ({
+  ...jest.requireActual('react-native-reanimated/mock'),
+  useReducedMotion: () => false,
 }));
 jest.mock('expo-router', () => ({
   router: {
@@ -78,44 +84,27 @@ describe('Settings', () => {
     expect(screen.getByRole('button', { name: 'Late-meal window, 3 hours' })).toBeTruthy();
   });
 
-  it('groups the rows as Figma does, with no condition row and no pet', async () => {
+  it('groups the rows as Figma does, with no condition row, no pet and no lists (they live in Profile)', async () => {
     await render(<SettingsScreen />);
 
     expect(screen.getAllByRole('header').map((h) => h.props.children ?? h.props.accessibilityLabel)).toEqual(
-      expect.arrayContaining(['Preferences', 'Your lists', 'About']),
+      expect.arrayContaining(['Preferences', 'About']),
     );
     const rows = screen
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
       .filter((label) =>
-        /^(Bedtime|Late-meal|Check-in|Condition|Favorite|My |Privacy|Delete)/.test(label ?? ''),
+        /^(Bedtime|Late-meal|Check-in|Condition|Favorite|Medications|Symptoms|My |Privacy|Delete)/.test(
+          label ?? '',
+        ),
       );
     expect(rows).toEqual([
       'Bedtime, 10:30 PM',
       'Late-meal window, 3 hours',
       'Check-in reminder, Off',
-      'Favorite foods',
-      'My medications',
-      'My additions',
       'Privacy and disclaimer',
       'Delete all my data',
     ]);
-  });
-
-  it('opens My medications', async () => {
-    await render(<SettingsScreen />);
-
-    await press('button', 'My medications');
-
-    expect(mockPush.mock.calls).toEqual([[{ pathname: '/log/medication', params: { manage: '1' } }]]);
-  });
-
-  it('opens My additions', async () => {
-    await render(<SettingsScreen />);
-
-    await press('button', 'My additions');
-
-    expect(mockPush.mock.calls).toEqual([['/my-additions']]);
   });
 });
 
