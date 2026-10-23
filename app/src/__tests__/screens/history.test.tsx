@@ -13,11 +13,14 @@ import {
 import { createMedication, logMedication } from '@/db/repositories/medications';
 import { createSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
+import { fetchInsight } from '@/services/relayClient';
 import type { Verdict } from '@/types/analysis';
+import type { Insight } from '@/types/insight';
 import { router } from 'expo-router';
 
 let mockDb: AppDb;
 let closeDb: () => void;
+jest.mock('@/services/relayClient', () => ({ fetchInsight: jest.fn() }));
 
 jest.mock('@/db/DatabaseProvider', () => ({
   useDb: () => mockDb,
@@ -79,6 +82,11 @@ beforeEach(() => {
   mockDb = db;
   closeDb = () => sqlite.close();
   (router.push as jest.Mock).mockClear();
+  // Bellie's summary is still on its way unless a test says otherwise.
+  jest
+    .mocked(fetchInsight)
+    .mockReset()
+    .mockReturnValue(new Promise<Insight>(() => {}));
 });
 afterEach(() => {
   closeDb();
@@ -318,6 +326,65 @@ describe('History: the Entries filter', () => {
     await fireEvent.press(screen.getByRole('radio', { name: 'Symptoms' }));
 
     expect(screen.getByText('Nothing of this kind this week.')).toBeTruthy();
+  });
+});
+
+describe("History: Bellie's week", () => {
+  const insight: Insight = {
+    tone: 'nudge',
+    bellieLine: 'A gentle week, mostly good.',
+    summary: 'Late dinners were the bumps, and the heartburn came after them.',
+    tips: ['Eat dinner a little earlier.'],
+  };
+
+  it('makes her card the first of four, in words made on the phone until her summary arrives', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+
+    expect(screen.getByLabelText('Card 1 of 4')).toBeTruthy();
+    expect(screen.getByText('Tips')).toBeTruthy();
+    expect(
+      screen.getByRole('header', { name: /^(A good week so far!|A few bumps this week\.)$/ }),
+    ).toBeTruthy();
+  });
+
+  it('shows her own words once they arrive', async () => {
+    jest.mocked(fetchInsight).mockResolvedValue(insight);
+    seedWeek();
+    await render(<HistoryScreen />);
+
+    expect(await screen.findByRole('header', { name: 'A gentle week, mostly good.' })).toBeTruthy();
+    expect(screen.getByText(insight.summary)).toBeTruthy();
+    expect(screen.getByText('Eat dinner a little earlier.')).toBeTruthy();
+  });
+
+  it('asks about the shown week only, with just names, verdicts and times', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+
+    expect(fetchInsight).toHaveBeenCalledTimes(1);
+    const request = jest.mocked(fetchInsight).mock.calls[0]![0];
+    expect(request.range).toBe('week');
+    expect(request.meals.map((meal) => meal.name)).not.toContain('Old pasta'); // last week's meal
+    expect(Object.keys(request).sort()).toEqual(['meals', 'range', 'symptoms', 'tags']);
+  });
+
+  it('has no card of hers for a month, and asks for nothing', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+    jest.mocked(fetchInsight).mockClear();
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
+
+    expect(screen.getByLabelText('Card 1 of 3')).toBeTruthy();
+    expect(fetchInsight).not.toHaveBeenCalled();
+  });
+
+  it('has no card of hers for a week with nothing logged', async () => {
+    await render(<HistoryScreen />);
+
+    expect(screen.getByLabelText('Card 1 of 3')).toBeTruthy();
+    expect(fetchInsight).not.toHaveBeenCalled();
   });
 });
 

@@ -6,7 +6,9 @@ import { createTestDb } from '@/db/__tests__/testDb';
 import { createFoodLog } from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
 import type { AppDb } from '@/db/types';
+import { fetchInsight } from '@/services/relayClient';
 import type { AppVerdict } from '@/types/analysis';
+import type { Insight } from '@/types/insight';
 
 let mockDb: AppDb;
 let closeDb: () => void;
@@ -15,6 +17,7 @@ let mockUserName = '';
 let mockReduceMotion = true;
 let mockReminderAsked = true;
 let mockReminderMinutes: number | null = null;
+let mockNudged = true;
 const mockUpdate = jest.fn();
 const mockToast = jest.fn();
 const mockPush = jest.fn();
@@ -30,10 +33,12 @@ jest.mock('@/db/DatabaseProvider', () => ({
       lateMealWindowMinutes: 180,
       reminderAsked: mockReminderAsked,
       checkInReminderMinutes: mockReminderMinutes,
+      insightNudged: mockNudged,
     },
     update: mockUpdate,
   }),
 }));
+jest.mock('@/services/relayClient', () => ({ fetchInsight: jest.fn() }));
 jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 // Reanimated's native runtime can't load in Jest; use its mocks (which lack useReducedMotion).
 jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/lib/module/mock'));
@@ -71,6 +76,12 @@ beforeEach(() => {
   mockReduceMotion = true;
   mockReminderAsked = true;
   mockReminderMinutes = null;
+  mockNudged = true;
+  // Bellie's summary is still on its way unless a test says otherwise.
+  jest
+    .mocked(fetchInsight)
+    .mockReset()
+    .mockReturnValue(new Promise<Insight>(() => {}));
   mockUpdate.mockClear();
   mockToast.mockClear();
   jest.mocked(Notifications.requestPermissionsAsync).mockClear();
@@ -242,16 +253,127 @@ describe('Today: an empty day', () => {
   });
 });
 
+describe("Today: Bellie's words", () => {
+  const dayInsight: Insight = {
+    tone: 'nudge',
+    bellieLine: 'Easy on the spice tonight?',
+    summary: 'Spicy ramen at lunch. Chili keeps showing up.',
+    tips: ['Have spicy food earlier in the day.'],
+  };
+  const weekInsight: Insight = {
+    tone: 'cheer',
+    bellieLine: 'A good week so far!',
+    summary: 'Mostly good meals this week.',
+    tips: [],
+  };
+  const answer = (request: { range: string }) =>
+    Promise.resolve(request.range === 'day' ? dayInsight : weekInsight);
+
+  it('asks for nothing and says "Tap me to log" with no cards on a day with nothing logged', async () => {
+    await render(<TodayScreen />);
+
+    expect(screen.getByText('Tap me to log')).toBeTruthy();
+    expect(screen.queryByText('Today so far')).toBeNull();
+    expect(fetchInsight).not.toHaveBeenCalled();
+  });
+
+  it('shows the words made on the phone at once, with a card for today and one for the week', async () => {
+    seedMeal('Spicy ramen', 'caution', minutesAgo(5));
+    await render(<TodayScreen />);
+
+    expect(screen.getByText('Go easy tonight?')).toBeTruthy();
+    expect(screen.getByText('Today so far')).toBeTruthy();
+    expect(screen.getByText('1 meal today: 0 good, 1 to watch.')).toBeTruthy();
+    expect(screen.getByText('Tips')).toBeTruthy();
+    expect(screen.getByText('This week')).toBeTruthy();
+  });
+
+  it("puts Bellie's own line in the bubble and her summaries on the cards once they arrive", async () => {
+    jest.mocked(fetchInsight).mockImplementation(answer);
+    seedMeal('Spicy ramen', 'caution', minutesAgo(5));
+    await render(<TodayScreen />);
+
+    expect(await screen.findByText('Easy on the spice tonight?')).toBeTruthy();
+    expect(screen.getByText('Spicy ramen at lunch. Chili keeps showing up.')).toBeTruthy();
+    expect(screen.getByText('Have spicy food earlier in the day.')).toBeTruthy();
+    expect(screen.getByText('Mostly good meals this week.')).toBeTruthy();
+  });
+
+  it('sends only the meal name, verdict and time, for the day and for the week', async () => {
+    seedMeal('Spicy ramen', 'caution', minutesAgo(5));
+    await render(<TodayScreen />);
+
+    const sent = jest.mocked(fetchInsight).mock.calls.map(([request]) => request);
+    expect(sent.map((request) => request.range).sort()).toEqual(['day', 'week']);
+    for (const request of sent) {
+      expect(request.meals).toEqual([{ name: 'Spicy ramen', verdict: 'caution', when: expect.any(String) }]);
+      expect(Object.keys(request).sort()).toEqual(['meals', 'range', 'symptoms', 'tags']);
+    }
+  });
+
+  it('tells Bellie from the rest of the screen: tapping her opens the Food screen', async () => {
+    jest.mocked(fetchInsight).mockImplementation(answer);
+    seedMeal('Spicy ramen', 'caution', minutesAgo(5));
+    await render(<TodayScreen />);
+    await screen.findByText('Easy on the spice tonight?');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
+
+    expect(mockPush).toHaveBeenCalledWith('/log/food');
+  });
+
+  describe('the sideways nudge', () => {
+    beforeEach(() => {
+      mockReduceMotion = false;
+      mockNudged = false;
+      jest.useFakeTimers();
+    });
+    afterEach(() => jest.useRealTimers());
+
+    it('plays once, after a moment, when there are cards to swipe, and is remembered', async () => {
+      seedMeal('Spicy ramen', 'caution', minutesAgo(5));
+      await render(<TodayScreen />);
+      expect(mockUpdate).not.toHaveBeenCalledWith('insightNudged', true);
+
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(mockUpdate).toHaveBeenCalledWith('insightNudged', true);
+    });
+
+    it('does not play again once it has been seen, or with Reduce Motion on', async () => {
+      seedMeal('Spicy ramen', 'caution', minutesAgo(5));
+      mockNudged = true;
+      const seen = await render(<TodayScreen />);
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(mockUpdate).not.toHaveBeenCalledWith('insightNudged', true);
+      await seen.unmount();
+
+      mockNudged = false;
+      mockReduceMotion = true;
+      await render(<TodayScreen />);
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(mockUpdate).not.toHaveBeenCalledWith('insightNudged', true);
+    });
+  });
+});
+
 describe('Today: after logging', () => {
-  it('counts meals on the ring and lists every entry for today, newest first', async () => {
+  it('lists every entry for today, newest first, with Bellie saying something instead of a count', async () => {
     seedMeal('Oatmeal with banana', 'good', minutesAgo(3));
     seedMeal('Grilled salmon', 'ok', minutesAgo(2));
     const medication = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi' });
     logMedication(mockDb, medication, { doseText: '20mg', takenAt: minutesAgo(1) });
     await render(<TodayScreen />);
 
-    expect(screen.getByText('2 meals')).toBeTruthy();
-    expect(screen.getByText('logged today')).toBeTruthy();
+    // Words made on the phone while Bellie's summary is on its way.
+    expect(screen.getByText('A calm day so far!')).toBeTruthy();
+    expect(screen.queryByText('logged today')).toBeNull();
     expect(screen.getByText('3 entries')).toBeTruthy();
     expect(screen.getByText('Taken')).toBeTruthy();
     expect(screen.queryByText('Tap me to log')).toBeNull();
@@ -261,11 +383,10 @@ describe('Today: after logging', () => {
     ).toEqual(['Medication: Omeprazole 20mg', 'Meal: Grilled salmon', 'Meal: Oatmeal with banana']);
   });
 
-  it('says "1 meal" and "1 entry" for a single meal', async () => {
+  it('says "1 entry" for a single meal', async () => {
     seedMeal('Toast', 'good', minutesAgo(1));
     await render(<TodayScreen />);
 
-    expect(screen.getByText('1 meal')).toBeTruthy();
     expect(screen.getByText('1 entry')).toBeTruthy();
   });
 

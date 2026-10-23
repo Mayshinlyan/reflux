@@ -10,6 +10,8 @@ const envSchema = z.object({
   ANALYSIS_ENABLED: booleanString.default(true),
   PER_USER_DAILY_LIMIT: z.coerce.number().int().positive().default(30),
   GLOBAL_DAILY_LIMIT: z.coerce.number().int().positive().default(300),
+  /** Bellie's day and week summaries have their own per-user cap, so they never use up meal checks. */
+  PER_USER_DAILY_INSIGHT_LIMIT: z.coerce.number().int().positive().default(20),
   /** Injected from Secret Manager in the cloud. Never logged. */
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   ANTHROPIC_MODEL: z.string().min(1).default('claude-sonnet-5-5'),

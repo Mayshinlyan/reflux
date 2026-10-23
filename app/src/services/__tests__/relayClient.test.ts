@@ -3,10 +3,11 @@ import { AppState } from 'react-native';
 import { convertFormDataAsync } from 'expo/src/winter/fetch/convertFormData';
 
 import { friendlyMessages } from '@/lib/errors';
+import type { InsightRequest } from '@/types/insight';
 
 import { getNetworkStateAsync } from 'expo-network';
 
-import { analyzeFood } from '../relayClient';
+import { analyzeFood, fetchInsight } from '../relayClient';
 import { getIdToken } from '../firebase';
 
 // A stand-in with the parts of an expo-file-system File that Expo's multipart encoder uses.
@@ -244,5 +245,81 @@ describe('analyzeFood', () => {
     fetchMock.mockReturnValue(Promise.resolve(new Response('nope', { status: 200 })));
 
     await expect(analyzeFood({ text: 'a' })).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
+  });
+});
+
+describe('fetchInsight', () => {
+  const request: InsightRequest = {
+    range: 'day',
+    meals: [{ name: 'Spicy chicken tacos', verdict: 'caution', when: '7:45 PM' }],
+    symptoms: [{ name: 'Heartburn', when: '9:40 PM' }],
+    tags: ['Late meal'],
+  };
+  const insight = {
+    tone: 'nudge',
+    bellieLine: 'Easy on the spice tonight?',
+    summary: 'Spicy tacos late, then heartburn.',
+    tips: ['Have spicy food earlier in the day.'],
+  };
+
+  it('posts the request as JSON with the bearer token, and returns just the fields we show', async () => {
+    fetchMock.mockReturnValue(json(200, { ...insight, meta: { model: 'm', promptVersion: 'insight-v1' } }));
+
+    await expect(fetchInsight(request)).resolves.toEqual(insight);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://relay.test/v1/insight');
+    expect(init.method).toBe('POST');
+    expect(init.headers.Authorization).toBe('Bearer test-token');
+    expect(init.headers['Content-Type']).toBe('application/json');
+    expect(JSON.parse(init.body)).toEqual(request);
+  });
+
+  it('maps a relay error to its code, so the screen can keep its own words', async () => {
+    fetchMock.mockReturnValue(json(429, { error: { code: 'RATE_LIMITED', requestId: 'r1' } }));
+
+    await expect(fetchInsight(request)).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+  });
+
+  it.each([
+    ['a missing field', { tone: 'nudge', bellieLine: 'Hi', tips: [] }],
+    ['a tone outside the set', { ...insight, tone: 'angry' }],
+    ['tips that are not text', { ...insight, tips: [1, 2] }],
+    ['an empty line', { ...insight, bellieLine: '' }],
+  ])('reports AI_INVALID_OUTPUT for %s', async (_name, body) => {
+    fetchMock.mockReturnValue(json(200, body));
+
+    await expect(fetchInsight(request)).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
+  });
+
+  it('reports AI_INVALID_OUTPUT when a 200 body is not JSON', async () => {
+    fetchMock.mockReturnValue(Promise.resolve(new Response('nope', { status: 200 })));
+
+    await expect(fetchInsight(request)).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
+  });
+
+  it('reports OFFLINE when the request fails and the phone has no connection', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Network request failed'));
+    (getNetworkStateAsync as jest.Mock).mockResolvedValueOnce({ isConnected: false });
+
+    await expect(fetchInsight(request)).rejects.toMatchObject({ code: 'OFFLINE' });
+  });
+
+  it('reports NETWORK when the request cannot be made but the phone is online', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Network request failed'));
+    (getNetworkStateAsync as jest.Mock).mockResolvedValueOnce({
+      isConnected: true,
+      isInternetReachable: true,
+    });
+
+    await expect(fetchInsight(request)).rejects.toMatchObject({ code: 'NETWORK' });
+  });
+
+  it('rethrows the caller abort untouched', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    fetchMock.mockRejectedValue(new DOMException('aborted', 'AbortError'));
+
+    await expect(fetchInsight(request, controller.signal)).rejects.toThrow('aborted');
   });
 });

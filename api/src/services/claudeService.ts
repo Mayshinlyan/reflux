@@ -8,7 +8,8 @@ import {
   TOOL_NAME,
   textUserMessage,
 } from '../prompts/foodAnalysisPrompt.js';
-import { mealAnalysisJsonSchema, type Portion } from '../schemas.js';
+import { INSIGHT_SYSTEM_PROMPT, INSIGHT_TOOL_NAME, insightUserMessage } from '../prompts/insightPrompt.js';
+import { type InsightInput, insightJsonSchema, mealAnalysisJsonSchema, type Portion } from '../schemas.js';
 
 export type ClaudeInput =
   | { kind: 'text'; text: string; details?: string; portion?: Portion; conditions?: Condition[] }
@@ -36,6 +37,8 @@ export type ClaudeResult = {
 export interface ClaudeService {
   readonly model: string;
   analyze(input: ClaudeInput): Promise<ClaudeResult>;
+  /** Bellie's day or week summary of what the person logged. */
+  insight(input: InsightInput): Promise<ClaudeResult>;
 }
 
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -50,11 +53,11 @@ const RETRY_DELAY_MS = 750;
  * `tool_choice` and non-default sampling params with a 400 (and Sonnet 5.5 rejects disabled
  * thinking), so those are only sent where they are accepted.
  */
-export function modelParams(model: string) {
+export function modelParams(model: string, toolName: string = TOOL_NAME) {
   const modern = /(fable|mythos|opus-5|sonnet-5)/.test(model);
   return {
     // Forced tool use where supported; otherwise "auto" plus the prompt instruction to call the tool.
-    toolChoice: modern ? ({ type: 'auto' } as const) : ({ type: 'tool', name: TOOL_NAME } as const),
+    toolChoice: modern ? ({ type: 'auto' } as const) : ({ type: 'tool', name: toolName } as const),
     extra: /sonnet-5-5/.test(model)
       ? { thinking: { type: 'between_tools' } } // no extended thinking: cheaper and fits max_tokens
       : /opus-5-5|fable|mythos/.test(model)
@@ -64,6 +67,15 @@ export function modelParams(model: string) {
           : { temperature: 0.2 },
   };
 }
+
+/** One forced tool call: the fixed system prompt, the tool it must call, and the user turn. */
+type ToolCall = {
+  system: string;
+  toolName: string;
+  toolDescription: string;
+  inputSchema: { type: 'object'; [key: string]: unknown };
+  content: Anthropic.ContentBlockParam[];
+};
 
 export function createClaudeService(options: {
   apiKey: string;
@@ -77,12 +89,69 @@ export function createClaudeService(options: {
   // The SDK's own retries are off; we retry once ourselves so the count can be reported.
   const client =
     options.client ?? new Anthropic({ apiKey: options.apiKey, maxRetries: 0, timeout: TIMEOUT_MS });
-  const params = modelParams(model);
-  const inputSchema = mealAnalysisJsonSchema();
+  const analysisSchema = mealAnalysisJsonSchema();
+  const insightSchema = insightJsonSchema();
+
+  async function call({
+    system,
+    toolName,
+    toolDescription,
+    inputSchema,
+    content,
+  }: ToolCall): Promise<ClaudeResult> {
+    const params = modelParams(model, toolName);
+    const request = {
+      model,
+      max_tokens: MAX_TOKENS,
+      // The fixed system prompt is the cached prefix (tools render before system).
+      system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+      tools: [{ name: toolName, description: toolDescription, input_schema: inputSchema }],
+      tool_choice: params.toolChoice,
+      messages: [{ role: 'user', content }],
+      ...params.extra,
+    } as Anthropic.MessageCreateParamsNonStreaming;
+
+    const started = Date.now();
+    let retries = 0;
+    for (;;) {
+      try {
+        const message = await client.messages.create(request);
+        const telemetry: ClaudeTelemetry = {
+          model,
+          latencyMs: Date.now() - started,
+          inputTokens: message.usage.input_tokens,
+          outputTokens: message.usage.output_tokens,
+          cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
+          cacheCreationTokens: message.usage.cache_creation_input_tokens ?? 0,
+          anthropicRequestId: message._request_id ?? null,
+          retries,
+        };
+        if (message.stop_reason === 'refusal') throw new HttpError('AI_UPSTREAM_ERROR');
+        const toolUse = message.content.find((block) => block.type === 'tool_use' && block.name === toolName);
+        if (!toolUse || toolUse.type !== 'tool_use' || message.stop_reason === 'max_tokens') {
+          // Content-free, so a truncated or tool-less answer is diagnosable from the log.
+          throw new HttpError('AI_INVALID_OUTPUT', undefined, {
+            stopReason: message.stop_reason,
+            outputTokens: telemetry.outputTokens,
+            anthropicRequestId: telemetry.anthropicRequestId,
+          });
+        }
+        return { raw: toolUse.input, telemetry };
+      } catch (error) {
+        if (error instanceof HttpError) throw error;
+        if (retries < MAX_RETRIES && isRetryable(error)) {
+          retries += 1;
+          await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+          continue;
+        }
+        throw toHttpError(error);
+      }
+    }
+  }
 
   return {
     model,
-    async analyze(input) {
+    analyze(input) {
       const content: Anthropic.ContentBlockParam[] =
         input.kind === 'text'
           ? [
@@ -98,62 +167,22 @@ export function createClaudeService(options: {
               },
               { type: 'text', text: photoUserMessage(input.details, input.portion, input.conditions) },
             ];
-
-      const request = {
-        model,
-        max_tokens: MAX_TOKENS,
-        // The fixed system prompt + ruleset is the cached prefix (tools render before system).
-        system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-        tools: [
-          {
-            name: TOOL_NAME,
-            description: 'Report the structured reflux-trigger analysis of the meal. Call exactly once.',
-            input_schema: inputSchema,
-          },
-        ],
-        tool_choice: params.toolChoice,
-        messages: [{ role: 'user', content }],
-        ...params.extra,
-      } as Anthropic.MessageCreateParamsNonStreaming;
-
-      const started = Date.now();
-      let retries = 0;
-      for (;;) {
-        try {
-          const message = await client.messages.create(request);
-          const telemetry: ClaudeTelemetry = {
-            model,
-            latencyMs: Date.now() - started,
-            inputTokens: message.usage.input_tokens,
-            outputTokens: message.usage.output_tokens,
-            cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
-            cacheCreationTokens: message.usage.cache_creation_input_tokens ?? 0,
-            anthropicRequestId: message._request_id ?? null,
-            retries,
-          };
-          if (message.stop_reason === 'refusal') throw new HttpError('AI_UPSTREAM_ERROR');
-          const toolUse = message.content.find(
-            (block) => block.type === 'tool_use' && block.name === TOOL_NAME,
-          );
-          if (!toolUse || toolUse.type !== 'tool_use' || message.stop_reason === 'max_tokens') {
-            // Content-free, so a truncated or tool-less answer is diagnosable from the log.
-            throw new HttpError('AI_INVALID_OUTPUT', undefined, {
-              stopReason: message.stop_reason,
-              outputTokens: telemetry.outputTokens,
-              anthropicRequestId: telemetry.anthropicRequestId,
-            });
-          }
-          return { raw: toolUse.input, telemetry };
-        } catch (error) {
-          if (error instanceof HttpError) throw error;
-          if (retries < MAX_RETRIES && isRetryable(error)) {
-            retries += 1;
-            await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
-            continue;
-          }
-          throw toHttpError(error);
-        }
-      }
+      return call({
+        system: SYSTEM_PROMPT,
+        toolName: TOOL_NAME,
+        toolDescription: 'Report the structured reflux-trigger analysis of the meal. Call exactly once.',
+        inputSchema: analysisSchema,
+        content,
+      });
+    },
+    insight(input) {
+      return call({
+        system: INSIGHT_SYSTEM_PROMPT,
+        toolName: INSIGHT_TOOL_NAME,
+        toolDescription: "Report Bellie's short summary of what the person logged. Call exactly once.",
+        inputSchema: insightSchema,
+        content: [{ type: 'text', text: insightUserMessage(input) }],
+      });
     },
   };
 }
@@ -183,6 +212,9 @@ export function createUnavailableClaudeService(model = DEFAULT_MODEL): ClaudeSer
   return {
     model,
     async analyze() {
+      throw new HttpError('SERVICE_BUSY');
+    },
+    async insight() {
       throw new HttpError('SERVICE_BUSY');
     },
   };

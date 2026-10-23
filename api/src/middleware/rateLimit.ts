@@ -10,11 +10,17 @@ type Limits = { perUser: number; global: number };
  * Every accepted request counts, whether or not the analysis later succeeds, because it may cost money.
  * A store failure fails closed as SERVICE_BUSY so a Firestore outage can't disable the cost caps.
  */
-export function rateLimit(store: RateLimitStore, limits: Limits, now: () => Date = () => new Date()) {
+export function rateLimit(
+  store: RateLimitStore,
+  limits: Limits,
+  now: () => Date = () => new Date(),
+  /** A separate per-user counter, e.g. 'insight', so one kind of request can't use up another's allowance. */
+  scope = 'user',
+) {
   return async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const when = now();
-      const userCount = await store.increment(`user_${res.locals.uid}`, when);
+      const userCount = await store.increment(`${scope}_${res.locals.uid}`, when);
       if (userCount > limits.perUser) return next(new HttpError('RATE_LIMITED'));
       const globalCount = await store.increment(GLOBAL_KEY, when);
       if (globalCount > limits.global) {

@@ -4,7 +4,8 @@ import { Animated, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
-import { HomeRing } from '@/components/HomeRing';
+import { HomeBellie } from '@/components/HomeBellie';
+import { InsightCards } from '@/components/InsightCards';
 import { LateMealBadge } from '@/components/LateMealBadge';
 import { ReminderPromptSheet } from '@/components/ReminderPromptSheet';
 import { Screen } from '@/components/Screen';
@@ -13,9 +14,11 @@ import { TimelineItem } from '@/components/TimelineItem';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { WeekStrip } from '@/components/WeekStrip';
 import { useSettings } from '@/db/DatabaseProvider';
+import { useInsight } from '@/hooks/useInsight';
 import { useReminderPrompt } from '@/hooks/useReminderPrompt';
 import { useTodayData } from '@/hooks/useTodayData';
 import { bellyMoodFor } from '@/lib/belly';
+import { buildInsightRequest } from '@/lib/insight';
 import { isLateMeal } from '@/lib/mealTiming';
 import { space } from '@/theme';
 
@@ -33,14 +36,21 @@ function greeting(now: Date): string {
 }
 
 /**
- * Today: a greeting, this week, and a ring with one arc per meal logged today, the belly in the middle.
- * Tapping the belly opens the Log page; after logging, today's entries list below the ring. The round button
- * beside the greeting opens Profile. First launch redirects to Welcome.
+ * Today: a greeting, this week, and a big Bellie under a speech bubble with her line about the day. Tapping
+ * Bellie opens the Food screen. Under her, swipeable cards (Today so far, Tips, This week) from Bellie's
+ * summaries, then today's entries. The round button beside the greeting opens Profile. First launch redirects
+ * to Welcome.
  */
 export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
-  const { week, loggedDays, entries, meals } = useTodayData();
+  const { todayKey, week, loggedDays, entries, weekEntries, meals } = useTodayData();
+  // Bellie's words: made on the phone at once, then the AI's once they arrive (and only asked for again when
+  // what was logged changes).
+  const dayRequest = useMemo(() => buildInsightRequest('day', entries), [entries]);
+  const weekRequest = useMemo(() => buildInsightRequest('week', weekEntries), [weekEntries]);
+  const dayInsight = useInsight('day', todayKey, dayRequest);
+  const weekInsight = useInsight('week', week[0]?.key ?? todayKey, weekRequest);
   const reminder = useReminderPrompt();
   const now = new Date();
   const [picked, setPicked] = useState<string | null>(null);
@@ -127,9 +137,15 @@ export default function TodayScreen() {
           onPressDay={(date) => pickDay(date, week.find((day) => day.isToday)?.key ?? '')}
         />
 
-        <View style={[styles.ring, empty && styles.ringEmpty]}>
-          <HomeRing meals={meals} mood={mood} onPress={() => router.push('/log/food')} />
+        <View style={[styles.bellie, empty && styles.bellieEmpty]}>
+          <HomeBellie
+            line={dayInsight?.bellieLine ?? 'Tap me to log'}
+            mood={mood}
+            onPress={() => router.push('/log/food')}
+          />
         </View>
+
+        <InsightCards today={dayInsight} week={weekInsight} />
 
         {!empty && (
           <View
@@ -190,9 +206,9 @@ const styles = StyleSheet.create({
   grow: { flexGrow: 1 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: space.s2 },
   greeting: { flex: 1, gap: space.s1 },
-  ring: { alignItems: 'center' },
-  // On an empty day the ring sits in the middle of the room left under the week.
-  ringEmpty: { flex: 1, justifyContent: 'center' },
+  bellie: { alignItems: 'center' },
+  // On an empty day Bellie sits in the middle of the room left under the week.
+  bellieEmpty: { flex: 1, justifyContent: 'center' },
   today: { gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   badges: { gap: 4, alignItems: 'flex-end' },
