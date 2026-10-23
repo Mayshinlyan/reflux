@@ -146,6 +146,22 @@ describe('History: the week', () => {
     expect(router.push).toHaveBeenCalledWith('/profile');
   });
 
+  it('says in a warm line under the title which period this is, like the date under Today', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText("Here's how your week went")).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous week' }));
+    expect(screen.getByText("Here's how that week went")).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
+    expect(screen.getByText("Here's how your month went")).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'All time' }));
+    expect(screen.getByText('Everything so far')).toBeTruthy();
+  });
+
   it('starts on Week with the range pill showing the week', async () => {
     await render(<HistoryScreen />);
 
