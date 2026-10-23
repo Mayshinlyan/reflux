@@ -77,7 +77,7 @@ async function toPrivacy() {
   await press('Skip for now'); // symptoms
   await press('Continue'); // bedtime
   await press('Skip for now'); // medications
-  expect(header('Everything stays on your phone.')).toBeTruthy();
+  expect(header('Your diary stays with you.')).toBeTruthy();
 }
 
 /** Continues from Privacy to the reminder timing question. */
@@ -246,7 +246,7 @@ describe('Welcome', () => {
       await press('Skip for now');
 
       expect(listMedications(mockDb)).toEqual([]);
-      expect(header('Everything stays on your phone.')).toBeTruthy();
+      expect(header('Your diary stays with you.')).toBeTruthy();
     });
 
     it('adds a common medication with a dose, then offers "Continue"', async () => {
@@ -265,7 +265,7 @@ describe('Welcome', () => {
       expect(screen.queryByRole('button', { name: 'Skip for now' })).toBeNull();
       expect(screen.getByRole('button', { name: 'Add another' })).toBeTruthy();
       await press('Continue');
-      expect(header('Everything stays on your phone.')).toBeTruthy();
+      expect(header('Your diary stays with you.')).toBeTruthy();
     });
 
     it('adds one that is not listed from a name, a type and an optional dose', async () => {

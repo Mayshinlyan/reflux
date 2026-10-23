@@ -1,6 +1,6 @@
 # Reflux — Operations Runbook
 
-For the relay service (`api/`) running on Google Cloud Run. The mobile app has no server-side operations in the MVP (Expo Go, no EAS).
+For the relay service (`api/`) running on Google Cloud Run. The mobile app has no server-side operations; its iOS builds are made with EAS (see "Shipping an iOS build").
 
 ## Kill switch — stop all AI analysis immediately
 
@@ -85,6 +85,24 @@ The iOS home-screen widget (Snap food, plus saved foods on the medium size) is a
 4. Check: tapping the bubble opens the camera; the medium size lists up to three of Favorite foods (A to Z); tapping one logs it and opens the check-in; renaming or removing a saved food updates the widget; **Delete all data** (You) empties it.
 
 A tapped food carries a token made on the phone, so a link from a web page or message can't log a meal; without it `?quickLog=` just opens the Food screen. Changing the widget's look means updating the Figma component *Widget/Bellie says* first, then re-exporting `app/assets/images/widget-bellie-says.png` at 3×.
+
+## Shipping an iOS build (EAS → TestFlight)
+
+Profiles are in `app/eas.json`: `development` (dev client, internal), `preview` (internal, no dev server) and `production` (store build, build number bumped by EAS). Run EAS as `npx eas-cli@latest <command>` from `app/`.
+
+One-time setup:
+
+1. Join the Apple Developer Program, make a free Expo account, then `eas login` and `eas init`.
+2. Register each test iPhone with `eas device:create` (needed for `development` and `preview`; turn on Developer Mode on the phone).
+3. **Put the app's `EXPO_PUBLIC_*` values in EAS.** `app/.env` is git-ignored, so cloud builds never see it, and without these the build installs but can't reach the relay or Firebase. For each variable in `app/.env.example`, run `eas env:create --environment <development|preview|production> --name <NAME> --value <value> --visibility plaintext` (they are public, bundled into the app, never secrets). Check with `eas env:list --environment production`.
+
+Each release:
+
+1. `eas build --platform ios --profile production`, then `eas submit --platform ios --latest`. The first submit creates the app in App Store Connect (the store name must be unique).
+2. In App Store Connect → TestFlight, add internal testers (up to 100, no Apple review). External testers and the App Store need the privacy policy, privacy label and the Milestone 2 items in `docs/BUILD_PLAN.md`.
+3. Check on the phone: install from TestFlight with no dev server running, log a meal (proves the env vars reached the build), and, for the widget, add **Snap food**.
+
+`runtimeVersion` follows the native fingerprint. Over-the-air updates are not set up yet: they need `npx expo install expo-updates` and `eas update:configure` first, after which an update only reaches builds with matching native code. `eas init` also adds the project id to `app.json`; commit that change.
 
 ## Milestone 2 additions (not yet applicable in MVP)
 

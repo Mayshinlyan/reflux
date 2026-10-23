@@ -174,7 +174,7 @@ export default function SettingsScreen() {
         variant="cards"
         title="Check-in reminder"
         note="A gentle nudge to log how you feel after a meal."
-        footnote="Stays on your phone. Nothing is sent anywhere."
+        footnote="This reminder is set on your phone. Nothing about it is sent anywhere."
         options={REMINDERS}
         value={settings.checkInReminderMinutes === null ? OFF : String(settings.checkInReminderMinutes)}
         onChoose={chooseReminder}

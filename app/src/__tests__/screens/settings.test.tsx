@@ -144,7 +144,13 @@ describe('Settings: privacy and disclaimer', () => {
     await press('button', 'Privacy and disclaimer');
 
     expect(screen.getByText('Stored on your phone')).toBeTruthy();
-    expect(screen.getByText('Meal checks use AI')).toBeTruthy();
+    expect(screen.getByText('Meal checks and summaries use AI')).toBeTruthy();
+    // What is sent, and what is not, in a few plain words.
+    expect(screen.getByText(/we send your meals, symptoms and conditions to an AI service/)).toBeTruthy();
+    expect(screen.getByText(/along with anything you type when checking a meal/)).toBeTruthy();
+    expect(
+      screen.getByText(/The notes on your entries, your medications and your name stay on your phone/),
+    ).toBeTruthy();
     expect(screen.getByText('Not medical advice')).toBeTruthy();
   });
 });
@@ -221,7 +227,9 @@ describe('Settings: check-in reminder', () => {
     expect(
       options.filter((o) => o.props.accessibilityState?.checked).map((o) => o.props.accessibilityLabel),
     ).toEqual(['Off']);
-    expect(screen.getByText('Stays on your phone. Nothing is sent anywhere.')).toBeTruthy();
+    expect(
+      screen.getByText('This reminder is set on your phone. Nothing about it is sent anywhere.'),
+    ).toBeTruthy();
   });
 
   it('turns it on once the phone allows it, saves the time, marks it asked, and closes the sheet', async () => {

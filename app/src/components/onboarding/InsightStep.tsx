@@ -13,7 +13,7 @@ export function InsightStep({ onNext }: { onNext: () => void }) {
   return (
     <StepLayout
       title="Patterns show up as you log."
-      subtitle="The more you log, the clearer it gets. It all stays on your phone."
+      subtitle="The more you log, the clearer it gets."
       footer={<Button label="Continue" onPress={onNext} />}>
       <View
         accessible

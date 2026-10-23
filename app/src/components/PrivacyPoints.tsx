@@ -3,11 +3,11 @@ import { Camera, Check, type LucideIcon, Shield } from 'lucide-react-native';
 import { PointList } from './PointList';
 
 const POINTS: readonly { icon: LucideIcon; title: string; body: string }[] = [
-  { icon: Shield, title: 'Stored on your phone', body: 'Your entries never leave your device.' },
+  { icon: Shield, title: 'Stored on your phone', body: 'Your diary stays on your phone.' },
   {
     icon: Camera,
-    title: 'Meal checks use AI',
-    body: "Only the photo or description you add, and what you're managing, is sent to check a meal. Bellie's daily and weekly summaries send meal names, verdicts and tags, never your notes or name.",
+    title: 'Meal checks and summaries use AI',
+    body: "To check meals and write Bellie's summaries, we send your meals, symptoms and conditions to an AI service, along with anything you type when checking a meal. The notes on your entries, your medications and your name stay on your phone.",
   },
   {
     icon: Check,

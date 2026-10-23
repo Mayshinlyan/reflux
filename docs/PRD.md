@@ -99,7 +99,9 @@ Photos are compressed and stripped of metadata (including EXIF/GPS) on-device be
 
 Anthropic processes the food photo/text to produce the analysis; under Anthropic's commercial API terms, inputs aren't used for model training by default. This will be confirmed and stated plainly in the privacy policy before any public launch.
 
-**Honest promise to users:** "Your health data never leaves your phone."
+**Honest promise to users:** "Your diary stays on your phone. To check meals and write Bellie's summaries, we send your meals, symptoms and conditions to an AI service, along with anything you type when checking a meal. The notes on your entries, your medications and your name stay on your phone."
+
+**What is sent, exactly** (the source for the privacy policy and the App Store privacy details). For a meal check: the photo (sanitized, kept in memory only on the relay) or the typed description; anything the user writes in "Anything we should know?" or "Tell us more" (capped at 300 characters); and the conditions they picked. A portion size (small or large) is also sent when the user changes the portion of a logged meal and saves, which re-checks the meal; a regular portion is never sent. For Bellie's day and week summaries, sent automatically when entries change: meal names with their verdicts (Good, Okay, Caution, Avoid), symptom names (including ones the user typed), the "What's going on?" tags picked in How I feel, and short time labels. Every request also carries an anonymous sign-in token (no email or name), used to rate-limit. Never sent: the notes on meal or symptom entries, medications, the user's name, or any other photo. The relay logs no content (its logger redacts it) and keeps only daily request counters tied to the anonymous ID, which expire after 48 hours; error reports from the app carry an operation name and a code only.
 
 ## 8. Security Model
 
