@@ -165,9 +165,12 @@ export default function LogSymptomsScreen() {
       return () => subscription.remove();
     }, [step, goBack]),
   );
+  // The edge swipe leaves at once, so it is only on while there is nothing to lose: nothing picked or typed yet,
+  // or an edit (the entry itself is untouched until it is saved).
+  const hasInput = selected.size > 0 || tags.size > 0 || note.trim().length > 0;
   useEffect(() => {
-    navigation.setOptions({ gestureEnabled: step === 1 });
-  }, [navigation, step]);
+    navigation.setOptions({ gestureEnabled: step === 1 && (editingId !== undefined || !hasInput) });
+  }, [navigation, step, editingId, hasInput]);
 
   const firstRender = useRef(true);
   useEffect(() => {

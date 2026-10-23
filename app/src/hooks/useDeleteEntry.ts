@@ -3,49 +3,66 @@ import { useCallback } from 'react';
 import { Alert } from 'react-native';
 
 import { useToast } from '@/components/Toast';
-import { useDb } from '@/db/DatabaseProvider';
-import { deleteFoodLog } from '@/db/repositories/food';
-import { deleteMedicationLog } from '@/db/repositories/medications';
-import { deleteSymptomLog } from '@/db/repositories/symptoms';
+import { useDb, useSettings } from '@/db/DatabaseProvider';
+import { type DeletedEntry, deleteEntry, restoreEntry } from '@/db/repositories/entries';
+import { notifyEntriesChanged } from '@/lib/entriesChanged';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import type { TimelineKind } from '@/lib/timeline';
-import { cancelCheckIn } from '@/services/reminders';
+import { cancelCheckIn, scheduleCheckIn } from '@/services/reminders';
 
 /**
- * Asks "Delete this entry?" and, if confirmed, deletes it, says so in a toast and calls `onDeleted`. Shared by
- * History's swipe and the Entry screen's menu so both say and do the same thing.
+ * Deletes an entry at once, says so in a toast with an Undo, and calls `onDeleted`. No "are you sure?": a slip is
+ * forgiven by Undo for a few seconds instead. Shared by History's swipe and the Entry screen's menu so both say and
+ * do the same thing.
  */
 export function useDeleteEntry(onDeleted: () => void) {
   const db = useDb();
   const toast = useToast();
+  const { settings } = useSettings();
+
+  const undo = useCallback(
+    (deleted: DeletedEntry) => {
+      try {
+        restoreEntry(db, deleted);
+      } catch (error) {
+        logger.error('restoreEntry', error);
+        Alert.alert("Couldn't undo", friendlyMessages.INTERNAL);
+        return;
+      }
+      Haptics.selectionAsync().catch(() => {});
+      notifyEntriesChanged();
+      if (deleted.kind === 'food' && settings.checkInReminderMinutes !== null) {
+        void scheduleCheckIn({
+          mealId: deleted.log.id,
+          mealName: deleted.log.mealName,
+          eatenAt: new Date(deleted.log.loggedAt),
+          minutes: settings.checkInReminderMinutes,
+          bedtime: settings.bedtime,
+        });
+      }
+    },
+    [db, settings.checkInReminderMinutes, settings.bedtime],
+  );
+
   return useCallback(
     (entry: { kind: TimelineKind; id: number }) => {
-      Alert.alert('Delete this entry?', "It will be removed from this phone. This can't be undone.", [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            try {
-              if (entry.kind === 'symptom') deleteSymptomLog(db, entry.id);
-              if (entry.kind === 'food') {
-                deleteFoodLog(db, entry.id);
-                void cancelCheckIn(entry.id);
-              }
-              if (entry.kind === 'medication') deleteMedicationLog(db, entry.id);
-            } catch (error) {
-              logger.error('deleteEntry', error);
-              Alert.alert("Couldn't delete", friendlyMessages.INTERNAL);
-              return;
-            }
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-            toast('Entry deleted');
-            onDeleted();
-          },
-        },
-      ]);
+      let deleted: DeletedEntry | undefined;
+      try {
+        deleted = deleteEntry(db, entry);
+      } catch (error) {
+        logger.error('deleteEntry', error);
+        Alert.alert("Couldn't delete", friendlyMessages.INTERNAL);
+        return;
+      }
+      if (entry.kind === 'food') void cancelCheckIn(entry.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      onDeleted();
+      // Already gone (deleted from elsewhere): nothing to undo.
+      if (!deleted) return;
+      const gone = deleted;
+      toast('Entry deleted', { action: { label: 'Undo', onPress: () => undo(gone) } });
     },
-    [db, toast, onDeleted],
+    [db, toast, undo, onDeleted],
   );
 }

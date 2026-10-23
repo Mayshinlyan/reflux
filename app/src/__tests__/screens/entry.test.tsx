@@ -1,7 +1,8 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
-import { Alert, type AlertButton } from 'react-native';
+import { Alert } from 'react-native';
 import { router } from 'expo-router';
 
 import EntryScreen from '@/app/entry/index';
@@ -20,7 +21,7 @@ let mockParams: Record<string, string> = {};
 jest.mock('@/db/DatabaseProvider', () => ({
   useDb: () => mockDb,
   useSettings: () => ({
-    settings: { bedtime: '22:30', lateMealWindowMinutes: 180 },
+    settings: { bedtime: '22:30', lateMealWindowMinutes: 180, checkInReminderMinutes: null },
     update: jest.fn(),
   }),
 }));
@@ -41,7 +42,8 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(() => Promise.resolve()),
-  NotificationFeedbackType: { Success: 'success' },
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  NotificationFeedbackType: { Success: 'success', Warning: 'warning' },
 }));
 
 // Saturday 10 Oct 2026, local noon. Only the clock is faked.
@@ -106,11 +108,6 @@ const seedTacos = (loggedAt = at(10, 19, 45), advice: { summary?: string; tip?: 
     },
     meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
   });
-
-const pressAlertButton = (spy: jest.SpyInstance, text: string) => {
-  const buttons = spy.mock.calls.at(-1)?.[2] as AlertButton[];
-  buttons.find((button) => button.text === text)?.onPress?.();
-};
 
 describe('Entry: a meal', () => {
   it('shows the verdict on top, then the name, when and portion, tags, symptoms after and note', async () => {
@@ -340,30 +337,47 @@ describe('Entry: the menu', () => {
     expect(router.push).toHaveBeenCalledWith({ pathname: '/log/symptoms', params: { id: String(id) } });
   });
 
-  it('asks before deleting, and Cancel keeps the entry', async () => {
+  it('deletes at once with no alert, warns with a haptic and goes back to History', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const id = seedTacos();
-    mockParams = { kind: 'food', id: String(id) };
+    const id = createSymptomLog(mockDb, { items: [{ key: 'cough' }], loggedAt: at(10, 9) });
+    mockParams = { kind: 'symptom', id: String(id) };
     await render(<EntryScreen />);
 
     await openMenu();
     await fireEvent.press(screen.getByRole('menuitem', { name: 'Delete entry' }));
-    expect(alert.mock.calls.at(-1)?.[0]).toBe('Delete this entry?');
-    pressAlertButton(alert, 'Cancel');
 
-    expect(getFoodLog(mockDb, id)).toBeDefined();
-    expect(router.back).not.toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalled();
+    expect(getSymptomLog(mockDb, id)).toBeUndefined();
+    expect(Haptics.notificationAsync).toHaveBeenCalledWith('warning');
+    expect(mockToast).toHaveBeenLastCalledWith('Entry deleted', {
+      action: { label: 'Undo', onPress: expect.any(Function) },
+    });
+    expect(router.back).toHaveBeenCalled();
+  });
+
+  it('brings the entry back, as it was, when the toast’s Undo is pressed', async () => {
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const id = seedTacos();
+    const before = getFoodLog(mockDb, id);
+    mockParams = { kind: 'food', id: String(id) };
+    await render(<EntryScreen />);
+    await openMenu();
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'Delete entry' }));
+    expect(getFoodLog(mockDb, id)).toBeUndefined();
+
+    await act(async () => mockToast.mock.calls.at(-1)?.[1].action.onPress());
+
+    expect(getFoodLog(mockDb, id)).toEqual(before);
   });
 
   it('drops a meal’s check-in reminder when the meal is deleted, but not for other entries', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     jest.mocked(Notifications.cancelScheduledNotificationAsync).mockClear();
     const symptomId = createSymptomLog(mockDb, { items: [{ key: 'cough' }], loggedAt: at(10, 9) });
     mockParams = { kind: 'symptom', id: String(symptomId) };
     const { unmount } = await render(<EntryScreen />);
     await openMenu();
     await fireEvent.press(screen.getByRole('menuitem', { name: 'Delete entry' }));
-    await act(async () => pressAlertButton(alert, 'Delete'));
     expect(Notifications.cancelScheduledNotificationAsync).not.toHaveBeenCalled();
     await unmount();
 
@@ -372,24 +386,8 @@ describe('Entry: the menu', () => {
     await render(<EntryScreen />);
     await openMenu();
     await fireEvent.press(screen.getByRole('menuitem', { name: 'Delete entry' }));
-    await act(async () => pressAlertButton(alert, 'Delete'));
 
     expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(`meal-${id}`);
-  });
-
-  it('deletes the entry once confirmed and goes back to History', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const id = createSymptomLog(mockDb, { items: [{ key: 'cough' }], loggedAt: at(10, 9) });
-    mockParams = { kind: 'symptom', id: String(id) };
-    await render(<EntryScreen />);
-
-    await openMenu();
-    await fireEvent.press(screen.getByRole('menuitem', { name: 'Delete entry' }));
-    await act(async () => pressAlertButton(alert, 'Delete'));
-
-    expect(getSymptomLog(mockDb, id)).toBeUndefined();
-    expect(mockToast).toHaveBeenLastCalledWith('Entry deleted');
-    expect(router.back).toHaveBeenCalled();
   });
 });
 

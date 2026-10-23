@@ -1,10 +1,11 @@
 /** @jest-environment node */
-import { count } from 'drizzle-orm';
+import { count, eq } from 'drizzle-orm';
 
 import { nowIso } from '@/lib/time';
 import type { MealAnalysis } from '@/types/analysis';
 
 import { countLoggedEntries, deleteAllData, earliestEntryDayKey } from '../repositories/data';
+import { deleteEntry, restoreEntry } from '../repositories/entries';
 import {
   countDiaryMeals,
   createFoodLog,
@@ -16,6 +17,7 @@ import {
   listMealTagsFor,
   promoteCheckToDiary,
   saveMealDetails,
+  setMealTime,
   updateFoodCheck,
   updateFoodLog,
 } from '../repositories/food';
@@ -1187,14 +1189,14 @@ describe('delete all data', () => {
     expect(rows(db)).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
   });
 
-  it('resets the pet and bedtime but keeps onboarding done', () => {
+  it('resets every setting, including onboarding, so the welcome shows again', () => {
     const { db } = createTestDb();
     seed(db);
 
     deleteAllData(db);
 
-    expect(getAllSettings(db)).toEqual({ ...DEFAULT_SETTINGS, onboardingDone: true });
-    expect(db.select({ n: count() }).from(appSettings).get()?.n).toBe(1);
+    expect(getAllSettings(db)).toEqual(DEFAULT_SETTINGS);
+    expect(db.select({ n: count() }).from(appSettings).get()?.n).toBe(0);
   });
 
   it('is safe on an empty database and lets new data be logged afterwards', () => {
@@ -1227,5 +1229,118 @@ describe('countLoggedEntries', () => {
 
     promoteCheckToDiary(db, checkId);
     expect(countLoggedEntries(db)).toBe(5);
+  });
+});
+
+describe('deleting an entry and undoing it', () => {
+  const symptomRow = (db: ReturnType<typeof createTestDb>['db'], id: number) =>
+    db.select().from(symptomLogs).where(eq(symptomLogs.id, id)).get();
+
+  it('puts a meal back with its tags, and links the symptom that followed it again', () => {
+    const { db } = createTestDb();
+    const mealId = createFoodLog(db, {
+      entryType: 'diary',
+      source: 'text',
+      inputText: 'mint tea',
+      analysis: mintTea,
+      meta,
+    });
+    saveMealDetails(db, mealId, { tags: ['stress'], notes: 'heavy', loggedAt: '2026-09-28T19:00:00.000Z' });
+    const symptomId = createSymptomLog(db, {
+      items: [{ key: 'heartburn' }],
+      foodLogId: mealId,
+      loggedAt: DAY.from,
+      tz: 'UTC',
+    });
+    const before = db.select().from(foodLogs).where(eq(foodLogs.id, mealId)).get();
+
+    const deleted = deleteEntry(db, { kind: 'food', id: mealId });
+
+    expect(deleted?.kind).toBe('food');
+    expect(db.select({ n: count() }).from(foodLogs).get()?.n).toBe(0);
+    expect(db.select({ n: count() }).from(foodLogTags).get()?.n).toBe(0);
+    expect(symptomRow(db, symptomId)?.foodLogId).toBeNull();
+
+    restoreEntry(db, deleted!);
+
+    expect(db.select().from(foodLogs).where(eq(foodLogs.id, mealId)).get()).toEqual(before);
+    expect(
+      db
+        .select()
+        .from(foodLogTags)
+        .all()
+        .map((row) => row.tagKey),
+    ).toEqual(['stress']);
+    expect(symptomRow(db, symptomId)?.foodLogId).toBe(mealId);
+  });
+
+  it('puts a symptom log back with its symptoms and tags', () => {
+    const { db } = createTestDb();
+    const id = createSymptomLog(db, {
+      items: [{ key: 'heartburn' }, { key: 'burping' }],
+      tags: ['large_meal'],
+      notes: 'after dinner',
+      loggedAt: '2026-09-28T20:20:00.000Z',
+      tz: 'Europe/London',
+    });
+    const before = listSymptomLogs(db, DAY);
+
+    const deleted = deleteEntry(db, { kind: 'symptom', id });
+    expect(listSymptomLogs(db, DAY)).toHaveLength(0);
+    restoreEntry(db, deleted!);
+
+    expect(listSymptomLogs(db, DAY)).toEqual(before);
+  });
+
+  it('puts a dose back', () => {
+    const { db } = createTestDb();
+    const medId = createMedication(db, { name: 'Omeprazole', type: 'ppi' });
+    logMedication(db, medId, { takenAt: '2026-09-28T07:00:00.000Z', tz: 'Europe/London' });
+    const before = db.select().from(medicationLogs).all();
+
+    const deleted = deleteEntry(db, { kind: 'medication', id: before[0]!.id });
+    expect(db.select({ n: count() }).from(medicationLogs).get()?.n).toBe(0);
+    restoreEntry(db, deleted!);
+
+    expect(db.select().from(medicationLogs).all()).toEqual(before);
+  });
+
+  it('says so when there is nothing to delete', () => {
+    const { db } = createTestDb();
+    expect(deleteEntry(db, { kind: 'food', id: 99 })).toBeUndefined();
+    expect(deleteEntry(db, { kind: 'symptom', id: 99 })).toBeUndefined();
+    expect(deleteEntry(db, { kind: 'medication', id: 99 })).toBeUndefined();
+  });
+});
+
+describe('setMealTime', () => {
+  it('moves the meal and leaves its note and tags alone', () => {
+    const { db } = createTestDb();
+    const id = createFoodLog(db, {
+      entryType: 'diary',
+      source: 'text',
+      inputText: 'mint tea',
+      analysis: mintTea,
+      meta,
+    });
+    saveMealDetails(db, id, { tags: ['stress'], notes: 'heavy' });
+
+    setMealTime(db, id, '2026-09-28T18:30:00.000Z');
+
+    const row = db.select().from(foodLogs).where(eq(foodLogs.id, id)).get();
+    expect(row?.loggedAt).toBe('2026-09-28T18:30:00.000Z');
+    expect(row?.notes).toBe('heavy');
+    expect(
+      db
+        .select()
+        .from(foodLogTags)
+        .all()
+        .map((tag) => tag.tagKey),
+    ).toEqual(['stress']);
+  });
+
+  it('refuses a meal that is not there', () => {
+    const { db } = createTestDb();
+    expect(() => setMealTime(db, 99, '2026-09-28T18:30:00.000Z')).toThrow('not found');
   });
 });

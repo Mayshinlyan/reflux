@@ -1,5 +1,6 @@
 import * as Haptics from 'expo-haptics';
-import { Bell, Clock, Moon, Shield, Trash2 } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { Bell, Clock, Leaf, Moon, Shield, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,14 +25,19 @@ import { deleteAllPhotos } from '@/services/photoStore';
 import { askForReminders, cancelAllCheckIns } from '@/services/reminders';
 import { space } from '@/theme';
 
-type Sheet = 'bedtime' | 'window' | 'reminder' | 'privacy' | null;
+type Sheet = 'bedtime' | 'window' | 'reminder' | 'summaries' | 'privacy' | null;
 
 const WINDOWS = LATE_MEAL_WINDOW_OPTIONS.map((minutes) => ({
   value: String(minutes),
   label: formatWindow(minutes),
 }));
 
+const ON = 'on';
 const OFF = 'off';
+const SUMMARIES = [
+  { value: ON, label: 'On' },
+  { value: OFF, label: 'Off' },
+];
 const REMINDERS = [
   { value: OFF, label: 'Off' },
   ...REMINDER_OPTIONS.map((minutes) => ({ value: String(minutes), label: reminderOptionLabel(minutes) })),
@@ -83,7 +89,7 @@ export default function SettingsScreen() {
   const confirmDeleteAll = () => {
     Alert.alert(
       'Delete all your data?',
-      "This permanently removes every symptom, meal, medication and photo from this phone. It can't be undone.",
+      "This permanently removes every meal, symptom, medication and photo, plus your favorite foods, your own symptoms and tags, your name and your settings from this phone. You'll set Bellie up again afterwards. It can't be undone.",
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -105,8 +111,10 @@ export default function SettingsScreen() {
             }
             void cancelAllCheckIns();
             reload();
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
             toast('All your data was deleted');
+            // Every setting is gone, including having finished setting up, so start again from the welcome.
+            router.replace('/welcome');
           },
         },
       ],
@@ -139,6 +147,12 @@ export default function SettingsScreen() {
           label="Check-in reminder"
           value={formatReminder(settings.checkInReminderMinutes)}
           onPress={() => setSheet('reminder')}
+        />
+        <SettingsRow
+          icon={Leaf}
+          label="Bellie's summaries"
+          value={settings.summariesEnabled ? 'On' : 'Off'}
+          onPress={() => setSheet('summaries')}
         />
 
         <SectionTitle>About</SectionTitle>
@@ -191,6 +205,18 @@ export default function SettingsScreen() {
             </View>
           ) : undefined
         }
+      />
+      <OptionSheet
+        visible={sheet === 'summaries'}
+        variant="cards"
+        title="Bellie's summaries"
+        note="A short summary of your day and week on Today and History."
+        footnote="To write them, your meals, symptoms and conditions are sent to an AI service. Off, Bellie only uses words made on your phone and nothing is sent."
+        options={SUMMARIES}
+        value={settings.summariesEnabled ? ON : OFF}
+        onChoose={(choice) => persist(() => update('summariesEnabled', choice === ON), 'saveSummaries')}
+        onClose={closeSheet}
+        saveFailed={saveFailed}
       />
       <PrivacySheet visible={sheet === 'privacy'} onClose={closeSheet} />
     </Screen>

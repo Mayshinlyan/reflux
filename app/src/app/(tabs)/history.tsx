@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Infinity as InfinityIcon } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Animated, SectionList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -23,6 +23,7 @@ import type { AppDb } from '@/db/types';
 import type { LoggedTagKey } from '@/constants/lifestyleTags';
 import { useDeleteEntry } from '@/hooks/useDeleteEntry';
 import { useInsight } from '@/hooks/useInsight';
+import { onEntriesChanged } from '@/lib/entriesChanged';
 import { friendlyMessages } from '@/lib/errors';
 import { summarize } from '@/lib/historySummary';
 import { buildInsightRequest } from '@/lib/insight';
@@ -131,8 +132,10 @@ export default function HistoryScreen() {
 
   // Reload whenever History comes back into view (e.g. after editing an entry).
   useFocusEffect(reload);
+  // An Undo can bring an entry back while History is already showing.
+  useEffect(() => onEntriesChanged(reload), [reload]);
 
-  const confirmDelete = useDeleteEntry(reload);
+  const deleteEntry = useDeleteEntry(reload);
 
   const summary = useMemo(
     () =>
@@ -297,7 +300,7 @@ export default function HistoryScreen() {
                 ) : undefined
               }
               onPress={() => open(item)}
-              onDelete={() => confirmDelete(item)}
+              onDelete={() => deleteEntry(item)}
             />
           </Animated.View>
         )}

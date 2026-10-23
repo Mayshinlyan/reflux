@@ -11,6 +11,7 @@ import type { AppDb } from '@/db/types';
 let mockDb: AppDb;
 let closeDb: () => void;
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
 const mockToast = jest.fn();
 
 // A small stand-in for the real provider's settings hook, backed by the real repository.
@@ -50,13 +51,13 @@ jest.mock('expo-router', () => ({
     push: (href: string) => mockPush(href),
     back: jest.fn(),
     canGoBack: () => true,
-    replace: jest.fn(),
+    replace: (href: string) => mockReplace(href),
   },
 }));
 jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(() => Promise.resolve()),
   notificationAsync: jest.fn(() => Promise.resolve()),
-  NotificationFeedbackType: { Success: 'success' },
+  NotificationFeedbackType: { Success: 'success', Warning: 'warning' },
 }));
 const mockDeleteAllPhotos = jest.fn();
 jest.mock('@/services/photoStore', () => ({ deleteAllPhotos: () => mockDeleteAllPhotos() }));
@@ -67,6 +68,7 @@ beforeEach(() => {
   mockDb = db;
   closeDb = () => sqlite.close();
   mockPush.mockClear();
+  mockReplace.mockClear();
   mockToast.mockClear();
   mockDeleteAllPhotos.mockReset();
 });
@@ -94,7 +96,7 @@ describe('Settings', () => {
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
       .filter((label) =>
-        /^(Bedtime|Late-meal|Check-in|Condition|Favorite|Medications|Symptoms|My |Privacy|Delete)/.test(
+        /^(Bedtime|Late-meal|Check-in|Bellie|Condition|Favorite|Medications|Symptoms|My |Privacy|Delete)/.test(
           label ?? '',
         ),
       );
@@ -102,6 +104,7 @@ describe('Settings', () => {
       'Bedtime, 10:30 PM',
       'Late-meal window, 3 hours',
       'Check-in reminder, Off',
+      "Bellie's summaries, On",
       'Privacy and disclaimer',
       'Delete all my data',
     ]);
@@ -134,6 +137,41 @@ describe('Settings: late-meal window', () => {
     expect(getSetting(mockDb, 'lateMealWindowMinutes')).toBe(120);
     expect(screen.getByRole('button', { name: 'Late-meal window, 2 hours' })).toBeTruthy();
     expect(screen.queryAllByRole('radio')).toHaveLength(0);
+  });
+});
+
+describe("Settings: Bellie's summaries", () => {
+  it('are on until turned off, and the choice says what is sent', async () => {
+    await render(<SettingsScreen />);
+    await press('button', "Bellie's summaries, On");
+
+    const options = screen.getAllByRole('radio');
+    expect(options.map((o) => o.props.accessibilityLabel)).toEqual(['On', 'Off']);
+    expect(
+      options.filter((o) => o.props.accessibilityState?.checked).map((o) => o.props.accessibilityLabel),
+    ).toEqual(['On']);
+    expect(screen.getByText(/your meals, symptoms and conditions are sent to an AI service/)).toBeTruthy();
+  });
+
+  it('saves Off, shows it, and closes the list', async () => {
+    await render(<SettingsScreen />);
+    await press('button', "Bellie's summaries, On");
+
+    await press('radio', 'Off');
+
+    expect(getSetting(mockDb, 'summariesEnabled')).toBe(false);
+    expect(screen.getByRole('button', { name: "Bellie's summaries, Off" })).toBeTruthy();
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+  });
+
+  it('can be turned back on', async () => {
+    setSetting(mockDb, 'summariesEnabled', false);
+    await render(<SettingsScreen />);
+    await press('button', "Bellie's summaries, Off");
+
+    await press('radio', 'On');
+
+    expect(getSetting(mockDb, 'summariesEnabled')).toBe(true);
   });
 });
 
@@ -297,10 +335,23 @@ describe('Settings: delete all my data', () => {
     expect(mockDeleteAllPhotos).not.toHaveBeenCalled();
   });
 
-  it('deletes the data and photos, keeps onboarding done, and confirms', async () => {
+  it('says everything it erases, including that Bellie is set up again', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await render(<SettingsScreen />);
+
+    await press('button', 'Delete all my data');
+
+    const message = alert.mock.calls.at(-1)?.[1] as string;
+    expect(message).toContain('favorite foods');
+    expect(message).toContain('your name and your settings');
+    expect(message).toContain("You'll set Bellie up again afterwards");
+  });
+
+  it('deletes the data, photos and settings, starts again at the welcome, and confirms', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     createMedication(mockDb, { name: 'Omeprazole', type: 'ppi' });
     setSetting(mockDb, 'onboardingDone', true);
+    setSetting(mockDb, 'userName', 'May');
     await render(<SettingsScreen />);
 
     await press('button', 'Delete all my data');
@@ -308,7 +359,9 @@ describe('Settings: delete all my data', () => {
 
     expect(listMedications(mockDb)).toHaveLength(0);
     expect(mockDeleteAllPhotos).toHaveBeenCalledTimes(1);
-    expect(getSetting(mockDb, 'onboardingDone')).toBe(true);
+    expect(getSetting(mockDb, 'onboardingDone')).toBe(false);
+    expect(getSetting(mockDb, 'userName')).toBe('');
+    expect(mockReplace).toHaveBeenCalledWith('/welcome');
     expect(mockToast).toHaveBeenCalledWith('All your data was deleted');
     expect(Notifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
   });

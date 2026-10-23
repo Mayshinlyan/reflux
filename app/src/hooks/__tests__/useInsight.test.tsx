@@ -14,7 +14,11 @@ import { useInsight } from '../useInsight';
 
 let mockDb: AppDb;
 let closeDb: () => void;
-jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
+let mockSummaries = true;
+jest.mock('@/db/DatabaseProvider', () => ({
+  useDb: () => mockDb,
+  useSettings: () => ({ settings: { summariesEnabled: mockSummaries } }),
+}));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('@/services/relayClient', () => ({ fetchInsight: jest.fn() }));
 jest.mock('@/lib/logger', () => ({ logger: { debug: jest.fn(), error: jest.fn() } }));
@@ -44,6 +48,7 @@ beforeEach(() => {
   const created = createTestDb();
   mockDb = created.db;
   closeDb = () => created.sqlite.close();
+  mockSummaries = true;
   fetchMock.mockReset();
   jest.mocked(logger.debug).mockClear();
   jest.mocked(logger.error).mockClear();
@@ -138,5 +143,25 @@ describe('useInsight', () => {
     await view.unmount();
 
     expect(signal?.aborted).toBe(true);
+  });
+
+  it('sends nothing and shows only the words made on the phone when summaries are off', async () => {
+    mockSummaries = false;
+    fetchMock.mockResolvedValue(ai);
+    await render(<Probe periodKey="2026-10-08" req={request} />);
+
+    expect(line()).toBe(fallbackInsight(request).bellieLine);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('ignores a summary kept from before they were turned off', async () => {
+    fetchMock.mockResolvedValue(ai);
+    const view = await render(<Probe periodKey="2026-10-09" req={request} />);
+    await waitFor(() => expect(line()).toBe(ai.bellieLine));
+
+    mockSummaries = false;
+    await view.rerender(<Probe periodKey="2026-10-09" req={request} />);
+
+    expect(line()).toBe(fallbackInsight(request).bellieLine);
   });
 });

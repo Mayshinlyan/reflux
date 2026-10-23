@@ -54,7 +54,7 @@ export default function EntryScreen() {
     }, [load]),
   );
 
-  const confirmDelete = useDeleteEntry(() => router.back());
+  const deleteEntry = useDeleteEntry(() => router.back());
 
   const edit = () => {
     setMenuOpen(false);
@@ -67,7 +67,7 @@ export default function EntryScreen() {
   };
   const remove = () => {
     setMenuOpen(false);
-    if (entry) confirmDelete({ kind: entry.kind, id: entry.log.id });
+    if (entry) deleteEntry({ kind: entry.kind, id: entry.log.id });
   };
 
   if (!entry) {

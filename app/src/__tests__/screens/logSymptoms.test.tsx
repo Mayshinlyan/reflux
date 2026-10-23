@@ -13,6 +13,7 @@ let mockDb: AppDb;
 let closeDb: () => void;
 let mockParams: { id?: string; date?: string; afterFood?: string } = {};
 const mockBack = jest.fn();
+const mockSetOptions = jest.fn();
 const mockChing = jest.fn();
 jest.mock('@/lib/ching', () => ({ playChing: () => mockChing() }));
 const mockToast = jest.fn();
@@ -24,7 +25,7 @@ jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 jest.mock('expo-router', () => ({
   router: { back: () => mockBack(), canGoBack: () => true, replace: jest.fn() },
   useLocalSearchParams: () => mockParams,
-  useNavigation: () => ({ setOptions: jest.fn() }),
+  useNavigation: () => ({ setOptions: mockSetOptions }),
   useFocusEffect: (effect: () => void | (() => void)) => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('react').useEffect(effect, [effect]);
@@ -64,6 +65,7 @@ beforeEach(() => {
   closeDb = () => sqlite.close();
   mockParams = {};
   mockBack.mockClear();
+  mockSetOptions.mockClear();
   mockChing.mockClear();
   mockToast.mockClear();
 });
@@ -211,6 +213,36 @@ describe('Log symptoms screen: pick, then details', () => {
     await press('button', 'Back');
     await press('button', 'Back'); // pick -> leaves the screen
     expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Log symptoms screen: the edge swipe back', () => {
+  const swipeBackAllowed = () => mockSetOptions.mock.calls.at(-1)?.[0].gestureEnabled;
+
+  it('is on while nothing is picked, and off once there is something to lose', async () => {
+    await render(<LogSymptomsScreen />);
+    expect(swipeBackAllowed()).toBe(true);
+
+    await choose('Heartburn');
+    expect(swipeBackAllowed()).toBe(false);
+
+    await choose('Heartburn'); // picked off again
+    expect(swipeBackAllowed()).toBe(true);
+  });
+
+  it('stays off on the details step', async () => {
+    await render(<LogSymptomsScreen />);
+    await choose('Heartburn');
+    await press('button', 'Next');
+    expect(swipeBackAllowed()).toBe(false);
+  });
+
+  it('stays on when editing an entry, which is untouched until it is saved', async () => {
+    const id = createSymptomLog(mockDb, { items: [{ key: 'heartburn' }] });
+    mockParams = { id: String(id) };
+    await render(<LogSymptomsScreen />);
+
+    expect(swipeBackAllowed()).toBe(true);
   });
 });
 

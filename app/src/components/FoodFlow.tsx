@@ -25,6 +25,7 @@ import {
   createUncheckedMeal,
   promoteCheckToDiary,
   saveMealDetails,
+  setMealTime,
   updateFoodCheck,
 } from '@/db/repositories/food';
 import {
@@ -143,6 +144,8 @@ export function FoodFlow({
   // details are about it.
   const [logged, setLogged] = useState<LoggedMeal | null>(null);
   const finishing = useRef(false);
+  /** When the meal was logged, to tell whether the time was changed on the check-in. */
+  const loggedAtMs = useRef<number | null>(null);
   // The Quick log row is for logging what was eaten, so Favorite foods and the Food list's own check leave it out.
   // Reloaded on focus, so foods edited or removed under "See all" are right when coming back.
   const [savedFoods, setSavedFoods] = useState<StoredSavedFood[]>([]);
@@ -305,6 +308,7 @@ export function FoodFlow({
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     playChing();
     setEatenAt(at);
+    loggedAtMs.current = at.getTime();
     let canFavorite = false;
     try {
       canFavorite = !isFoodSaved(db, meal.name);
@@ -328,7 +332,7 @@ export function FoodFlow({
   /**
    * Leaves the check-in. "Complete check-in" (`withExtras`) puts the lifestyle tags, note and time on the meal
    * that is already logged, and any symptoms as a symptom log linked to it; "Skip for now" and the X leave
-   * those out. A starred favorite is kept either way. The meal's portion is left as it was. Nothing is lost
+   * those out, except a changed time, which is always kept. A starred favorite is kept either way. The meal's portion is left as it was. Nothing is lost
    * if the extras fail, the meal is saved.
    */
   const leave = (withExtras: boolean) => {
@@ -354,6 +358,14 @@ export function FoodFlow({
       } catch {
         // Code only: a raw error could echo the note.
         logger.error('saveMealDetails', new AppError('INTERNAL'));
+        message = EXTRAS_FAILED;
+      }
+    } else if (eatenAt.getTime() !== loggedAtMs.current) {
+      // Skipping leaves the tags and note out, but a time they changed is still where the meal belongs.
+      try {
+        setMealTime(db, logged.id, eatenAt.toISOString());
+      } catch {
+        logger.error('setMealTime', new AppError('INTERNAL'));
         message = EXTRAS_FAILED;
       }
     }

@@ -41,6 +41,8 @@ export type Settings = {
   widgetToken: string;
   /** True once Today's insight cards have given their little sideways nudge, so it plays only once. */
   insightNudged: boolean;
+  /** Whether Bellie's day and week summaries may be asked of the AI service. Off keeps the words made on the phone. */
+  summariesEnabled: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -58,6 +60,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reminderAsked: false,
   widgetToken: '',
   insightNudged: false,
+  summariesEnabled: true,
 };
 
 export type SettingKey = keyof Settings;
