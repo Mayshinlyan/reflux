@@ -138,12 +138,10 @@ describe('History: the week', () => {
     expect(screen.queryByText('Old pasta')).toBeNull();
   });
 
-  it('opens Profile from the round button beside the title', async () => {
+  it('has no round profile button beside the title, since Profile is a tab', async () => {
     await render(<HistoryScreen />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Profile' }));
-
-    expect(router.push).toHaveBeenCalledWith('/profile');
+    expect(screen.queryByRole('button', { name: 'Profile' })).toBeNull();
   });
 
   it('says in a warm line under the title which period this is, like the date under Today', async () => {

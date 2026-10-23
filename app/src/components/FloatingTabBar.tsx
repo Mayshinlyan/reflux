@@ -6,9 +6,9 @@ import Animated from 'react-native-reanimated';
 import { useTabBarPress } from '@/hooks/useTabBarPress';
 import { shadow, space, useColors } from '@/theme';
 
-import { ClockSolid, HouseSolid, type TabIconProps } from './TabIcons';
+import { ClockSolid, GearSolid, HouseSolid, PersonSolid, type TabIconProps } from './TabIcons';
 
-export type TabKey = 'log' | 'today' | 'history';
+export type TabKey = 'log' | 'today' | 'history' | 'profile' | 'settings';
 
 /** The olive Log button, the cream ring around it, and how far the ring rises above the pill's top edge. */
 const LOG_BUTTON_SIZE = 56;
@@ -18,16 +18,16 @@ export const LOG_BUTTON_RAISE = 20;
 /** The Log button's centre sits this far below the pill's top edge. */
 export const LOG_CENTRE_BELOW_BAR_TOP = LOG_OUTER / 2 - LOG_BUTTON_RAISE;
 
-const PILL_WIDTH = 264;
+const PILL_WIDTH = 344;
 const PILL_HEIGHT = 64;
 const PILL_PAD = 8;
-const TAB_WIDTH = 88;
+const TAB_WIDTH = 64;
 const TAB_HEIGHT = 48;
 const SLOT_WIDTH = 72;
 const HIGHLIGHT = 44;
-/** The highlight is centred on the current tab. History's is one tab width plus the Log slot further right. */
-const HIGHLIGHT_LEFT = PILL_PAD + (TAB_WIDTH - HIGHLIGHT) / 2;
-const HIGHLIGHT_TRAVEL = TAB_WIDTH + SLOT_WIDTH;
+/** Two tabs, the Log slot, two tabs. The highlight is centred on the current tab, so it sits one Log slot further right on the last two. */
+const highlightLeft = (index: number) =>
+  PILL_PAD + index * TAB_WIDTH + (index >= 2 ? SLOT_WIDTH : 0) + (TAB_WIDTH - HIGHLIGHT) / 2;
 /** Room under the pill: the home indicator sits inside the part of the inset beyond 12, with at least 16 of air. */
 const MIN_GAP = 16;
 const INDICATOR_OVERLAP = 12;
@@ -43,6 +43,8 @@ export const tabBarClearance = (bottomInset: number) =>
 const TABS: { key: Exclude<TabKey, 'log'>; label: string; icon: ComponentType<TabIconProps> }[] = [
   { key: 'today', label: 'Today', icon: HouseSolid },
   { key: 'history', label: 'History', icon: ClockSolid },
+  { key: 'profile', label: 'Profile', icon: PersonSolid },
+  { key: 'settings', label: 'Settings', icon: GearSolid },
 ];
 
 type Props = {
@@ -56,8 +58,8 @@ type Props = {
 };
 
 /**
- * Figma "Tab bar floating": a compact `surface` pill centred above the bottom edge. Today and History are
- * icon-only tabs of solid shapes: the current one is `ink` on a small tan `surface2` circle, the other a muted
+ * Figma "Tab bar floating": a compact `surface` pill centred above the bottom edge. Today, History, Profile and
+ * Settings are icon-only tabs of solid shapes (two either side of the Log slot): the current one is `ink` on a small tan `surface2` circle, the other a muted
  * `inkMuted` silhouette; it just changes tab, it never slides. The olive Log button, ringed in the page colour, rises
  * over the pill's top edge. While a tab is pressed the whole pill grows a little and springs back on release (see
  * `useTabBarPress`). Icon-only, so every button carries a label.
@@ -98,13 +100,13 @@ export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect 
             styles.highlight,
             {
               backgroundColor: colors.surface2,
-              left: HIGHLIGHT_LEFT + (active === 'history' ? HIGHLIGHT_TRAVEL : 0),
+              left: highlightLeft(TABS.findIndex((tab) => tab.key === active)),
             },
           ]}
         />
-        {renderTab(TABS[0])}
+        {TABS.slice(0, 2).map(renderTab)}
         <View accessible={false} importantForAccessibility="no-hide-descendants" style={styles.slot} />
-        {renderTab(TABS[1])}
+        {TABS.slice(2).map(renderTab)}
       </Animated.View>
       <Pressable
         accessibilityRole="button"

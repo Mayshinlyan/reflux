@@ -53,11 +53,37 @@ describe('Tabs layout', () => {
     });
   });
 
-  it('has no Profile tab: Profile opens from Today', async () => {
+  it('has Today, History, Profile and Settings tabs', async () => {
     await render(<TabsLayout />);
 
-    expect(screen.queryByRole('tab', { name: 'You' })).toBeNull();
-    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual([
+      'Today',
+      'History',
+      'Profile',
+      'Settings',
+    ]);
+  });
+
+  it.each([
+    ['profile', 'Profile'],
+    ['settings', 'Settings'],
+  ])('marks the %s tab when that screen is current', async (route, name) => {
+    mockActiveRoute = route;
+    await render(<TabsLayout />);
+
+    expect(screen.getByRole('tab', { name }).props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByRole('tab', { name: 'Today' }).props.accessibilityState).toMatchObject({
+      selected: false,
+    });
+  });
+
+  it('opens Profile and Settings from their tabs', async () => {
+    await render(<TabsLayout />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Profile' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Settings' }));
+
+    expect(mockNavigate.mock.calls).toEqual([['profile'], ['settings']]);
   });
 
   it('switches to the tab that is tapped, and ignores a tap on the current one', async () => {

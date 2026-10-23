@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import ProfileScreen from '@/app/profile';
+import ProfileScreen from '@/app/(tabs)/profile';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { getSetting, setSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';
@@ -39,6 +39,12 @@ jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, init
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+// Reanimated's native runtime can't load in Jest; use its mocks (which lack useReducedMotion).
+jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/lib/module/mock'));
+jest.mock('react-native-reanimated', () => ({
+  ...jest.requireActual('react-native-reanimated/mock'),
+  useReducedMotion: () => false,
 }));
 jest.mock('expo-router', () => ({
   router: {
@@ -87,12 +93,46 @@ describe('Profile', () => {
     expect(screen.getByText('Burping')).toBeTruthy();
   });
 
-  it('opens Settings from the gear', async () => {
+  it('has no back button or gear, since Profile is a tab', async () => {
     await render(<ProfileScreen />);
 
-    await press('button', 'Settings');
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull();
+  });
 
-    expect(mockPush).toHaveBeenCalledWith('/settings');
+  it('lists Favorite foods, Medications and Symptoms and lifestyles under Your lists', async () => {
+    await render(<ProfileScreen />);
+
+    expect(screen.getByRole('header', { name: 'Your lists' })).toBeTruthy();
+    const rows = screen
+      .getAllByRole('button')
+      .map((button) => button.props.accessibilityLabel)
+      .filter((label) => /^(Favorite foods|Medications|Symptoms and lifestyles)$/.test(label ?? ''));
+    expect(rows).toEqual(['Favorite foods', 'Medications', 'Symptoms and lifestyles']);
+  });
+
+  it('opens Favorite foods', async () => {
+    await render(<ProfileScreen />);
+
+    await press('button', 'Favorite foods');
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/food', params: { manage: '1' } });
+  });
+
+  it('opens Medications', async () => {
+    await render(<ProfileScreen />);
+
+    await press('button', 'Medications');
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/medication', params: { manage: '1' } });
+  });
+
+  it('opens Symptoms and lifestyles', async () => {
+    await render(<ProfileScreen />);
+
+    await press('button', 'Symptoms and lifestyles');
+
+    expect(mockPush).toHaveBeenCalledWith('/my-additions');
   });
 });
 

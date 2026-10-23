@@ -8,7 +8,6 @@ import { AppText } from '@/components/AppText';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { tabBarClearance } from '@/components/FloatingTabBar';
 import { HistorySummary, statsCardHeight, statsScrollDistance } from '@/components/HistorySummary';
-import { ProfileButton } from '@/components/ProfileButton';
 import { RangeStepper } from '@/components/RangeStepper';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -235,7 +234,6 @@ export default function HistoryScreen() {
                     {subtitleFor(kind, isCurrent(period, todayKey))}
                   </AppText>
                 </View>
-                <ProfileButton />
               </View>
               <View style={styles.controls}>
                 <SegmentedControl

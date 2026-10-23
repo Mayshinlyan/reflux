@@ -26,7 +26,7 @@ type Props = {
 const typeLabel = (type: MedicationType) => MEDICATION_TYPES.find((t) => t.key === type)?.label ?? type;
 
 /**
- * Adds a medication the way "My medications" does (Figma 01f.1 to 01f.3): pick a common one (then an optional dose), or
+ * Adds a medication the way "Medications" does (Figma 01f.1 to 01f.3): pick a common one (then an optional dose), or
  * "Not listed? Enter your own" with a name, a type and an optional dose.
  */
 export function AddMedicationSheet({ visible, onClose, onAdd }: Props) {

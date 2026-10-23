@@ -23,19 +23,22 @@ describe('FloatingTabBar', () => {
     mockReduceMotion = false;
   });
 
-  it('has Log, Today and History, and reports the one tapped', async () => {
+  it('has Log, Today, History, Profile and Settings, and reports the one tapped', async () => {
     const onSelect = jest.fn();
     await render(<FloatingTabBar active="today" bottomInset={0} onSelect={onSelect} />);
 
-    for (const name of ['Log', 'Today', 'History']) {
+    for (const name of ['Log', 'Today', 'History', 'Profile', 'Settings']) {
       expect(screen.getByLabelText(name)).toBeTruthy();
     }
-    expect(screen.queryByLabelText('You')).toBeNull();
     await fireEvent.press(screen.getByLabelText('History'));
     await fireEvent.press(screen.getByLabelText('Log'));
+    await fireEvent.press(screen.getByLabelText('Profile'));
+    await fireEvent.press(screen.getByLabelText('Settings'));
 
     expect(onSelect).toHaveBeenNthCalledWith(1, 'history');
     expect(onSelect).toHaveBeenNthCalledWith(2, 'log');
+    expect(onSelect).toHaveBeenNthCalledWith(3, 'profile');
+    expect(onSelect).toHaveBeenNthCalledWith(4, 'settings');
   });
 
   it('marks only the current tab as selected, with a small tan circle behind it and no background on the tabs', async () => {
@@ -47,7 +50,7 @@ describe('FloatingTabBar', () => {
     expect(screen.getByRole('tab', { name: 'Today' }).props.accessibilityState).toMatchObject({
       selected: false,
     });
-    for (const name of ['Today', 'History']) {
+    for (const name of ['Today', 'History', 'Profile', 'Settings']) {
       expect(screen.getByRole('tab', { name })).not.toHaveStyle({ backgroundColor: lightColors.surface2 });
     }
     expect(screen.getByTestId('tab-highlight')).toHaveStyle({
@@ -76,12 +79,18 @@ describe('FloatingTabBar', () => {
 
   it('puts the highlight on the selected tab and moves it with no animation when the tab changes', async () => {
     const { rerender } = await render(<FloatingTabBar active="today" bottomInset={0} onSelect={jest.fn()} />);
-    expect(screen.getByTestId('tab-highlight')).toHaveStyle({ left: 30 });
+    expect(screen.getByTestId('tab-highlight')).toHaveStyle({ left: 18 });
 
-    await rerender(<FloatingTabBar active="history" bottomInset={0} onSelect={jest.fn()} />);
-
-    expect(screen.getByTestId('tab-highlight')).toHaveStyle({ left: 190 });
-    expect(screen.getByRole('tab', { name: 'History' }).props.accessibilityState).toMatchObject({
+    // Two tabs, then the Log slot, then two more: the last two sit 72 further right.
+    for (const [active, left] of [
+      ['history', 82],
+      ['profile', 218],
+      ['settings', 282],
+    ] as const) {
+      await rerender(<FloatingTabBar active={active} bottomInset={0} onSelect={jest.fn()} />);
+      expect(screen.getByTestId('tab-highlight')).toHaveStyle({ left });
+    }
+    expect(screen.getByRole('tab', { name: 'Settings' }).props.accessibilityState).toMatchObject({
       selected: true,
     });
   });
@@ -102,12 +111,14 @@ describe('FloatingTabBar', () => {
     },
   );
 
-  it('keeps Log outside the tabs: two tabs, with Log as a separate button', async () => {
+  it('keeps Log outside the tabs: four tabs, with Log as a separate button', async () => {
     await render(<FloatingTabBar active="today" bottomInset={0} onSelect={jest.fn()} />);
 
     expect(screen.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual([
       'Today',
       'History',
+      'Profile',
+      'Settings',
     ]);
     expect(screen.queryByRole('tab', { name: 'Log' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Log' })).toBeTruthy();

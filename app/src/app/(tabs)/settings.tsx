@@ -1,13 +1,13 @@
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
-import { Activity, Bell, Clock, Moon, Pill, Shield, Trash2, Utensils } from 'lucide-react-native';
+import { Bell, Clock, Moon, Shield, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
-import { BackHeader } from '@/components/BackHeader';
 import { BedtimeSheet } from '@/components/BedtimeSheet';
 import { Button } from '@/components/Button';
+import { tabBarClearance } from '@/components/FloatingTabBar';
 import { OptionSheet } from '@/components/OptionSheet';
 import { PrivacySheet } from '@/components/profile/PrivacySheet';
 import { Screen } from '@/components/Screen';
@@ -37,9 +37,10 @@ const REMINDERS = [
   ...REMINDER_OPTIONS.map((minutes) => ({ value: String(minutes), label: reminderOptionLabel(minutes) })),
 ];
 
-/** Settings, opened from the gear on You (Figma 05). */
+/** Settings, the last tab on the bottom bar (Figma 05). */
 export default function SettingsScreen() {
   const toast = useToast();
+  const insets = useSafeAreaInsets();
   const db = useDb();
   const { settings, update, reload } = useSettings();
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -113,9 +114,13 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen>
-      <BackHeader title="Settings" />
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <Screen edges={['top', 'left', 'right']}>
+      <AppText variant="display" accessibilityRole="header" style={styles.title}>
+        Settings
+      </AppText>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) }}
+        showsVerticalScrollIndicator={false}>
         <SectionTitle first>Preferences</SectionTitle>
         <SettingsRow
           icon={Moon}
@@ -135,19 +140,6 @@ export default function SettingsScreen() {
           value={formatReminder(settings.checkInReminderMinutes)}
           onPress={() => setSheet('reminder')}
         />
-
-        <SectionTitle>Your lists</SectionTitle>
-        <SettingsRow
-          icon={Utensils}
-          label="Favorite foods"
-          onPress={() => router.push({ pathname: '/log/food', params: { manage: '1' } })}
-        />
-        <SettingsRow
-          icon={Pill}
-          label="My medications"
-          onPress={() => router.push({ pathname: '/log/medication', params: { manage: '1' } })}
-        />
-        <SettingsRow icon={Activity} label="My additions" onPress={() => router.push('/my-additions')} />
 
         <SectionTitle>About</SectionTitle>
         <SettingsRow icon={Shield} label="Privacy and disclaimer" onPress={() => setSheet('privacy')} />
@@ -206,6 +198,7 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  title: { marginBottom: space.s4 },
   danger: { marginTop: space.s2 },
   blocked: { marginTop: space.s2, gap: space.s1 },
 });
