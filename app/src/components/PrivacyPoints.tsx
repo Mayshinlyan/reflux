@@ -7,7 +7,7 @@ const POINTS: readonly { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: Camera,
     title: 'Meal checks and summaries use AI',
-    body: "To check a meal we send the photo or description you add, any details you type, and what you're managing. Bellie's summaries send meal names, verdicts, symptoms and tags, with when they happened. Your notes, medications and name stay on your phone.",
+    body: "To check meals and write Bellie's summaries, we send your meals, symptoms and conditions to an AI service, along with anything you type when checking a meal. The notes on your entries, your medications and your name stay on your phone.",
   },
   {
     icon: Check,
