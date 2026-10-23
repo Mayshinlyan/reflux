@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { TimelineKind } from '@/lib/timeline';
-import { type ColorToken, radius, typography, useColors } from '@/theme';
+import { type ColorToken, radius, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { SwipeToDelete } from './SwipeToDelete';
@@ -55,10 +55,10 @@ export function TimelineItem({ kind, lifestyle, title, time, onPress, side, onDe
         <Icon size={18} color={colors[fg]} strokeWidth={2} />
       </View>
       <View style={styles.main}>
-        <AppText style={styles.title} numberOfLines={2}>
+        <AppText variant="button" numberOfLines={2}>
           {title}
         </AppText>
-        <AppText variant="caption" color="inkSoft" style={styles.time}>
+        <AppText variant="caption" color="inkSoft">
           {time}
         </AppText>
       </View>
@@ -92,9 +92,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   gap: { marginBottom: 12 },
-  time: { fontSize: 12.5 },
   icon: { width: 38, height: 38, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   main: { flex: 1, minWidth: 0 },
-  title: { ...typography.label, fontSize: 14.5, lineHeight: 20 },
   taken: { paddingVertical: 7, paddingHorizontal: 16, borderRadius: radius.pill },
 });
