@@ -10,9 +10,12 @@ import {
   SUMMARY_VERDICTS,
 } from '@/lib/historySummary';
 import { type ColorToken, radius, space, useColors, verdictColors } from '@/theme';
+import type { Insight } from '@/types/insight';
 
 import { AppText } from './AppText';
+import { Belly } from './Belly';
 import { CarouselDots } from './CarouselDots';
+import { TipsCard } from './TipsCard';
 import { VERDICT_LABELS } from './VerdictBadge';
 
 import { tabBarHeight } from './FloatingTabBar';
@@ -45,14 +48,24 @@ const DONUT_MIN = 160;
 const FOOD_FIXED = 264;
 
 /**
- * Figma "04a" stats carousel: three full-width swipeable cards for the shown period (Food, Top symptoms,
- * Top tags) with page ticks under them.
+ * Figma "04a" stats carousel: full-width swipeable cards for the shown period (Food, Top symptoms, Top tags)
+ * with page ticks under them. With Bellie's summary of the week (`insight`), her card comes first (Figma
+ * "04a.4"), so there are four.
  */
-export function HistorySummary({ summary, height }: { summary: Summary; height: number }) {
+export function HistorySummary({
+  summary,
+  height,
+  insight,
+}: {
+  summary: Summary;
+  height: number;
+  insight?: Insight | null;
+}) {
   const { width } = useWindowDimensions();
   const cardWidth = width - 2 * space.s3;
   const step = cardWidth + CARD_GAP;
   const [page, setPage] = useState(1);
+  const count = insight ? CARDS + 1 : CARDS;
   return (
     <View>
       <ScrollView
@@ -64,22 +77,39 @@ export function HistorySummary({ summary, height }: { summary: Summary; height: 
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
         onScroll={(event) => {
-          const next = Math.min(CARDS, Math.max(1, Math.round(event.nativeEvent.contentOffset.x / step) + 1));
+          const next = Math.min(count, Math.max(1, Math.round(event.nativeEvent.contentOffset.x / step) + 1));
           setPage((current) => (current === next ? current : next));
         }}>
+        {insight ? <WeekCard insight={insight} width={cardWidth} height={height} /> : null}
         <FoodCard summary={summary} width={cardWidth} height={height} />
         <SymptomsCard summary={summary} width={cardWidth} height={height} />
         <TagsCard summary={summary} width={cardWidth} height={height} />
       </ScrollView>
       {/* Inside the bottom of the card, and still while the cards swipe. */}
       <View pointerEvents="none" style={styles.ticks}>
-        <CarouselDots page={page} total={CARDS} />
+        <CarouselDots page={Math.min(page, count)} total={count} />
       </View>
     </View>
   );
 }
 
 type CardProps = { summary: Summary; width: number; height: number };
+
+/** Bellie's week: her face for the tone, a line, a sentence about what stood out, and her tips. */
+function WeekCard({ insight, width, height }: { insight: Insight; width: number; height: number }) {
+  return (
+    <Card width={width} height={height} gap={space.s2}>
+      <View style={styles.week}>
+        <Belly mood={insight.tone === 'nudge' ? 'okay' : 'happy'} size={88} />
+        <AppText variant="displaySmall" accessibilityRole="header" style={styles.centered}>
+          {insight.bellieLine}
+        </AppText>
+        <AppText style={styles.centered}>{insight.summary}</AppText>
+      </View>
+      {insight.tips.length > 0 && <TipsCard tips={insight.tips} />}
+    </Card>
+  );
+}
 
 /** Food spreads its parts down the card; the bar cards stack theirs from the top with `gap` between. */
 function Card({
@@ -255,6 +285,8 @@ const styles = StyleSheet.create({
   ticks: { position: 'absolute', left: 0, right: 0, bottom: space.s3 },
   cards: { gap: CARD_GAP },
   card: { borderRadius: radius.lg, padding: CARD_PAD, paddingBottom: TICKS_AREA, overflow: 'hidden' },
+  week: { alignItems: 'center', gap: space.s2 },
+  centered: { textAlign: 'center' },
   chart: { alignItems: 'center', gap: space.s4 },
   centre: {
     position: 'absolute',

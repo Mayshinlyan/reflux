@@ -23,8 +23,10 @@ import { listSymptomLogs } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 import type { LoggedTagKey } from '@/constants/lifestyleTags';
 import { useDeleteEntry } from '@/hooks/useDeleteEntry';
+import { useInsight } from '@/hooks/useInsight';
 import { friendlyMessages } from '@/lib/errors';
 import { summarize } from '@/lib/historySummary';
+import { buildInsightRequest } from '@/lib/insight';
 import { localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
 import {
@@ -134,6 +136,18 @@ export default function HistoryScreen() {
       ),
     [sections, mealTags],
   );
+  // Bellie's summary of the shown week, the first stats card; not for a month, all time or picked dates.
+  const weekRequest = useMemo(
+    () =>
+      kind === 'week'
+        ? buildInsightRequest(
+            'week',
+            sections.flatMap((section) => section.entries),
+          )
+        : null,
+    [kind, sections],
+  );
+  const weekInsight = useInsight('week', period.startKey, weekRequest);
   const shown = useMemo(
     () =>
       filter === 'all'
@@ -243,7 +257,7 @@ export default function HistoryScreen() {
                 />
               </View>
             </View>
-            <HistorySummary summary={summary} height={cardHeight} />
+            <HistorySummary summary={summary} height={cardHeight} insight={weekInsight} />
             <View style={styles.entriesHead}>
               <AppText variant="section" accessibilityRole="header">
                 Entries

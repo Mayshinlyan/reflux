@@ -11,7 +11,7 @@ gcloud run services update reflux-relay --region <region> \
   --set-env-vars ANALYSIS_ENABLED=false
 ```
 
-Every `POST /v1/analyze-food` request now returns `503 SERVICE_BUSY` immediately, with no Claude call made. Re-enable with `ANALYSIS_ENABLED=true`.
+Every `POST /v1/analyze-food` and `POST /v1/insight` (Bellie's day and week summaries) request now returns `503 SERVICE_BUSY` immediately, with no Claude call made. Re-enable with `ANALYSIS_ENABLED=true`.
 
 ## Anthropic API key rotation
 
@@ -28,6 +28,8 @@ Per-user daily limit and the global daily circuit breaker are both env vars on t
 gcloud run services update reflux-relay --region <region> \
   --set-env-vars PER_USER_DAILY_LIMIT=30,GLOBAL_DAILY_LIMIT=300
 ```
+
+Bellie's summaries (`POST /v1/insight`) have their own per-user daily allowance, `PER_USER_DAILY_INSIGHT_LIMIT` (default 20), so they never use up meal checks; both kinds of call count toward `GLOBAL_DAILY_LIMIT`.
 
 Raise `GLOBAL_DAILY_LIMIT` when onboarding more pilot testers; lower it if you suspect abuse. Check current usage first via the Firestore `rate_limits` collection or the relay's Claude-call log count for today.
 
