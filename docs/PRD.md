@@ -99,7 +99,7 @@ Photos are compressed and stripped of metadata (including EXIF/GPS) on-device be
 
 Anthropic processes the food photo/text to produce the analysis; under Anthropic's commercial API terms, inputs aren't used for model training by default. This will be confirmed and stated plainly in the privacy policy before any public launch.
 
-**Honest promise to users:** "Your diary stays on your phone. Only the food you ask us to check is sent for analysis."
+**Honest promise to users:** "Your diary stays on your phone. To check a meal we send the photo or description you add, any details you type, and what you're managing to an AI service. For Bellie's summaries we send meal names, verdicts, symptoms and tags, with when they happened. Your notes, medications and name never leave your phone."
 
 ## 8. Security Model
 

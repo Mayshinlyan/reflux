@@ -53,6 +53,31 @@ describe('log redaction', () => {
     expect(output).toContain('[REDACTED]');
   });
 
+  it("never writes what Bellie's summaries are made from or what they say (meal names, symptoms, tags)", () => {
+    const { logger, lines } = memoryLogger();
+
+    logger.info(
+      {
+        meals: [{ name: 'Spicy chicken tacos' }],
+        req: { symptoms: [{ name: 'Heartburn' }], tags: ['Skipped breakfast'] },
+        insight: { bellieLine: 'Easy on the spice', summary: 'Tacos then heartburn', tips: ['Eat earlier'] },
+      },
+      'insight',
+    );
+
+    const output = lines.join('\n');
+    for (const secret of [
+      'Spicy chicken tacos',
+      'Heartburn',
+      'Skipped breakfast',
+      'Easy on the spice',
+      'Tacos then heartburn',
+      'Eat earlier',
+    ])
+      expect(output).not.toContain(secret);
+    expect(output).toContain('[REDACTED]');
+  });
+
   it('emits Cloud Logging severity and Error Reporting fields for errors', () => {
     const { logger, parsed } = memoryLogger();
 

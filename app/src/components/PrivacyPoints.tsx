@@ -6,8 +6,8 @@ const POINTS: readonly { icon: LucideIcon; title: string; body: string }[] = [
   { icon: Shield, title: 'Stored on your phone', body: 'Your diary stays on your phone.' },
   {
     icon: Camera,
-    title: 'Meal checks use AI',
-    body: "Only the photo or description you add, and what you're managing, is sent to an AI service to check a meal. Bellie's daily and weekly summaries send it meal names, verdicts and tags too, never your notes or name.",
+    title: 'Meal checks and summaries use AI',
+    body: "To check a meal we send the photo or description you add, any details you type, and what you're managing. Bellie's summaries send meal names, verdicts, symptoms and tags, with when they happened. Your notes, medications and name stay on your phone.",
   },
   {
     icon: Check,
