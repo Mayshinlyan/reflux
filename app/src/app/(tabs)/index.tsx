@@ -1,6 +1,6 @@
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Animated, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
@@ -21,12 +21,6 @@ import { bellyMoodFor } from '@/lib/belly';
 import { buildInsightRequest } from '@/lib/insight';
 import { isLateMeal } from '@/lib/mealTiming';
 import { space } from '@/theme';
-
-/** How long the tapped day stays highlighted before Log opens (Figma 02c). */
-const PICK_HOLD_MS = 600;
-
-/** Today's entries sit faded under the ring and reach full strength once the ring has scrolled away. */
-const FADED = 0.4;
 
 function greeting(now: Date): string {
   const hour = now.getHours();
@@ -54,44 +48,25 @@ export default function TodayScreen() {
   const reminder = useReminderPrompt();
   const now = new Date();
   const [picked, setPicked] = useState<string | null>(null);
-  const pickTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  // The entries fade in as the page scrolls. A page too short to scroll that far is never faded.
-  const [scrollY] = useState(() => new Animated.Value(0));
-  const [room, setRoom] = useState({ content: 0, view: 0 });
-  const [entriesY, setEntriesY] = useState(0);
-  const scrollable = room.content - room.view;
-  const fade = useMemo(
-    () =>
-      scrollable <= 0 || entriesY <= 0
-        ? 1
-        : scrollY.interpolate({
-            inputRange: [0, Math.min(entriesY, scrollable)],
-            outputRange: [FADED, 1],
-            extrapolate: 'clamp',
-          }),
-    [scrollY, scrollable, entriesY],
-  );
+  /** Food is opening from Bellie: a second tap before Today leaves would open it twice. */
+  const opening = useRef(false);
 
   // Short phones (iPhone SE) can't spare the roomier top gap.
   const { height } = useWindowDimensions();
 
-  // Back from Log, the strip is plain again; leaving Today (another tab) drops a pending pick.
+  // Back from Log, the strip is plain again and Bellie can be tapped again.
   useFocusEffect(
     useCallback(() => {
       setPicked(null);
-      return () => clearTimeout(pickTimer.current);
+      opening.current = false;
     }, []),
   );
 
+  // Log opens on the tap. A past day stays highlighted while it opens, and a second tap is ignored.
   const pickDay = (date: string, today: string) => {
     if (picked) return;
-    if (date === today) {
-      router.push({ pathname: '/log', params: { date } });
-      return;
-    }
-    setPicked(date);
-    pickTimer.current = setTimeout(() => router.push({ pathname: '/log', params: { date } }), PICK_HOLD_MS);
+    if (date !== today) setPicked(date);
+    router.push({ pathname: '/log', params: { date } });
   };
 
   if (!settings.onboardingDone) return <Redirect href="/welcome" />;
@@ -102,17 +77,7 @@ export default function TodayScreen() {
 
   return (
     <Screen edges={['top', 'left', 'right']} style={height < 700 ? styles.screenShort : styles.screen}>
-      <Animated.ScrollView
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-          useNativeDriver: true,
-        })}
-        scrollEventThrottle={16}
-        onLayout={(event) => {
-          // Read it now: the event is cleared before a state updater runs.
-          const { height } = event.nativeEvent.layout;
-          setRoom((r) => ({ ...r, view: height }));
-        }}
-        onContentSizeChange={(_, height) => setRoom((r) => ({ ...r, content: height }))}
+      <ScrollView
         contentContainerStyle={[
           styles.content,
           { paddingBottom: tabBarClearance(insets.bottom) },
@@ -141,19 +106,18 @@ export default function TodayScreen() {
           <HomeBellie
             line={dayInsight?.bellieLine ?? 'Tap me to log'}
             mood={mood}
-            onPress={() => router.push('/log/food')}
+            onPress={() => {
+              if (opening.current) return;
+              opening.current = true;
+              router.push('/log/food');
+            }}
           />
         </View>
 
         <InsightCards today={dayInsight} week={weekInsight} />
 
         {!empty && (
-          <View
-            style={styles.today}
-            onLayout={(event) => {
-              const { y } = event.nativeEvent.layout;
-              setEntriesY(y);
-            }}>
+          <View style={styles.today}>
             <View style={styles.sectionHeader}>
               <AppText variant="title" accessibilityRole="header">
                 Today
@@ -162,7 +126,7 @@ export default function TodayScreen() {
                 {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
               </AppText>
             </View>
-            <Animated.View style={{ opacity: fade }}>
+            <View>
               {entries.map((entry) => (
                 <TimelineItem
                   key={`${entry.kind}-${entry.id}`}
@@ -185,10 +149,10 @@ export default function TodayScreen() {
                   }
                 />
               ))}
-            </Animated.View>
+            </View>
           </View>
         )}
-      </Animated.ScrollView>
+      </ScrollView>
       <ReminderPromptSheet
         visible={reminder.visible}
         onHide={reminder.hide}

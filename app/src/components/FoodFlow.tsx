@@ -23,6 +23,7 @@ import { useDb, useSettings } from '@/db/DatabaseProvider';
 import {
   createFoodLog,
   createUncheckedMeal,
+  getFoodLog,
   promoteCheckToDiary,
   saveMealDetails,
   setMealTime,
@@ -39,6 +40,7 @@ import {
 } from '@/db/repositories/savedFoods';
 import { getSetting } from '@/db/repositories/settings';
 import { createSymptomLog } from '@/db/repositories/symptoms';
+import { type AppDb } from '@/db/types';
 import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
 import { useSavedAdditions } from '@/hooks/useSavedAdditions';
 import { playChing } from '@/lib/ching';
@@ -81,6 +83,24 @@ const copy = {
 /** A meal just logged, which the details step adds to. `canFavorite`: it isn't one of the favorite foods yet. */
 type LoggedMeal = { id: number; name: string; canFavorite: boolean };
 
+/** The diary meal the check-in opens on ("Add details" on the Meal logged toast), or null if it's gone. */
+function loadLoggedMeal(db: AppDb, id: number): { meal: LoggedMeal; at: Date } | null {
+  try {
+    const row = getFoodLog(db, id);
+    if (!row || row.entryType !== 'diary') return null;
+    let canFavorite = false;
+    try {
+      canFavorite = !isFoodSaved(db, row.mealName);
+    } catch {
+      // Not offering "Add to favorite foods" is fine.
+    }
+    return { meal: { id, name: row.mealName, canFavorite }, at: new Date(row.loggedAt) };
+  } catch {
+    logger.error('loadLoggedMeal', new AppError('INTERNAL'));
+    return null;
+  }
+}
+
 /** What was actually sent, so an edit while loading can't mismatch the saved entry. */
 type Analyzed = { source: 'text'; text: string } | { source: 'photo'; uri: string };
 
@@ -92,9 +112,11 @@ export type MyFoodTarget = { id?: number; name?: string };
  * capture (a photo or a typed description) → verdict (the belly's mood, why, matched triggers) → details
  * (a How I feel-style check-in: time, lifestyle tags, symptoms, a note; all optional, each group with a "+"
  * to add your own). Saved foods sit on top of the capture step as a Quick
- * log row; tapping one skips straight to the details with its saved verdict. Each result is kept as a check (outside the diary);
- * "I ate this" opens the details, and Save promotes that check, reusing its analysis instead of calling
- * the relay again.
+ * log row. Each result is kept as a check (outside the diary); "I ate this" promotes that check, reusing its
+ * analysis instead of calling the relay again, and goes back to Today with a "Meal logged · Add details" toast
+ * (Figma 13a, and the same for a Quick log chip or "Log without checking"). "Add details" opens this screen on
+ * the details step, for that meal (`detailsFor`).
+ * `detailsFor` is the id of a meal already in the diary: the flow starts on its details step.
  * `photoUri` is a photo already taken and prepared: the flow starts on its review step.
  * `openCamera` opens the camera as soon as the screen appears (the widget's "Snap food" bubble; a denied camera
  * keeps this screen and says why).
@@ -112,6 +134,7 @@ export function FoodFlow({
   fromList = false,
   date,
   quickLog,
+  detailsFor,
 }: {
   photoUri?: string;
   openCamera?: boolean;
@@ -119,6 +142,7 @@ export function FoodFlow({
   fromList?: boolean;
   date?: string;
   quickLog?: StoredSavedFood;
+  detailsFor?: number;
 }) {
   const colors = useColors();
   const db = useDb();
@@ -139,13 +163,12 @@ export function FoodFlow({
   const [updated, setUpdated] = useState<AnalysisResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const { settings } = useSettings();
-  // The details step: which kind of save it is for (a checked meal, or one saved without a verdict).
-  // The meal that was just logged (by "I ate this", "Log without checking" or a Quick log chip); the optional
-  // details are about it.
-  const [logged, setLogged] = useState<LoggedMeal | null>(null);
+  // The meal the optional details are about: one opened from the "Add details" toast (`detailsFor`).
+  const [existing] = useState(() => (detailsFor === undefined ? null : loadLoggedMeal(db, detailsFor)));
+  const logged = existing?.meal ?? null;
   const finishing = useRef(false);
   /** When the meal was logged, to tell whether the time was changed on the check-in. */
-  const loggedAtMs = useRef<number | null>(null);
+  const loggedAtMs = useRef<number | null>(existing?.at.getTime() ?? null);
   // The Quick log row is for logging what was eaten, so Favorite foods and the Food list's own check leave it out.
   // Reloaded on focus, so foods edited or removed under "See all" are right when coming back.
   const [savedFoods, setSavedFoods] = useState<StoredSavedFood[]>([]);
@@ -160,7 +183,7 @@ export function FoodFlow({
   useFocusEffect(loadSavedFoods);
   /** When a meal logged straight away counts as eaten: now, or noon of the day picked in the week strip. */
   const logTime = () => (date ? dayToLoggedAt(date, new Date()) : null) ?? new Date();
-  const [eatenAt, setEatenAt] = useState(logTime);
+  const [eatenAt, setEatenAt] = useState(() => existing?.at ?? logTime());
   const [details, setDetails] = useState<MealDetailsState>({
     tags: new Set(),
     symptoms: new Set(),
@@ -303,19 +326,20 @@ export function FoodFlow({
     else setPickingTime(true);
   };
 
-  /** A meal was just logged: the nudge, then the check-in opens on it (it says "Added to today" itself). */
+  /**
+   * A meal was just logged: the nudge, then back to Today with "Meal logged · Add details" (Figma 13a). The
+   * details are optional, so nothing stands between the meal and Today; the toast's button opens them.
+   */
   const mealLogged = (meal: { id: number; name: string }, at: Date) => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     playChing();
-    setEatenAt(at);
-    loggedAtMs.current = at.getTime();
-    let canFavorite = false;
-    try {
-      canFavorite = !isFoodSaved(db, meal.name);
-    } catch {
-      // Not offering "Add to favorite foods" is fine; the meal is logged either way.
-    }
-    setLogged({ ...meal, canFavorite });
+    toast('Meal logged', {
+      action: {
+        label: 'Add details',
+        onPress: () => router.push({ pathname: '/log/food', params: { details: String(meal.id) } }),
+      },
+    });
+    router.dismissTo('/');
     // The check-in reminder, if they turned it on. It checks the time and the phone's permission itself.
     const reminderMinutes = settings.checkInReminderMinutes;
     if (typeof reminderMinutes === 'number') {

@@ -1,11 +1,9 @@
 import * as Haptics from 'expo-haptics';
-import { useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { type GestureResponderEvent, Pressable, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { useBellyJiggle } from '@/hooks/useBellyJiggle';
 import { type BellyMood } from '@/lib/belly';
-import { JIGGLE_MS } from '@/lib/bellyMotion';
 
 import { Belly } from './Belly';
 import { SpeechBubble } from './SpeechBubble';
@@ -18,35 +16,26 @@ type Props = {
   /** What Bellie says: her summary line, or "Tap me to log" before anything is logged. */
   line: string;
   mood: BellyMood;
-  /** Tapping Bellie opens the food screen, once she has jiggled. */
+  /** Tapping Bellie opens the food screen at once; her jiggle plays as it opens. */
   onPress: () => void;
 };
 
 /**
  * Figma "02f Home": a big Bellie under a speech bubble that carries her line. She is the way into logging: she
- * squashes and tilts under a finger and jiggles on a tap, then the Food screen opens.
+ * squashes and tilts under a finger, with a tap on touch-down, and jiggles as the Food screen opens.
  */
 export function HomeBellie({ line, mood, onPress }: Props) {
   const jiggle = useBellyJiggle(BELLY_SIZE, BELLY_SIZE);
-  const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(
-    () => () => {
-      if (pending.current) clearTimeout(pending.current);
-    },
-    [],
-  );
+  // On touch-down, with the squash. A haptic isn't motion, so Reduce Motion doesn't switch it off.
+  const handlePressIn = (event: GestureResponderEvent) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    jiggle.pressIn(event);
+  };
 
   const handlePress = () => {
-    if (pending.current) return;
-    if (jiggle.reduceMotion) return onPress();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     jiggle.play();
-    // Let the jiggle be seen before the next screen covers it.
-    pending.current = setTimeout(() => {
-      pending.current = null;
-      onPress();
-    }, JIGGLE_MS);
+    onPress();
   };
 
   return (
@@ -55,7 +44,7 @@ export function HomeBellie({ line, mood, onPress }: Props) {
       accessibilityLabel="Log"
       accessibilityValue={{ text: line }}
       accessibilityHint="Opens the food screen"
-      onPressIn={jiggle.pressIn}
+      onPressIn={handlePressIn}
       onPressOut={jiggle.pressOut}
       onPress={handlePress}>
       <View style={styles.wrap}>

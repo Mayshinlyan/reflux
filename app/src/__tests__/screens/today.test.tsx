@@ -147,43 +147,24 @@ describe('Today: an empty day', () => {
   describe('with motion on', () => {
     beforeEach(() => {
       mockReduceMotion = false;
-      jest.useFakeTimers();
     });
-    afterEach(() => jest.useRealTimers());
 
-    it('lets the belly jiggle first, then opens the Food screen', async () => {
+    it('opens the Food screen on the tap itself, without waiting for the jiggle', async () => {
       await render(<TodayScreen />);
 
       await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
-      expect(mockPush).not.toHaveBeenCalled();
 
-      await act(async () => {
-        jest.advanceTimersByTime(400);
-      });
       expect(mockPush).toHaveBeenCalledTimes(1);
       expect(mockPush).toHaveBeenCalledWith('/log/food');
     });
 
-    it('ignores a second tap while the jiggle is playing', async () => {
+    it('ignores a second tap while the Food screen is opening', async () => {
       await render(<TodayScreen />);
 
       await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
       await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
-      await act(async () => {
-        jest.advanceTimersByTime(400);
-      });
 
       expect(mockPush).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not open Log if the screen goes away mid-jiggle', async () => {
-      await render(<TodayScreen />);
-
-      await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
-      await screen.unmount();
-      jest.advanceTimersByTime(400);
-
-      expect(mockPush).not.toHaveBeenCalled();
     });
   });
 
@@ -199,42 +180,25 @@ describe('Today: an empty day', () => {
   });
 
   describe('tapping an earlier day', () => {
-    beforeEach(() => jest.useFakeTimers());
-    afterEach(() => jest.useRealTimers());
-
     const earlierDay = () => {
       const now = new Date();
       const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
       return `${day.getDate()}`;
     };
 
-    it('highlights it, then opens the Log page for that day after a moment', async () => {
+    it('opens the Log page for that day on the tap, and ignores a second tap', async () => {
       // The first day of a week has no earlier day this week, so there is nothing to tap.
       if (new Date().getDay() === 0) return;
       await render(<TodayScreen />);
 
       await fireEvent.press(screen.getByLabelText(new RegExp(`^\\w+ ${earlierDay()}`)));
-      expect(mockPush).not.toHaveBeenCalled();
+      await fireEvent.press(screen.getByLabelText(new RegExp(`^\\w+ ${earlierDay()}`)));
 
-      await act(async () => {
-        jest.advanceTimersByTime(600);
-      });
       expect(mockPush).toHaveBeenCalledTimes(1);
       expect(mockPush).toHaveBeenCalledWith({
         pathname: '/log',
         params: { date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) },
       });
-    });
-
-    it('does not open Log if the screen goes away first', async () => {
-      if (new Date().getDay() === 0) return;
-      await render(<TodayScreen />);
-
-      await fireEvent.press(screen.getByLabelText(new RegExp(`^\\w+ ${earlierDay()}`)));
-      await screen.unmount();
-      jest.advanceTimersByTime(600);
-
-      expect(mockPush).not.toHaveBeenCalled();
     });
   });
 

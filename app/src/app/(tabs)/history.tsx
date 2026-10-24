@@ -1,13 +1,13 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Infinity as InfinityIcon } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Animated, SectionList, StyleSheet, View } from 'react-native';
+import { SectionList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { tabBarClearance } from '@/components/FloatingTabBar';
-import { HistorySummary, statsCardHeight, statsScrollDistance } from '@/components/HistorySummary';
+import { HistorySummary, statsCardHeight } from '@/components/HistorySummary';
 import { RangeStepper } from '@/components/RangeStepper';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -59,10 +59,6 @@ const FILTERS: { value: TimelineFilter; label: string }[] = [
   { value: 'food', label: 'Food' },
   { value: 'medication', label: 'Medications' },
 ];
-
-/** The entries sit faded under the stats card and reach full strength once it has scrolled away (Figma 04a). */
-const FADED = 0.4;
-const AnimatedSectionList = Animated.createAnimatedComponent(SectionList) as unknown as typeof SectionList;
 
 const todayKeyNow = () => localDayKey(new Date().toISOString(), currentTimeZone());
 
@@ -171,26 +167,11 @@ export default function HistoryScreen() {
     [sections, filter],
   );
 
-  // The entries fade in as the list scrolls. A list too short to scroll that far is never faded.
-  const [scrollY] = useState(() => new Animated.Value(0));
-  const [room, setRoom] = useState({ content: 0, view: 0 });
-  const scrollable = room.content - room.view;
   // The card fills the list from below the title and controls down to just above the floating tab bar.
+  const [viewHeight, setViewHeight] = useState(0);
   const [above, setAbove] = useState(0);
   const insets = useSafeAreaInsets();
-  const cardHeight = statsCardHeight(room.view, above, insets.bottom);
-  const statsScroll = statsScrollDistance(cardHeight);
-  const fade = useMemo(
-    () =>
-      scrollable <= 0
-        ? 1
-        : scrollY.interpolate({
-            inputRange: [0, Math.min(statsScroll, scrollable)],
-            outputRange: [FADED, 1],
-            extrapolate: 'clamp',
-          }),
-    [scrollY, scrollable, statsScroll],
-  );
+  const cardHeight = statsCardHeight(viewHeight, above, insets.bottom);
 
   const stepping = kind === 'week' || kind === 'month';
   const label =
@@ -221,17 +202,11 @@ export default function HistoryScreen() {
 
   return (
     <Screen edges={['top', 'left', 'right']} style={styles.screen}>
-      <AnimatedSectionList
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-          useNativeDriver: true,
-        })}
-        scrollEventThrottle={16}
+      <SectionList
         onLayout={(event) => {
           // Read it now: the event is cleared before a state updater runs.
-          const { height } = event.nativeEvent.layout;
-          setRoom((r) => ({ ...r, view: height }));
+          setViewHeight(event.nativeEvent.layout.height);
         }}
-        onContentSizeChange={(_, height) => setRoom((r) => ({ ...r, content: height }))}
         sections={shown.map((section) => ({ ...section, data: section.entries }))}
         keyExtractor={(entry) => `${entry.kind}-${entry.id}`}
         ListHeaderComponent={
@@ -281,28 +256,24 @@ export default function HistoryScreen() {
           </View>
         }
         renderSectionHeader={({ section }) => (
-          <Animated.View style={{ opacity: fade }}>
-            <AppText variant="section" accessibilityRole="header" style={styles.dayLabel}>
-              {section.label}
-            </AppText>
-          </Animated.View>
+          <AppText variant="section" accessibilityRole="header" style={styles.dayLabel}>
+            {section.label}
+          </AppText>
         )}
         renderItem={({ item }) => (
-          <Animated.View style={{ opacity: fade }}>
-            <TimelineItem
-              kind={item.kind}
-              lifestyle={item.kind === 'symptom' && item.lifestyleOnly}
-              title={item.title}
-              time={item.meta}
-              side={
-                item.kind === 'food' && item.log.overallVerdict ? (
-                  <VerdictBadge verdict={item.log.overallVerdict} />
-                ) : undefined
-              }
-              onPress={() => open(item)}
-              onDelete={() => deleteEntry(item)}
-            />
-          </Animated.View>
+          <TimelineItem
+            kind={item.kind}
+            lifestyle={item.kind === 'symptom' && item.lifestyleOnly}
+            title={item.title}
+            time={item.meta}
+            side={
+              item.kind === 'food' && item.log.overallVerdict ? (
+                <VerdictBadge verdict={item.log.overallVerdict} />
+              ) : undefined
+            }
+            onPress={() => open(item)}
+            onDelete={() => deleteEntry(item)}
+          />
         )}
         stickySectionHeadersEnabled={false}
         showsVerticalScrollIndicator={false}
