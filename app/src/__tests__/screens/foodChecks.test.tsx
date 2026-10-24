@@ -13,8 +13,9 @@ import { analyzeFood } from '@/services/relayClient';
 let mockDb: AppDb;
 let closeDb: () => void;
 const mockBack = jest.fn();
+const mockPush = jest.fn();
 const mockToast = jest.fn();
-let mockParams: { camera?: string } = {};
+let mockParams: { camera?: string; details?: string } = {};
 
 jest.mock('@/db/DatabaseProvider', () => ({
   useDb: () => mockDb,
@@ -75,7 +76,13 @@ jest.mock('@/components/BottomSheet', () => {
   };
 });
 jest.mock('expo-router', () => ({
-  router: { back: () => mockBack(), dismissTo: () => mockBack(), canGoBack: () => true, replace: jest.fn() },
+  router: {
+    back: () => mockBack(),
+    dismissTo: () => mockBack(),
+    push: (...args: unknown[]) => mockPush(...args),
+    canGoBack: () => true,
+    replace: jest.fn(),
+  },
   useLocalSearchParams: () => mockParams,
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   useFocusEffect: (effect: () => void) => require('react').useEffect(effect, [effect]),
@@ -115,9 +122,19 @@ const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.00
 const allRows = () => mockDb.select().from(foodLogs).all();
 const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('Describe it'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
-/** "I ate this" opens the details; Complete check-in there closes the flow. */
+/** "Add details" on the "Meal logged" toast opens the check-in on that meal, as its own screen. */
+const addDetails = async () => {
+  const [message, options] = mockToast.mock.calls.at(-1) ?? [];
+  expect(message).toBe('Meal logged');
+  options.action.onPress();
+  mockParams = { details: mockPush.mock.calls.at(-1)?.[0].params.details };
+  await screen.unmount();
+  await render(<LogFoodScreen />);
+};
+/** "I ate this" goes back to Today; the toast's Add details and Complete check-in finish it. */
 const ateThis = async () => {
   await press('I ate this');
+  await addDetails();
   await press('Complete check-in');
 };
 /** The photo card opens a sheet to take a photo or choose one. */
@@ -141,6 +158,7 @@ beforeEach(() => {
   closeDb = () => sqlite.close();
   mockBack.mockClear();
   mockToast.mockClear();
+  mockPush.mockClear();
   mockParams = {};
   analyze.mockReset();
   pick.mockReset();
@@ -177,8 +195,13 @@ describe('Food screen: checks and "I ate this"', () => {
     });
     expect(diary[0].analysis?.items[0].matchedTriggers[0]?.category).toBe('mint');
     expect(allRows()).toHaveLength(1); // the check itself was promoted, not copied
-    expect(mockToast).not.toHaveBeenCalled(); // the check-in says "Added to today" itself
-    expect(mockBack).toHaveBeenCalledTimes(1);
+    // One toast, "Meal logged · Add details"; completing the check-in then adds none.
+    expect(mockToast).toHaveBeenCalledTimes(1);
+    expect(mockToast).toHaveBeenCalledWith(
+      'Meal logged',
+      expect.objectContaining({ action: expect.objectContaining({ label: 'Add details' }) }),
+    );
+    expect(mockBack).toHaveBeenCalledTimes(2); // back to Today after "I ate this", and again after the check-in
   });
 
   it('keeps the check, outside the diary, when going back from the verdict', async () => {
@@ -279,6 +302,7 @@ describe('Food screen: saving without a verdict', () => {
 
     await type('  grilled fish  ');
     await press('Log without checking');
+    await addDetails();
     expect(screen.getByText('Added to today')).toBeTruthy();
     await press('Complete check-in');
 
@@ -294,8 +318,8 @@ describe('Food screen: saving without a verdict', () => {
         analysisMeta: null,
       },
     ]);
-    expect(mockToast).not.toHaveBeenCalled();
-    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockToast).toHaveBeenCalledTimes(1); // "Meal logged"
+    expect(mockBack).toHaveBeenCalledTimes(2);
   });
 
   it('offers only the check after a photo is taken, not saving it unchecked or swapping the photo', async () => {
@@ -318,6 +342,7 @@ describe('Food screen: saving without a verdict', () => {
     expect(await screen.findByText(friendlyMessages.OFFLINE)).toBeTruthy();
 
     await press('Log without checking');
+    await addDetails();
     await press('Complete check-in');
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([

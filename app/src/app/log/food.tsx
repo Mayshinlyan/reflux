@@ -21,10 +21,11 @@ import { isQuickLogAllowed } from '@/lib/widgetLinks';
  * saving the verdict to it and not the diary. `?date=` (a day tapped in Today's week strip) logs the meal on
  * that day. `?quickLog=<id>&t=<token>` (a saved food on the home-screen widget) logs that saved food at once,
  * like its Quick log chip; without the widget's token, or for a removed food, it is just this screen.
+ * `?details=<id>` (the "Add details" button on the Meal logged toast) opens the details step for that diary meal.
  */
 export default function LogFoodScreen() {
   const db = useDb();
-  const { photoUri, camera, check, myFood, food, manage, date, quickLog, t } = useLocalSearchParams<{
+  const { photoUri, camera, check, myFood, food, manage, date, quickLog, t, details } = useLocalSearchParams<{
     photoUri?: string;
     camera?: string;
     check?: string;
@@ -34,7 +35,9 @@ export default function LogFoodScreen() {
     date?: string;
     quickLog?: string;
     t?: string;
+    details?: string;
   }>();
+  const detailsFor = Number.isInteger(Number(details)) && details ? Number(details) : undefined;
   // A link can open the app from anywhere, so only the widget's own (token-carrying) link may log a meal.
   const quickFood = useMemo<StoredSavedFood | undefined>(() => {
     if (!quickLog) return undefined;
@@ -74,6 +77,7 @@ export default function LogFoodScreen() {
       fromList={check === '1'}
       date={date}
       quickLog={quickFood}
+      detailsFor={detailsFor}
     />
   );
 }

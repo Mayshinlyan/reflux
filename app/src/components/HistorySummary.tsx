@@ -41,8 +41,6 @@ export const statsCardHeight = (listHeight: number, above: number, bottomInset: 
     CARD_MIN_HEIGHT,
     Math.round(listHeight - above - (tabBarHeight(bottomInset) + TAB_BAR_GAP + DOTS_ROW)),
   );
-/** How far History scrolls before the card, its dots and the gap under them have gone (the entries fade in over this). */
-export const statsScrollDistance = (cardHeight: number) => cardHeight + DOTS_ROW + space.s4;
 
 /** The donut at its largest; it shrinks to fit a narrow or short card. */
 const DONUT_MAX = 256;

@@ -1,5 +1,5 @@
 import { tabBarHeight } from '../FloatingTabBar';
-import { CARD_MIN_HEIGHT, statsCardHeight, statsScrollDistance } from '../HistorySummary';
+import { CARD_MIN_HEIGHT, statsCardHeight } from '../HistorySummary';
 
 // Reanimated's native runtime can't load in Jest; use its mocks (which lack useReducedMotion).
 jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/lib/module/mock'));
@@ -22,9 +22,5 @@ describe('stats card size', () => {
   it('never gets shorter than the least a card needs, and is that tall before the list is measured', () => {
     expect(statsCardHeight(400, 148, 34)).toBe(CARD_MIN_HEIGHT);
     expect(statsCardHeight(0, 0, 0)).toBe(CARD_MIN_HEIGHT);
-  });
-
-  it('scrolls past the card, its dots and the gap under them before the entries are at full strength', () => {
-    expect(statsScrollDistance(540)).toBe(540 + 44 + 32);
   });
 });

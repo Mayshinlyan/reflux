@@ -7,9 +7,6 @@
 export const MAX_TILT_Y_DEG = 22;
 export const MAX_TILT_X_DEG = 14;
 
-/** How long the jiggle plays before the Log page opens. */
-export const JIGGLE_MS = 380;
-
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 /**
