@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Alert, type AlertButton } from 'react-native';
+import { Alert } from 'react-native';
 
 import HistoryScreen from '@/app/(tabs)/history';
 import { createTestDb } from '@/db/__tests__/testDb';
@@ -25,7 +25,12 @@ jest.mock('@/services/relayClient', () => ({ fetchInsight: jest.fn() }));
 jest.mock('@/db/DatabaseProvider', () => ({
   useDb: () => mockDb,
   useSettings: () => ({
-    settings: { bedtime: '22:30', lateMealWindowMinutes: 180 },
+    settings: {
+      bedtime: '22:30',
+      lateMealWindowMinutes: 180,
+      summariesEnabled: true,
+      checkInReminderMinutes: null,
+    },
     update: jest.fn(),
   }),
 }));
@@ -52,7 +57,8 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(() => Promise.resolve()),
-  NotificationFeedbackType: { Success: 'success' },
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  NotificationFeedbackType: { Success: 'success', Warning: 'warning' },
 }));
 
 // Saturday 10 Oct 2026, local noon. Only the clock is faked, so timers and promises behave as usual.
@@ -126,11 +132,8 @@ const seedWeek = () => {
   seedMeal('Old pasta', 'trigger', at(1, 12));
 };
 
-/** Presses a button of the most recent Alert.alert, as a tap on the system dialog would. */
-const pressAlertButton = (spy: jest.SpyInstance, text: string) => {
-  const buttons = spy.mock.calls.at(-1)?.[2] as AlertButton[];
-  buttons.find((button) => button.text === text)?.onPress?.();
-};
+/** Presses the Undo on the most recent toast, as a tap on it would. */
+const pressUndo = () => mockToast.mock.calls.at(-1)?.[1].action.onPress();
 
 describe('History: the week', () => {
   it('lists this week by day, newest first, under plain day labels', async () => {
@@ -645,35 +648,39 @@ describe('History: opening an entry', () => {
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 
 describe('History: swipe to delete an entry', () => {
-  it('asks first, and Cancel keeps the meal', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    seedMeal('Steamed dim sum', 'caution', at(10));
-    await render(<HistoryScreen />);
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Delete Steamed dim sum' }));
-    expect(alert.mock.calls.at(-1)?.[0]).toBe('Delete this entry?');
-    pressAlertButton(alert, 'Cancel');
-
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
-  });
-
-  it('removes the meal from the list, and the numbers, once confirmed', async () => {
+  it('removes the meal from the list, and the numbers, at once with no alert, and offers Undo', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     seedMeal('Steamed dim sum', 'caution', at(10));
     await render(<HistoryScreen />);
     expect(screen.getByText('1 meal')).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Delete Steamed dim sum' }));
-    await act(async () => pressAlertButton(alert, 'Delete'));
 
+    expect(alert).not.toHaveBeenCalled();
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
     expect(screen.queryByText('Steamed dim sum')).toBeNull();
     expect(screen.getByText('0 meals')).toBeTruthy();
-    expect(mockToast).toHaveBeenLastCalledWith('Entry deleted');
+    expect(mockToast).toHaveBeenLastCalledWith('Entry deleted', {
+      action: { label: 'Undo', onPress: expect.any(Function) },
+    });
+  });
+
+  it('puts the meal back in the list, and the numbers, when Undo is pressed', async () => {
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    seedMeal('Steamed dim sum', 'caution', at(10));
+    await render(<HistoryScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete Steamed dim sum' }));
+    expect(screen.queryByText('Steamed dim sum')).toBeNull();
+
+    await act(async () => pressUndo());
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
+    expect(screen.getByText('Steamed dim sum')).toBeTruthy();
+    expect(screen.getByText('1 meal')).toBeTruthy();
   });
 
   it('offers Delete to screen readers as an action on the row', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     seedMeal('Steamed dim sum', 'caution', at(10));
     await render(<HistoryScreen />);
 
@@ -681,22 +688,21 @@ describe('History: swipe to delete an entry', () => {
       nativeEvent: { actionName: 'delete' },
     });
 
-    expect(alert.mock.calls.at(-1)?.[0]).toBe('Delete this entry?');
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(mockToast).toHaveBeenLastCalledWith('Entry deleted', expect.anything());
   });
 
   it('deletes a symptom entry and a dose the same way', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     seedSymptom(at(10, 21));
     const medId = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi', defaultDose: '20 mg' });
     logMedication(mockDb, medId, { takenAt: at(10, 8) });
     await render(<HistoryScreen />);
 
     await fireEvent.press(screen.getByRole('button', { name: /^Delete Heartburn/ }));
-    await act(async () => pressAlertButton(alert, 'Delete'));
     expect(screen.queryByRole('button', { name: /^Symptoms: / })).toBeNull();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Delete Omeprazole 20 mg' }));
-    await act(async () => pressAlertButton(alert, 'Delete'));
     expect(screen.queryByText('Omeprazole 20 mg')).toBeNull();
   });
 });

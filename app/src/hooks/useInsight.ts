@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { useDb } from '@/db/DatabaseProvider';
+import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { getCachedInsight, insightKey, saveInsight } from '@/db/repositories/insightCache';
 import { AppError } from '@/lib/errors';
 import { fallbackInsight, insightHash } from '@/lib/insight';
@@ -21,7 +21,8 @@ const EXPECTED: readonly string[] = ['OFFLINE', 'NETWORK', 'RATE_LIMITED', 'SERV
  * last one is kept on the phone, per day or week, and asked for again only when its `request` is different.
  *
  * `periodKey` is the day or the week's first day; `request` is null when nothing is logged (nothing to say).
- * Pass a memoised `request`.
+ * Pass a memoised `request`. With "Bellie's summaries" off in Settings nothing is sent, and only the words made
+ * on the phone show.
  */
 export function useInsight(
   range: InsightRange,
@@ -29,6 +30,8 @@ export function useInsight(
   request: InsightRequest | null,
 ): Insight | null {
   const db = useDb();
+  const { settings } = useSettings();
+  const { summariesEnabled } = settings;
   const key = insightKey(range, periodKey);
   const hash = useMemo(() => (request ? insightHash(request) : null), [request]);
   const [fresh, setFresh] = useState<{ key: string; hash: string; insight: Insight } | null>(null);
@@ -44,7 +47,7 @@ export function useInsight(
   const fallback = useMemo(() => (request ? fallbackInsight(request) : null), [request]);
 
   useEffect(() => {
-    if (!request || !hash || cached) return;
+    if (!summariesEnabled || !request || !hash || cached) return;
     if (fresh?.key === key && fresh.hash === hash) return;
     const attempt = `${key}:${hash}`;
     const last = failedAt.get(attempt);
@@ -67,8 +70,9 @@ export function useInsight(
         else logger.error('fetchInsight', error);
       });
     return () => controller.abort();
-  }, [db, key, hash, request, cached, fresh]);
+  }, [db, summariesEnabled, key, hash, request, cached, fresh]);
 
+  if (!summariesEnabled) return fallback;
   if (fresh?.key === key && fresh.hash === hash) return fresh.insight;
   return cached ?? fallback;
 }

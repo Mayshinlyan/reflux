@@ -1,10 +1,11 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useDb } from '@/db/DatabaseProvider';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
 import { listMedicationLogs } from '@/db/repositories/medications';
 import { listSymptomLogs } from '@/db/repositories/symptoms';
+import { onEntriesChanged } from '@/lib/entriesChanged';
 import { localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
 import { currentTimeZone } from '@/lib/time';
@@ -78,6 +79,8 @@ export function useTodayData(): TodayData {
   }, [db]);
 
   useFocusEffect(reload);
+  // An Undo can bring an entry back while Today is already showing.
+  useEffect(() => onEntriesChanged(reload), [reload]);
 
   return data;
 }

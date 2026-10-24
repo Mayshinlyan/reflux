@@ -1,4 +1,4 @@
-import { and, asc, count, eq, lte, ne } from 'drizzle-orm';
+import { and, asc, count, eq, lte } from 'drizzle-orm';
 
 import { localDayKey } from '@/lib/localDay';
 
@@ -18,10 +18,11 @@ import type { AppDb } from '../types';
 import { notifySavedFoodsChanged } from './savedFoods';
 
 /**
- * Deletes everything the user has logged (symptoms, meals and checks, medications and their
- * history) and resets the name, pet and bedtime to their defaults, in one transaction. `onboardingDone`
- * is kept so a returning user isn't shown the welcome screen again. Meal photos live outside the
- * database; the caller removes them with `deleteAllPhotos()`.
+ * Deletes everything on the phone (symptoms, meals and checks, medications and their history, favorite
+ * foods, the user's own symptoms and tags) and every setting, including the name, conditions, bedtime,
+ * reminders, Bellie's cached summaries and `onboardingDone`, in one transaction. The user sets Bellie up
+ * again afterwards, as the delete-all alert says. Meal photos live outside the database; the caller removes
+ * them with `deleteAllPhotos()`.
  */
 export function deleteAllData(db: AppDb): void {
   db.transaction((tx) => {
@@ -35,7 +36,7 @@ export function deleteAllData(db: AppDb): void {
     tx.delete(medications).run();
     tx.delete(savedFoods).run();
     tx.delete(savedSymptoms).run();
-    tx.delete(appSettings).where(ne(appSettings.key, 'onboardingDone')).run();
+    tx.delete(appSettings).run();
   });
   notifySavedFoodsChanged(); // the widget lists saved foods and holds a token that was just reset
 }

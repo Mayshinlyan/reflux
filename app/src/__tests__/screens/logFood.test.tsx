@@ -1199,6 +1199,19 @@ describe('Log food screen: when it was eaten (details)', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps a changed time when the check-in is skipped, without keeping the tags', async () => {
+    await checkMintTea();
+    await press('I ate this');
+    await setTime(yesterdayBreakfast());
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Stress' }));
+    await press('Skip for now');
+
+    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
+    expect(meal.loggedAt).toBe(yesterdayBreakfast().toISOString());
+    expect(listMealTags(mockDb, meal.id)).toEqual([]);
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
   it('saves at noon of the day tapped in the week strip', async () => {
     const now = new Date();
     const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);

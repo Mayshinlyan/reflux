@@ -34,6 +34,7 @@ jest.mock('@/db/DatabaseProvider', () => ({
       reminderAsked: mockReminderAsked,
       checkInReminderMinutes: mockReminderMinutes,
       insightNudged: mockNudged,
+      summariesEnabled: true,
     },
     update: mockUpdate,
   }),

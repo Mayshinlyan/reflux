@@ -203,6 +203,17 @@ export type MealDetails = {
   notes?: string | null;
 };
 
+/** Moves a logged meal to another time and leaves everything else on it as it is. */
+export function setMealTime(db: AppDb, id: number, loggedAt: string): void {
+  const updated = db
+    .update(foodLogs)
+    .set({ loggedAt, tz: currentTimeZone(), updatedAt: nowIso() })
+    .where(eq(foodLogs.id, id))
+    .returning({ id: foodLogs.id })
+    .all();
+  if (updated.length === 0) throw new Error(`Food log ${id} not found`);
+}
+
 /**
  * The details step after a verdict: when it was eaten, how much, lifestyle tags and a note. A tag is a
  * built-in factor or one the user typed (`custom:<text>`). Replaces the meal's tags, so an empty list clears

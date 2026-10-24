@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react-native';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,7 +10,12 @@ import { radius, space, typography, useColors } from '@/theme';
 type ToastOptions = {
   /** Show under the status bar, level with the top bar, for a screen whose bottom is busy. */
   top?: boolean;
+  /** A button on the toast ("Undo"). The toast then stays longer and can be tapped. */
+  action?: { label: string; onPress: () => void };
 };
+
+const TOAST_MS = 2200;
+const ACTION_TOAST_MS = 5000;
 
 const ToastContext = createContext<(message: string, options?: ToastOptions) => void>(() => {});
 
@@ -20,14 +25,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const [message, setMessage] = useState<string | null>(null);
   const [top, setTop] = useState(false);
+  const [action, setAction] = useState<ToastOptions['action']>();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const show = useCallback((next: string, options?: ToastOptions) => {
     if (timer.current) clearTimeout(timer.current);
     setMessage(next);
     setTop(Boolean(options?.top));
-    AccessibilityInfo.announceForAccessibility(next);
-    timer.current = setTimeout(() => setMessage(null), 2200);
+    setAction(options?.action);
+    AccessibilityInfo.announceForAccessibility(
+      options?.action ? `${next}. ${options.action.label} available` : next,
+    );
+    timer.current = setTimeout(() => setMessage(null), options?.action ? ACTION_TOAST_MS : TOAST_MS);
   }, []);
 
   useEffect(
@@ -42,7 +51,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {message && (
         <View
-          pointerEvents="none"
+          pointerEvents={action ? 'box-none' : 'none'}
           style={[
             styles.wrap,
             top ? { top: insets.top + space.s2 } : { bottom: tabBarClearance(insets.bottom) },
@@ -51,8 +60,24 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             entering={FadeInDown.duration(200)}
             exiting={FadeOut.duration(200)}
             style={[styles.toast, { backgroundColor: colors.ink }]}>
-            <Check size={16} color={colors.bg} strokeWidth={2.6} />
+            {!action && <Check size={16} color={colors.bg} strokeWidth={2.6} />}
             <Animated.Text style={[styles.text, { color: colors.bg }]}>{message}</Animated.Text>
+            {action && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
+                hitSlop={12}
+                onPress={() => {
+                  if (timer.current) clearTimeout(timer.current);
+                  setMessage(null);
+                  action.onPress();
+                }}
+                style={({ pressed }) => [styles.action, { opacity: pressed ? 0.6 : 1 }]}>
+                <Animated.Text style={[styles.text, { color: colors.honeyTint }]}>
+                  {action.label}
+                </Animated.Text>
+              </Pressable>
+            )}
           </Animated.View>
         </View>
       )}
@@ -75,4 +100,5 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   text: { ...typography.label, fontSize: 14 },
+  action: { marginLeft: space.s1 + 4 },
 });
