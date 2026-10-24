@@ -6,8 +6,9 @@
 import { spawnSync } from 'node:child_process';
 
 const ALLOWED = {
-  'GHSA-vfj7-8cjw-p6xm': 'braces: no patched release yet (<=3.0.3); build tooling via Metro/jest',
   'GHSA-86w9-cpqp-85rv': 'node-forge: no patched release yet (<=1.4.0); Expo code-signing tooling',
+  'GHSA-mrhx-c7xc-m3w5':
+    'zod: only 4.6.6+ is patched, but @expo/cli needs zod 3.x; Expo CLI build tooling, not shipped in the app',
 };
 
 function fail(message) {
