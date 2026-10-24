@@ -51,7 +51,11 @@ export function PortionSelect({
                   setOpen(false);
                 }}
                 // A hairline between the options, as in Figma.
-                style={[styles.row, index > 0 && { borderTopWidth: 1, borderTopColor: colors.hairline }]}>
+                style={({ pressed }) => [
+                  styles.row,
+                  index > 0 && { borderTopWidth: 1, borderTopColor: colors.hairline },
+                  { opacity: pressed ? 0.85 : 1 },
+                ]}>
                 <AppText style={[styles.optionText, { color: colors.ink }]}>{choice.label}</AppText>
                 {choice.value === value && <Check size={18} color={colors.inkSoft} strokeWidth={2.4} />}
               </Pressable>
@@ -63,7 +67,7 @@ export function PortionSelect({
             accessibilityLabel={`Portion, ${current.label}`}
             accessibilityState={{ expanded: false }}
             onPress={() => setOpen(true)}
-            style={styles.row}>
+            style={({ pressed }) => [styles.row, { opacity: pressed ? 0.85 : 1 }]}>
             <AppText style={[styles.optionText, { color: colors.ink }]}>{current.label}</AppText>
             <ChevronDown size={20} color={colors.inkSoft} strokeWidth={2.2} />
           </Pressable>

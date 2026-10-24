@@ -37,10 +37,11 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
             accessibilityLabel={option.accessibilityLabel ?? option.label}
             accessibilityState={{ selected }}
             onPress={() => onChange(option.value)}
-            style={[
+            style={({ pressed }) => [
               styles.option,
               Icon && styles.iconOption,
               selected && { backgroundColor: colors.surface },
+              { opacity: pressed ? 0.85 : 1 },
             ]}>
             {Icon ? (
               <Icon size={18} strokeWidth={2.2} color={selected ? colors.ink : colors.inkSoft} />

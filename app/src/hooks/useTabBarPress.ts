@@ -1,20 +1,13 @@
-import {
-  Easing,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
 
-/** Very subtle: about 2% bigger (5 px wider), and eased in and out with no overshoot, so it never bounces. */
-const PRESSED_SCALE = 1.02;
-const PRESS_MS = 100;
-const RELEASE_MS = 180;
+/** A small shrink, critically damped (no bounce), so it follows the finger down and settles back on release. */
+const PRESSED_SCALE = 0.92;
+const SPRING = { duration: 220, dampingRatio: 1 } as const;
 
 /**
- * The tab bar's press feel: the whole pill grows a hair while a finger is down on a tab and eases back on release,
- * like Instagram's tab bar. Spread `pillStyle` on an `Animated.View` around the pill and call `pressIn`/`pressOut`
- * from the tabs. With Reduce Motion on, nothing moves.
+ * The tab bar's press feel: the button under the finger shrinks a little and eases back when it lifts. The spring
+ * starts from wherever the scale is, so a quick second press never jumps. Spread `style` on an `Animated.View` around
+ * the button's content and call `pressIn`/`pressOut` from its Pressable. With Reduce Motion on, nothing moves.
  */
 export function useTabBarPress() {
   const reduceMotion = useReducedMotion();
@@ -22,13 +15,13 @@ export function useTabBarPress() {
 
   const pressIn = () => {
     if (reduceMotion) return;
-    scale.value = withTiming(PRESSED_SCALE, { duration: PRESS_MS, easing: Easing.out(Easing.quad) });
+    scale.value = withSpring(PRESSED_SCALE, SPRING);
   };
   const pressOut = () => {
-    scale.value = withTiming(1, { duration: RELEASE_MS, easing: Easing.out(Easing.quad) });
+    scale.value = withSpring(1, SPRING);
   };
 
-  const pillStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
-  return { pillStyle, pressIn, pressOut };
+  return { style, pressIn, pressOut };
 }

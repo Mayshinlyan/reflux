@@ -48,7 +48,7 @@ export function TimeField({
           accessibilityLabel={`${label}, ${formatMealTime(value, now)}`}
           accessibilityState={{ expanded: open }}
           onPress={toggle}
-          style={styles.row}>
+          style={({ pressed }) => [styles.row, { opacity: pressed ? 0.85 : 1 }]}>
           <AppText style={[styles.value, { color: colors.ink }]}>{formatMealTime(value, now)}</AppText>
           <ChevronDown size={20} color={colors.inkSoft} strokeWidth={2.2} />
         </Pressable>

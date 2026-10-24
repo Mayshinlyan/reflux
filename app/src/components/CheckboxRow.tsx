@@ -16,7 +16,7 @@ export function CheckboxRow({ label, checked, onToggle }: Props) {
       accessibilityRole="checkbox"
       accessibilityLabel={label}
       accessibilityState={{ checked }}
-      style={styles.row}>
+      style={({ pressed }) => [styles.row, { opacity: pressed ? 0.85 : 1 }]}>
       {/* The box outline is a functional stroke: it is what says "tick me". */}
       <View
         style={[

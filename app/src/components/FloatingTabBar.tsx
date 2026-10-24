@@ -61,38 +61,21 @@ type Props = {
  * Figma "Tab bar floating": a compact `surface` pill centred above the bottom edge. Today, History, Profile and
  * Settings are icon-only tabs of solid shapes (two either side of the Log slot): the current one is `ink` on a small tan `surface2` circle, the other a muted
  * `inkMuted` silhouette; it just changes tab, it never slides. The olive Log button, ringed in the page colour, rises
- * over the pill's top edge. While a tab is pressed the whole pill grows a little and springs back on release (see
- * `useTabBarPress`). Icon-only, so every button carries a label.
+ * over the pill's top edge. A pressed tab's icon shrinks a little and eases back on release (see `useTabBarPress`),
+ * as does the Log button. Icon-only, so every button carries a label.
  */
 export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect }: Props) {
   const colors = useColors();
-  const press = useTabBarPress();
+  const logPress = useTabBarPress();
   const LogIcon = logOpen ? X : Plus;
-  const renderTab = ({ key, label, icon: Icon }: (typeof TABS)[number]) => {
-    const isActive = key === active;
-    return (
-      <Pressable
-        key={key}
-        accessibilityRole="tab"
-        accessibilityLabel={label}
-        accessibilityState={{ selected: isActive }}
-        onPress={() => onSelect(key)}
-        onPressIn={press.pressIn}
-        onPressOut={press.pressOut}
-        style={({ pressed }) => [styles.tab, { opacity: pressed ? 0.8 : 1 }]}>
-        <Icon
-          size={24}
-          color={isActive ? colors.ink : colors.inkMuted}
-          cutout={isActive ? colors.surface2 : colors.surface}
-        />
-      </Pressable>
-    );
-  };
+  const renderTab = ({ key, label, icon: Icon }: (typeof TABS)[number]) => (
+    <TabButton key={key} label={label} icon={Icon} active={key === active} onPress={() => onSelect(key)} />
+  );
   return (
     <View pointerEvents="box-none" style={[styles.root, { paddingBottom: tabBarGap(bottomInset) }]}>
-      <Animated.View
+      <View
         accessibilityRole="tablist"
-        style={[styles.pill, { backgroundColor: colors.surface, boxShadow: shadow.tabBar }, press.pillStyle]}>
+        style={[styles.pill, { backgroundColor: colors.surface, boxShadow: shadow.tabBar }]}>
         <View
           testID="tab-highlight"
           pointerEvents="none"
@@ -107,24 +90,54 @@ export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect 
         {TABS.slice(0, 2).map(renderTab)}
         <View accessible={false} importantForAccessibility="no-hide-descendants" style={styles.slot} />
         {TABS.slice(2).map(renderTab)}
+      </View>
+      <Animated.View style={[styles.logWrap, logPress.style]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={logOpen ? 'Close' : 'Log'}
+          accessibilityState={{ expanded: logOpen }}
+          onPress={() => onSelect('log')}
+          onPressIn={logPress.pressIn}
+          onPressOut={logPress.pressOut}
+          style={[
+            styles.log,
+            { backgroundColor: colors.cta, borderColor: colors.bg, boxShadow: shadow.softLift },
+          ]}>
+          <LogIcon size={28} color={colors.ctaInk} strokeWidth={2} />
+        </Pressable>
       </Animated.View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={logOpen ? 'Close' : 'Log'}
-        accessibilityState={{ expanded: logOpen }}
-        onPress={() => onSelect('log')}
-        style={({ pressed }) => [
-          styles.log,
-          {
-            backgroundColor: colors.cta,
-            borderColor: colors.bg,
-            boxShadow: shadow.softLift,
-            opacity: pressed ? 0.85 : 1,
-          },
-        ]}>
-        <LogIcon size={28} color={colors.ctaInk} strokeWidth={2} />
-      </Pressable>
     </View>
+  );
+}
+
+type TabButtonProps = {
+  label: string;
+  icon: ComponentType<TabIconProps>;
+  active: boolean;
+  onPress: () => void;
+};
+
+/** One tab: its icon shrinks under a finger, so the press is felt on the thing you touched, not the whole bar. */
+function TabButton({ label, icon: Icon, active, onPress }: TabButtonProps) {
+  const colors = useColors();
+  const press = useTabBarPress();
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      onPressIn={press.pressIn}
+      onPressOut={press.pressOut}
+      style={styles.tab}>
+      <Animated.View style={press.style}>
+        <Icon
+          size={24}
+          color={active ? colors.ink : colors.inkMuted}
+          cutout={active ? colors.surface2 : colors.surface}
+        />
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -148,11 +161,15 @@ const styles = StyleSheet.create({
   },
   tab: { width: TAB_WIDTH, height: TAB_HEIGHT, alignItems: 'center', justifyContent: 'center' },
   slot: { width: SLOT_WIDTH },
-  log: {
+  logWrap: {
     position: 'absolute',
     top: 0,
     left: '50%',
     marginLeft: -LOG_OUTER / 2,
+    width: LOG_OUTER,
+    height: LOG_OUTER,
+  },
+  log: {
     width: LOG_OUTER,
     height: LOG_OUTER,
     borderRadius: LOG_OUTER / 2,

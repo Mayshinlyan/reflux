@@ -16,7 +16,10 @@ export function TimePill({ label, onPress }: Props) {
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : 'text'}
       accessibilityLabel={label}
-      style={[styles.pill, { backgroundColor: colors.surface }]}>
+      style={({ pressed }) => [
+        styles.pill,
+        { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 },
+      ]}>
       <History size={16} color={colors.ink} strokeWidth={2} />
       <AppText variant="label">{label}</AppText>
     </Pressable>

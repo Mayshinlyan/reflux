@@ -59,15 +59,30 @@ function RootLayout() {
         <HideSplash />
         <WidgetSync />
         <ToastProvider>
+          {/* Drill-downs (Entry, Edit, My additions, Favorite foods) push from the side and swipe back from the
+              edge. Logging slides up as a modal and closes with a swipe down. Tabs and Welcome only cross-fade. */}
           <Stack
             screenOptions={{
               headerShown: false,
-              animation: reduceMotion ? 'none' : 'fade',
-              animationDuration: 250,
+              animation: reduceMotion ? 'none' : 'default',
               contentStyle: { backgroundColor: lightColors.bg },
             }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
+            <Stack.Screen name="(tabs)" options={{ animation: reduceMotion ? 'none' : 'fade' }} />
+            <Stack.Screen
+              name="welcome"
+              options={{ gestureEnabled: false, animation: reduceMotion ? 'none' : 'fade' }}
+            />
+            <Stack.Screen name="log/index" options={{ presentation: 'modal' }} />
+            <Stack.Screen
+              name="log/food"
+              options={({ route }) => ({
+                // Favorite foods is a list you drill into, not a log.
+                presentation:
+                  (route.params as { manage?: string } | undefined)?.manage === '1' ? 'card' : 'modal',
+              })}
+            />
+            <Stack.Screen name="log/symptoms" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="log/medication" options={{ presentation: 'modal' }} />
           </Stack>
           <CheckInRouter />
         </ToastProvider>

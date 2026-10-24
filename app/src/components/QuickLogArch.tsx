@@ -1,6 +1,16 @@
 import { Activity, type LucideIcon, Pill, Utensils } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
-import { Animated, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { type ReactNode, useEffect } from 'react';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, {
+  interpolate,
+  type SharedValue,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { type ColorToken, shadow, useColors } from '@/theme';
 
@@ -21,57 +31,73 @@ const BUTTON = 56;
 const LABEL_WIDTH = 96;
 /** Same dim as the bottom sheets. */
 const SCRIM = 'rgba(30,26,22,0.42)';
+/** Critically damped: no bounce, and the same path both ways, so closing is opening played backwards. */
+const SPRING = { duration: 350, dampingRatio: 1 } as const;
+/** Under Reduce Motion the buttons only fade; they do not fly. */
+const FADE_MS = 150;
 
 type Props = {
   /** The screen's bottom safe-area inset, so the arch lines up with the Log button. */
   bottomInset: number;
+  /** Open or closing. The arch stays mounted while it closes, and tells `onClosed` once it is gone. */
+  open: boolean;
   onPick: (kind: LogKind) => void;
   onClose: () => void;
+  /** The close animation has finished, so the arch can be unmounted. */
+  onClosed: () => void;
 };
 
 /**
  * Figma "02d": tapping Log fans three round buttons (food, symptom, medication) in an arch above it, over a
- * dimmed screen. Rendered under the tab bar, so the bar and its close button stay visible and tappable.
+ * dimmed screen. Rendered under the tab bar, so the bar and its close button stay visible and tappable. Opening and
+ * closing are one spring that runs forwards and back from wherever it is, so tapping Log again mid-way reverses it.
  */
-export function QuickLogArch({ bottomInset, onPick, onClose }: Props) {
+export function QuickLogArch({ bottomInset, open, onPick, onClose, onClosed }: Props) {
   const colors = useColors();
   const { width } = useWindowDimensions();
-  const [progress] = useState(() => new Animated.Value(0));
+  const reduceMotion = useReducedMotion();
+  /** 0 = folded into the Log button, 1 = fanned out. */
+  const progress = useSharedValue(0);
 
   useEffect(() => {
-    Animated.spring(progress, { toValue: 1, friction: 7, tension: 90, useNativeDriver: true }).start();
-  }, [progress]);
+    const to = open ? 1 : 0;
+    // A reversal mid-way cancels this animation (`finished` is false), so it only reports a close that happened.
+    const onEnd = (finished?: boolean) => {
+      'worklet';
+      if (finished && to === 0) scheduleOnRN(onClosed);
+    };
+    progress.value = reduceMotion
+      ? withTiming(to, { duration: FADE_MS }, onEnd)
+      : withSpring(to, SPRING, onEnd);
+  }, [open, reduceMotion, progress, onClosed]);
+
+  const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
 
   const centreFromBottom = tabBarHeight(bottomInset) - LOG_CENTRE_BELOW_BAR_TOP;
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Dismiss quick log"
-        onPress={onClose}
-        style={[StyleSheet.absoluteFill, { backgroundColor: SCRIM }]}
-      />
+    // While it closes, touches fall through to the screen, and the Log button above can reopen it.
+    <View pointerEvents={open ? 'auto' : 'none'} style={StyleSheet.absoluteFill}>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: SCRIM }, scrimStyle]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss quick log"
+          onPress={onClose}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
       {ITEMS.map(({ kind, label, icon: Icon, tint, angle }) => {
         const rad = (angle * Math.PI) / 180;
         const dx = RADIUS * Math.cos(rad);
         const dy = RADIUS * Math.sin(rad);
         return (
-          <Animated.View
+          <ArchItem
             key={kind}
-            style={[
-              styles.item,
-              {
-                left: width / 2 + dx - BUTTON / 2,
-                bottom: centreFromBottom + dy - BUTTON / 2,
-                opacity: progress.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 1, 1] }),
-                // Each button flies out from the Log button's centre to its place on the arch.
-                transform: [
-                  { translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [-dx, 0] }) },
-                  { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [dy, 0] }) },
-                  { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) },
-                ],
-              },
-            ]}>
+            progress={progress}
+            reduceMotion={reduceMotion}
+            dx={dx}
+            dy={dy}
+            left={width / 2 + dx - BUTTON / 2}
+            bottom={centreFromBottom + dy - BUTTON / 2}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={label}
@@ -86,11 +112,39 @@ export function QuickLogArch({ bottomInset, onPick, onClose }: Props) {
             <AppText variant="label" color="bg" style={styles.label}>
               {label}
             </AppText>
-          </Animated.View>
+          </ArchItem>
         );
       })}
     </View>
   );
+}
+
+type ArchItemProps = {
+  progress: SharedValue<number>;
+  reduceMotion: boolean;
+  /** Where the button sits relative to the Log button's centre, which it flies out from. */
+  dx: number;
+  dy: number;
+  left: number;
+  bottom: number;
+  children: ReactNode;
+};
+
+function ArchItem({ progress, reduceMotion, dx, dy, left, bottom, children }: ArchItemProps) {
+  const style = useAnimatedStyle(() => {
+    const opacity = interpolate(progress.value, [0, 0.4, 1], [0, 1, 1]);
+    if (reduceMotion) return { opacity: progress.value };
+    return {
+      opacity,
+      // Each button flies out from the Log button's centre to its place on the arch.
+      transform: [
+        { translateX: interpolate(progress.value, [0, 1], [-dx, 0]) },
+        { translateY: interpolate(progress.value, [0, 1], [dy, 0]) },
+        { scale: interpolate(progress.value, [0, 1], [0.4, 1]) },
+      ],
+    };
+  });
+  return <Animated.View style={[styles.item, { left, bottom }, style]}>{children}</Animated.View>;
 }
 
 const styles = StyleSheet.create({

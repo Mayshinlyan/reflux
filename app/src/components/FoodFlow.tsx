@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -15,7 +15,6 @@ import { FoodVerdict } from '@/components/food/FoodVerdict';
 import { QuickLogRow } from '@/components/food/QuickLogRow';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
-import { SwipeNav } from '@/components/SwipeNav';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { analysisConditions } from '@/constants/conditions';
@@ -46,7 +45,6 @@ import { useSavedAdditions } from '@/hooks/useSavedAdditions';
 import { playChing } from '@/lib/ching';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { foodSwipe } from '@/lib/logSwipe';
 import { dayToLoggedAt, formatMealTime } from '@/lib/mealTime';
 import { isLateMeal } from '@/lib/mealTiming';
 import { currentTimeZone } from '@/lib/time';
@@ -625,10 +623,14 @@ export function FoodFlow({
     </View>
   ) : null;
 
-  // The plain Food screen (nothing saved yet) joins the swipe between log screens, but only while it
+  // Log screens slide up as a modal, so a swipe down closes them. That is only on while the plain Food screen
   // is empty, so a stray drag can't drop a typed description or a photo.
-  const swipeable =
+  const navigation = useNavigation();
+  const swipeAway =
     !myFood && !fromList && !openCamera && !analyzed && !text && !draft && !busy && logged === null;
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: swipeAway });
+  }, [navigation, swipeAway]);
 
   const now = new Date();
   // The verdict is about the meal as it will be logged: now, or noon of the picked day.
@@ -787,83 +789,81 @@ export function FoodFlow({
   }
 
   return (
-    <SwipeNav {...foodSwipe} enabled={swipeable}>
-      <Screen>
-        <BackHeader
-          title={myFood ? (myFood.id === undefined ? 'Add a food' : 'Get a verdict') : undefined}
-          onBack={onBack}
-          close={logged !== null}
-        />
-        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView
-            ref={scroll}
-            // A fresh scroll position for each step, so details don't open scrolled down from the verdict.
-            key={logged ? 'logged' : showResult ? 'verdict' : busy ? 'busy' : 'capture'}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.content}>
-            {body}
-          </ScrollView>
-          {footer}
-        </KeyboardAvoidingView>
-        <BottomSheet
-          visible={choosingPhoto}
-          onClose={() => setChoosingPhoto(false)}
-          onDismissed={() => {
-            const source = pendingPhoto.current;
-            pendingPhoto.current = null;
-            if (source) void checkPhoto(source);
-          }}>
-          <AppText variant="title" accessibilityRole="header">
-            Add a photo
-          </AppText>
-          <View style={styles.sheetActions}>
-            <Button
-              label="Take a photo"
-              onPress={() => {
-                pendingPhoto.current = 'camera';
-                setChoosingPhoto(false);
-              }}
-            />
-            <Button
-              label="Choose a photo"
-              variant="secondary"
-              onPress={() => {
-                pendingPhoto.current = 'library';
-                setChoosingPhoto(false);
-              }}
-            />
-          </View>
-        </BottomSheet>
-        <BottomSheet visible={telling} onClose={() => setTelling(false)}>
-          <AppText variant="title" accessibilityRole="header">
-            Not quite right?
-          </AppText>
-          <View style={styles.sheetActions}>
-            <TextField
-              label="Tell us more"
-              hint="(optional)"
-              value={correction}
-              onChangeText={setCorrection}
-              placeholder="e.g. it's pumpkin soup, no cream"
-              maxLength={MAX_TEXT}
-              returnKeyType="done"
-              onSubmitEditing={submitCorrection}
-            />
-            <Button label={copy.updateLabel} disabled={!hasComment} onPress={submitCorrection} />
-          </View>
-        </BottomSheet>
-        <MealTimeSheet
-          visible={pickingTime}
-          question="When did you eat this?"
-          confirmLabel="Set time"
-          onConfirm={(at) => {
-            setPickingTime(false);
-            setEatenAt(at ?? new Date());
-          }}
-          onClose={() => setPickingTime(false)}
-        />
-      </Screen>
-    </SwipeNav>
+    <Screen>
+      <BackHeader
+        title={myFood ? (myFood.id === undefined ? 'Add a food' : 'Get a verdict') : undefined}
+        onBack={onBack}
+        close={logged !== null}
+      />
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          ref={scroll}
+          // A fresh scroll position for each step, so details don't open scrolled down from the verdict.
+          key={logged ? 'logged' : showResult ? 'verdict' : busy ? 'busy' : 'capture'}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.content}>
+          {body}
+        </ScrollView>
+        {footer}
+      </KeyboardAvoidingView>
+      <BottomSheet
+        visible={choosingPhoto}
+        onClose={() => setChoosingPhoto(false)}
+        onDismissed={() => {
+          const source = pendingPhoto.current;
+          pendingPhoto.current = null;
+          if (source) void checkPhoto(source);
+        }}>
+        <AppText variant="title" accessibilityRole="header">
+          Add a photo
+        </AppText>
+        <View style={styles.sheetActions}>
+          <Button
+            label="Take a photo"
+            onPress={() => {
+              pendingPhoto.current = 'camera';
+              setChoosingPhoto(false);
+            }}
+          />
+          <Button
+            label="Choose a photo"
+            variant="secondary"
+            onPress={() => {
+              pendingPhoto.current = 'library';
+              setChoosingPhoto(false);
+            }}
+          />
+        </View>
+      </BottomSheet>
+      <BottomSheet visible={telling} onClose={() => setTelling(false)}>
+        <AppText variant="title" accessibilityRole="header">
+          Not quite right?
+        </AppText>
+        <View style={styles.sheetActions}>
+          <TextField
+            label="Tell us more"
+            hint="(optional)"
+            value={correction}
+            onChangeText={setCorrection}
+            placeholder="e.g. it's pumpkin soup, no cream"
+            maxLength={MAX_TEXT}
+            returnKeyType="done"
+            onSubmitEditing={submitCorrection}
+          />
+          <Button label={copy.updateLabel} disabled={!hasComment} onPress={submitCorrection} />
+        </View>
+      </BottomSheet>
+      <MealTimeSheet
+        visible={pickingTime}
+        question="When did you eat this?"
+        confirmLabel="Set time"
+        onConfirm={(at) => {
+          setPickingTime(false);
+          setEatenAt(at ?? new Date());
+        }}
+        onClose={() => setPickingTime(false)}
+      />
+    </Screen>
   );
 }
 

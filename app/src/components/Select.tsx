@@ -38,7 +38,11 @@ export function Select<T extends string>({ options, value, onChange, label, widt
                 onChange(option.value);
                 setOpen(false);
               }}
-              style={[styles.row, index > 0 && { borderTopWidth: 1, borderTopColor: colors.hairline }]}>
+              style={({ pressed }) => [
+                styles.row,
+                index > 0 && { borderTopWidth: 1, borderTopColor: colors.hairline },
+                { opacity: pressed ? 0.85 : 1 },
+              ]}>
               <AppText variant="button">{option.label}</AppText>
               {option.value === value && <Check size={18} color={colors.inkSoft} strokeWidth={2.4} />}
             </Pressable>
@@ -50,7 +54,7 @@ export function Select<T extends string>({ options, value, onChange, label, widt
           accessibilityLabel={`${label}, ${current?.label}`}
           accessibilityState={{ expanded: false }}
           onPress={() => setOpen(true)}
-          style={styles.row}>
+          style={({ pressed }) => [styles.row, { opacity: pressed ? 0.85 : 1 }]}>
           <AppText variant="button">{current?.label}</AppText>
           <ChevronDown size={20} color={colors.inkSoft} strokeWidth={2.2} />
         </Pressable>

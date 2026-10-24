@@ -63,7 +63,7 @@ export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, o
         role === 'filter' ? { selected } : role === 'button' ? undefined : { checked: selected }
       }
       hitSlop={4}
-      style={[styles.tag, colorStyle]}>
+      style={({ pressed }) => [styles.tag, colorStyle, { opacity: pressed ? 0.85 : 1 }]}>
       <AppText numberOfLines={1} style={[styles.label, { color: selected ? colors.clayInk : colors.ink }]}>
         {label}
       </AppText>

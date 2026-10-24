@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react-native';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { tabBarClearance } from '@/components/FloatingTabBar';
@@ -58,7 +58,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           ]}>
           <Animated.View
             entering={FadeInDown.duration(200)}
-            exiting={FadeOut.duration(200)}
+            // Leaves the way it came: sliding back down as it fades.
+            exiting={FadeOutDown.duration(200)}
             style={[styles.toast, { backgroundColor: colors.ink }]}>
             {!action && <Check size={16} color={colors.bg} strokeWidth={2.6} />}
             <Animated.Text style={[styles.text, { color: colors.bg }]}>{message}</Animated.Text>

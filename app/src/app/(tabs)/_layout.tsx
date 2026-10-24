@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { type BottomTabBarProps, Tabs } from 'expo-router/js-tabs';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
@@ -36,6 +36,9 @@ const LOG_ROUTE: Record<LogKind, '/log/food' | '/log/symptoms' | '/log/medicatio
 function TabBar({ state, navigation, insets }: BottomTabBarProps) {
   const active = TAB_FOR[state.routes[state.index]?.name ?? 'index'] ?? 'today';
   const [logOpen, setLogOpen] = useState(false);
+  // The arch stays mounted until its close animation ends; `logOpen` is only where it is headed.
+  const [archShown, setArchShown] = useState(false);
+  const hideArch = useCallback(() => setArchShown(false), []);
 
   // The Android back button closes the arch first.
   useEffect(() => {
@@ -49,9 +52,11 @@ function TabBar({ state, navigation, insets }: BottomTabBarProps) {
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-      {logOpen && (
+      {archShown && (
         <QuickLogArch
           bottomInset={insets.bottom}
+          open={logOpen}
+          onClosed={hideArch}
           onClose={() => setLogOpen(false)}
           onPick={(kind) => {
             setLogOpen(false);
@@ -66,7 +71,8 @@ function TabBar({ state, navigation, insets }: BottomTabBarProps) {
           bottomInset={insets.bottom}
           onSelect={(tab) => {
             if (tab === 'log') {
-              setLogOpen((open) => !open);
+              if (!logOpen) setArchShown(true);
+              setLogOpen(!logOpen);
               return;
             }
             setLogOpen(false);

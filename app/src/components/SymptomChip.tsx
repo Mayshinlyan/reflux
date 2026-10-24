@@ -63,7 +63,7 @@ export function SymptomChip({ label, selected, onToggle, readOnly, onRemove, onC
       onPress={onToggle}
       {...roleProps}
       hitSlop={3}
-      style={[styles.chip, colorStyle]}>
+      style={({ pressed }) => [styles.chip, colorStyle, { opacity: pressed ? 0.85 : 1 }]}>
       <AppText style={[styles.label, { color: labelColor }]}>{label}</AppText>
     </Pressable>
   );

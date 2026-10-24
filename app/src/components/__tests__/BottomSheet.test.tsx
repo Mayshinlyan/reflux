@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { Platform, ScrollView, Text } from 'react-native';
 
 import { BottomSheet } from '../BottomSheet';
@@ -48,6 +48,53 @@ describe('BottomSheet onDismissed on Android', () => {
     });
 
     expect(onDismissed).not.toHaveBeenCalled();
+  });
+});
+
+describe('BottomSheet closing', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('keeps its content while it slides away, then drops it', async () => {
+    const screen = await render(sheet(true, jest.fn()));
+
+    await screen.rerender(sheet(false, jest.fn()));
+    expect(screen.getByText('content')).toBeTruthy();
+
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(screen.queryByText('content')).toBeNull();
+  });
+
+  it('stays open when it is reopened while it is still sliding away', async () => {
+    const screen = await render(sheet(true, jest.fn()));
+
+    await screen.rerender(sheet(false, jest.fn()));
+    await act(async () => {
+      jest.advanceTimersByTime(100);
+    });
+    await screen.rerender(sheet(true, jest.fn()));
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(screen.getByText('content')).toBeTruthy();
+  });
+
+  it('closes from the scrim, and tells the parent rather than hiding itself', async () => {
+    const onClose = jest.fn();
+    const screen = await render(
+      <BottomSheet visible onClose={onClose}>
+        <Text>content</Text>
+      </BottomSheet>,
+    );
+
+    // The scrim fades in with the sheet, and Jest never applies the animated opacity, so it still reads as hidden.
+    await fireEvent.press(screen.getByRole('button', { name: 'Close', hidden: true }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('content')).toBeTruthy();
   });
 });
 
