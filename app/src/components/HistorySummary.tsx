@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import {
@@ -14,7 +15,7 @@ import type { Insight } from '@/types/insight';
 
 import { AppText } from './AppText';
 import { Belly } from './Belly';
-import { CarouselDots } from './CarouselDots';
+import { CarouselDots, DOTS_ROW } from './CarouselDots';
 import { TipsCard } from './TipsCard';
 import { VERDICT_LABELS } from './VerdictBadge';
 
@@ -22,24 +23,26 @@ import { tabBarHeight } from './FloatingTabBar';
 
 const CARD_GAP = 12;
 const CARDS = 3;
-/** Room the card keeps at its bottom for the ticks (24 tall, 24 from the edge) and a gap above them. */
-const TICKS_AREA = 64;
-/** The card's side and top padding (Figma 04a). */
+/** The card's padding on every side (Figma 04a). The dots are under the card, not in it. */
 const CARD_PAD = 20;
-/** The gap between the card and the tab bar (Figma 04a.0). */
-const TAB_BAR_GAP = 32;
-/** What the tallest card needs, so its content is never cut off on a short phone (it then scrolls under the bar). */
+/** The gap between the dots and the tab bar (Figma 12b). */
+const TAB_BAR_GAP = 8;
+/** The least a card is tall, so the Food donut and the bars have room on a short phone (it then scrolls under the bar). */
 export const CARD_MIN_HEIGHT = 470;
 
 /**
- * The card fills the list's visible height from where it starts down to just above the floating tab bar, so the
- * stats are what History opens on and never sit under the bar. `listHeight` is the list's own height and `above`
- * the height of what sits over the card (title and controls).
+ * The card fills the list's visible height from where it starts down to just above the floating tab bar (less the
+ * row of dots under it), so the stats are what History opens on and never sit under the bar. A card with more to
+ * say than that, like Bellie's week in long words, grows to fit it rather than being cut off, and the other cards
+ * grow with it. `listHeight` is the list's own height and `above` the height of what sits over the card.
  */
 export const statsCardHeight = (listHeight: number, above: number, bottomInset: number) =>
-  Math.max(CARD_MIN_HEIGHT, Math.round(listHeight - above - (tabBarHeight(bottomInset) + TAB_BAR_GAP)));
-/** How far History scrolls before the card and the gap under it have gone (the entries fade in over this). */
-export const statsScrollDistance = (cardHeight: number) => cardHeight + space.s4;
+  Math.max(
+    CARD_MIN_HEIGHT,
+    Math.round(listHeight - above - (tabBarHeight(bottomInset) + TAB_BAR_GAP + DOTS_ROW)),
+  );
+/** How far History scrolls before the card, its dots and the gap under them have gone (the entries fade in over this). */
+export const statsScrollDistance = (cardHeight: number) => cardHeight + DOTS_ROW + space.s4;
 
 /** The donut at its largest; it shrinks to fit a narrow or short card. */
 const DONUT_MAX = 256;
@@ -49,8 +52,8 @@ const FOOD_FIXED = 264;
 
 /**
  * Figma "04a" stats carousel: full-width swipeable cards for the shown period (Food, Top symptoms, Top tags)
- * with page ticks under them. With Bellie's summary of the week (`insight`), her card comes first (Figma
- * "04a.4"), so there are four.
+ * with round page dots under them (tap one to jump to that card). With Bellie's summary of the week (`insight`),
+ * her card comes first (Figma "04a.4", "12b"), so there are four.
  */
 export function HistorySummary({
   summary,
@@ -65,10 +68,13 @@ export function HistorySummary({
   const cardWidth = width - 2 * space.s3;
   const step = cardWidth + CARD_GAP;
   const [page, setPage] = useState(1);
+  const scroll = useRef<ScrollView>(null);
+  const reduceMotion = useReducedMotion();
   const count = insight ? CARDS + 1 : CARDS;
   return (
     <View>
       <ScrollView
+        ref={scroll}
         horizontal
         contentContainerStyle={styles.cards}
         snapToInterval={step}
@@ -85,10 +91,11 @@ export function HistorySummary({
         <SymptomsCard summary={summary} width={cardWidth} height={height} />
         <TagsCard summary={summary} width={cardWidth} height={height} />
       </ScrollView>
-      {/* Inside the bottom of the card, and still while the cards swipe. */}
-      <View pointerEvents="none" style={styles.ticks}>
-        <CarouselDots page={Math.min(page, count)} total={count} />
-      </View>
+      <CarouselDots
+        page={Math.min(page, count)}
+        total={count}
+        onSelect={(next) => scroll.current?.scrollTo({ x: (next - 1) * step, animated: !reduceMotion })}
+      />
     </View>
   );
 }
@@ -128,7 +135,7 @@ function Card({
     <View
       style={[
         styles.card,
-        { width, height, backgroundColor: colors.surface },
+        { width, minHeight: height, backgroundColor: colors.surface },
         gap ? { gap } : { justifyContent: 'space-between' },
       ]}>
       {children}
@@ -284,9 +291,8 @@ function Bars({ rows, fill }: { rows: RankedCount[]; fill: ColorToken }) {
 }
 
 const styles = StyleSheet.create({
-  ticks: { position: 'absolute', left: 0, right: 0, bottom: space.s3 },
   cards: { gap: CARD_GAP },
-  card: { borderRadius: radius.lg, padding: CARD_PAD, paddingBottom: TICKS_AREA, overflow: 'hidden' },
+  card: { borderRadius: radius.lg, padding: CARD_PAD, overflow: 'hidden' },
   week: { alignItems: 'center', gap: space.s2 },
   centered: { textAlign: 'center' },
   chart: { alignItems: 'center', gap: space.s4 },

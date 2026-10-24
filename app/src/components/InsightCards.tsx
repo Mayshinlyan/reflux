@@ -30,7 +30,7 @@ type Props = {
 
 /**
  * Figma "02f Home": swipeable cards under Bellie: Today so far, Tips (her ideas for next time), This week.
- * The next card peeks in from the right and ticks sit under the row. A card with nothing to say is left out.
+ * The next card peeks in from the right and round dots sit under the row. A card with nothing to say is left out.
  */
 export function InsightCards({ today, week }: Props) {
   const colors = useColors();
@@ -74,7 +74,7 @@ export function InsightCards({ today, week }: Props) {
 
   if (cards.length === 0) return null;
   return (
-    <View style={styles.wrap}>
+    <View>
       {/* Runs to the screen's right edge so the next card can show; the page's own padding is 24. */}
       <ScrollView
         ref={scroll}
@@ -104,13 +104,18 @@ export function InsightCards({ today, week }: Props) {
           ),
         )}
       </ScrollView>
-      {cards.length > 1 && <CarouselDots page={Math.min(page, cards.length)} total={cards.length} />}
+      {cards.length > 1 && (
+        <CarouselDots
+          page={Math.min(page, cards.length)}
+          total={cards.length}
+          onSelect={(next) => scroll.current?.scrollTo({ x: (next - 1) * step, animated: !reduceMotion })}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: space.s1 },
   bleed: { marginRight: -space.s3 },
   row: { gap: CARD_GAP, paddingRight: space.s3 },
   card: { borderRadius: radius.lg, padding: space.s2, gap: 8 },
