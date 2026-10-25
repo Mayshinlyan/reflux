@@ -14,7 +14,7 @@ import {
   type MedicationInput,
 } from '@/db/repositories/medications';
 import { logger } from '@/lib/logger';
-import { radius, space, useColors } from '@/theme';
+import { cardEdge, radius, space, useColors } from '@/theme';
 
 import { AddMedicationSheet } from './AddMedicationSheet';
 import { StepLayout } from './StepLayout';
@@ -62,12 +62,7 @@ export function MedicationsStep({ onNext }: { onNext: () => void }) {
         {meds.map((med) => {
           const title = med.defaultDose ? `${med.name} ${med.defaultDose}` : med.name;
           return (
-            <View
-              key={med.id}
-              style={[
-                styles.row,
-                { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge },
-              ]}>
+            <View key={med.id} style={[styles.row, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
               <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
                 <Pill size={20} color={colors.clayInk} strokeWidth={2} />
               </View>

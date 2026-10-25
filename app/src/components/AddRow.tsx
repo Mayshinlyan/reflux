@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { radius, space, useColors } from '@/theme';
+import { cardEdge, radius, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -17,8 +17,7 @@ export function AddRow({ label, onPress }: { label: string; onPress: () => void 
         styles.row,
         {
           backgroundColor: colors.surface,
-          borderWidth: 1,
-          borderColor: colors.edge,
+          ...cardEdge(colors),
           opacity: pressed ? 0.85 : 1,
         },
       ]}>

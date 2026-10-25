@@ -18,7 +18,7 @@ import { SymptomChip } from '@/components/SymptomChip';
 import { symptomLabel } from '@/components/SymptomZones';
 import { conditionLabels, managingLine } from '@/constants/conditions';
 import { useSettings } from '@/db/DatabaseProvider';
-import { radius, space, useColors } from '@/theme';
+import { cardEdge, radius, space, useColors } from '@/theme';
 
 type Sheet = 'avatar' | 'name' | 'condition' | 'symptoms' | null;
 
@@ -86,8 +86,7 @@ export default function ProfileScreen() {
             styles.card,
             {
               backgroundColor: colors.surface,
-              borderWidth: 1,
-              borderColor: colors.edge,
+              ...cardEdge(colors),
               opacity: pressed ? 0.85 : 1,
             },
           ]}>
@@ -108,8 +107,7 @@ export default function ProfileScreen() {
             styles.card,
             {
               backgroundColor: colors.surface,
-              borderWidth: 1,
-              borderColor: colors.edge,
+              ...cardEdge(colors),
               opacity: pressed ? 0.85 : 1,
             },
           ]}>

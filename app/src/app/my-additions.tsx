@@ -12,7 +12,7 @@ import { listSavedSymptoms, removeSavedSymptom } from '@/db/repositories/savedSy
 import type { SavedSymptom } from '@/db/schema';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { radius, space, typography, useColors } from '@/theme';
+import { cardEdge, radius, space, typography, useColors } from '@/theme';
 
 /**
  * Symptoms and lifestyles (Profile > Your lists, Figma 05c): the symptoms and lifestyle factors typed with a "+" chip,
@@ -91,10 +91,7 @@ export default function MyAdditionsScreen() {
                 onAccessibilityAction={(event) => {
                   if (event.nativeEvent.actionName === 'delete') confirmRemove(symptom);
                 }}
-                style={[
-                  styles.card,
-                  { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge },
-                ]}>
+                style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
                 <AppText style={styles.name} numberOfLines={2}>
                   {symptom.name}
                 </AppText>

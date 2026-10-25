@@ -18,6 +18,13 @@ describe('VerdictBadge', () => {
     expect(screen.getByText(label)).toBeTruthy();
   });
 
+  it('reads as one labelled item for a screen reader', async () => {
+    await render(<VerdictBadge verdict="good" />);
+    const badge = screen.getByLabelText('Good');
+    expect(badge.props.accessible).toBe(true);
+    expect(badge.props.accessibilityRole).toBe('text');
+  });
+
   it('sits at the start of its row unless the screen says otherwise', async () => {
     await render(<VerdictBadge verdict="trigger" />);
     expect(StyleSheet.flatten(screen.getByLabelText('Avoid').props.style).alignSelf).toBe('flex-start');

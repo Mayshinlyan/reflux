@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { TimelineKind } from '@/lib/timeline';
-import { type ColorToken, radius, space, useColors } from '@/theme';
+import { cardEdge, type ColorToken, radius, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { SwipeToDelete } from './SwipeToDelete';
@@ -51,8 +51,7 @@ export function TimelineItem({ kind, lifestyle, title, time, onPress, side, onDe
         !canSwipe && styles.gap,
         {
           backgroundColor: colors.surface,
-          borderWidth: 1,
-          borderColor: colors.edge,
+          ...cardEdge(colors),
           opacity: pressed ? 0.85 : 1,
         },
       ]}>

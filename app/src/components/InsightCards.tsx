@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native'
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { useSettings } from '@/db/DatabaseProvider';
-import { radius, space, useColors } from '@/theme';
+import { cardEdge, radius, space, useColors } from '@/theme';
 import type { Insight } from '@/types/insight';
 
 import { AppText } from './AppText';
@@ -109,8 +109,7 @@ export function InsightCards({ today, week }: Props) {
                 {
                   width: cardWidth,
                   backgroundColor: colors.surface,
-                  borderWidth: 1,
-                  borderColor: colors.edge,
+                  ...cardEdge(colors),
                 },
               ]}>
               <AppText variant="sectionSm">{card.title}</AppText>
