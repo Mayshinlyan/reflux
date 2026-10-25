@@ -7,7 +7,7 @@ const arch = (open: boolean, onClosed: () => void, onPick = jest.fn()) => (
 );
 
 // Jest never applies the animated opacity, so the buttons read as hidden until they are asked for as hidden.
-const food = () => screen.getByRole('button', { name: 'Log food', hidden: true });
+const food = () => screen.getByRole('button', { name: 'Food', hidden: true });
 
 describe('QuickLogArch', () => {
   beforeEach(() => jest.useFakeTimers());
@@ -16,7 +16,7 @@ describe('QuickLogArch', () => {
   it('fans out food, symptom and medication', async () => {
     await render(arch(true, jest.fn()));
 
-    for (const name of ['Log food', 'How I feel', 'Medication']) {
+    for (const name of ['Food', 'How I feel', 'Medication']) {
       expect(screen.getByRole('button', { name, hidden: true })).toBeTruthy();
     }
   });

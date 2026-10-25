@@ -144,13 +144,13 @@ describe('Today: an empty day', () => {
     expect(screen.queryByRole('button', { name: 'Profile' })).toBeNull();
   });
 
-  it('opens the Food screen at once when the belly is tapped and Reduce Motion is on', async () => {
+  it('opens the Log page at once when the belly is tapped and Reduce Motion is on', async () => {
     await render(<TodayScreen />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
     expect(mockPush).toHaveBeenCalledTimes(1);
-    expect(mockPush).toHaveBeenCalledWith('/log/food');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/log', params: { date: expect.any(String) } });
   });
 
   describe('with motion on', () => {
@@ -158,16 +158,16 @@ describe('Today: an empty day', () => {
       mockReduceMotion = false;
     });
 
-    it('opens the Food screen on the tap itself, without waiting for the jiggle', async () => {
+    it('opens the Log page on the tap itself, without waiting for the jiggle', async () => {
       await render(<TodayScreen />);
 
       await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
       expect(mockPush).toHaveBeenCalledTimes(1);
-      expect(mockPush).toHaveBeenCalledWith('/log/food');
+      expect(mockPush).toHaveBeenCalledWith({ pathname: '/log', params: { date: expect.any(String) } });
     });
 
-    it('ignores a second tap while the Food screen is opening', async () => {
+    it('ignores a second tap while the Log page is opening', async () => {
       await render(<TodayScreen />);
 
       await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
@@ -285,7 +285,7 @@ describe("Today: Bellie's words", () => {
     }
   });
 
-  it('tells Bellie from the rest of the screen: tapping her opens the Food screen', async () => {
+  it('tells Bellie from the rest of the screen: tapping her opens the Log page', async () => {
     jest.mocked(fetchInsight).mockImplementation(answer);
     seedMeal('Spicy ramen', 'caution', minutesAgo(5));
     await render(<TodayScreen />);
@@ -293,7 +293,7 @@ describe("Today: Bellie's words", () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
-    expect(mockPush).toHaveBeenCalledWith('/log/food');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/log', params: { date: expect.any(String) } });
   });
 
   describe('the sideways nudge', () => {

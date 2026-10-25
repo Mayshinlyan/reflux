@@ -22,7 +22,8 @@ const DatabaseContext = createContext<DatabaseContextValue | null>(null);
 
 /**
  * Opens the on-device database and applies migrations (backing up first) before
- * rendering the app. `fallback` renders while loading; `errorView` if setup fails.
+ * rendering the app. `fallback` renders while loading; `errorView` if setup fails, and as a function it is given
+ * a `retry` that runs the setup again.
  */
 export function DatabaseProvider({
   children,
@@ -31,9 +32,14 @@ export function DatabaseProvider({
 }: {
   children: ReactNode;
   fallback: ReactNode;
-  errorView: ReactNode;
+  errorView: ReactNode | ((retry: () => void) => ReactNode);
 }) {
   const [state, setState] = useState<DatabaseState>({ status: 'loading' });
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    setState({ status: 'loading' });
+    setAttempt((count) => count + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,10 +56,10 @@ export function DatabaseProvider({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [attempt]);
 
   if (state.status === 'loading') return fallback;
-  if (state.status === 'error') return errorView;
+  if (state.status === 'error') return typeof errorView === 'function' ? errorView(retry) : errorView;
   return <ReadyProvider db={state.db}>{children}</ReadyProvider>;
 }
 

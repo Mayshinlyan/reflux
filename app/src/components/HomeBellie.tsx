@@ -43,7 +43,7 @@ export function HomeBellie({ line, mood, onPress }: Props) {
       accessibilityRole="button"
       accessibilityLabel="Log"
       accessibilityValue={{ text: line }}
-      accessibilityHint="Opens the food screen"
+      accessibilityHint="Choose what to log"
       onPressIn={handlePressIn}
       onPressOut={jiggle.pressOut}
       onPress={handlePress}>

@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import { ChevronDown, ChevronUp, Pill } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -222,8 +222,9 @@ export default function MedicationScreen() {
     // `disabled` only applies after a re-render, so two taps in the same instant on a Log pill must be
     // caught here. A dose logged from its details page was chosen deliberately, so it is never dropped.
     if (!extras?.fromDetails && timers.current.has(med.id)) return false;
+    let loggedId: number;
     try {
-      logMedication(db, med.id, {
+      loggedId = logMedication(db, med.id, {
         ...(extras?.at ? { takenAt: extras.at.toISOString() } : {}),
         doseText: extras?.doseText,
         notes: extras?.notes,
@@ -236,9 +237,19 @@ export default function MedicationScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     playChing();
     // An earlier dose doesn't show under "Taken today", so the toast says when it was logged for.
-    toast(
-      extras?.at ? `${med.name} logged for ${formatMealTime(extras.at, new Date())}` : `${med.name} logged`,
-    );
+    const message = extras?.at
+      ? `${med.name} logged for ${formatMealTime(extras.at, new Date())}`
+      : `${med.name} logged`;
+    if (extras?.fromDetails) toast(message);
+    // The Log pill logs at once; "Change time" opens that dose's edit page for a different time.
+    else
+      toast(message, {
+        action: {
+          label: 'Change time',
+          onPress: () =>
+            router.push({ pathname: '/entry/edit', params: { kind: 'medication', id: String(loggedId) } }),
+        },
+      });
     setJustLogged((current) => new Set(current).add(med.id));
     clearTimeout(timers.current.get(med.id));
     timers.current.set(
@@ -275,7 +286,7 @@ export default function MedicationScreen() {
   };
 
   const confirmRemove = (med: Medication) => {
-    Alert.alert(`Remove ${med.name}?`, 'It leaves your list, but past logs stay in Your Logs.', [
+    Alert.alert(`Remove ${med.name}?`, 'It leaves your list, but past logs stay in History.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
@@ -551,7 +562,9 @@ export default function MedicationScreen() {
           {manage ? 'Medications' : 'Which medication?'}
         </AppText>
         <AppText color="inkSoft" style={styles.subtitle}>
-          {manage ? 'Tap a medication to see it.' : 'Tap to log a dose now.'}
+          {manage
+            ? 'Tap a medication to see it.'
+            : 'Tap Log for a dose now, or a medicine to change its details.'}
         </AppText>
         {loadFailed && meds.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>

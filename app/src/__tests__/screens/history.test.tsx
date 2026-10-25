@@ -178,17 +178,11 @@ describe('History: the week', () => {
     expect(screen.getByText('Oct 4 – 10')).toBeTruthy();
   });
 
-  it('keeps the dates of a week or month as plain text, moved only by the arrows', async () => {
+  it('opens the calendar from the dates of a week or month too, which carry a calendar icon', async () => {
     await render(<HistoryScreen />);
 
-    expect(screen.queryByRole('button', { name: 'Oct 4 – 10' })).toBeNull();
-    await fireEvent.press(screen.getByText('Oct 4 – 10'));
-    expect(screen.queryByRole('header', { name: 'Select dates' })).toBeNull();
-
-    await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
-    expect(screen.queryByRole('button', { name: 'October' })).toBeNull();
-    await fireEvent.press(screen.getByText('October'));
-    expect(screen.queryByRole('header', { name: 'Select dates' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Oct 4 – 10' }));
+    expect(screen.getByRole('header', { name: 'Select dates' })).toBeTruthy();
   });
 
   it('shows a verdict badge on a meal row, in the new words', async () => {

@@ -52,7 +52,7 @@ export default function TodayScreen() {
   const deleteEntry = useDeleteEntry(notifyEntriesChanged);
   const now = new Date();
   const [picked, setPicked] = useState<string | null>(null);
-  /** Food is opening from Bellie: a second tap before Today leaves would open it twice. */
+  /** The Log page is opening from Bellie: a second tap before Today leaves would open it twice. */
   const opening = useRef(false);
 
   // Short phones (iPhone SE) can't spare the roomier top gap.
@@ -113,7 +113,7 @@ export default function TodayScreen() {
             onPress={() => {
               if (opening.current) return;
               opening.current = true;
-              router.push('/log/food');
+              router.push({ pathname: '/log', params: { date: week.find((day) => day.isToday)?.key ?? '' } });
             }}
           />
         </View>

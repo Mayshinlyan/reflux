@@ -1,4 +1,3 @@
-import { Activity, type LucideIcon, Pill, Utensils } from 'lucide-react-native';
 import { type ReactNode, useEffect } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
@@ -12,18 +11,17 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { type ColorToken, shadow, useColors } from '@/theme';
+import { LOG_KINDS, type LogKind } from '@/lib/logKinds';
+import { shadow, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { LOG_CENTRE_BELOW_BAR_TOP, tabBarHeight } from './FloatingTabBar';
 
-export type LogKind = 'food' | 'symptoms' | 'medication';
+export type { LogKind };
 
-const ITEMS: { kind: LogKind; label: string; icon: LucideIcon; tint: ColorToken; angle: number }[] = [
-  { kind: 'food', label: 'Log food', icon: Utensils, tint: 'honeyTint', angle: 140 },
-  { kind: 'symptoms', label: 'How I feel', icon: Activity, tint: 'clayTint', angle: 90 },
-  { kind: 'medication', label: 'Medication', icon: Pill, tint: 'sageTint', angle: 40 },
-];
+/** Where each button sits on the arch, in degrees around the Log button. */
+const ANGLE: Record<LogKind, number> = { food: 140, symptoms: 90, medication: 40 };
+const ITEMS = LOG_KINDS.map((item) => ({ ...item, angle: ANGLE[item.kind] }));
 
 /** The arch's radius around the Log button's centre, and the size of each round button on it. */
 const RADIUS = 128;

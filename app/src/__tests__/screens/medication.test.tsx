@@ -15,6 +15,7 @@ import type { AppDb } from '@/db/types';
 let mockDb: AppDb;
 let closeDb: () => void;
 const mockBack = jest.fn();
+const mockPush = jest.fn();
 const mockToast = jest.fn();
 let mockParams: Record<string, string> = {};
 
@@ -23,7 +24,12 @@ jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 jest.mock('expo-router', () => ({
-  router: { back: () => mockBack(), canGoBack: () => true, replace: jest.fn() },
+  router: {
+    back: () => mockBack(),
+    canGoBack: () => true,
+    replace: jest.fn(),
+    push: (...args: unknown[]) => mockPush(...args),
+  },
   useNavigation: () => ({ setOptions: jest.fn() }),
   useLocalSearchParams: () => mockParams,
   useFocusEffect: (effect: () => void | (() => void)) => {
@@ -70,6 +76,7 @@ beforeEach(() => {
   mockDb = db;
   closeDb = () => sqlite.close();
   mockBack.mockClear();
+  mockPush.mockClear();
   mockToast.mockClear();
   // Most tests are of Profile > Medications; "from Log" tests clear this.
   mockParams = { manage: '1' };
@@ -88,12 +95,28 @@ describe('Medications: logging', () => {
     mockParams = {};
     await render(<MedicationScreen />);
     expect(screen.getByRole('header', { name: 'Which medication?' })).toBeTruthy();
-    expect(screen.getByText('Tap to log a dose now.')).toBeTruthy();
+    expect(screen.getByText('Tap Log for a dose now, or a medicine to change its details.')).toBeTruthy();
     await screen.unmount();
 
     mockParams = { manage: '1' };
     await render(<MedicationScreen />);
     expect(screen.getByRole('header', { name: 'Medications' })).toBeTruthy();
+  });
+
+  it('offers Change time on the toast, which opens that dose to edit', async () => {
+    mockParams = {};
+    seedOmeprazole();
+    await render(<MedicationScreen />);
+
+    await press('button', 'Log Omeprazole 20mg');
+    const [, options] = mockToast.mock.calls[0];
+    options.action.onPress();
+
+    const [log] = listMedicationLogs(mockDb, ALL_TIME);
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/entry/edit',
+      params: { kind: 'medication', id: String(log.id) },
+    });
   });
 
   it('logs a dose right now from its Log pill, with no sheet and no symptom question', async () => {
@@ -106,7 +129,10 @@ describe('Medications: logging', () => {
     expect(listMedicationLogs(mockDb, ALL_TIME)).toEqual([
       expect.objectContaining({ medicationId: id, name: 'Omeprazole', type: 'ppi', doseText: '20mg' }),
     ]);
-    expect(mockToast).toHaveBeenCalledWith('Omeprazole logged');
+    expect(mockToast).toHaveBeenCalledWith(
+      'Omeprazole logged',
+      expect.objectContaining({ action: expect.objectContaining({ label: 'Change time' }) }),
+    );
     expect(screen.queryByText('When did you take this?')).toBeNull();
     expect(screen.queryByText(/Any symptoms/)).toBeNull();
   });
@@ -428,7 +454,7 @@ describe('Medications: editing and removing', () => {
     await press('button', 'Remove from my list');
     expect(alert).toHaveBeenLastCalledWith(
       'Remove Omeprazole?',
-      'It leaves your list, but past logs stay in Your Logs.',
+      'It leaves your list, but past logs stay in History.',
       expect.any(Array),
     );
     await act(async () => pressAlertButton(alert, 'Remove'));
@@ -531,7 +557,10 @@ describe('Medications: logging an earlier dose', () => {
       const logs = listMedicationLogs(mockDb, ALL_TIME);
       expect(logs).toHaveLength(1);
       expect(logs[0].takenAt).toBe(noonYesterday().toISOString());
-      expect(mockToast).toHaveBeenCalledWith('Omeprazole logged for Yesterday, 12:00 PM');
+      expect(mockToast).toHaveBeenCalledWith(
+        'Omeprazole logged for Yesterday, 12:00 PM',
+        expect.objectContaining({ action: expect.objectContaining({ label: 'Change time' }) }),
+      );
     });
 
     it('starts the details page on that day', async () => {

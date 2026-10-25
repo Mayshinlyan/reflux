@@ -405,7 +405,7 @@ describe('Entry: one that is not there', () => {
     await render(<EntryScreen />);
 
     expect(screen.getByText("This entry isn't here any more")).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: 'Back to History' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Go back' }));
     expect(router.back).toHaveBeenCalled();
   });
 
