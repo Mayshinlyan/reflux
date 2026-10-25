@@ -535,6 +535,33 @@ export function FoodFlow({
     mealLogged({ id: mealId, name: trimmed }, at);
   };
 
+  /** A photo whose check failed can still be logged: the meal is just "Meal" with its photo, no verdict, no relay call. */
+  const saveUncheckedPhoto = () => {
+    if (analyzed?.source !== 'photo' || busy || saving.current) return;
+    saving.current = true;
+    const at = logTime();
+    let storedPhoto: string | null = null;
+    let mealId: number;
+    try {
+      storedPhoto = savePhoto(analyzed.uri);
+      mealId = createUncheckedMeal(db, {
+        source: 'photo',
+        photoUri: storedPhoto,
+        loggedAt: at.toISOString(),
+      });
+    } catch {
+      if (storedPhoto) deletePhoto(storedPhoto);
+      saving.current = false;
+      logger.error('saveFoodLog', new AppError('INTERNAL'));
+      toast("We couldn't save that. Please try again.");
+      return;
+    }
+    mealLogged({ id: mealId, name: 'Meal' }, at);
+  };
+
+  /** Cancel while a check is running: the request is dropped and the photo or text stays as it was. */
+  const cancelCheck = () => reset();
+
   /** A Quick log chip: logs the food with the verdict it was saved with (no relay call), and opens the details. */
   const logQuick = (food: StoredSavedFood) => {
     if (busy || saving.current) return;
@@ -704,6 +731,9 @@ export function FoodFlow({
             label={state.status === 'error' ? 'Try again' : copy.analyzeLabel}
             onPress={checkPhotoWithDetails}
           />
+          {state.status === 'error' && canSaveUnchecked && (
+            <Button label={copy.saveUncheckedLabel} variant="quiet" onPress={saveUncheckedPhoto} />
+          )}
         </View>
       </>
     );
@@ -768,6 +798,12 @@ export function FoodFlow({
             <AppText style={[styles.linkText, { color: colors.clayInk }]}>{copy.notEatingLabel}</AppText>
           </Pressable>
         )}
+      </View>
+    );
+  } else if (state.status === 'loading' && !preparing && !correcting) {
+    footer = (
+      <View style={styles.footer}>
+        <Button label="Cancel" variant="quiet" onPress={cancelCheck} />
       </View>
     );
   } else if (!busy && !reviewingPhoto) {
@@ -842,7 +878,6 @@ export function FoodFlow({
         <View style={styles.sheetActions}>
           <TextField
             label="Tell us more"
-            hint="(optional)"
             value={correction}
             onChangeText={setCorrection}
             placeholder="e.g. it's pumpkin soup, no cream"

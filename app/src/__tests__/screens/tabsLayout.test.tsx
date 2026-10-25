@@ -99,22 +99,22 @@ describe('Tabs layout', () => {
 describe('Quick log arch', () => {
   it('stays closed until Log is tapped, then fans out food, symptom and medication', async () => {
     await render(<TabsLayout />);
-    expect(screen.queryByRole('button', { name: 'Log food' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Food' })).toBeNull();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
-    for (const name of ['Log food', 'How I feel', 'Medication']) {
+    for (const name of ['Food', 'How I feel', 'Medication']) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
     expect(mockPush).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('opens the plain Food screen for Log food, the same one Bellie opens, and closes the arch', async () => {
+  it('opens the plain Food screen for Food and closes the arch', async () => {
     await render(<TabsLayout />);
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Log food' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Food' }));
 
     expect(mockPush.mock.calls).toEqual([['/log/food']]);
     expect(screen.queryByRole('button', { name: 'How I feel' })).toBeNull();
@@ -137,7 +137,7 @@ describe('Quick log arch', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
 
-    expect(screen.queryByRole('button', { name: 'Log food' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Food' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Log' })).toBeTruthy();
     expect(mockPush).not.toHaveBeenCalled();
   });
@@ -148,7 +148,7 @@ describe('Quick log arch', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Dismiss quick log' }));
 
-    expect(screen.queryByRole('button', { name: 'Log food' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Food' })).toBeNull();
   });
 
   it('closes when a tab is tapped, and still switches to it', async () => {
@@ -157,7 +157,7 @@ describe('Quick log arch', () => {
 
     await fireEvent.press(screen.getByRole('tab', { name: 'History' }));
 
-    expect(screen.queryByRole('button', { name: 'Log food' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Food' })).toBeNull();
     expect(mockNavigate).toHaveBeenCalledWith('history');
   });
 
@@ -173,7 +173,7 @@ describe('Quick log arch', () => {
     const handled = await act(async () => onBack(undefined as never));
 
     expect(handled).toBe(true);
-    expect(screen.queryByRole('button', { name: 'Log food' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Food' })).toBeNull();
     add.mockRestore();
   });
 });

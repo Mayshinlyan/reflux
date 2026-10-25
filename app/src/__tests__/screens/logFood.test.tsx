@@ -888,10 +888,45 @@ describe('Log food screen (photo)', () => {
     await reviewThenCheck();
 
     expect(await screen.findByText(friendlyMessages.NOT_FOOD)).toBeTruthy();
-    // The photo stays, so the user can retry; there is no other way out of this step but Back.
+    // The photo stays, so the user can retry, or log the meal without a verdict.
     expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Choose a different photo' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Log without checking' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Log without checking' })).toBeEnabled();
+  });
+
+  it('logs a photo whose check failed without a verdict, and stays on the photo until then', async () => {
+    pick.mockResolvedValue({ status: 'ok', photo });
+    analyze.mockRejectedValue(new AppError('NETWORK'));
+    await render(<LogFoodScreen />);
+    await takePhoto();
+    await reviewThenCheck();
+    await screen.findByText(friendlyMessages.NETWORK);
+    expect(screen.queryByRole('button', { name: 'Log without checking' })).toBeTruthy();
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+
+    await press('Log without checking');
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
+      { mealName: 'Meal', source: 'photo', overallVerdict: null },
+    ]);
+    expect(mockToast).toHaveBeenCalledWith(
+      'Meal logged',
+      expect.objectContaining({ action: expect.objectContaining({ label: 'Add details' }) }),
+    );
+  });
+
+  it('cancels a check in progress and returns to the typed meal, nothing lost', async () => {
+    analyze.mockReturnValue(new Promise(() => {}));
+    await render(<LogFoodScreen />);
+    await type('dim sum');
+    await press('Check this meal');
+    expect(screen.getByText('loading:text')).toBeTruthy();
+
+    await press('Cancel');
+
+    expect(screen.queryByText('loading:text')).toBeNull();
+    expect(screen.getByDisplayValue('dim sum')).toBeTruthy();
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
   });
 
   it('keeps the photo with its stored check if "I ate this" cannot save', async () => {

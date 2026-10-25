@@ -3,15 +3,13 @@ import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { Pencil, Utensils } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { MealResultCard } from '@/components/MealResultCard';
-import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
-import { SymptomPromptSheet } from '@/components/SymptomPromptSheet';
 import { Screen } from '@/components/Screen';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TextField } from '@/components/TextField';
@@ -20,7 +18,6 @@ import { VERDICT_LABELS } from '@/components/VerdictBadge';
 import { VerdictSelect } from '@/components/VerdictSelect';
 import { analysisConditions } from '@/constants/conditions';
 import { useDb } from '@/db/DatabaseProvider';
-import { openSymptoms, useSymptomPrompt } from '@/hooks/useSymptomPrompt';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
 import {
   listSavedFoods,
@@ -40,7 +37,6 @@ import { formatTime, localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
 import { formatIngredients, parseIngredients, withIngredients } from '@/lib/ingredients';
 import { effectiveVerdict, withUserVerdict } from '@/lib/verdict';
-import { formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
@@ -94,9 +90,6 @@ export function FoodList() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [justLogged, setJustLogged] = useState<ReadonlySet<number>>(new Set());
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
-  // The food whose Log was tapped, while the "When did you eat this?" sheet is open (iPhone).
-  const [logging, setLogging] = useState<StoredSavedFood | null>(null);
-  const symptomPrompt = useSymptomPrompt();
 
   const [editing, setEditing] = useState<StoredSavedFood | null>(null);
   // What the sheet shows. Not cleared on close, so the sheet keeps its content while it slides away.
@@ -185,19 +178,16 @@ export function FoodList() {
     router.push({ pathname: '/log/food', params: { myFood: '1', food: String(id) } });
   };
 
-  /** Log was tapped: ask when it was eaten first. */
-  const askWhen = (food: StoredSavedFood) => {
-    if (Platform.OS === 'android') pickTimeAndroid(new Date(), (at) => logOnce(food, at));
-    else setLogging(food);
-  };
-
-  /** Logs the food at `at`, or right now when `at` is null. */
-  const logOnce = (food: StoredSavedFood, at: Date | null) => {
+  /**
+   * Log was tapped: the meal is logged now, like a Quick log chip. The toast's "Add details" opens the check-in
+   * page, where the time and any symptoms can be set.
+   */
+  const logOnce = (food: StoredSavedFood) => {
     // `disabled` only applies after a re-render, so two taps in the same instant must be caught here.
     if (timers.current.has(food.id)) return;
     let loggedId: number;
     try {
-      loggedId = logSavedFood(db, food.id, at?.toISOString());
+      loggedId = logSavedFood(db, food.id);
     } catch (error) {
       logger.error('logSavedFood', error);
       Alert.alert("Couldn't log", friendlyMessages.INTERNAL);
@@ -205,9 +195,12 @@ export function FoodList() {
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     playChing();
-    // An earlier meal doesn't show under "Eaten today", so the toast says when it was logged for.
-    toast(at ? `${food.mealName} logged for ${formatMealTime(at, new Date())}` : `${food.mealName} logged`);
-    symptomPrompt.show({ subtitle: `${food.mealName} logged`, foodLogId: loggedId });
+    toast(`${food.mealName} logged`, {
+      action: {
+        label: 'Add details',
+        onPress: () => router.push({ pathname: '/log/food', params: { details: String(loggedId) } }),
+      },
+    });
     setJustLogged((current) => new Set(current).add(food.id));
     timers.current.set(
       food.id,
@@ -325,7 +318,7 @@ export function FoodList() {
 
   /** From the edit sheet or a left swipe on a row: asks first, then takes the food off the list. */
   const confirmRemove = (id: number, label: string) => {
-    Alert.alert(`Remove ${label || 'this food'}?`, 'It leaves your list, but past meals stay in Your Logs.', [
+    Alert.alert(`Remove ${label || 'this food'}?`, 'It leaves your list, but past meals stay in History.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
@@ -362,7 +355,7 @@ export function FoodList() {
           </AppText>
         ) : foods.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
-            Add the foods you eat often, or save a meal from Your Logs, then log each one with a single tap.
+            Add the foods you eat often, or save a meal from History, then log each one with a single tap.
           </AppText>
         ) : (
           <>
@@ -405,7 +398,7 @@ export function FoodList() {
                     accessibilityLabel={done ? `${food.mealName} logged` : `Log ${food.mealName}`}
                     accessibilityState={{ disabled: done }}
                     disabled={done}
-                    onPress={() => askWhen(food)}
+                    onPress={() => logOnce(food)}
                     style={({ pressed }) => [
                       styles.logButton,
                       {
@@ -436,28 +429,8 @@ export function FoodList() {
         </Pressable>
       </ScrollView>
 
-      <MealTimeSheet
-        visible={logging !== null}
-        question="When did you eat this?"
-        confirmLabel="Log it"
-        onConfirm={(at) => {
-          const food = logging;
-          setLogging(null);
-          if (food) logOnce(food, at);
-        }}
-        onClose={() => setLogging(null)}
-        onDismissed={symptomPrompt.flush}
-      />
-      <SymptomPromptSheet
-        visible={symptomPrompt.visible}
-        subtitle={symptomPrompt.prompt?.subtitle ?? ''}
-        onHide={symptomPrompt.hide}
-        onLog={() => openSymptoms(symptomPrompt.prompt?.foodLogId)}
-        onSkip={() => {}}
-      />
-
       <BottomSheet visible={editing !== null} onClose={closeForm} scrollToTopKey={changing}>
-        {/* The saved verdict first, like a meal in Your Logs; editing sits below it. */}
+        {/* The saved verdict first, like a meal in History; editing sits below it. */}
         <AppText variant="title" accessibilityRole="header" style={styles.sheetTitle}>
           {sheetFood?.mealName}
         </AppText>
@@ -531,7 +504,7 @@ export function FoodList() {
                   disabled={checking}
                 />
               )}
-              <Button label="Cancel" variant="quietDanger" onPress={cancelChanges} />
+              <Button label="Cancel" variant="quiet" onPress={cancelChanges} />
             </View>
           </>
         ) : (

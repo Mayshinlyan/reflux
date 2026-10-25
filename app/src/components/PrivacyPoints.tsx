@@ -12,7 +12,7 @@ const POINTS: readonly { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: Check,
     title: 'Not medical advice',
-    body: 'a day in my belly gives general guidance. Talk to your doctor about your symptoms.',
+    body: 'A day in my belly gives general guidance. Talk to your doctor about your symptoms.',
   },
 ];
 

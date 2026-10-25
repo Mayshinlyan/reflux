@@ -58,35 +58,12 @@ jest.mock('@/components/FoodFlow', () => {
     FoodFlow: ({ openCamera }: { openCamera: boolean }) => <Text>{`check flow camera=${openCamera}`}</Text>,
   };
 });
-// The native wheel can't render here: the stand-in keeps its latest props so a test can "turn" it.
-let mockWheel: { onValueChange: (event: unknown, date: Date) => void } | null = null;
-jest.mock('@react-native-community/datetimepicker', () => ({
-  __esModule: true,
-  default: (props: NonNullable<typeof mockWheel>) => {
-    mockWheel = props;
-    return null;
-  },
-  DateTimePickerAndroid: { open: jest.fn() },
-}));
-
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
 const pressAlertButton = (spy: jest.SpyInstance, text: string) => {
   const buttons = spy.mock.calls.at(-1)?.[2] as AlertButton[];
   buttons.find((button) => button.text === text)?.onPress?.();
 };
-/** Yesterday at 8:15 AM, local time: always in the past whenever the test runs. */
-const yesterdayBreakfast = () => {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 8, 15);
-};
-/** Tap Log, turn the wheel to yesterday's breakfast, and confirm. */
-const logAtBreakfast = async (name: string) => {
-  await press(`Log ${name}`);
-  await act(() => mockWheel?.onValueChange({}, yesterdayBreakfast()));
-  await press('Log it');
-};
-
 beforeEach(() => {
   const { db, sqlite } = createTestDb();
   mockDb = db;
@@ -94,7 +71,6 @@ beforeEach(() => {
   mockToast.mockClear();
   mockPush.mockClear();
   mockParams = {};
-  mockWheel = null;
   mockAnalyze.mockReset();
   mockPick.mockReset();
 });
@@ -148,19 +124,20 @@ describe('Food screen: Favorite foods', () => {
     expect(screen.queryByText('Quick Log')).toBeNull();
   });
 
-  it('asks when it was eaten before logging, and logs right now when the time is left alone', async () => {
+  it('logs right now on the tap, with no time question, and the Log button shows it for a moment', async () => {
     jest.useFakeTimers();
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
 
     await press('Log Oatmeal');
-    expect(screen.getByText('When did you eat this?')).toBeTruthy();
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
-    await press('Log it');
-    await press('Oatmeal logged');
 
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
-    expect(mockToast).toHaveBeenCalledWith('Oatmeal logged');
+    expect(screen.queryByText('When did you eat this?')).toBeNull();
+    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
+    expect(new Date(meal.loggedAt).getTime()).toBeLessThanOrEqual(Date.now());
+    expect(mockToast).toHaveBeenCalledWith(
+      'Oatmeal logged',
+      expect.objectContaining({ action: expect.objectContaining({ label: 'Add details' }) }),
+    );
     expect(screen.getByText('Logged ✓')).toBeTruthy();
     expect(screen.getByText(/Eaten today/)).toBeTruthy();
 
@@ -170,28 +147,19 @@ describe('Food screen: Favorite foods', () => {
     expect(screen.getByRole('button', { name: 'Log Oatmeal' })).toBeTruthy();
   });
 
-  it('logs a food at the chosen time, which does not count as eaten today', async () => {
-    createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
-
-    await logAtBreakfast('Oatmeal');
-
-    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
-    expect(meal.loggedAt).toBe(yesterdayBreakfast().toISOString());
-    expect(mockToast).toHaveBeenCalledWith('Oatmeal logged for Yesterday, 8:15 AM');
-    expect(screen.queryByText(/Eaten today/)).toBeNull();
-  });
-
-  it('never logs a time that has not happened yet', async () => {
+  it('opens the check-in details from the toast, where time and symptoms are set', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
 
     await press('Log Oatmeal');
-    await act(() => mockWheel?.onValueChange({}, new Date(Date.now() + 60 * 60 * 1000)));
-    await press('Log it');
+    const [, options] = mockToast.mock.calls[0];
+    options.action.onPress();
 
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
-    expect(new Date(meal.loggedAt).getTime()).toBeLessThanOrEqual(Date.now());
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/log/food',
+      params: { details: String(meal.id) },
+    });
   });
 
   it('"Log a new food" opens the check', async () => {
@@ -499,7 +467,6 @@ describe('Food screen: Favorite foods', () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
     await press('Log Oatmeal');
-    await press('Log it');
 
     await press('Edit Oatmeal');
     await press('Remove from my list');

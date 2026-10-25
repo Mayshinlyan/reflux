@@ -81,7 +81,7 @@ export default function EntryScreen() {
           <AppText color="inkSoft" style={styles.missingBody}>
             It may have been deleted.
           </AppText>
-          <Button label="Back to History" onPress={() => router.back()} />
+          <Button label="Go back" onPress={() => router.back()} />
         </View>
       </Screen>
     );

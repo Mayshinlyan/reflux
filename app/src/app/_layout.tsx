@@ -55,7 +55,7 @@ function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <StatusBar style="dark" />
-      <DatabaseProvider fallback={null} errorView={<DatabaseErrorScreen />}>
+      <DatabaseProvider fallback={null} errorView={(retry) => <DatabaseErrorScreen onRetry={retry} />}>
         <HideSplash />
         <WidgetSync />
         <ToastProvider>
@@ -111,7 +111,7 @@ function WidgetSync() {
   return null;
 }
 
-function DatabaseErrorScreen() {
+function DatabaseErrorScreen({ onRetry }: { onRetry: () => void }) {
   return (
     <Screen>
       <HideSplash />
@@ -119,7 +119,10 @@ function DatabaseErrorScreen() {
         <AppText variant="title" style={styles.gap}>
           Something went wrong
         </AppText>
-        <AppText color="inkSoft">{friendlyMessages.DB_MIGRATION_FAILED}</AppText>
+        <AppText color="inkSoft" style={styles.gap}>
+          {friendlyMessages.DB_MIGRATION_FAILED}
+        </AppText>
+        <Button label="Try again" onPress={onRetry} />
       </View>
     </Screen>
   );

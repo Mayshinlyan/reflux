@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { radius, useColors } from '@/theme';
@@ -23,7 +23,7 @@ type Props = {
 
 const SIZE = 32;
 
-/** Figma "Range stepper": `‹ Oct 4 – 10 ›` on a `surface` pill. The arrows step; the dates open the calendar only if asked to. */
+/** Figma "Range stepper": `‹ Oct 4 – 10 ›` on a `surface` pill. The arrows step; the dates open the calendar when asked to, and then carry a small calendar icon (Figma 14b). */
 export function RangeStepper({
   label,
   onPressLabel,
@@ -60,7 +60,8 @@ export function RangeStepper({
           accessibilityLabel={label}
           accessibilityHint="Opens the calendar to pick dates"
           onPress={onPressLabel}
-          style={styles.label}>
+          style={[styles.label, styles.tappable]}>
+          <CalendarDays size={16} color={colors.inkMuted} strokeWidth={2} />
           <AppText variant="label">{label}</AppText>
         </Pressable>
       ) : (
@@ -98,4 +99,5 @@ const styles = StyleSheet.create({
   },
   dim: { opacity: 0.3 },
   label: { minHeight: SIZE, justifyContent: 'center', paddingHorizontal: 2 },
+  tappable: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

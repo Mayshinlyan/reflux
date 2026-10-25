@@ -1,14 +1,21 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Activity, Pill, Utensils, X } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { LogTile } from '@/components/LogTile';
 import { Screen } from '@/components/Screen';
 import { TopBar, TopBarButton } from '@/components/TopBar';
+import { LOG_KINDS, type LogKind } from '@/lib/logKinds';
 import { space } from '@/theme';
 
-const withDate = (pathname: '/log/food' | '/log/symptoms' | '/log/medication', date?: string) =>
+const ROUTE: Record<LogKind, '/log/food' | '/log/symptoms' | '/log/medication'> = {
+  food: '/log/food',
+  symptoms: '/log/symptoms',
+  medication: '/log/medication',
+};
+
+const withDate = (pathname: (typeof ROUTE)[LogKind], date?: string) =>
   date ? { pathname, params: { date } } : pathname;
 
 const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -28,28 +35,15 @@ export default function LogChooseScreen() {
           What would you like to log?
         </AppText>
         <View style={styles.tiles}>
-          <View style={styles.row}>
+          {LOG_KINDS.map(({ kind, label, icon, tint }) => (
             <LogTile
-              label="Food"
-              icon={Utensils}
-              tint="honeyTint"
-              onPress={() => router.replace(withDate('/log/food', date))}
+              key={kind}
+              label={label}
+              icon={icon}
+              tint={tint}
+              onPress={() => router.replace(withDate(ROUTE[kind], date))}
             />
-            <LogTile
-              label="How I feel"
-              icon={Activity}
-              tint="clayTint"
-              onPress={() => router.replace(withDate('/log/symptoms', date))}
-            />
-          </View>
-          <View style={styles.row}>
-            <LogTile
-              label="Medication"
-              icon={Pill}
-              tint="sageTint"
-              onPress={() => router.replace(withDate('/log/medication', date))}
-            />
-          </View>
+          ))}
         </View>
       </ScrollView>
     </Screen>
@@ -58,6 +52,5 @@ export default function LogChooseScreen() {
 
 const styles = StyleSheet.create({
   title: { marginTop: space.s4 + space.s1, marginBottom: space.s4 + space.s1 },
-  tiles: { gap: space.s3, alignItems: 'center' },
-  row: { flexDirection: 'row', gap: space.s3 },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.s3 },
 });

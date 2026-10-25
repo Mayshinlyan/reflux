@@ -29,7 +29,7 @@ beforeEach(() => {
 });
 
 describe('HomeBellie', () => {
-  it('opens the food screen on the tap itself, with the jiggle playing as it opens', async () => {
+  it('presses on the tap itself, with the jiggle playing as it opens', async () => {
     const onPress = jest.fn();
     await render(<HomeBellie line="Tap me to log" mood="happy" onPress={onPress} />);
 
