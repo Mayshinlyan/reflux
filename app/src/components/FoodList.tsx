@@ -42,7 +42,7 @@ import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import type { AppVerdict } from '@/types/analysis';
-import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
+import { cardEdge, fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
 
 /** How long a row says "Logged ✓" (and ignores taps) after a one-tap log, so a double-tap can't log twice. */
 const LOGGED_FLASH_MS = 2500;
@@ -363,11 +363,7 @@ export function FoodList() {
               const today = eaten.get(food.mealName.toLowerCase());
               const done = justLogged.has(food.id);
               const card = (
-                <View
-                  style={[
-                    styles.card,
-                    { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge },
-                  ]}>
+                <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Edit ${food.mealName}`}

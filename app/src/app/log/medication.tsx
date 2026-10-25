@@ -44,7 +44,7 @@ import { logger } from '@/lib/logger';
 import { dayToLoggedAt, formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { medicationTypeLabel } from '@/lib/timeline';
-import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
+import { cardEdge, fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
 
 const MAX_NAME = 60;
 const MAX_DOSE = 40;
@@ -539,10 +539,7 @@ export default function MedicationScreen() {
             return (
               <View
                 key={med.id}
-                style={[
-                  styles.card,
-                  { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge },
-                ]}>
+                style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={doseLabel(med)}

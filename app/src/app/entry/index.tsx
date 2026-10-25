@@ -26,7 +26,7 @@ import { isLateMeal } from '@/lib/mealTiming';
 import { possibleCauses } from '@/lib/possibleCauses';
 import { medicationTypeLabel, symptomLabel, tagLabel } from '@/lib/timeline';
 import { matchedTriggerLabels } from '@/lib/verdictReasons';
-import { radius, space, useColors } from '@/theme';
+import { cardEdge, radius, space, useColors } from '@/theme';
 
 /**
  * One diary entry in full (Figma 04b meal, 04f dose, 04h symptoms): a back arrow and a `…` menu on top, then the
@@ -144,8 +144,7 @@ function EntryMenu({
 function Card({ title, children }: { title?: string; children: ReactNode }) {
   const colors = useColors();
   return (
-    <View
-      style={[styles.card, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge }]}>
+    <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
       {title ? (
         <AppText variant="section" accessibilityRole="header">
           {title}

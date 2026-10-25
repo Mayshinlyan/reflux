@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { Belly } from '@/components/Belly';
 import { Button } from '@/components/Button';
-import { radius, space, useColors } from '@/theme';
+import { cardEdge, radius, space, useColors } from '@/theme';
 
 import { StepLayout } from './StepLayout';
 
@@ -18,7 +18,7 @@ export function InsightStep({ onNext }: { onNext: () => void }) {
       <View
         accessible
         accessibilityLabel="Example: Spicy meals. Heartburn often showed up within 2 hours."
-        style={[styles.card, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge }]}>
+        style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
         <View style={styles.head}>
           <View style={styles.headText}>
             <AppText variant="label" color="inkSoft">

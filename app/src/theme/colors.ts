@@ -50,6 +50,9 @@ export const lightColors = {
 export type ColorToken = keyof typeof lightColors;
 export type Palette = Record<ColorToken, string>;
 
+/** The 1px soft edge on cards and rows; spread it next to the card's `backgroundColor`. */
+export const cardEdge = (colors: Palette) => ({ borderWidth: 1, borderColor: colors.edge }) as const;
+
 export const darkColors: Palette = {
   bg: '#1F1B18',
   surface: '#2A2521',

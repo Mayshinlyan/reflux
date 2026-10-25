@@ -9,7 +9,7 @@ import { VerdictBadge } from '@/components/VerdictBadge';
 import { BELLY_VERDICT_HEADLINE, bellyMoodFor } from '@/lib/belly';
 import { effectiveVerdict } from '@/lib/verdict';
 import { matchedTriggerLabels, verdictReasons } from '@/lib/verdictReasons';
-import { radius, space, useColors } from '@/theme';
+import { cardEdge, radius, space, useColors } from '@/theme';
 import type { MealAnalysis, MealItem } from '@/types/analysis';
 
 type Props = {
@@ -84,11 +84,7 @@ export function VerdictWhy({ analysis, late, plain = false }: Props & { plain?: 
   if (reasons.length === 0 && ingredients.length === 0) return null;
   return (
     <View
-      style={
-        plain
-          ? styles.plain
-          : [styles.card, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge }]
-      }>
+      style={plain ? styles.plain : [styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
       <AppText variant="sectionSm">Why we think so</AppText>
       {reasons.map((reason) => (
         <View key={reason} style={styles.reason}>

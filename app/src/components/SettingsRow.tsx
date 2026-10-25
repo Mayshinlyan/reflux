@@ -1,7 +1,7 @@
 import { ChevronRight, type LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet } from 'react-native';
 
-import { minTouchTarget, radius, space, useColors } from '@/theme';
+import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -28,8 +28,7 @@ export function SettingsRow({ label, value, onPress, icon: Icon, danger = false 
         styles.row,
         {
           backgroundColor: colors.surface,
-          borderWidth: 1,
-          borderColor: colors.edge,
+          ...cardEdge(colors),
           opacity: pressed ? 0.85 : 1,
         },
       ]}>

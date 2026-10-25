@@ -10,7 +10,7 @@ import {
   type RankedCount,
   SUMMARY_VERDICTS,
 } from '@/lib/historySummary';
-import { type ColorToken, radius, space, useColors, verdictColors } from '@/theme';
+import { cardEdge, type ColorToken, radius, space, useColors, verdictColors } from '@/theme';
 import type { Insight } from '@/types/insight';
 
 import { AppText } from './AppText';
@@ -137,8 +137,7 @@ function Card({
           width,
           minHeight: height,
           backgroundColor: colors.surface,
-          borderWidth: 1,
-          borderColor: colors.edge,
+          ...cardEdge(colors),
         },
         gap ? { gap } : { justifyContent: 'space-between' },
       ]}>
