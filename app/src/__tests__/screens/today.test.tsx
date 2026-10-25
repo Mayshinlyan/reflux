@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
+import { Alert, ScrollView } from 'react-native';
 
 import TodayScreen from '@/app/(tabs)/index';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { createFoodLog } from '@/db/repositories/food';
+import { createFoodLog, listDiaryFoodLogs } from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
 import type { AppDb } from '@/db/types';
 import { fetchInsight } from '@/services/relayClient';
@@ -49,7 +50,10 @@ jest.mock('react-native-reanimated', () => ({
 }));
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  selectionAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light' },
+  NotificationFeedbackType: { Warning: 'warning' },
 }));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -107,6 +111,11 @@ const seedMeal = (mealName: string, verdict: AppVerdict, loggedAt: string) =>
   });
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+
+const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
+
+/** Presses the Undo on the most recent toast, as a tap on it would. */
+const pressUndo = () => mockToast.mock.calls.at(-1)?.[1].action.onPress();
 
 describe('Today: an empty day', () => {
   it('greets, shows the week with today marked, and invites a first meal', async () => {
@@ -307,6 +316,24 @@ describe("Today: Bellie's words", () => {
       expect(mockUpdate).toHaveBeenCalledWith('insightNudged', true);
     });
 
+    it('never moves the cards under a finger that is already on them', async () => {
+      // jest-expo's ScrollView already mocks scrollTo, so spyOn hands back that mock with the last test's calls on it.
+      const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(() => {});
+      scrollTo.mockClear();
+      seedMeal('Spicy ramen', 'caution', minutesAgo(5));
+      await render(<TodayScreen />);
+
+      await fireEvent(screen.getByText('Today so far'), 'touchStart');
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+      });
+
+      expect(scrollTo).not.toHaveBeenCalled();
+      // They have found the swipe, so it counts as seen.
+      expect(mockUpdate).toHaveBeenCalledWith('insightNudged', true);
+      scrollTo.mockRestore();
+    });
+
     it('does not play again once it has been seen, or with Reduce Motion on', async () => {
       seedMeal('Spicy ramen', 'caution', minutesAgo(5));
       mockNudged = true;
@@ -393,6 +420,38 @@ describe('Today: after logging', () => {
       pathname: '/entry',
       params: { kind: 'medication', id: String(doseId) },
     });
+  });
+});
+
+describe('Today: swipe to delete an entry', () => {
+  it('removes the meal at once with no alert, and offers Undo, as History does', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    seedMeal('Spicy ramen', 'caution', minutesAgo(1));
+    await render(<TodayScreen />);
+    expect(screen.getByText('1 entry')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete Spicy ramen' }));
+
+    expect(alert).not.toHaveBeenCalled();
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(screen.queryByText('Spicy ramen')).toBeNull();
+    expect(screen.queryByText('1 entry')).toBeNull();
+    expect(mockToast).toHaveBeenLastCalledWith('Entry deleted', {
+      action: { label: 'Undo', onPress: expect.any(Function) },
+    });
+  });
+
+  it('puts the meal back when Undo is pressed', async () => {
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    seedMeal('Spicy ramen', 'caution', minutesAgo(1));
+    await render(<TodayScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete Spicy ramen' }));
+
+    await act(async () => pressUndo());
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
+    expect(screen.getByText('Spicy ramen')).toBeTruthy();
+    expect(screen.getByText('1 entry')).toBeTruthy();
   });
 });
 

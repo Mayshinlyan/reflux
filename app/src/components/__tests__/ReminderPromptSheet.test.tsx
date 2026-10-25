@@ -39,6 +39,10 @@ describe('ReminderPromptSheet', () => {
     await render(<Harness onYes={onYes} onNotNow={onNotNow} />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Yes please' }));
+    // The sheet slides away first, then its content goes.
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
     expect(screen.queryByText('Want a gentle nudge?')).toBeNull();
     expect(onYes).not.toHaveBeenCalled();
 

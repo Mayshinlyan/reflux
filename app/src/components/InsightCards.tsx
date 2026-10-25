@@ -53,17 +53,19 @@ export function InsightCards({ today, week }: Props) {
   const step = cardWidth + CARD_GAP;
   const nudge = cards.length > 1 && !settings.insightNudged && !reduceMotion;
 
+  // A finger on the cards means they have found the swipe: the nudge never moves them under it.
+  const touched = useRef(false);
+
   // A little slide the first time the cards appear: the next one is there. Played once, ever.
   useEffect(() => {
     if (!nudge) return;
     const out = setTimeout(() => {
-      scroll.current?.scrollTo({ x: NUDGE_X, animated: true });
+      if (!touched.current) scroll.current?.scrollTo({ x: NUDGE_X, animated: true });
       update('insightNudged', true);
     }, NUDGE_DELAY_MS);
-    const back = setTimeout(
-      () => scroll.current?.scrollTo({ x: 0, animated: true }),
-      NUDGE_DELAY_MS + NUDGE_BACK_MS,
-    );
+    const back = setTimeout(() => {
+      if (!touched.current) scroll.current?.scrollTo({ x: 0, animated: true });
+    }, NUDGE_DELAY_MS + NUDGE_BACK_MS);
     return () => {
       clearTimeout(out);
       clearTimeout(back);
@@ -86,6 +88,9 @@ export function InsightCards({ today, week }: Props) {
         disableIntervalMomentum
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
+        onTouchStart={() => {
+          touched.current = true;
+        }}
         onScroll={(event) => {
           const next = Math.min(
             cards.length,

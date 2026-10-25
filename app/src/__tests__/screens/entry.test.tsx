@@ -110,6 +110,14 @@ const seedTacos = (loggedAt = at(10, 19, 45), advice: { summary?: string; tip?: 
   });
 
 describe('Entry: a meal', () => {
+  it('has a back arrow, not a close X, because it pushes in from the side', async () => {
+    mockParams = { kind: 'food', id: String(seedTacos()) };
+    await render(<EntryScreen />);
+
+    expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
+  });
+
   it('shows the verdict on top, then the name, when and portion, tags, symptoms after and note', async () => {
     const id = seedTacos();
     saveMealDetails(mockDb, id, { portion: 'large', tags: ['large_meal'], notes: 'Felt fine until later.' });

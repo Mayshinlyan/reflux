@@ -19,7 +19,6 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
-import { SwipeNav } from '@/components/SwipeNav';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { TimePill } from '@/components/TimePill';
@@ -41,7 +40,6 @@ import { playChing } from '@/lib/ching';
 import { friendlyMessages } from '@/lib/errors';
 import { formatTime, localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
-import { medicationSwipe } from '@/lib/logSwipe';
 import { dayToLoggedAt, formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { medicationTypeLabel } from '@/lib/timeline';
@@ -546,107 +544,105 @@ export default function MedicationScreen() {
   }
 
   return (
-    <SwipeNav {...medicationSwipe} enabled={viewing === null}>
-      <Screen style={styles.screen}>
-        <BackHeader />
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <AppText variant="display" accessibilityRole="header">
-            {manage ? 'Medications' : 'Which medication?'}
+    <Screen style={styles.screen}>
+      <BackHeader />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <AppText variant="display" accessibilityRole="header">
+          {manage ? 'Medications' : 'Which medication?'}
+        </AppText>
+        <AppText color="inkSoft" style={styles.subtitle}>
+          {manage ? 'Tap a medication to see it.' : 'Tap to log a dose now.'}
+        </AppText>
+        {loadFailed && meds.length === 0 ? (
+          <AppText color="inkSoft" style={styles.empty}>
+            {`${friendlyMessages.INTERNAL} Your medications are still on this phone.`}
           </AppText>
-          <AppText color="inkSoft" style={styles.subtitle}>
-            {manage ? 'Tap a medication to see it.' : 'Tap to log a dose now.'}
+        ) : meds.length === 0 ? (
+          <AppText color="inkSoft" style={styles.empty}>
+            Add the medications you take, then log each one with a single tap.
           </AppText>
-          {loadFailed && meds.length === 0 ? (
-            <AppText color="inkSoft" style={styles.empty}>
-              {`${friendlyMessages.INTERNAL} Your medications are still on this phone.`}
-            </AppText>
-          ) : meds.length === 0 ? (
-            <AppText color="inkSoft" style={styles.empty}>
-              Add the medications you take, then log each one with a single tap.
-            </AppText>
-          ) : (
-            meds.map((med) => {
-              const today = taken.get(med.id);
-              const done = justLogged.has(med.id);
-              return (
-                <View key={med.id} style={[styles.card, { backgroundColor: colors.surface }]}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={doseLabel(med)}
-                    accessibilityHint={manage ? 'Shows its details' : 'Opens time, dose and note'}
-                    onPress={() => (manage ? setViewing(med) : openDetail(med))}
-                    style={styles.info}>
-                    <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                      <Pill size={18} color={colors.clayInk} strokeWidth={2.2} />
-                    </View>
-                    <View style={styles.text}>
-                      <AppText style={styles.medName} numberOfLines={2}>
-                        {doseLabel(med)}
-                      </AppText>
-                      <AppText variant="caption" color="inkSoft">
-                        {medicationTypeLabel(med.type)}
-                        {today ? ` · ${takenTodayLabel(today)}` : ''}
-                      </AppText>
-                    </View>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
-                    accessibilityState={{ disabled: done }}
-                    disabled={done}
-                    onPress={() => logDose(med, dayAt ? { at: dayAt } : undefined)}
-                    style={({ pressed }) => [
-                      styles.logButton,
-                      {
-                        backgroundColor: done ? colors.sageInk : colors.sageTint,
-                        opacity: pressed ? 0.8 : 1,
-                      },
-                    ]}>
-                    <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
-                      {done ? 'Logged ✓' : 'Log'}
+        ) : (
+          meds.map((med) => {
+            const today = taken.get(med.id);
+            const done = justLogged.has(med.id);
+            return (
+              <View key={med.id} style={[styles.card, { backgroundColor: colors.surface }]}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={doseLabel(med)}
+                  accessibilityHint={manage ? 'Shows its details' : 'Opens time, dose and note'}
+                  onPress={() => (manage ? setViewing(med) : openDetail(med))}
+                  style={styles.info}>
+                  <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
+                    <Pill size={18} color={colors.clayInk} strokeWidth={2.2} />
+                  </View>
+                  <View style={styles.text}>
+                    <AppText style={styles.medName} numberOfLines={2}>
+                      {doseLabel(med)}
                     </AppText>
-                  </Pressable>
-                </View>
-              );
-            })
-          )}
-        </ScrollView>
-        <View style={styles.footer}>
-          <Button label="Add a medication" variant="secondary" onPress={openAdd} />
-        </View>
-
-        {/* Like a saved food: the medication first; Edit opens its fields. */}
-        <BottomSheet visible={viewing !== null} onClose={() => setViewing(null)}>
-          {viewing && (
-            <>
-              <AppText variant="title" accessibilityRole="header">
-                {doseLabel(viewing)}
-              </AppText>
-              <AppText color="inkSoft" style={styles.sheetMeta}>
-                {medicationTypeLabel(viewing.type)}
-                {' · '}
-                {takenTodayLabel(taken.get(viewing.id))}
-              </AppText>
-              <Button
-                label="Edit"
-                onPress={() => {
-                  const med = viewing;
-                  setViewing(null);
-                  openEdit(med);
-                }}
-              />
-              <View style={styles.secondary}>
-                <Button
-                  label="Remove from my list"
-                  variant="quietDanger"
-                  onPress={() => confirmRemove(viewing)}
-                />
+                    <AppText variant="caption" color="inkSoft">
+                      {medicationTypeLabel(med.type)}
+                      {today ? ` · ${takenTodayLabel(today)}` : ''}
+                    </AppText>
+                  </View>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
+                  accessibilityState={{ disabled: done }}
+                  disabled={done}
+                  onPress={() => logDose(med, dayAt ? { at: dayAt } : undefined)}
+                  style={({ pressed }) => [
+                    styles.logButton,
+                    {
+                      backgroundColor: done ? colors.sageInk : colors.sageTint,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}>
+                  <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
+                    {done ? 'Logged ✓' : 'Log'}
+                  </AppText>
+                </Pressable>
               </View>
-            </>
-          )}
-        </BottomSheet>
-      </Screen>
-    </SwipeNav>
+            );
+          })
+        )}
+      </ScrollView>
+      <View style={styles.footer}>
+        <Button label="Add a medication" variant="secondary" onPress={openAdd} />
+      </View>
+
+      {/* Like a saved food: the medication first; Edit opens its fields. */}
+      <BottomSheet visible={viewing !== null} onClose={() => setViewing(null)}>
+        {viewing && (
+          <>
+            <AppText variant="title" accessibilityRole="header">
+              {doseLabel(viewing)}
+            </AppText>
+            <AppText color="inkSoft" style={styles.sheetMeta}>
+              {medicationTypeLabel(viewing.type)}
+              {' · '}
+              {takenTodayLabel(taken.get(viewing.id))}
+            </AppText>
+            <Button
+              label="Edit"
+              onPress={() => {
+                const med = viewing;
+                setViewing(null);
+                openEdit(med);
+              }}
+            />
+            <View style={styles.secondary}>
+              <Button
+                label="Remove from my list"
+                variant="quietDanger"
+                onPress={() => confirmRemove(viewing)}
+              />
+            </View>
+          </>
+        )}
+      </BottomSheet>
+    </Screen>
   );
 }
 

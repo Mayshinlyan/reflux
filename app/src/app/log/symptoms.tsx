@@ -17,7 +17,6 @@ import { Button } from '@/components/Button';
 import { InlineAddChip } from '@/components/InlineAddChip';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
-import { SwipeNav } from '@/components/SwipeNav';
 import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
@@ -52,7 +51,6 @@ import { createSymptomLog, getSymptomLog, updateSymptomLog } from '@/db/reposito
 import { playChing } from '@/lib/ching';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { symptomsSwipe } from '@/lib/logSwipe';
 import { dayToLoggedAt, formatClockTime, formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { symptomLabel, tagLabel } from '@/lib/timeline';
@@ -352,76 +350,49 @@ export default function LogSymptomsScreen() {
     );
   }
 
-  // Swiping between log screens is only for a fresh, untouched log, so it can't drop a half-finished one.
-  const pristine = editingId === undefined && step === 1 && selected.size === 0 && tags.size === 0;
   const now = new Date();
 
   return (
-    <SwipeNav {...symptomsSwipe} enabled={pristine}>
-      <Screen style={styles.screen}>
-        <BackHeader onBack={goBack} />
-        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView
-            ref={scroll}
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
-            {step === 1 ? (
-              <>
-                <AppText variant="display" accessibilityRole="header">
-                  How do you feel?
-                </AppText>
-                <AppText color="inkSoft" style={styles.subtitle}>
-                  Tap everything that applies.
-                </AppText>
-                {BODY_ZONES.map((z) => (
-                  <View
-                    key={z.key}
-                    style={styles.section}
-                    onLayout={(event) => {
-                      sectionY.current[z.key] = event.nativeEvent.layout.y;
-                    }}>
-                    <AppText variant="section">{z.label}</AppText>
-                    <View style={styles.chips}>
-                      <InlineAddChip
-                        label={`Add your own to ${z.label}`}
-                        placeholder="e.g. Hiccups"
-                        onAdd={(text) => addOwnSymptom(text, z.key)}
-                        onOpen={() => reveal(z.key)}
-                      />
-                      {usualFirst(z.symptoms, usual).map((key) => (
-                        <SymptomChip
-                          key={key}
-                          label={symptomLabel(key)}
-                          selected={selected.has(key)}
-                          onToggle={() => toggleSymptom(key)}
-                        />
-                      ))}
-                      {(ownByZone.get(z.key) ?? []).map((key) => (
-                        <SymptomChip
-                          key={key}
-                          label={customSymptomLabel(key)}
-                          selected={selected.has(key)}
-                          onToggle={() => toggleSymptom(key)}
-                        />
-                      ))}
-                    </View>
-                  </View>
-                ))}
+    <Screen style={styles.screen}>
+      <BackHeader onBack={goBack} />
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          ref={scroll}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          {step === 1 ? (
+            <>
+              <AppText variant="display" accessibilityRole="header">
+                How do you feel?
+              </AppText>
+              <AppText color="inkSoft" style={styles.subtitle}>
+                Tap everything that applies.
+              </AppText>
+              {BODY_ZONES.map((z) => (
                 <View
+                  key={z.key}
                   style={styles.section}
                   onLayout={(event) => {
-                    sectionY.current.other = event.nativeEvent.layout.y;
+                    sectionY.current[z.key] = event.nativeEvent.layout.y;
                   }}>
-                  <AppText variant="section">{OTHER_AREA_LABEL}</AppText>
+                  <AppText variant="section">{z.label}</AppText>
                   <View style={styles.chips}>
                     <InlineAddChip
-                      label={`Add your own to ${OTHER_AREA_LABEL}`}
+                      label={`Add your own to ${z.label}`}
                       placeholder="e.g. Hiccups"
-                      onAdd={(text) => addOwnSymptom(text, 'other')}
-                      onOpen={() => reveal('other')}
+                      onAdd={(text) => addOwnSymptom(text, z.key)}
+                      onOpen={() => reveal(z.key)}
                     />
-                    {(ownByZone.get('other') ?? []).map((key) => (
+                    {usualFirst(z.symptoms, usual).map((key) => (
+                      <SymptomChip
+                        key={key}
+                        label={symptomLabel(key)}
+                        selected={selected.has(key)}
+                        onToggle={() => toggleSymptom(key)}
+                      />
+                    ))}
+                    {(ownByZone.get(z.key) ?? []).map((key) => (
                       <SymptomChip
                         key={key}
                         label={customSymptomLabel(key)}
@@ -431,116 +402,139 @@ export default function LogSymptomsScreen() {
                     ))}
                   </View>
                 </View>
-              </>
-            ) : (
-              <>
-                <AppText variant="display" accessibilityRole="header">
-                  {picked.length > 0 ? symptomsTitle(picked.map((item) => item.label)) : 'Just checking in'}
-                </AppText>
-                <AppText color="inkSoft" style={styles.subtitle}>
-                  Anything else? All optional.
-                </AppText>
-                <View style={styles.timeRow}>
-                  <TimePill label={formatMealTime(at, now)} onPress={pickTime} />
-                </View>
-                <TextField
-                  label="Note"
-                  hideLabel
-                  value={note}
-                  onChangeText={setNote}
-                  placeholder="Add a note (optional)"
-                  maxLength={MAX_NOTE_LENGTH}
-                  multiline
-                />
-                <View
-                  style={styles.section}
-                  onLayout={(event) => {
-                    sectionY.current.tags = event.nativeEvent.layout.y;
-                  }}>
-                  <AppText variant="section">What&apos;s going on?</AppText>
-                  <View style={styles.chips}>
-                    <InlineAddChip
-                      label="Add your own to What's going on?"
-                      placeholder="e.g. Skipped breakfast"
-                      onAdd={addOwnTag}
-                      onOpen={() => reveal('tags')}
+              ))}
+              <View
+                style={styles.section}
+                onLayout={(event) => {
+                  sectionY.current.other = event.nativeEvent.layout.y;
+                }}>
+                <AppText variant="section">{OTHER_AREA_LABEL}</AppText>
+                <View style={styles.chips}>
+                  <InlineAddChip
+                    label={`Add your own to ${OTHER_AREA_LABEL}`}
+                    placeholder="e.g. Hiccups"
+                    onAdd={(text) => addOwnSymptom(text, 'other')}
+                    onOpen={() => reveal('other')}
+                  />
+                  {(ownByZone.get('other') ?? []).map((key) => (
+                    <SymptomChip
+                      key={key}
+                      label={customSymptomLabel(key)}
+                      selected={selected.has(key)}
+                      onToggle={() => toggleSymptom(key)}
                     />
-                    {LIFESTYLE_TAGS.map((tag) => (
-                      <TagChip
-                        key={tag.key}
-                        label={tag.label}
-                        selected={tags.has(tag.key)}
-                        onPress={() => toggleTag(tag.key)}
-                      />
-                    ))}
-                    {ownTagKeys.map((key) => (
-                      <TagChip
-                        key={key}
-                        label={tagLabel(key)}
-                        selected={tags.has(key)}
-                        onPress={() => toggleTag(key)}
-                      />
-                    ))}
-                  </View>
+                  ))}
                 </View>
-                {candidate && picked.length > 0 && (
-                  <View style={styles.section}>
-                    <AppText variant="section">Recent meal</AppText>
-                    <View style={linked ? undefined : styles.dimmed}>
-                      <TimelineItem
-                        kind="food"
-                        title={candidate.mealName}
-                        time={formatClockTime(new Date(candidate.loggedAt))}
-                        onPress={() => setLinkedId(linked ? null : candidate.id)}
-                        side={candidate.overallVerdict && <VerdictBadge verdict={candidate.overallVerdict} />}
-                      />
-                    </View>
-                    <AppText variant="caption" color="inkSoft">
-                      {linked
-                        ? 'Linked to these symptoms. Tap to unlink.'
-                        : 'Tap to link it to these symptoms.'}
-                    </AppText>
+              </View>
+            </>
+          ) : (
+            <>
+              <AppText variant="display" accessibilityRole="header">
+                {picked.length > 0 ? symptomsTitle(picked.map((item) => item.label)) : 'Just checking in'}
+              </AppText>
+              <AppText color="inkSoft" style={styles.subtitle}>
+                Anything else? All optional.
+              </AppText>
+              <View style={styles.timeRow}>
+                <TimePill label={formatMealTime(at, now)} onPress={pickTime} />
+              </View>
+              <TextField
+                label="Note"
+                hideLabel
+                value={note}
+                onChangeText={setNote}
+                placeholder="Add a note (optional)"
+                maxLength={MAX_NOTE_LENGTH}
+                multiline
+              />
+              <View
+                style={styles.section}
+                onLayout={(event) => {
+                  sectionY.current.tags = event.nativeEvent.layout.y;
+                }}>
+                <AppText variant="section">What&apos;s going on?</AppText>
+                <View style={styles.chips}>
+                  <InlineAddChip
+                    label="Add your own to What's going on?"
+                    placeholder="e.g. Skipped breakfast"
+                    onAdd={addOwnTag}
+                    onOpen={() => reveal('tags')}
+                  />
+                  {LIFESTYLE_TAGS.map((tag) => (
+                    <TagChip
+                      key={tag.key}
+                      label={tag.label}
+                      selected={tags.has(tag.key)}
+                      onPress={() => toggleTag(tag.key)}
+                    />
+                  ))}
+                  {ownTagKeys.map((key) => (
+                    <TagChip
+                      key={key}
+                      label={tagLabel(key)}
+                      selected={tags.has(key)}
+                      onPress={() => toggleTag(key)}
+                    />
+                  ))}
+                </View>
+              </View>
+              {candidate && picked.length > 0 && (
+                <View style={styles.section}>
+                  <AppText variant="section">Recent meal</AppText>
+                  <View style={linked ? undefined : styles.dimmed}>
+                    <TimelineItem
+                      kind="food"
+                      title={candidate.mealName}
+                      time={formatClockTime(new Date(candidate.loggedAt))}
+                      onPress={() => setLinkedId(linked ? null : candidate.id)}
+                      side={candidate.overallVerdict && <VerdictBadge verdict={candidate.overallVerdict} />}
+                    />
                   </View>
-                )}
-              </>
-            )}
-          </ScrollView>
+                  <AppText variant="caption" color="inkSoft">
+                    {linked
+                      ? 'Linked to these symptoms. Tap to unlink.'
+                      : 'Tap to link it to these symptoms.'}
+                  </AppText>
+                </View>
+              )}
+            </>
+          )}
+        </ScrollView>
 
-          <View style={styles.footer}>
-            {step === 1 ? (
-              <>
-                <Button label="Next" onPress={() => setStep(2)} />
-                <Button
-                  variant="quiet"
-                  label={editingId !== undefined ? 'Save changes' : 'Complete check-in'}
-                  onPress={save}
-                  disabled={!canSave}
-                  accessibilityHint={saveHint}
-                />
-              </>
-            ) : (
+        <View style={styles.footer}>
+          {step === 1 ? (
+            <>
+              <Button label="Next" onPress={() => setStep(2)} />
               <Button
+                variant="quiet"
                 label={editingId !== undefined ? 'Save changes' : 'Complete check-in'}
                 onPress={save}
                 disabled={!canSave}
                 accessibilityHint={saveHint}
               />
-            )}
-          </View>
-        </KeyboardAvoidingView>
+            </>
+          ) : (
+            <Button
+              label={editingId !== undefined ? 'Save changes' : 'Complete check-in'}
+              onPress={save}
+              disabled={!canSave}
+              accessibilityHint={saveHint}
+            />
+          )}
+        </View>
+      </KeyboardAvoidingView>
 
-        <MealTimeSheet
-          visible={timeOpen}
-          question="When did this start?"
-          confirmLabel="Set time"
-          onConfirm={(picked_) => {
-            setTimeOpen(false);
-            setAt(picked_);
-          }}
-          onClose={() => setTimeOpen(false)}
-        />
-      </Screen>
-    </SwipeNav>
+      <MealTimeSheet
+        visible={timeOpen}
+        question="When did this start?"
+        confirmLabel="Set time"
+        onConfirm={(picked_) => {
+          setTimeOpen(false);
+          setAt(picked_);
+        }}
+        onClose={() => setTimeOpen(false)}
+      />
+    </Screen>
   );
 }
 

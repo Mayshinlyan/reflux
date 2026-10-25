@@ -18,6 +18,12 @@ jest.mock('expo-notifications', () => ({
   useLastNotificationResponse: jest.fn(() => null),
 }));
 
+// Gesture Handler's native module can't load in Jest; this is its own stand-in.
+require('react-native-gesture-handler/jestSetup');
+
+// Reanimated's native runtime can't load in Jest; sheets, the arch and the tab bar all use it, so every screen test needs the stand-in.
+jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/lib/module/mock'));
+
 // expo-audio's native module can't load in Jest; saving a log chings, so every screen test needs this stub.
 jest.mock('expo-audio', () => ({
   createAudioPlayer: () => ({ play: jest.fn(), seekTo: () => Promise.resolve() }),

@@ -13,7 +13,6 @@ import { MealResultCard } from '@/components/MealResultCard';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { SymptomPromptSheet } from '@/components/SymptomPromptSheet';
 import { Screen } from '@/components/Screen';
-import { SwipeNav } from '@/components/SwipeNav';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
@@ -39,7 +38,6 @@ import { playChing } from '@/lib/ching';
 import { AppError, friendlyMessages } from '@/lib/errors';
 import { formatTime, localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
-import { foodSwipe } from '@/lib/logSwipe';
 import { formatIngredients, parseIngredients, withIngredients } from '@/lib/ingredients';
 import { effectiveVerdict, withUserVerdict } from '@/lib/verdict';
 import { formatMealTime } from '@/lib/mealTime';
@@ -349,211 +347,207 @@ export function FoodList() {
   };
 
   return (
-    <SwipeNav {...foodSwipe} enabled={!logging && !editing && !sheetFood}>
-      <Screen>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <BackHeader />
-          <AppText variant="display" accessibilityRole="header">
-            Favorite foods
+    <Screen>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <BackHeader />
+        <AppText variant="display" accessibilityRole="header">
+          Favorite foods
+        </AppText>
+        <AppText color="inkSoft" style={styles.subtitle}>
+          Tap a food to edit it.
+        </AppText>
+        {loadFailed && foods.length === 0 ? (
+          <AppText color="inkSoft" style={styles.empty}>
+            {`${friendlyMessages.INTERNAL} Your foods are still on this phone.`}
           </AppText>
-          <AppText color="inkSoft" style={styles.subtitle}>
-            Tap a food to edit it.
+        ) : foods.length === 0 ? (
+          <AppText color="inkSoft" style={styles.empty}>
+            Add the foods you eat often, or save a meal from Your Logs, then log each one with a single tap.
           </AppText>
-          {loadFailed && foods.length === 0 ? (
-            <AppText color="inkSoft" style={styles.empty}>
-              {`${friendlyMessages.INTERNAL} Your foods are still on this phone.`}
-            </AppText>
-          ) : foods.length === 0 ? (
-            <AppText color="inkSoft" style={styles.empty}>
-              Add the foods you eat often, or save a meal from Your Logs, then log each one with a single tap.
-            </AppText>
-          ) : (
-            <>
-              {foods.map((food) => {
-                const today = eaten.get(food.mealName.toLowerCase());
-                const done = justLogged.has(food.id);
-                const card = (
-                  <View style={[styles.card, { backgroundColor: colors.surface }]}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Edit ${food.mealName}`}
-                      // Swiping isn't possible with a screen reader, so offer Delete from its actions menu.
-                      accessibilityActions={[{ name: 'delete', label: 'Delete' }]}
-                      onAccessibilityAction={(event) => {
-                        if (event.nativeEvent.actionName === 'delete') confirmRemove(food.id, food.mealName);
-                      }}
-                      onPress={() => openEdit(food)}
-                      style={styles.info}>
-                      {food.photoUri ? (
-                        <Image source={{ uri: food.photoUri }} style={styles.icon} contentFit="cover" />
-                      ) : (
-                        <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                          <Utensils size={18} color={colors.clayInk} strokeWidth={2.2} />
-                        </View>
-                      )}
-                      <View style={styles.text}>
-                        <AppText style={styles.foodName} numberOfLines={2}>
-                          {food.mealName}
-                        </AppText>
-                        <AppText variant="caption" color="inkSoft">
-                          {food.overallVerdict ? VERDICT_LABELS[food.overallVerdict] : 'No verdict'}
-                          {today
-                            ? ` · Eaten today ${formatTime(today.lastAt, today.tz)}${today.count > 1 ? ` (${today.count}×)` : ''}`
-                            : ''}
-                        </AppText>
+        ) : (
+          <>
+            {foods.map((food) => {
+              const today = eaten.get(food.mealName.toLowerCase());
+              const done = justLogged.has(food.id);
+              const card = (
+                <View style={[styles.card, { backgroundColor: colors.surface }]}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit ${food.mealName}`}
+                    // Swiping isn't possible with a screen reader, so offer Delete from its actions menu.
+                    accessibilityActions={[{ name: 'delete', label: 'Delete' }]}
+                    onAccessibilityAction={(event) => {
+                      if (event.nativeEvent.actionName === 'delete') confirmRemove(food.id, food.mealName);
+                    }}
+                    onPress={() => openEdit(food)}
+                    style={styles.info}>
+                    {food.photoUri ? (
+                      <Image source={{ uri: food.photoUri }} style={styles.icon} contentFit="cover" />
+                    ) : (
+                      <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
+                        <Utensils size={18} color={colors.clayInk} strokeWidth={2.2} />
                       </View>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={done ? `${food.mealName} logged` : `Log ${food.mealName}`}
-                      accessibilityState={{ disabled: done }}
-                      disabled={done}
-                      onPress={() => askWhen(food)}
-                      style={({ pressed }) => [
-                        styles.logButton,
-                        {
-                          backgroundColor: done ? colors.sageInk : colors.sageTint,
-                          opacity: pressed ? 0.8 : 1,
-                        },
-                      ]}>
-                      <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
-                        {done ? 'Logged ✓' : 'Log'}
+                    )}
+                    <View style={styles.text}>
+                      <AppText style={styles.foodName} numberOfLines={2}>
+                        {food.mealName}
                       </AppText>
-                    </Pressable>
-                  </View>
-                );
-                return (
-                  <SwipeToDelete
-                    key={food.id}
-                    label={food.mealName}
-                    style={styles.row}
-                    onDelete={() => confirmRemove(food.id, food.mealName)}>
-                    {card}
-                  </SwipeToDelete>
-                );
-              })}
-            </>
-          )}
-          <Pressable accessibilityRole="button" onPress={addFood} style={styles.add}>
-            <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Log a new food</AppText>
-          </Pressable>
-        </ScrollView>
+                      <AppText variant="caption" color="inkSoft">
+                        {food.overallVerdict ? VERDICT_LABELS[food.overallVerdict] : 'No verdict'}
+                        {today
+                          ? ` · Eaten today ${formatTime(today.lastAt, today.tz)}${today.count > 1 ? ` (${today.count}×)` : ''}`
+                          : ''}
+                      </AppText>
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={done ? `${food.mealName} logged` : `Log ${food.mealName}`}
+                    accessibilityState={{ disabled: done }}
+                    disabled={done}
+                    onPress={() => askWhen(food)}
+                    style={({ pressed }) => [
+                      styles.logButton,
+                      {
+                        backgroundColor: done ? colors.sageInk : colors.sageTint,
+                        opacity: pressed ? 0.8 : 1,
+                      },
+                    ]}>
+                    <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
+                      {done ? 'Logged ✓' : 'Log'}
+                    </AppText>
+                  </Pressable>
+                </View>
+              );
+              return (
+                <SwipeToDelete
+                  key={food.id}
+                  label={food.mealName}
+                  style={styles.row}
+                  onDelete={() => confirmRemove(food.id, food.mealName)}>
+                  {card}
+                </SwipeToDelete>
+              );
+            })}
+          </>
+        )}
+        <Pressable accessibilityRole="button" onPress={addFood} style={styles.add}>
+          <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Log a new food</AppText>
+        </Pressable>
+      </ScrollView>
 
-        <MealTimeSheet
-          visible={logging !== null}
-          question="When did you eat this?"
-          confirmLabel="Log it"
-          onConfirm={(at) => {
-            const food = logging;
-            setLogging(null);
-            if (food) logOnce(food, at);
-          }}
-          onClose={() => setLogging(null)}
-          onDismissed={symptomPrompt.flush}
-        />
-        <SymptomPromptSheet
-          visible={symptomPrompt.visible}
-          subtitle={symptomPrompt.prompt?.subtitle ?? ''}
-          onHide={symptomPrompt.hide}
-          onLog={() => openSymptoms(symptomPrompt.prompt?.foodLogId)}
-          onSkip={() => {}}
-        />
+      <MealTimeSheet
+        visible={logging !== null}
+        question="When did you eat this?"
+        confirmLabel="Log it"
+        onConfirm={(at) => {
+          const food = logging;
+          setLogging(null);
+          if (food) logOnce(food, at);
+        }}
+        onClose={() => setLogging(null)}
+        onDismissed={symptomPrompt.flush}
+      />
+      <SymptomPromptSheet
+        visible={symptomPrompt.visible}
+        subtitle={symptomPrompt.prompt?.subtitle ?? ''}
+        onHide={symptomPrompt.hide}
+        onLog={() => openSymptoms(symptomPrompt.prompt?.foodLogId)}
+        onSkip={() => {}}
+      />
 
-        <BottomSheet visible={editing !== null} onClose={closeForm} scrollToTopKey={changing}>
-          {/* The saved verdict first, like a meal in Your Logs; editing sits below it. */}
-          <AppText variant="title" accessibilityRole="header" style={styles.sheetTitle}>
-            {sheetFood?.mealName}
-          </AppText>
-          {/* Always there, so a food without a photo has an empty tile; the pencil waits for Edit. */}
-          <View style={styles.sheetPhoto}>
-            {(photo ?? sheetFood?.photoUri) ? (
-              <Image
-                source={{ uri: photo ?? sheetFood?.photoUri ?? undefined }}
-                style={StyleSheet.absoluteFill}
-                contentFit="cover"
-                accessibilityLabel="Your food photo"
-              />
-            ) : (
-              <Image
-                source={FILLER_PHOTO}
-                style={StyleSheet.absoluteFill}
-                contentFit="cover"
-                accessibilityLabel="No photo yet"
-              />
-            )}
-            {changing ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Edit photo"
-                // 36 + 2×6 = 48, the Android touch target
-                hitSlop={6}
-                onPress={changePhoto}
-                style={({ pressed }) => [styles.photoEdit, { opacity: pressed ? 0.7 : 1 }]}>
-                <Pencil size={18} color="#fff" strokeWidth={2.2} />
-              </Pressable>
-            ) : null}
-          </View>
-          {shownAnalysis ? (
-            <MealResultCard analysis={shownAnalysis} showTitle={false} />
+      <BottomSheet visible={editing !== null} onClose={closeForm} scrollToTopKey={changing}>
+        {/* The saved verdict first, like a meal in Your Logs; editing sits below it. */}
+        <AppText variant="title" accessibilityRole="header" style={styles.sheetTitle}>
+          {sheetFood?.mealName}
+        </AppText>
+        {/* Always there, so a food without a photo has an empty tile; the pencil waits for Edit. */}
+        <View style={styles.sheetPhoto}>
+          {(photo ?? sheetFood?.photoUri) ? (
+            <Image
+              source={{ uri: photo ?? sheetFood?.photoUri ?? undefined }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              accessibilityLabel="Your food photo"
+            />
           ) : (
-            <AppText color="inkSoft">No verdict yet.</AppText>
+            <Image
+              source={FILLER_PHOTO}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              accessibilityLabel="No photo yet"
+            />
           )}
           {changing ? (
-            <>
-              <View style={styles.sheetField}>
-                <TextField
-                  label="Name"
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="e.g. oatmeal with banana"
-                  maxLength={MAX_SAVED_FOOD_NAME}
-                  returnKeyType="done"
-                  onSubmitEditing={save}
-                />
-                {sheetFood?.analysis ? (
-                  <TextField
-                    label="Ingredients"
-                    hint="(separate with commas)"
-                    value={ingredientsText}
-                    onChangeText={setIngredientsText}
-                    placeholder="e.g. oats, banana, milk"
-                    maxLength={MAX_DETAILS}
-                    multiline
-                  />
-                ) : null}
-                {verdict ? <VerdictSelect value={verdict} onChange={setVerdict} /> : null}
-              </View>
-              <Button label="Save" onPress={save} disabled={!trimmedName || checking} />
-              <View style={styles.secondary}>
-                {/* Check again waits for an edit to the photo or ingredients. */}
-                {canCheckAgain && (
-                  <Button
-                    label={checking ? 'Checking…' : 'Check again'}
-                    variant="secondary"
-                    onPress={() => void checkAgain()}
-                    disabled={checking}
-                  />
-                )}
-                <Button label="Cancel" variant="quietDanger" onPress={cancelChanges} />
-              </View>
-            </>
-          ) : (
-            <View style={styles.secondary}>
-              <Button label="Edit" onPress={() => setChanging(true)} />
-              {/* A food with no verdict yet goes through the verdict flow, and keeps its name. */}
-              {!sheetFood?.analysis && (
-                <Button label="Get a verdict" variant="secondary" onPress={checkFood} />
-              )}
-              <Button
-                label="Remove from my list"
-                variant="quietDanger"
-                onPress={() => editing && confirmRemove(editing.id, editing.mealName)}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Edit photo"
+              // 36 + 2×6 = 48, the Android touch target
+              hitSlop={6}
+              onPress={changePhoto}
+              style={({ pressed }) => [styles.photoEdit, { opacity: pressed ? 0.7 : 1 }]}>
+              <Pencil size={18} color="#fff" strokeWidth={2.2} />
+            </Pressable>
+          ) : null}
+        </View>
+        {shownAnalysis ? (
+          <MealResultCard analysis={shownAnalysis} showTitle={false} />
+        ) : (
+          <AppText color="inkSoft">No verdict yet.</AppText>
+        )}
+        {changing ? (
+          <>
+            <View style={styles.sheetField}>
+              <TextField
+                label="Name"
+                value={name}
+                onChangeText={setName}
+                placeholder="e.g. oatmeal with banana"
+                maxLength={MAX_SAVED_FOOD_NAME}
+                returnKeyType="done"
+                onSubmitEditing={save}
               />
+              {sheetFood?.analysis ? (
+                <TextField
+                  label="Ingredients"
+                  hint="(separate with commas)"
+                  value={ingredientsText}
+                  onChangeText={setIngredientsText}
+                  placeholder="e.g. oats, banana, milk"
+                  maxLength={MAX_DETAILS}
+                  multiline
+                />
+              ) : null}
+              {verdict ? <VerdictSelect value={verdict} onChange={setVerdict} /> : null}
             </View>
-          )}
-        </BottomSheet>
-      </Screen>
-    </SwipeNav>
+            <Button label="Save" onPress={save} disabled={!trimmedName || checking} />
+            <View style={styles.secondary}>
+              {/* Check again waits for an edit to the photo or ingredients. */}
+              {canCheckAgain && (
+                <Button
+                  label={checking ? 'Checking…' : 'Check again'}
+                  variant="secondary"
+                  onPress={() => void checkAgain()}
+                  disabled={checking}
+                />
+              )}
+              <Button label="Cancel" variant="quietDanger" onPress={cancelChanges} />
+            </View>
+          </>
+        ) : (
+          <View style={styles.secondary}>
+            <Button label="Edit" onPress={() => setChanging(true)} />
+            {/* A food with no verdict yet goes through the verdict flow, and keeps its name. */}
+            {!sheetFood?.analysis && <Button label="Get a verdict" variant="secondary" onPress={checkFood} />}
+            <Button
+              label="Remove from my list"
+              variant="quietDanger"
+              onPress={() => editing && confirmRemove(editing.id, editing.mealName)}
+            />
+          </View>
+        )}
+      </BottomSheet>
+    </Screen>
   );
 }
 

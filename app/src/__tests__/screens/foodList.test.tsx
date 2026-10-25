@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Alert, type AlertButton } from 'react-native';
 
 import LogFoodScreen from '@/app/log/food';
@@ -378,7 +378,8 @@ describe('Food screen: Favorite foods', () => {
       const [food] = listSavedFoods(mockDb);
       expect(food.overallVerdict).toBe('good');
       expect(food.analysis?.overall).toMatchObject({ verdict: 'caution', userVerdict: 'good' });
-      expect(screen.getByText('Good')).toBeTruthy(); // the list row
+      // The edit sheet slides away first; then only the list row says Good.
+      await waitFor(() => expect(screen.getByText('Good')).toBeTruthy());
     });
 
     it("clears the override when the AI's own verdict is chosen again, and on Cancel", async () => {

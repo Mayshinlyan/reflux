@@ -45,7 +45,11 @@ export function InlineAddChip({ label, placeholder, onAdd, onOpen }: Props) {
           onOpen?.();
         }}
         hitSlop={3}
-        style={[styles.chip, styles.plus, { backgroundColor: colors.surface }]}>
+        style={({ pressed }) => [
+          styles.chip,
+          styles.plus,
+          { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 },
+        ]}>
         <AppText style={[styles.plusText, { color: colors.clayInk }]}>+</AppText>
       </Pressable>
     );

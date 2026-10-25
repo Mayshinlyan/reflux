@@ -19,6 +19,7 @@ let mockDb: AppDb;
 let closeDb: () => void;
 const mockBack = jest.fn();
 const mockPush = jest.fn();
+const mockSetOptions = jest.fn();
 const mockToast = jest.fn();
 let mockReminderMinutes: number | null = null;
 let mockBedtime = '22:30';
@@ -117,6 +118,7 @@ jest.mock('expo-router', () => ({
     replace: jest.fn(),
   },
   useLocalSearchParams: () => mockParams,
+  useNavigation: () => ({ setOptions: mockSetOptions }),
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   useFocusEffect: (effect: () => void) => require('react').useEffect(effect, [effect]),
 }));
@@ -320,6 +322,18 @@ describe('Log food screen (text)', () => {
     await type('toast');
     expect(screen.getByRole('button', { name: 'Check this meal' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Log without checking' })).toBeTruthy();
+  });
+
+  it('can be swiped down to close only while nothing is typed, so a stray drag cannot drop a description', async () => {
+    const swipeAllowed = () => mockSetOptions.mock.calls.at(-1)?.[0].gestureEnabled;
+    await render(<LogFoodScreen />);
+    expect(swipeAllowed()).toBe(true);
+
+    await type('toast');
+    expect(swipeAllowed()).toBe(false);
+
+    await type('');
+    expect(swipeAllowed()).toBe(true);
   });
 
   it('analyzes the trimmed text, shows the result, and saves it to the diary', async () => {

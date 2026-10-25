@@ -44,7 +44,11 @@ export function VerdictSelect({
                   setOpen(false);
                 }}
                 // A hairline between the options, as in Figma.
-                style={[styles.row, index > 0 && { borderTopWidth: 1, borderTopColor: colors.hairline }]}>
+                style={({ pressed }) => [
+                  styles.row,
+                  index > 0 && { borderTopWidth: 1, borderTopColor: colors.hairline },
+                  { opacity: pressed ? 0.85 : 1 },
+                ]}>
                 <VerdictOption verdict={choice} />
                 {choice === value && <Check size={18} color={colors.inkSoft} strokeWidth={2.4} />}
               </Pressable>
@@ -56,7 +60,7 @@ export function VerdictSelect({
             accessibilityLabel={`Verdict, ${VERDICT_LABELS[value]}`}
             accessibilityState={{ expanded: false }}
             onPress={() => setOpen(true)}
-            style={styles.row}>
+            style={({ pressed }) => [styles.row, { opacity: pressed ? 0.85 : 1 }]}>
             <VerdictOption verdict={value} />
             <ChevronDown size={20} color={colors.inkSoft} strokeWidth={2.2} />
           </Pressable>

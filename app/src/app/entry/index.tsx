@@ -29,8 +29,8 @@ import { matchedTriggerLabels } from '@/lib/verdictReasons';
 import { radius, space, useColors } from '@/theme';
 
 /**
- * One diary entry in full (Figma 04b meal, 04f dose, 04h symptoms): a close X and a `…` menu on top, then the
- * entry's cards. Edit and Delete live in the menu, so nothing else competes with what was logged.
+ * One diary entry in full (Figma 04b meal, 04f dose, 04h symptoms): a back arrow and a `…` menu on top, then the
+ * entry's cards. It pushes in from the side like any drill-down, and swipes back from the edge. Edit and Delete live in the menu, so nothing else competes with what was logged.
  */
 export default function EntryScreen() {
   const db = useDb();
@@ -73,7 +73,7 @@ export default function EntryScreen() {
   if (!entry) {
     return (
       <Screen>
-        <BackHeader close />
+        <BackHeader />
         <View style={styles.missing}>
           <AppText variant="title" style={styles.missingTitle}>
             This entry isn&apos;t here any more
@@ -89,10 +89,7 @@ export default function EntryScreen() {
 
   return (
     <Screen>
-      <BackHeader
-        close
-        right={<TopBarButton icon={Ellipsis} label="More" onPress={() => setMenuOpen(true)} />}
-      />
+      <BackHeader right={<TopBarButton icon={Ellipsis} label="More" onPress={() => setMenuOpen(true)} />} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {entry.kind === 'food' && <MealView log={entry.log} />}
         {entry.kind === 'symptom' && <SymptomView log={entry.log} />}

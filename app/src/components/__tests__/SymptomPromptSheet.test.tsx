@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { useState } from 'react';
 
 import { SymptomPromptSheet } from '../SymptomPromptSheet';
@@ -36,6 +36,7 @@ describe('SymptomPromptSheet', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Not now' }));
 
-    expect(screen.queryByText('Any symptoms?')).toBeNull();
+    // The sheet slides away first, then its content goes.
+    await waitFor(() => expect(screen.queryByText('Any symptoms?')).toBeNull());
   });
 });

@@ -28,7 +28,7 @@ export function WeekStrip({ days, loggedDays, onPressDay, pickedKey }: Props) {
         return (
           <Pressable
             key={day.key}
-            style={styles.day}
+            style={({ pressed }) => [styles.day, { opacity: pressed ? 0.85 : 1 }]}
             accessibilityRole="button"
             accessibilityLabel={`${day.isToday ? 'Today, ' : ''}${day.name} ${day.date}${logged ? ', has entries' : ''}`}
             accessibilityHint={future ? undefined : 'Opens the Log page for this day'}

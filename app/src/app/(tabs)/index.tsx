@@ -14,10 +14,12 @@ import { TimelineItem } from '@/components/TimelineItem';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { WeekStrip } from '@/components/WeekStrip';
 import { useSettings } from '@/db/DatabaseProvider';
+import { useDeleteEntry } from '@/hooks/useDeleteEntry';
 import { useInsight } from '@/hooks/useInsight';
 import { useReminderPrompt } from '@/hooks/useReminderPrompt';
 import { useTodayData } from '@/hooks/useTodayData';
 import { bellyMoodFor } from '@/lib/belly';
+import { notifyEntriesChanged } from '@/lib/entriesChanged';
 import { buildInsightRequest } from '@/lib/insight';
 import { isLateMeal } from '@/lib/mealTiming';
 import { space } from '@/theme';
@@ -46,6 +48,8 @@ export default function TodayScreen() {
   const dayInsight = useInsight('day', todayKey, dayRequest);
   const weekInsight = useInsight('week', week[0]?.key ?? todayKey, weekRequest);
   const reminder = useReminderPrompt();
+  // Today reloads on this signal, so a delete (and its Undo) shows at once.
+  const deleteEntry = useDeleteEntry(notifyEntriesChanged);
   const now = new Date();
   const [picked, setPicked] = useState<string | null>(null);
   /** Food is opening from Bellie: a second tap before Today leaves would open it twice. */
@@ -147,6 +151,7 @@ export default function TodayScreen() {
                   onPress={() =>
                     router.push({ pathname: '/entry', params: { kind: entry.kind, id: String(entry.id) } })
                   }
+                  onDelete={() => deleteEntry(entry)}
                 />
               ))}
             </View>

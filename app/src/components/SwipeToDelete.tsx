@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { Trash2 } from 'lucide-react-native';
 import { type ReactNode, useRef } from 'react';
 import { Pressable, type StyleProp, StyleSheet, type ViewStyle } from 'react-native';
@@ -26,9 +27,11 @@ export function SwipeToDelete({ label, onDelete, style, children }: Props) {
   return (
     <ReanimatedSwipeable
       ref={swipeable}
-      friction={2}
-      overshootRight={false}
+      // 1:1 with the finger, with a rubber band past the button, and a tick as the button is revealed.
+      friction={1}
+      overshootFriction={8}
       rightThreshold={40}
+      onSwipeableWillOpen={() => Haptics.selectionAsync().catch(() => {})}
       containerStyle={style}
       renderRightActions={() => (
         <Pressable

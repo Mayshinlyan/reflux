@@ -14,6 +14,7 @@ let mockDb: AppDb;
 let closeDb: () => void;
 const mockBack = jest.fn();
 const mockPush = jest.fn();
+const mockSetOptions = jest.fn();
 const mockToast = jest.fn();
 let mockParams: { camera?: string; details?: string } = {};
 
@@ -84,6 +85,7 @@ jest.mock('expo-router', () => ({
     replace: jest.fn(),
   },
   useLocalSearchParams: () => mockParams,
+  useNavigation: () => ({ setOptions: mockSetOptions }),
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   useFocusEffect: (effect: () => void) => require('react').useEffect(effect, [effect]),
 }));
