@@ -28,7 +28,7 @@ import {
   listMedications,
   logMedication,
   updateMedication,
-  updateMedicationLogTime,
+  updateMedicationLog,
 } from '../repositories/medications';
 import {
   createSavedFood,
@@ -908,21 +908,46 @@ describe('medications', () => {
     const medId = createMedication(db, { name: 'Omeprazole', type: 'ppi', defaultDose: '20mg' });
     const logId = logMedication(db, medId, { takenAt: '2020-01-01T08:00:00.000Z', tz: 'Asia/Tokyo' });
 
-    updateMedicationLogTime(db, logId, '2020-01-01T06:30:00.000Z');
+    updateMedicationLog(db, logId, {
+      takenAt: '2020-01-01T06:30:00.000Z',
+      doseText: ' 40mg ',
+      notes: 'With breakfast',
+    });
 
     const [log] = db.select().from(medicationLogs).all();
     expect(log).toMatchObject({
       id: logId,
       takenAt: '2020-01-01T06:30:00.000Z',
       name: 'Omeprazole',
-      doseText: '20mg',
+      doseText: '40mg',
+      notes: 'With breakfast',
     });
     expect(log.tz).not.toBe('Asia/Tokyo');
   });
 
-  it('throws when moving a dose that does not exist', () => {
+  it('keeps the time when none is given, and clears a blank dose and note', () => {
     const { db } = createTestDb();
-    expect(() => updateMedicationLogTime(db, 999, '2020-01-01T06:30:00.000Z')).toThrow('not found');
+    const medId = createMedication(db, { name: 'Omeprazole', type: 'ppi', defaultDose: '20mg' });
+    const logId = logMedication(db, medId, {
+      takenAt: '2020-01-01T08:00:00.000Z',
+      tz: 'Asia/Tokyo',
+      notes: 'old',
+    });
+
+    updateMedicationLog(db, logId, { doseText: '  ', notes: '' });
+
+    const [log] = db.select().from(medicationLogs).all();
+    expect(log).toMatchObject({
+      takenAt: '2020-01-01T08:00:00.000Z',
+      tz: 'Asia/Tokyo',
+      doseText: null,
+      notes: null,
+    });
+  });
+
+  it('throws when editing a dose that does not exist', () => {
+    const { db } = createTestDb();
+    expect(() => updateMedicationLog(db, 999, { doseText: '', notes: '' })).toThrow('not found');
   });
 
   it('rejects unknown types and blank names', () => {

@@ -4,10 +4,12 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { InlineAddChip } from '@/components/InlineAddChip';
+import { NameField } from '@/components/NameField';
 import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { TimePill } from '@/components/TimePill';
+import { VerdictBadge } from '@/components/VerdictBadge';
 import { type CustomTagKey, LIFESTYLE_TAGS, type LoggedTagKey } from '@/constants/lifestyleTags';
 import {
   type CustomSymptomKey,
@@ -17,6 +19,7 @@ import {
   type SymptomKey,
 } from '@/constants/symptomItems';
 import { minTouchTarget, radius, space, useColors } from '@/theme';
+import type { AppVerdict } from '@/types/analysis';
 
 /** The few symptoms offered right after a meal; the full list lives on the How I feel screen. */
 export const MEAL_SYMPTOM_KEYS: SymptomKey[] = ['heartburn', 'burping', 'hoarseness', 'stomach_pain'];
@@ -34,6 +37,11 @@ export type MealDetailsState = {
 
 type Props = {
   mealName: string;
+  /**
+   * Edit entry (Figma 15a): the same page for a meal already in History. The heading shows its verdict and the
+   * name as a field instead of the "Added to today" line and the skip line.
+   */
+  edit?: { verdict: AppVerdict | null; onRename: (name: string) => void; maxName: number };
   /** Offer "Add to favorite foods": false when the meal is already one of them. */
   canFavorite: boolean;
   whenLabel: string;
@@ -65,6 +73,7 @@ const toggled = <T,>(set: Set<T>, value: T) => {
  */
 export function FoodDetails({
   mealName,
+  edit,
   canFavorite,
   whenLabel,
   onPickTime,
@@ -83,18 +92,31 @@ export function FoodDetails({
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.heading}>
-        <View style={[styles.saved, { backgroundColor: colors.sageTint }]}>
-          <Check size={16} color={colors.sageInk} strokeWidth={3} />
-          <AppText variant="label">Added to today</AppText>
+      {edit ? (
+        <View style={styles.heading}>
+          {edit.verdict && <VerdictBadge verdict={edit.verdict} />}
+          <NameField
+            label="Meal name"
+            value={mealName}
+            onChangeText={edit.onRename}
+            maxLength={edit.maxName}
+            placeholder="Name this meal"
+          />
         </View>
-        <AppText variant="display" accessibilityRole="header">
-          {mealName}
-        </AppText>
-        <AppText variant="voice" color="inkSoft">
-          How&apos;s your belly? You can skip this.
-        </AppText>
-      </View>
+      ) : (
+        <View style={styles.heading}>
+          <View style={[styles.saved, { backgroundColor: colors.sageTint }]}>
+            <Check size={16} color={colors.sageInk} strokeWidth={3} />
+            <AppText variant="label">Added to today</AppText>
+          </View>
+          <AppText variant="display" accessibilityRole="header">
+            {mealName}
+          </AppText>
+          <AppText variant="voice" color="inkSoft">
+            How&apos;s your belly? You can skip this.
+          </AppText>
+        </View>
+      )}
       <View style={styles.timeRow}>
         <TimePill label={whenLabel} onPress={onPickTime} />
       </View>

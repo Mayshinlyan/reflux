@@ -17,6 +17,7 @@ import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
+import { DoseFields } from '@/components/DoseFields';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
 import { TagChip } from '@/components/TagChip';
@@ -47,7 +48,6 @@ import { fontFamily, minTouchTarget, radius, space, typography, useColors } from
 
 const MAX_NAME = 60;
 const MAX_DOSE = 40;
-const MAX_NOTE = 500;
 /** How long a row says "Logged ✓" (and ignores taps) after a one-tap log, so a double-tap can't log twice. */
 const LOGGED_FLASH_MS = 2500;
 const DAY_MS = 86_400_000;
@@ -458,7 +458,6 @@ export default function MedicationScreen() {
   }
 
   if (detail !== null) {
-    const common = findCommonMedication(detail.name);
     return (
       <Screen style={styles.screen}>
         <BackHeader onBack={closeForm} />
@@ -476,56 +475,15 @@ export default function MedicationScreen() {
                 <AppText style={styles.typeBadgeText}>{medicationTypeLabel(detail.type)}</AppText>
               </View>
             </View>
-            <View style={styles.section}>
-              <AppText variant="section">Dose</AppText>
-              {common && (
-                <View accessibilityRole="radiogroup" style={styles.types}>
-                  {common.doses.map((option) => (
-                    <TagChip
-                      key={option}
-                      role="radio"
-                      label={option}
-                      selected={!detailCustom && detailDose === option}
-                      onPress={() => {
-                        // Tapping the chosen dose again clears it.
-                        setDetailDose(detailDose === option && !detailCustom ? '' : option);
-                        setDetailCustom(false);
-                      }}
-                    />
-                  ))}
-                  <TagChip
-                    role="radio"
-                    label="Other"
-                    selected={detailCustom}
-                    onPress={() => {
-                      setDetailCustom(true);
-                      setDetailDose('');
-                    }}
-                  />
-                </View>
-              )}
-              {(!common || detailCustom) && (
-                <TextField
-                  label="Dose"
-                  hideLabel
-                  value={detailDose}
-                  onChangeText={setDetailDose}
-                  placeholder="e.g. 20mg"
-                  maxLength={MAX_DOSE}
-                />
-              )}
-            </View>
-            <View style={styles.section}>
-              <AppText variant="section">Note</AppText>
-              <TextField
-                label="Note"
-                hideLabel
-                value={detailNote}
-                onChangeText={setDetailNote}
-                placeholder="e.g. Taken with breakfast"
-                maxLength={MAX_NOTE}
-              />
-            </View>
+            <DoseFields
+              name={detail.name}
+              dose={detailDose}
+              custom={detailCustom}
+              note={detailNote}
+              onDose={setDetailDose}
+              onCustom={setDetailCustom}
+              onNote={setDetailNote}
+            />
           </ScrollView>
           <View style={styles.footer}>
             <Button
