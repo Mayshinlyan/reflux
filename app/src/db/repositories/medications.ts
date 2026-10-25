@@ -88,11 +88,31 @@ export function getMedicationLog(db: AppDb, id: number): MedicationLog | undefin
   return db.select().from(medicationLogs).where(eq(medicationLogs.id, id)).get();
 }
 
-/** Fixes when a past dose was taken, from History. The time zone becomes the current one. */
-export function updateMedicationLogTime(db: AppDb, logId: number, takenAt: string): void {
+const MAX_DOSE_LENGTH = 40;
+const MAX_NOTES_LENGTH = 500;
+
+export type MedicationLogEdit = {
+  /** When it was taken; the time zone becomes the current one. Omitted keeps the stored time. */
+  takenAt?: string;
+  /** Replaces the stored dose; blank clears it (a saved default is not filled back in). */
+  doseText: string;
+  notes: string;
+};
+
+/** Fixes a past dose from History: when it was taken, the dose and the note. */
+export function updateMedicationLog(db: AppDb, logId: number, edit: MedicationLogEdit): void {
+  const values: Partial<MedicationLog> = {
+    doseText: edit.doseText.trim().slice(0, MAX_DOSE_LENGTH) || null,
+    notes: edit.notes.trim().slice(0, MAX_NOTES_LENGTH) || null,
+    updatedAt: nowIso(),
+  };
+  if (edit.takenAt !== undefined) {
+    values.takenAt = edit.takenAt;
+    values.tz = currentTimeZone();
+  }
   const updated = db
     .update(medicationLogs)
-    .set({ takenAt, tz: currentTimeZone(), updatedAt: nowIso() })
+    .set(values)
     .where(eq(medicationLogs.id, logId))
     .returning({ id: medicationLogs.id })
     .all();
