@@ -19,6 +19,6 @@ export function SectionTitle({ children, first }: { children: string; first?: bo
 
 const styles = StyleSheet.create({
   // The settings row above a title already leaves 12, so the title adds 20 to make the 32 between groups.
-  title: { marginTop: space.s4 - 12, marginBottom: 12 },
+  title: { marginTop: space.s4 - 12, marginBottom: space.s1_5 },
   first: { marginTop: 0 },
 });

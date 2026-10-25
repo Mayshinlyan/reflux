@@ -14,7 +14,7 @@ export function TipsCard({ tips, style }: { tips: readonly string[]; style?: Sty
   return (
     <View style={[styles.card, { backgroundColor: colors.sageTint }, style]}>
       <View style={styles.title}>
-        <Lightbulb size={22} color={colors.honey} strokeWidth={2} />
+        <Lightbulb size={24} color={colors.honeyInk} strokeWidth={2} />
         <AppText variant="sectionSm">Tips</AppText>
       </View>
       {tips.map((tip) => (

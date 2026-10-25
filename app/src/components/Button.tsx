@@ -58,7 +58,7 @@ export function Button({
           opacity: pressed ? 0.85 : 1,
         },
       ]}>
-      {Icon && <Icon size={18} color={colors[style.text]} strokeWidth={2.4} />}
+      {Icon && <Icon size={20} color={colors[style.text]} strokeWidth={2} />}
       <AppText variant="button" style={{ color: colors[style.text] }}>
         {label}
       </AppText>

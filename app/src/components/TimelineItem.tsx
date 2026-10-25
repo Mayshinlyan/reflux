@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { TimelineKind } from '@/lib/timeline';
-import { type ColorToken, radius, useColors } from '@/theme';
+import { type ColorToken, radius, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { SwipeToDelete } from './SwipeToDelete';
@@ -49,10 +49,15 @@ export function TimelineItem({ kind, lifestyle, title, time, onPress, side, onDe
       style={({ pressed }) => [
         styles.row,
         !canSwipe && styles.gap,
-        { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 },
+        {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.edge,
+          opacity: pressed ? 0.85 : 1,
+        },
       ]}>
       <View style={[styles.icon, { backgroundColor: colors[bg] }]}>
-        <Icon size={18} color={colors[fg]} strokeWidth={2} />
+        <Icon size={20} color={colors[fg]} strokeWidth={2} />
       </View>
       <View style={styles.main}>
         <AppText variant="button" numberOfLines={2}>
@@ -86,12 +91,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space.s1_5,
     borderRadius: radius.md,
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: space.s1_5,
   },
-  gap: { marginBottom: 12 },
+  gap: { marginBottom: space.s1_5 },
   icon: { width: 38, height: 38, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   main: { flex: 1, minWidth: 0 },
   taken: { paddingVertical: 7, paddingHorizontal: 16, borderRadius: radius.pill },

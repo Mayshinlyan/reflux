@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 /** 8pt grid, from the style guide's --s1..--s5. */
-export const space = { s1: 8, s2: 16, s3: 24, s4: 32, s5: 48 } as const;
+export const space = { s1: 8, s1_5: 12, s2: 16, s3: 24, s4: 32, s5: 48 } as const;
 
 export const radius = { sm: 10, md: 16, lg: 20, pill: 999 } as const;
 

@@ -25,7 +25,7 @@ export function MealResultCard({
     <View>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
         {showTitle && (
-          <AppText variant="title" accessibilityRole="header">
+          <AppText variant="section" accessibilityRole="header">
             {analysis.mealName}
           </AppText>
         )}

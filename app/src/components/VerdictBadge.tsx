@@ -33,8 +33,9 @@ export function VerdictBadge({ verdict, style }: { verdict: AppVerdict; style?: 
     <View
       style={[styles.badge, { backgroundColor: colors[bg] }, style]}
       accessible
+      accessibilityRole="text"
       accessibilityLabel={VERDICT_LABELS[verdict]}>
-      <Icon size={16} color={colors[fg]} strokeWidth={2.4} />
+      <Icon size={16} color={colors[fg]} strokeWidth={2} />
       <AppText variant="label" style={{ color: colors[fg] }}>
         {VERDICT_LABELS[verdict]}
       </AppText>

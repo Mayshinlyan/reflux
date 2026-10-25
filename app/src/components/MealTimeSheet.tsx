@@ -84,7 +84,7 @@ export function MealTimeSheet({
 
   return (
     <BottomSheet visible={visible && Platform.OS !== 'android'} onClose={onClose} onDismissed={onDismissed}>
-      <AppText variant="title" accessibilityRole="header">
+      <AppText variant="section" accessibilityRole="header">
         {question}
       </AppText>
       <View style={styles.wheel}>

@@ -13,7 +13,7 @@ export function LateMealBadge() {
       style={[styles.badge, { backgroundColor: colors.surface2 }]}
       accessible
       accessibilityLabel="Late meal, close to bedtime">
-      <Moon size={16} color={colors.inkSoft} strokeWidth={2.4} />
+      <Moon size={16} color={colors.inkSoft} strokeWidth={2} />
       <AppText variant="label" style={{ color: colors.inkSoft }}>
         Late meal
       </AppText>

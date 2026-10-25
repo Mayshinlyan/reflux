@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { radius, shadow, typography, useColors } from '@/theme';
+import { radius, shadow, space, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -43,9 +43,9 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space.s1_5,
     minHeight: 44,
-    paddingHorizontal: 12,
+    paddingHorizontal: space.s1_5,
     paddingVertical: 10,
     borderRadius: 12,
   },

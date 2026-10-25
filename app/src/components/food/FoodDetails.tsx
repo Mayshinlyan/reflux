@@ -18,7 +18,7 @@ import {
   SYMPTOM_ITEMS,
   type SymptomKey,
 } from '@/constants/symptomItems';
-import { minTouchTarget, radius, space, useColors } from '@/theme';
+import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
 import type { AppVerdict } from '@/types/analysis';
 
 /** The few symptoms offered right after a meal; the full list lives on the How I feel screen. */
@@ -106,7 +106,7 @@ export function FoodDetails({
       ) : (
         <View style={styles.heading}>
           <View style={[styles.saved, { backgroundColor: colors.sageTint }]}>
-            <Check size={16} color={colors.sageInk} strokeWidth={3} />
+            <Check size={16} color={colors.sageInk} strokeWidth={2} />
             <AppText variant="label">Added to today</AppText>
           </View>
           <AppText variant="display" accessibilityRole="header">
@@ -199,7 +199,7 @@ export function FoodDetails({
           onPress={() => onChange({ ...state, keep: !state.keep })}
           style={styles.favorite}>
           <Star
-            size={22}
+            size={24}
             color={colors.clayInk}
             fill={state.keep ? colors.clayInk : 'none'}
             strokeWidth={2}
@@ -220,7 +220,7 @@ export function FoodDetails({
 
 const styles = StyleSheet.create({
   wrap: { gap: space.s4 },
-  heading: { gap: 12, alignItems: 'flex-start' },
+  heading: { gap: space.s1_5, alignItems: 'flex-start' },
   saved: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -230,9 +230,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  favorite: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: minTouchTarget },
+  favorite: { flexDirection: 'row', alignItems: 'center', gap: space.s1_5, minHeight: minTouchTarget },
   favoriteText: { gap: 2 },
-  favoriteLabel: { fontSize: 15 },
-  section: { gap: 12 },
+  favoriteLabel: { ...typography.small, fontFamily: typography.bodyEm.fontFamily },
+  section: { gap: space.s1_5 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
 });

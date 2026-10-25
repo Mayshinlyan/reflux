@@ -35,7 +35,7 @@ export function ConditionSheet({ visible, onClose }: { visible: boolean; onClose
 
   return (
     <BottomSheet visible={visible} onClose={onClose}>
-      <AppText variant="title" accessibilityRole="header" style={styles.title}>
+      <AppText variant="section" accessibilityRole="header" style={styles.title}>
         Condition
       </AppText>
       <ConditionChoices

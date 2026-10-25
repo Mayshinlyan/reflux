@@ -2,7 +2,7 @@ import { Check, ChevronDown } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { fontFamily, minTouchTarget, radius, space, useColors, verdictColors } from '@/theme';
+import { minTouchTarget, radius, space, typography, useColors, verdictColors } from '@/theme';
 import type { AppVerdict } from '@/types/analysis';
 
 import { AppText } from './AppText';
@@ -50,7 +50,7 @@ export function VerdictSelect({
                   { opacity: pressed ? 0.85 : 1 },
                 ]}>
                 <VerdictOption verdict={choice} />
-                {choice === value && <Check size={18} color={colors.inkSoft} strokeWidth={2.4} />}
+                {choice === value && <Check size={20} color={colors.inkSoft} strokeWidth={2} />}
               </Pressable>
             ))}
           </View>
@@ -62,7 +62,7 @@ export function VerdictSelect({
             onPress={() => setOpen(true)}
             style={({ pressed }) => [styles.row, { opacity: pressed ? 0.85 : 1 }]}>
             <VerdictOption verdict={value} />
-            <ChevronDown size={20} color={colors.inkSoft} strokeWidth={2.2} />
+            <ChevronDown size={20} color={colors.inkSoft} strokeWidth={2} />
           </Pressable>
         )}
       </View>
@@ -77,7 +77,7 @@ function VerdictOption({ verdict }: { verdict: AppVerdict }) {
   const color = colors[verdictColors[verdict].fg];
   return (
     <View style={styles.option}>
-      <Icon size={18} color={color} strokeWidth={2.4} />
+      <Icon size={20} color={color} strokeWidth={2} />
       <AppText style={[styles.optionText, { color }]}>{VERDICT_LABELS[verdict]}</AppText>
     </View>
   );
@@ -97,5 +97,5 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   option: { flexDirection: 'row', alignItems: 'center', gap: space.s1 },
-  optionText: { fontFamily: fontFamily.bold, fontSize: 15, lineHeight: 22 },
+  optionText: typography.button,
 });

@@ -54,7 +54,7 @@ export function AvatarSheet({ visible, onClose }: { visible: boolean; onClose: (
               </View>
               {selected && (
                 <View style={[styles.check, { backgroundColor: colors.cta }]}>
-                  <Check size={14} color={colors.ctaInk} strokeWidth={3} />
+                  <Check size={16} color={colors.ctaInk} strokeWidth={2} />
                 </View>
               )}
             </Pressable>

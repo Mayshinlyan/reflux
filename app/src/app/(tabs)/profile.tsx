@@ -68,6 +68,7 @@ export default function ProfileScreen() {
             accessibilityRole="button"
             accessibilityLabel={named ? 'Edit name' : 'Add your name'}
             onPress={() => open('name')}
+            hitSlop={{ top: 6, bottom: 6 }}
             style={({ pressed }) => [
               styles.pill,
               { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 },
@@ -83,7 +84,12 @@ export default function ProfileScreen() {
           onPress={() => open('condition')}
           style={({ pressed }) => [
             styles.card,
-            { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 },
+            {
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.edge,
+              opacity: pressed ? 0.85 : 1,
+            },
           ]}>
           <AppText variant="section">Condition</AppText>
           <View style={styles.conditionRow}>
@@ -100,7 +106,12 @@ export default function ProfileScreen() {
           onPress={() => open('symptoms')}
           style={({ pressed }) => [
             styles.card,
-            { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 },
+            {
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.edge,
+              opacity: pressed ? 0.85 : 1,
+            },
           ]}>
           <AppText variant="section">Usual symptoms</AppText>
           {settings.usualSymptoms.length > 0 ? (

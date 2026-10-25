@@ -33,7 +33,7 @@ export function ChoiceCard({ title, subtitle, icon: Icon, onPress, selected, mul
         { backgroundColor: selected ? colors.clayTint : colors.surface, opacity: pressed ? 0.85 : 1 },
       ]}>
       <View style={[styles.icon, { backgroundColor: selected ? colors.surface : colors.surface2 }]}>
-        <Icon size={22} color={colors.ink} strokeWidth={2} />
+        <Icon size={24} color={colors.ink} strokeWidth={2} />
       </View>
       <View style={styles.text}>
         <AppText variant="bodyEm">{title}</AppText>
@@ -50,7 +50,7 @@ export function ChoiceCard({ title, subtitle, icon: Icon, onPress, selected, mul
             styles.radio,
             selected ? { backgroundColor: colors.clay } : { borderWidth: 1.5, borderColor: colors.inkSoft },
           ]}>
-          {selected && <Check size={14} color={colors.surface} strokeWidth={3} />}
+          {selected && <Check size={16} color={colors.surface} strokeWidth={2} />}
         </View>
       ) : (
         <ChevronRight size={20} color={colors.inkSoft} strokeWidth={2} />

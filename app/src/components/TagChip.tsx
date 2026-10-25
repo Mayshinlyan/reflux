@@ -46,7 +46,7 @@ export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, o
             styles.minus,
             { backgroundColor: colors.surface, opacity: pressed ? 0.6 : 1 },
           ]}>
-          <Minus size={16} color={colors.clayInk} strokeWidth={2.8} />
+          <Minus size={16} color={colors.clayInk} strokeWidth={2} />
         </Pressable>
       </View>
     );
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: radius.pill,
   },
-  label: { ...typography.label, fontSize: 14, fontFamily: typography.bodyEm.fontFamily },
+  label: { ...typography.button, fontFamily: typography.bodyEm.fontFamily },
   // Same size as the removable symptom chips so the two rows line up.
   removable: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 4, paddingVertical: 3 },
   minus: {

@@ -61,7 +61,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             // Leaves the way it came: sliding back down as it fades.
             exiting={FadeOutDown.duration(200)}
             style={[styles.toast, { backgroundColor: colors.ink }]}>
-            {!action && <Check size={16} color={colors.bg} strokeWidth={2.6} />}
+            {!action && <Check size={16} color={colors.bg} strokeWidth={2} />}
             <Animated.Text style={[styles.text, { color: colors.bg }]}>{message}</Animated.Text>
             {action && (
               <Pressable
@@ -100,6 +100,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderRadius: radius.pill,
   },
-  text: { ...typography.label, fontSize: 14 },
+  text: typography.button,
   action: { marginLeft: space.s1 + 4 },
 });

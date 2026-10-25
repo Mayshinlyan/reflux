@@ -29,7 +29,7 @@ export function OptionRow({ label, selected, onPress }: Props) {
           styles.radio,
           selected ? { backgroundColor: colors.clay } : { borderWidth: 1.5, borderColor: colors.inkSoft },
         ]}>
-        {selected && <Check size={14} color={colors.surface} strokeWidth={3} />}
+        {selected && <Check size={16} color={colors.surface} strokeWidth={2} />}
       </View>
     </Pressable>
   );

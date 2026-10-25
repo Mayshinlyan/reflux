@@ -26,7 +26,7 @@ export function TopBarButton({ icon: Icon, label, onPress }: ButtonProps) {
         styles.button,
         { backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
       ]}>
-      <Icon size={22} color={colors.ink} strokeWidth={2} />
+      <Icon size={24} color={colors.ink} strokeWidth={2} />
     </Pressable>
   );
 }
@@ -59,7 +59,7 @@ export function TopBar({ title, onBack, hideBack = false, close = false, right }
       )}
       {title ? (
         <View pointerEvents="none" style={styles.titleWrap}>
-          <AppText variant="title" accessibilityRole="header" numberOfLines={1} style={styles.title}>
+          <AppText variant="section" accessibilityRole="header" numberOfLines={1} style={styles.title}>
             {title}
           </AppText>
         </View>
@@ -70,7 +70,7 @@ export function TopBar({ title, onBack, hideBack = false, close = false, right }
 }
 
 const styles = StyleSheet.create({
-  bar: { height: SIZE, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  bar: { minHeight: SIZE, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   button: {
     width: SIZE,
     height: SIZE,

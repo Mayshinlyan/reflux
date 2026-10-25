@@ -9,7 +9,7 @@ import { Select } from '@/components/Select';
 import { useSettings } from '@/db/DatabaseProvider';
 import { formatClock, formatWindow, LATE_MEAL_WINDOW_OPTIONS } from '@/lib/clock';
 import { logger } from '@/lib/logger';
-import { fontFamily, radius, space, useColors } from '@/theme';
+import { radius, space, typography, useColors } from '@/theme';
 
 import { StepLayout } from './StepLayout';
 
@@ -54,14 +54,14 @@ export function BedtimeStep({ onNext }: { onNext: () => void }) {
           styles.card,
           { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 },
         ]}>
-        <Moon size={22} color={colors.ink} strokeWidth={2} />
+        <Moon size={24} color={colors.ink} strokeWidth={2} />
         <AppText style={styles.time}>{formatClock(bedtime)}</AppText>
         <AppText variant="caption" color="inkSoft">
           Tap to change
         </AppText>
       </Pressable>
 
-      <AppText variant="title" accessibilityRole="header" style={styles.heading}>
+      <AppText variant="section" accessibilityRole="header" style={styles.heading}>
         Late meal window
       </AppText>
       <Select
@@ -90,7 +90,7 @@ export function BedtimeStep({ onNext }: { onNext: () => void }) {
 
 const styles = StyleSheet.create({
   card: { alignItems: 'center', gap: space.s1, paddingVertical: space.s3, borderRadius: radius.lg },
-  time: { fontFamily: fontFamily.voiceBold, fontSize: 44, lineHeight: 48, letterSpacing: -1.3 },
-  heading: { marginTop: space.s4, marginBottom: 12 },
-  caption: { marginTop: 12 },
+  time: typography.hero,
+  heading: { marginTop: space.s4, marginBottom: space.s1_5 },
+  caption: { marginTop: space.s1_5 },
 });

@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { radius, useColors } from '@/theme';
+import { radius, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -62,8 +62,8 @@ const styles = StyleSheet.create({
     borderRightColor: 'transparent',
   },
   bubble: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: radius.pill },
-  large: { paddingHorizontal: 24, paddingVertical: 12 },
-  largeText: { fontSize: 26, lineHeight: 30, textAlign: 'center' },
+  large: { paddingHorizontal: 24, paddingVertical: space.s1_5 },
+  largeText: { textAlign: 'center' },
   card: { paddingHorizontal: 20, paddingVertical: 16, borderRadius: 24 },
   cardText: { textAlign: 'center' },
 });

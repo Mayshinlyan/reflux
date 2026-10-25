@@ -80,11 +80,11 @@ export function InlineAddChip({ label, placeholder, onAdd, onOpen }: Props) {
 const styles = StyleSheet.create({
   chip: { minHeight: 38, borderRadius: radius.pill },
   plus: { width: 38, alignItems: 'center', justifyContent: 'center' },
-  plusText: { ...typography.bodyEm, fontSize: 20, lineHeight: 24 },
+  plusText: typography.section,
   // Filled like the other chips; the ring is the one functional stroke, as on the text fields.
   field: {
-    ...typography.bodyEm,
-    fontSize: 14.5,
+    ...typography.button,
+    fontFamily: typography.bodyEm.fontFamily,
     minWidth: 150,
     paddingHorizontal: 14,
     paddingVertical: 8,

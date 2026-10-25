@@ -52,7 +52,7 @@ import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { cancelCheckIn, scheduleCheckIn } from '@/services/reminders';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
-import { fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
+import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
 
 const MAX_TEXT = 200;
 const MAX_NOTE = 500;
@@ -850,7 +850,7 @@ export function FoodFlow({
           pendingPhoto.current = null;
           if (source) void checkPhoto(source);
         }}>
-        <AppText variant="title" accessibilityRole="header">
+        <AppText variant="section" accessibilityRole="header">
           Add a photo
         </AppText>
         <View style={styles.sheetActions}>
@@ -872,7 +872,7 @@ export function FoodFlow({
         </View>
       </BottomSheet>
       <BottomSheet visible={telling} onClose={() => setTelling(false)}>
-        <AppText variant="title" accessibilityRole="header">
+        <AppText variant="section" accessibilityRole="header">
           Not quite right?
         </AppText>
         <View style={styles.sheetActions}>
@@ -906,10 +906,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingBottom: space.s3 },
   actions: { gap: space.s1 },
-  footer: { gap: 12, paddingTop: space.s2 },
+  footer: { gap: space.s1_5, paddingTop: space.s2 },
   sheetActions: { gap: space.s2, marginTop: space.s2 },
   link: { minHeight: minTouchTarget, alignItems: 'center', justifyContent: 'center' },
-  linkText: { ...typography.bodyEm, fontSize: 15, fontFamily: fontFamily.bold },
+  linkText: typography.button,
   photo: { width: '100%', height: 200, borderRadius: radius.lg, marginBottom: space.s1 },
   error: { borderRadius: radius.md, padding: space.s2 },
 });

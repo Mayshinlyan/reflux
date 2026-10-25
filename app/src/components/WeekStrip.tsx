@@ -48,7 +48,7 @@ export function WeekStrip({ days, loggedDays, onPressDay, pickedKey }: Props) {
                 {day.date}
               </AppText>
             </View>
-            <View style={[styles.dot, logged && { backgroundColor: colors.sage }]} />
+            <View style={[styles.dot, logged && { backgroundColor: colors.sageInk }]} />
           </Pressable>
         );
       })}
@@ -59,6 +59,13 @@ export function WeekStrip({ days, loggedDays, onPressDay, pickedKey }: Props) {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row' },
   day: { flex: 1, alignItems: 'center', gap: 6 },
-  date: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  date: {
+    minWidth: 36,
+    minHeight: 36,
+    paddingHorizontal: 2,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   dot: { width: 5, height: 5, borderRadius: radius.pill },
 });

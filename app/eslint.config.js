@@ -14,4 +14,18 @@ module.exports = defineConfig([
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
+  {
+    // Type sizes come from the scale in theme/typography.ts. A one-off size keeps the parent's line height and tracking.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/theme/**', 'src/**/__tests__/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'warn',
+        {
+          selector: "Property[key.name='fontSize']",
+          message: 'Use a typography token (src/theme/typography.ts) instead of a raw fontSize.',
+        },
+      ],
+    },
+  },
 ]);

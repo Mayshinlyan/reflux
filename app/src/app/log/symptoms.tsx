@@ -55,7 +55,7 @@ import { dayToLoggedAt, formatClockTime, formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { symptomLabel, tagLabel } from '@/lib/timeline';
 import { cancelCheckIn } from '@/services/reminders';
-import { space } from '@/theme';
+import { space, typography } from '@/theme';
 
 const MAX_NOTE_LENGTH = 1000;
 /** A meal this recent before the symptoms is offered as the one they followed. */
@@ -542,9 +542,9 @@ const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
   flex: { flex: 1 },
   content: { paddingBottom: space.s3, flexGrow: 1, gap: space.s4 },
-  subtitle: { fontSize: 15, lineHeight: 21, marginTop: -space.s2, marginBottom: space.s1 },
+  subtitle: { ...typography.subtitle, marginTop: -space.s2, marginBottom: space.s1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
-  section: { gap: 12 },
+  section: { gap: space.s1_5 },
   timeRow: { flexDirection: 'row' },
   dimmed: { opacity: 0.45 },
   footer: { paddingTop: space.s2, gap: space.s1 },

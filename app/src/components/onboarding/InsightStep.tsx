@@ -18,7 +18,7 @@ export function InsightStep({ onNext }: { onNext: () => void }) {
       <View
         accessible
         accessibilityLabel="Example: Spicy meals. Heartburn often showed up within 2 hours."
-        style={[styles.card, { backgroundColor: colors.surface }]}>
+        style={[styles.card, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge }]}>
         <View style={styles.head}>
           <View style={styles.headText}>
             <AppText variant="label" color="inkSoft">

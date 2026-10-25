@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { radius, useColors } from '@/theme';
+import { radius, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -13,9 +13,17 @@ export function AddRow({ label, onPress }: { label: string; onPress: () => void 
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }) => [styles.row, { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 }]}>
+      style={({ pressed }) => [
+        styles.row,
+        {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.edge,
+          opacity: pressed ? 0.85 : 1,
+        },
+      ]}>
       <View style={[styles.plus, { backgroundColor: colors.sageTint }]}>
-        <Plus size={18} color={colors.ink} strokeWidth={2.4} />
+        <Plus size={20} color={colors.ink} strokeWidth={2} />
       </View>
       <AppText variant="bodyEm">{label}</AppText>
     </Pressable>
@@ -27,8 +35,8 @@ const styles = StyleSheet.create({
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 12,
+    gap: space.s1_5,
+    padding: space.s1_5,
     borderRadius: radius.lg,
   },
   plus: { width: 34, height: 34, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },

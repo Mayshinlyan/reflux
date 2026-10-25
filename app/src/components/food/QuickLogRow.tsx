@@ -21,7 +21,11 @@ export function QuickLogRow({ foods, onPick, onSeeAll }: Props) {
         <AppText variant="label" color="inkSoft" accessibilityRole="header">
           Quick log
         </AppText>
-        <Pressable accessibilityRole="button" accessibilityLabel="See all" onPress={onSeeAll} hitSlop={10}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="See all"
+          onPress={onSeeAll}
+          hitSlop={{ top: 14, bottom: 14, left: 10, right: 10 }}>
           <AppText variant="label" style={{ color: colors.clayInk }}>
             See all
           </AppText>
@@ -47,7 +51,7 @@ export function QuickLogRow({ foods, onPick, onSeeAll }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 12, marginBottom: 12 },
+  wrap: { gap: space.s1_5, marginBottom: space.s1_5 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   chips: { flexDirection: 'row', gap: space.s1 },
 });
