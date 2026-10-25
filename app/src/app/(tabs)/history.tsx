@@ -280,7 +280,7 @@ export default function HistoryScreen() {
         contentContainerStyle={[styles.list, { paddingBottom: tabBarClearance(insets.bottom) }]}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <AppText variant="title" style={styles.emptyTitle}>
+            <AppText variant="section" style={styles.emptyTitle}>
               {loadFailed ? "Couldn't load your logs" : 'Nothing here yet'}
             </AppText>
             <AppText color="inkSoft" style={styles.emptyBody}>
@@ -329,10 +329,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginTop: space.s4,
-    marginBottom: 12,
+    marginBottom: space.s1_5,
   },
   // The row above a label already leaves 12, so the label adds 20 to make the 32 between days.
-  dayLabel: { marginTop: space.s4 - 12, marginBottom: 12 },
+  dayLabel: { marginTop: space.s4 - 12, marginBottom: space.s1_5 },
   list: { flexGrow: 1 },
   empty: { alignItems: 'center', paddingHorizontal: space.s3, paddingTop: space.s4 },
   emptyTitle: { marginBottom: space.s1 },

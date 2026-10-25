@@ -2,7 +2,7 @@ import { Check, ChevronDown } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { fontFamily, minTouchTarget, radius, space, useColors } from '@/theme';
+import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
 import type { Portion } from '@/types/analysis';
 
 import { AppText } from './AppText';
@@ -57,7 +57,7 @@ export function PortionSelect({
                   { opacity: pressed ? 0.85 : 1 },
                 ]}>
                 <AppText style={[styles.optionText, { color: colors.ink }]}>{choice.label}</AppText>
-                {choice.value === value && <Check size={18} color={colors.inkSoft} strokeWidth={2.4} />}
+                {choice.value === value && <Check size={20} color={colors.inkSoft} strokeWidth={2} />}
               </Pressable>
             ))}
           </View>
@@ -69,7 +69,7 @@ export function PortionSelect({
             onPress={() => setOpen(true)}
             style={({ pressed }) => [styles.row, { opacity: pressed ? 0.85 : 1 }]}>
             <AppText style={[styles.optionText, { color: colors.ink }]}>{current.label}</AppText>
-            <ChevronDown size={20} color={colors.inkSoft} strokeWidth={2.2} />
+            <ChevronDown size={20} color={colors.inkSoft} strokeWidth={2} />
           </Pressable>
         )}
       </View>
@@ -89,5 +89,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  optionText: { fontFamily: fontFamily.bold, fontSize: 15, lineHeight: 22 },
+  optionText: typography.button,
 });

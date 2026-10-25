@@ -14,9 +14,11 @@ export const lightColors = {
   ink: '#3A2F25',
   // Figma has #75675A (3.98:1 on surface2); darkened so it clears WCAG AA everywhere.
   inkSoft: '#65574A',
-  // Unselected tab icons: about 4:1 on surface (surface2 was 1.3:1).
-  inkMuted: '#8A7660',
+  // Unselected tab icons and footnotes: 5.1:1 on bg and 5.6:1 on surface. Not for text on surface2 (4.2:1).
+  inkMuted: '#75634F',
   hairline: '#EBDCC2',
+  // The 1px soft edge on cards (about 1.5:1 on bg): visible without turning them into outlined boxes.
+  edge: '#D9C49C',
   clay: '#C8664A',
   clayInk: '#8A4531',
   clayTint: '#F3D3C0',
@@ -56,6 +58,7 @@ export const darkColors: Palette = {
   inkSoft: '#B3A89D',
   inkMuted: '#7D7268',
   hairline: '#3D362F',
+  edge: '#4A4036',
   clay: '#E08260',
   clayInk: '#F2C4B0',
   clayTint: '#3A2620',

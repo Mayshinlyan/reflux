@@ -102,7 +102,17 @@ export function InsightCards({ today, week }: Props) {
           card.tips ? (
             <TipsCard key={card.key} tips={card.tips} style={{ width: cardWidth }} />
           ) : (
-            <View key={card.key} style={[styles.card, { width: cardWidth, backgroundColor: colors.surface }]}>
+            <View
+              key={card.key}
+              style={[
+                styles.card,
+                {
+                  width: cardWidth,
+                  backgroundColor: colors.surface,
+                  borderWidth: 1,
+                  borderColor: colors.edge,
+                },
+              ]}>
               <AppText variant="sectionSm">{card.title}</AppText>
               <AppText variant="small">{card.body}</AppText>
             </View>

@@ -46,7 +46,7 @@ export function SymptomsSheet({ visible, onClose }: { visible: boolean; onClose:
 
   return (
     <BottomSheet visible={visible} onClose={onClose}>
-      <AppText variant="title" accessibilityRole="header" style={styles.title}>
+      <AppText variant="section" accessibilityRole="header" style={styles.title}>
         Usual symptoms
       </AppText>
       <SymptomZones selected={selected} onToggle={toggle} conditions={settings.conditions} />

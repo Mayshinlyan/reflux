@@ -2,7 +2,7 @@
 <style>
   :root{
     --bg:#FAF1DE; --surface:#FFFBF3; --surface-2:#ECDAB9;
-    --ink:#3A2F25; --ink-soft:#65574A; --ink-muted:#8A7660; --hairline:#EBDCC2;
+    --ink:#3A2F25; --ink-soft:#65574A; --ink-muted:#75634F; --hairline:#EBDCC2; --edge:#D9C49C;
     --clay:#C8664A; --clay-ink:#8A4531; --clay-tint:#F3D3C0;
     --sage:#8E9A6D; --sage-ink:#55612F; --sage-tint:#D8E0B6;
     --good:#5E8F63; --good-ink:#2F5A3A; --good-tint:#D3E8D6;
@@ -12,7 +12,7 @@
     --red:#C4553D; --red-ink:#8B3B29; --red-tint:#F5D9CF;
     --cta:#5F6B3A; --cta-ink:#FAF1DE;
     --r-sm:10px; --r-md:16px; --r-lg:20px; --r-pill:999px;
-    --s1:8px; --s2:16px; --s3:24px; --s4:32px; --s5:48px;
+    --s1:8px; --s1-5:12px; --s2:16px; --s3:24px; --s4:32px; --s5:48px;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark){
@@ -117,11 +117,11 @@
   .voice-s{font-family:'Gaegu',cursive;font-size:20px;line-height:24px;font-weight:400;letter-spacing:-0.03em}
   .section-l{font-size:20px;line-height:26px;font-weight:700}
   .small-l{font-size:15px;line-height:22px;font-weight:400}
-  .title-l{font-size:20px;font-weight:700}
+  .subtitle-l{font-size:15px;line-height:21px;font-weight:400}
   .body-l{font-size:17px;font-weight:400;line-height:1.5}
   .body-em{font-size:17px;font-weight:600}
-  .label-s{font-size:13px;font-weight:700}
-  .caption-s{font-size:13px;font-weight:400;color:var(--ink-soft)}
+  .label-s{font-size:13px;font-weight:700;letter-spacing:.2px}
+  .caption-s{font-size:13px;font-weight:400;letter-spacing:.2px;color:var(--ink-soft)}
 
   /* ---------- components ---------- */
   .comp-block{
@@ -397,7 +397,7 @@
     </div>
     <div class="principle">
       <h3>No outlines</h3>
-      <p>Containers are filled, never stroked. Selection is a different tint, not a border. Unselected chips are surface; chips inside cards are surface 2. One exception: form dropdowns (portion, verdict, eaten time) keep a 1px hairline edge so they show against the sheet they sit in, and a hairline between the options when open.</p>
+      <p>Containers are filled, never outlined. The one soft touch is a 1px <code>edge</code> line on cards and rows (about 1.5:1 on the page, so they stay visible without turning into boxes). Selection is a different tint, not a border. Unselected chips are surface; chips inside cards are surface 2. One exception: form dropdowns (portion, verdict, eaten time) keep a 1px hairline edge so they show against the sheet they sit in, and a hairline between the options when open.</p>
     </div>
     <div class="principle">
       <h3>Icon and label, always</h3>
@@ -419,7 +419,8 @@
       <div class="swatch"><div class="chip" style="background:var(--surface);border-bottom:1px solid var(--hairline)"></div><div class="meta"><div class="name">Surface</div><div class="hex">#FFFBF3</div><div class="use">Cards, rows, inputs, unselected pills, tab bar</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--ink)"></div><div class="meta"><div class="name">Ink</div><div class="hex">#3A2F25</div><div class="use">Primary text</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--ink-soft)"></div><div class="meta"><div class="name">Ink soft</div><div class="hex">#65574A</div><div class="use">Secondary text</div></div></div>
-      <div class="swatch"><div class="chip" style="background:var(--ink-muted)"></div><div class="meta"><div class="name">Ink muted</div><div class="hex">#8A7660</div><div class="use">Unselected tab icons</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--ink-muted)"></div><div class="meta"><div class="name">Ink muted</div><div class="hex">#75634F</div><div class="use">Unselected tab icons, footnotes, dots (5.1:1 on the page, 5.6:1 on surface)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--edge)"></div><div class="meta"><div class="name">Edge</div><div class="hex">#D9C49C</div><div class="use">The 1px soft edge on cards and rows</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--clay)"></div><div class="meta"><div class="name">Clay</div><div class="hex">#C8664A</div><div class="use">Accents, marks, selected tag text</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--cta)"></div><div class="meta"><div class="name">Olive (primary)</div><div class="hex">#5F6B3A</div><div class="use">Primary button, active dots, today</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--good)"></div><div class="meta"><div class="name">Deep green</div><div class="hex">#5E8F63</div><div class="use">"Good", a verdict you set yourself</div></div></div>
@@ -439,13 +440,13 @@
       <div class="type-row"><span class="type-label">Display · 38 / 700 · Gaegu</span><div class="type-sample"><span class="display">Good morning, Maya</span></div></div>
       <div class="type-row"><span class="type-label">Voice · 22 / 400 · Gaegu</span><div class="type-sample"><span class="voice">Log your meals, one cozy day at a time.</span></div></div>
       <div class="type-row"><span class="type-label">Voice small · 20 / 400 · Gaegu</span><div class="type-sample"><span class="voice-s">What did your belly enjoy?</span></div></div>
-      <div class="type-row"><span class="type-label">Section · 20 / 700</span><div class="type-sample"><span class="section-l">Anything else?</span></div></div>
-      <div class="type-row"><span class="type-label">Title · 20 / 700</span><div class="type-sample"><span class="title-l">Today's meals</span></div></div>
+      <div class="type-row"><span class="type-label">Section · 20 / 700 (also titles)</span><div class="type-sample"><span class="section-l">Today's meals</span></div></div>
       <div class="type-row"><span class="type-label">Body · 17 / 400</span><div class="type-sample"><span class="body-l">Grilled salmon with steamed rice and green beans.</span></div></div>
       <div class="type-row"><span class="type-label">Body emphasis · 17 / 600</span><div class="type-sample"><span class="body-em">Likely to trigger symptoms</span></div></div>
       <div class="type-row"><span class="type-label">Small · 15 / 400</span><div class="type-sample"><span class="small-l">Portion · Regular</span></div></div>
-      <div class="type-row"><span class="type-label">Label · 13 / 700</span><div class="type-sample"><span class="label-s">Log medication</span></div></div>
-      <div class="type-row"><span class="type-label">Caption · 13 / 400</span><div class="type-sample"><span class="caption-s">Logged 7:45 PM · within 3 hours of bedtime</span></div></div>
+      <div class="type-row"><span class="type-label">Subtitle · 15 / 400 · line 21</span><div class="type-sample"><span class="subtitle-l">A short line under a heading</span></div></div>
+      <div class="type-row"><span class="type-label">Label · 13 / 700 · +0.2 tracking</span><div class="type-sample"><span class="label-s">Log medication</span></div></div>
+      <div class="type-row"><span class="type-label">Caption · 13 / 400 · +0.2 tracking</span><div class="type-sample"><span class="caption-s">Logged 7:45 PM · within 3 hours of bedtime</span></div></div>
     </div>
   </section>
 
@@ -999,7 +1000,7 @@
   <section>
     <div class="section-head">
       <h2>Icons</h2>
-      <p>Lucide line icons only (<code>lucide-react-native</code>): 24px, 2px stroke, round caps and joins, no fills, never emoji as a functional icon. Ink by default, ink soft for secondary, always paired with a label. The drawings below are the earlier set; the app uses the Lucide names in the table.</p>
+      <p>Lucide line icons only (<code>lucide-react-native</code>): four sizes, 16 (inline, chips), 20 (rows, buttons), 24 (navigation, top bar) and 32 (empty states), all with a 2px stroke, round caps and joins, no fills, never emoji as a functional icon. Ink by default, ink soft for secondary, always paired with a label. The drawings below are the earlier set; the app uses the Lucide names in the table.</p>
       <p class="caption-s" style="margin-top:12px">Figma → Lucide: Today <code>Sun</code> · Check <code>CircleCheck</code> · History <code>CalendarDays</code> · Settings <code>Settings</code> · Add <code>Plus</code> · Medication <code>Pill</code> · Bedtime <code>Moon</code> · Privacy <code>Lock</code> · Chevron down / right <code>ChevronDown</code> / <code>ChevronRight</code> · Checkmark <code>Check</code> · Pencil <code>Pencil</code> · Meal <code>Utensils</code> · Back <code>ChevronLeft</code> · Close <code>X</code> · More <code>Ellipsis</code> · Profile <code>User</code> · Trash <code>Trash</code> · Pulse <code>Activity</code>. Verdict icons stay the custom reflux-line set.</p>
     </div>
     <div class="icon-grid">
@@ -1022,6 +1023,7 @@
     <div class="comp-block">
       <div class="scale-row">
         <div class="scale-item"><div class="space-block" style="width:8px;height:24px"></div><span>8</span></div>
+        <div class="scale-item"><div class="space-block" style="width:12px;height:24px"></div><span>12 (s1.5)</span></div>
         <div class="scale-item"><div class="space-block" style="width:16px;height:24px"></div><span>16</span></div>
         <div class="scale-item"><div class="space-block" style="width:24px;height:24px"></div><span>24</span></div>
         <div class="scale-item"><div class="space-block" style="width:32px;height:24px"></div><span>32</span></div>

@@ -133,7 +133,13 @@ function Card({
     <View
       style={[
         styles.card,
-        { width, minHeight: height, backgroundColor: colors.surface },
+        {
+          width,
+          minHeight: height,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.edge,
+        },
         gap ? { gap } : { justifyContent: 'space-between' },
       ]}>
       {children}
@@ -229,7 +235,7 @@ function FoodCard({ summary, width, height }: CardProps) {
                 <View style={[styles.dot, { backgroundColor: colors[verdictColors[verdict].accent] }]} />
                 <AppText color="inkSoft">{VERDICT_LABELS[verdict]}</AppText>
               </View>
-              <AppText variant="title">{String(summary.verdicts[verdict])}</AppText>
+              <AppText variant="section">{String(summary.verdicts[verdict])}</AppText>
             </View>
           ))}
         </View>

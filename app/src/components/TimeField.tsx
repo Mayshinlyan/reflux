@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { earliestMealTime, formatMealTime } from '@/lib/mealTime';
-import { fontFamily, minTouchTarget, radius, space, useColors } from '@/theme';
+import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { pickTimeAndroid } from './MealTimeSheet';
@@ -50,7 +50,7 @@ export function TimeField({
           onPress={toggle}
           style={({ pressed }) => [styles.row, { opacity: pressed ? 0.85 : 1 }]}>
           <AppText style={[styles.value, { color: colors.ink }]}>{formatMealTime(value, now)}</AppText>
-          <ChevronDown size={20} color={colors.inkSoft} strokeWidth={2.2} />
+          <ChevronDown size={20} color={colors.inkSoft} strokeWidth={2} />
         </Pressable>
         {open && (
           <View style={[styles.wheel, { borderTopColor: colors.hairline }]}>
@@ -84,6 +84,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  value: { fontFamily: fontFamily.bold, fontSize: 15, lineHeight: 22 },
+  value: typography.button,
   wheel: { alignItems: 'center', borderTopWidth: 1 },
 });

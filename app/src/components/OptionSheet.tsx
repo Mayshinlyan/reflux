@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { friendlyMessages } from '@/lib/errors';
-import { fontFamily, minTouchTarget, space, useColors } from '@/theme';
+import { fontFamily, minTouchTarget, space, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { BottomSheet } from './BottomSheet';
@@ -50,7 +50,7 @@ export function OptionSheet({
   const cards = variant === 'cards';
   return (
     <BottomSheet visible={visible} onClose={onClose} tone={cards ? 'bg' : 'surface'}>
-      <AppText variant={cards ? 'displaySmall' : 'title'} accessibilityRole="header">
+      <AppText variant={cards ? 'displaySmall' : 'section'} accessibilityRole="header">
         {title}
       </AppText>
       {note ? (
@@ -79,14 +79,10 @@ export function OptionSheet({
               accessibilityState={{ checked: selected }}
               onPress={() => onChoose(option.value)}
               style={[styles.option, { borderBottomColor: colors.hairline }]}>
-              <AppText
-                style={[
-                  styles.optionText,
-                  selected && { color: colors.clayInk, fontFamily: fontFamily.extrabold },
-                ]}>
+              <AppText style={selected && { color: colors.clayInk, fontFamily: fontFamily.extrabold }}>
                 {option.label}
               </AppText>
-              {selected && <Check size={18} color={colors.clayInk} strokeWidth={2.6} />}
+              {selected && <Check size={20} color={colors.clayInk} strokeWidth={2} />}
             </Pressable>
           );
         })}
@@ -107,7 +103,7 @@ export function OptionSheet({
 }
 
 const styles = StyleSheet.create({
-  note: { marginTop: 4, marginBottom: space.s2, fontSize: 15, lineHeight: 21 },
+  note: { ...typography.subtitle, marginTop: 4, marginBottom: space.s2 },
   option: {
     minHeight: Math.max(minTouchTarget, 52),
     flexDirection: 'row',
@@ -116,7 +112,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderBottomWidth: 1,
   },
-  optionText: { fontSize: 16 },
   cardsNote: { marginTop: space.s1 },
   cardsGroup: { marginTop: space.s2, gap: space.s1 },
   footnote: { marginTop: space.s1 },

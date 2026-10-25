@@ -21,14 +21,17 @@ export const typography = {
   displaySmall: { fontFamily: fontFamily.voiceBold, fontSize: 28, lineHeight: 32, letterSpacing: -0.84 },
   voice: { fontFamily: fontFamily.voice, fontSize: 22, lineHeight: 26, letterSpacing: -0.66 },
   voiceSmall: { fontFamily: fontFamily.voice, fontSize: 20, lineHeight: 24, letterSpacing: -0.6 },
+  // Headings, sheet and screen titles: the Figma "Belly/Section" style (it also replaced "Belly/Title").
   section: { fontFamily: fontFamily.bold, fontSize: 20, lineHeight: 26 },
   sectionSm: { fontFamily: fontFamily.semibold, fontSize: 18, lineHeight: 24 },
-  title: { fontFamily: fontFamily.bold, fontSize: 20, lineHeight: 26 },
   body: { fontFamily: fontFamily.regular, fontSize: 17, lineHeight: 25.5 },
   bodyEm: { fontFamily: fontFamily.semibold, fontSize: 17, lineHeight: 25.5 },
   small: { fontFamily: fontFamily.regular, fontSize: 15, lineHeight: 22 },
-  label: { fontFamily: fontFamily.bold, fontSize: 13, lineHeight: 18 },
-  caption: { fontFamily: fontFamily.regular, fontSize: 13, lineHeight: 18 },
+  // The short line under a heading.
+  subtitle: { fontFamily: fontFamily.regular, fontSize: 15, lineHeight: 21 },
+  // 13pt Nunito reads tight, so labels and captions get a little tracking.
+  label: { fontFamily: fontFamily.bold, fontSize: 13, lineHeight: 18, letterSpacing: 0.2 },
+  caption: { fontFamily: fontFamily.regular, fontSize: 13, lineHeight: 18, letterSpacing: 0.2 },
   button: { fontFamily: fontFamily.bold, fontSize: 15, lineHeight: 20 },
 } satisfies Record<string, TextStyle>;
 

@@ -51,3 +51,31 @@ describe.each([
     expect(contrast(palette[text], palette[background])).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+// Dark mode is not shipped, so these only guard the light palette.
+const MUTED_TEXT: [keyof Palette, keyof Palette][] = [
+  ['inkMuted', 'bg'],
+  ['inkMuted', 'surface'],
+];
+
+// Icons, dots and other small graphics need 3:1 (WCAG 1.4.11). The plain accents miss it on bg; the Ink tones pass.
+const GRAPHICS: [keyof Palette, keyof Palette][] = [
+  ['inkMuted', 'bg'],
+  ['inkMuted', 'surface'],
+  ['sageInk', 'bg'],
+  ['sageInk', 'surface'],
+  ['honeyInk', 'bg'],
+  ['honeyInk', 'surface'],
+  ['honeyInk', 'honeyTint'],
+  ['sageInk', 'sageTint'],
+];
+
+describe('light palette: muted text and small graphics', () => {
+  it.each(MUTED_TEXT)('%s text on %s meets WCAG AA (4.5:1)', (text, background) => {
+    expect(contrast(lightColors[text], lightColors[background])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(GRAPHICS)('%s graphic on %s meets 3:1', (graphic, background) => {
+    expect(contrast(lightColors[graphic], lightColors[background])).toBeGreaterThanOrEqual(3);
+  });
+});

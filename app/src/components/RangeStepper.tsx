@@ -51,7 +51,7 @@ export function RangeStepper({
           onPress={onBack}
           hitSlop={6}
           style={[styles.arrow, !canBack && styles.dim]}>
-          <ChevronLeft size={20} color={colors.ink} strokeWidth={2.2} />
+          <ChevronLeft size={20} color={colors.ink} strokeWidth={2} />
         </Pressable>
       )}
       {onPressLabel ? (
@@ -79,7 +79,7 @@ export function RangeStepper({
           onPress={onForward}
           hitSlop={6}
           style={[styles.arrow, !canForward && styles.dim]}>
-          <ChevronRight size={20} color={colors.ink} strokeWidth={2.2} />
+          <ChevronRight size={20} color={colors.ink} strokeWidth={2} />
         </Pressable>
       )}
     </View>
@@ -87,7 +87,7 @@ export function RangeStepper({
 }
 
 const styles = StyleSheet.create({
-  pill: { flexDirection: 'row', alignItems: 'center', height: 42, borderRadius: radius.pill },
+  pill: { flexDirection: 'row', alignItems: 'center', minHeight: 42, borderRadius: radius.pill },
   withArrows: { padding: 5, gap: 4 },
   labelOnly: { paddingHorizontal: 16 },
   arrow: {

@@ -1,7 +1,7 @@
 import { ChevronRight, type LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet } from 'react-native';
 
-import { minTouchTarget, radius, useColors } from '@/theme';
+import { minTouchTarget, radius, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -24,15 +24,23 @@ export function SettingsRow({ label, value, onPress, icon: Icon, danger = false 
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={value ? `${label}, ${value}` : label}
-      style={({ pressed }) => [styles.row, { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 }]}>
-      {Icon && <Icon size={22} color={color} strokeWidth={2} />}
+      style={({ pressed }) => [
+        styles.row,
+        {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.edge,
+          opacity: pressed ? 0.85 : 1,
+        },
+      ]}>
+      {Icon && <Icon size={24} color={color} strokeWidth={2} />}
       <AppText style={[styles.label, { color }]}>{label}</AppText>
       {value ? (
         <AppText variant="caption" color="inkSoft">
           {value}
         </AppText>
       ) : null}
-      {!danger && <ChevronRight size={18} color={colors.inkSoft} strokeWidth={2} />}
+      {!danger && <ChevronRight size={20} color={colors.inkSoft} strokeWidth={2} />}
     </Pressable>
   );
 }
@@ -41,11 +49,11 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space.s1_5,
     minHeight: Math.max(minTouchTarget, 52),
     borderRadius: radius.md,
     paddingHorizontal: 14,
-    marginBottom: 12,
+    marginBottom: space.s1_5,
   },
-  label: { flex: 1, fontSize: 16 },
+  label: { flex: 1 },
 });

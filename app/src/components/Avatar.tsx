@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { type AvatarKey, avatarDef } from '@/constants/avatars';
-import { radius, typography, useColors } from '@/theme';
+import { radius, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -33,15 +33,11 @@ export function Avatar({
       accessibilityLabel={Icon ? `${def.label} avatar` : name ? `Avatar for ${name}` : 'Avatar'}
       style={[styles.circle, { width: diameter, height: diameter, backgroundColor: colors[def.tint] }]}>
       {Icon ? (
-        <Icon size={Math.round(diameter * 0.42)} color={colors[def.ink]} strokeWidth={1.75} />
+        <Icon size={Math.round(diameter * 0.42)} color={colors[def.ink]} strokeWidth={2} />
       ) : (
         <AppText
-          variant={size === 'small' ? 'title' : 'hero'}
-          style={[
-            { color: colors[def.ink] },
-            size === 'small' && styles.small,
-            size === 'medium' && mediumInitial(diameter),
-          ]}>
+          variant={size === 'small' ? 'section' : 'hero'}
+          style={[{ color: colors[def.ink] }, size === 'medium' && mediumInitial(diameter)]}>
           {initial}
         </AppText>
       )}
@@ -53,11 +49,11 @@ const DIAMETER = { small: 44, medium: 72, large: 96 } as const;
 
 /** The medium initial is 35/38 at 72; it scales with the circle. */
 const mediumInitial = (diameter: number) => ({
+  // eslint-disable-next-line no-restricted-syntax -- scales with the circle, so it cannot be a fixed token
   fontSize: Math.round((35 * diameter) / DIAMETER.medium),
   lineHeight: Math.round((38 * diameter) / DIAMETER.medium),
 });
 
 const styles = StyleSheet.create({
   circle: { borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
-  small: { fontSize: typography.title.fontSize },
 });

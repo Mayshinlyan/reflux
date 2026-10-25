@@ -89,6 +89,6 @@ export function DoseFields({ name, dose, custom, note, onDose, onCustom, onNote 
 }
 
 const styles = StyleSheet.create({
-  section: { gap: 12 },
+  section: { gap: space.s1_5 },
   types: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1, marginBottom: space.s2 },
 });

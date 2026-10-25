@@ -83,7 +83,12 @@ export function VerdictWhy({ analysis, late, plain = false }: Props & { plain?: 
   const ingredients = uniqueIngredients(analysis);
   if (reasons.length === 0 && ingredients.length === 0) return null;
   return (
-    <View style={plain ? styles.plain : [styles.card, { backgroundColor: colors.surface }]}>
+    <View
+      style={
+        plain
+          ? styles.plain
+          : [styles.card, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge }]
+      }>
       <AppText variant="sectionSm">Why we think so</AppText>
       {reasons.map((reason) => (
         <View key={reason} style={styles.reason}>
@@ -113,14 +118,14 @@ function uniqueIngredients(analysis: MealAnalysis): MealItem['ingredients'] {
 
 const styles = StyleSheet.create({
   wrap: { gap: space.s3 },
-  hero: { gap: 12, alignItems: 'center' },
+  hero: { gap: space.s1_5, alignItems: 'center' },
   // The badge starts at the left of its row by default; this screen is centred.
   badge: { alignSelf: 'center' },
   summary: { textAlign: 'center' },
   tags: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.s1 },
-  card: { borderRadius: radius.lg, padding: space.s2, gap: 12 },
-  plain: { gap: 12 },
-  reason: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  card: { borderRadius: radius.lg, padding: space.s2, gap: space.s1_5 },
+  plain: { gap: space.s1_5 },
+  reason: { flexDirection: 'row', gap: space.s1_5, alignItems: 'flex-start' },
   // Sits on the first line's x-height, like the Figma bullet.
   dot: { width: 6, height: 6, borderRadius: 3, marginTop: 8 },
   reasonText: { flex: 1 },

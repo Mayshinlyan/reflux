@@ -51,7 +51,7 @@ export function SymptomPromptSheet({ visible, subtitle, onHide, onLog, onSkip }:
 
   return (
     <BottomSheet visible={visible} onClose={() => choose(false)} onDismissed={finish}>
-      <AppText variant="title" accessibilityRole="header">
+      <AppText variant="section" accessibilityRole="header">
         Any symptoms?
       </AppText>
       <AppText variant="label" color="inkSoft">

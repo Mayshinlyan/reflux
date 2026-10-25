@@ -23,7 +23,7 @@ export function CheckboxRow({ label, checked, onToggle }: Props) {
           styles.box,
           checked ? { backgroundColor: colors.cta } : { borderWidth: 1.5, borderColor: colors.inkSoft },
         ]}>
-        {checked && <Check size={14} color={colors.ctaInk} strokeWidth={3} />}
+        {checked && <Check size={16} color={colors.ctaInk} strokeWidth={2} />}
       </View>
       <AppText variant="caption">{label}</AppText>
     </Pressable>

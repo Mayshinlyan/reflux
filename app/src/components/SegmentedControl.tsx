@@ -44,7 +44,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
               { opacity: pressed ? 0.85 : 1 },
             ]}>
             {Icon ? (
-              <Icon size={18} strokeWidth={2.2} color={selected ? colors.ink : colors.inkSoft} />
+              <Icon size={20} strokeWidth={2} color={selected ? colors.ink : colors.inkSoft} />
             ) : (
               <AppText variant="label" color={selected ? 'ink' : 'inkSoft'}>
                 {option.label}
@@ -60,7 +60,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
 const styles = StyleSheet.create({
   track: { flexDirection: 'row', alignSelf: 'flex-start', padding: 4, borderRadius: radius.pill },
   option: {
-    minHeight: Math.max(minTouchTarget - 8, 36),
+    minHeight: minTouchTarget,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: radius.pill,

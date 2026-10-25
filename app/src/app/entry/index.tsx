@@ -75,7 +75,7 @@ export default function EntryScreen() {
       <Screen>
         <BackHeader />
         <View style={styles.missing}>
-          <AppText variant="title" style={styles.missingTitle}>
+          <AppText variant="section" style={styles.missingTitle}>
             This entry isn&apos;t here any more
           </AppText>
           <AppText color="inkSoft" style={styles.missingBody}>
@@ -144,7 +144,8 @@ function EntryMenu({
 function Card({ title, children }: { title?: string; children: ReactNode }) {
   const colors = useColors();
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface }]}>
+    <View
+      style={[styles.card, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge }]}>
       {title ? (
         <AppText variant="section" accessibilityRole="header">
           {title}
@@ -371,13 +372,13 @@ function DoseView({ log }: { log: Extract<LoadedEntry, { kind: 'medication' }>['
 const styles = StyleSheet.create({
   content: { gap: space.s3, paddingBottom: space.s4 },
   heading: { gap: space.s2 },
-  card: { borderRadius: radius.lg, padding: space.s2, gap: 12 },
+  card: { borderRadius: radius.lg, padding: space.s2, gap: space.s1_5 },
   // The logged-meal page: the name, when and tags sit open on the page, the rest on one sheet.
   meal: { gap: 8, alignItems: 'center' },
   centered: { textAlign: 'center' },
   centeredChips: { justifyContent: 'center' },
   sheet: { borderRadius: 24, padding: space.s2 + 4, gap: space.s3 },
-  section: { gap: 12 },
+  section: { gap: space.s1_5 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: space.s1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(58,47,37,0.45)' },

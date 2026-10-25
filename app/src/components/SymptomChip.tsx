@@ -42,7 +42,7 @@ export function SymptomChip({ label, selected, onToggle, readOnly, onRemove, onC
             styles.minus,
             { backgroundColor: colors.surface, opacity: pressed ? 0.6 : 1 },
           ]}>
-          <Minus size={16} color={colors.sageInk} strokeWidth={2.8} />
+          <Minus size={16} color={colors.sageInk} strokeWidth={2} />
         </Pressable>
       </View>
     );
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: radius.pill,
   },
-  label: { ...typography.bodyEm, fontSize: 14.5, lineHeight: 20 },
+  label: { ...typography.button, fontFamily: typography.bodyEm.fontFamily },
   removable: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 4, paddingVertical: 3 },
   minus: {
     width: 30,

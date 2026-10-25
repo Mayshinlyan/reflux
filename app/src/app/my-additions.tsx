@@ -91,7 +91,10 @@ export default function MyAdditionsScreen() {
                 onAccessibilityAction={(event) => {
                   if (event.nativeEvent.actionName === 'delete') confirmRemove(symptom);
                 }}
-                style={[styles.card, { backgroundColor: colors.surface }]}>
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge },
+                ]}>
                 <AppText style={styles.name} numberOfLines={2}>
                   {symptom.name}
                 </AppText>
@@ -110,10 +113,10 @@ export default function MyAdditionsScreen() {
 const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
   content: { paddingBottom: space.s3 },
-  subtitle: { fontSize: 15, lineHeight: 21, marginTop: space.s2, marginBottom: space.s4 },
+  subtitle: { ...typography.subtitle, marginTop: space.s2, marginBottom: space.s4 },
   empty: { marginBottom: space.s2, lineHeight: 24 },
   // On the swipe container, not the card, so the revealed Delete button is exactly the card's height.
-  row: { marginBottom: 12 },
+  row: { marginBottom: space.s1_5 },
   card: {
     borderRadius: radius.lg,
     minHeight: 56,
@@ -121,5 +124,5 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     justifyContent: 'center',
   },
-  name: { ...typography.bodyEm, fontSize: 15, lineHeight: 20 },
+  name: { ...typography.button, fontFamily: typography.bodyEm.fontFamily },
 });

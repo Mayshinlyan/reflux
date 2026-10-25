@@ -45,5 +45,5 @@ export { labelOf as symptomLabel };
 
 const styles = StyleSheet.create({
   zone: { marginTop: space.s3 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1, marginTop: 12 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1, marginTop: space.s1_5 },
 });

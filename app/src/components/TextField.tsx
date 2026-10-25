@@ -58,8 +58,7 @@ const styles = StyleSheet.create({
   label: { marginBottom: 6 },
   box: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: radius.md },
   input: {
-    ...typography.body,
-    fontSize: 15,
+    ...typography.small,
     flex: 1,
     minHeight: 50,
     paddingHorizontal: 12.5,

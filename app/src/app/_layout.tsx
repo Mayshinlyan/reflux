@@ -116,7 +116,7 @@ function DatabaseErrorScreen({ onRetry }: { onRetry: () => void }) {
     <Screen>
       <HideSplash />
       <View style={styles.center}>
-        <AppText variant="title" style={styles.gap}>
+        <AppText variant="section" style={styles.gap}>
           Something went wrong
         </AppText>
         <AppText color="inkSoft" style={styles.gap}>
@@ -139,7 +139,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
     <Screen>
       <View style={styles.center}>
-        <AppText variant="title" style={styles.gap}>
+        <AppText variant="section" style={styles.gap}>
           Something went wrong
         </AppText>
         <AppText color="inkSoft" style={styles.gap}>

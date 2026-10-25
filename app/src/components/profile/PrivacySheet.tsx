@@ -9,7 +9,7 @@ import { space } from '@/theme';
 export function PrivacySheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   return (
     <BottomSheet visible={visible} onClose={onClose}>
-      <AppText variant="title" accessibilityRole="header" style={styles.title}>
+      <AppText variant="section" accessibilityRole="header" style={styles.title}>
         Privacy and disclaimer
       </AppText>
       <PrivacyPoints />

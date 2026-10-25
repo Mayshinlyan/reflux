@@ -2,6 +2,7 @@ import { Activity } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { CONDITIONS, type ConditionKey } from '@/constants/conditions';
+import { space } from '@/theme';
 
 import { ChoiceCard } from './ChoiceCard';
 
@@ -38,5 +39,5 @@ export function ConditionChoices({ value, onToggle, variant = 'name' }: Props) {
 }
 
 const styles = StyleSheet.create({
-  list: { gap: 12 },
+  list: { gap: space.s1_5 },
 });

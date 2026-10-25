@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   footer: { paddingTop: space.s2 },
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   typeBadge: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill },
-  typeBadgeText: { ...typography.label, fontSize: 13 },
+  typeBadgeText: typography.label,
   missing: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   missingText: { textAlign: 'center' },
 });

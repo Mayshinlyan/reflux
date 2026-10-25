@@ -537,7 +537,12 @@ export default function MedicationScreen() {
             const today = taken.get(med.id);
             const done = justLogged.has(med.id);
             return (
-              <View key={med.id} style={[styles.card, { backgroundColor: colors.surface }]}>
+              <View
+                key={med.id}
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge },
+                ]}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={doseLabel(med)}
@@ -545,7 +550,7 @@ export default function MedicationScreen() {
                   onPress={() => (manage ? setViewing(med) : openDetail(med))}
                   style={styles.info}>
                   <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                    <Pill size={18} color={colors.clayInk} strokeWidth={2.2} />
+                    <Pill size={20} color={colors.clayInk} strokeWidth={2} />
                   </View>
                   <View style={styles.text}>
                     <AppText style={styles.medName} numberOfLines={2}>
@@ -587,7 +592,7 @@ export default function MedicationScreen() {
       <BottomSheet visible={viewing !== null} onClose={() => setViewing(null)}>
         {viewing && (
           <>
-            <AppText variant="title" accessibilityRole="header">
+            <AppText variant="section" accessibilityRole="header">
               {doseLabel(viewing)}
             </AppText>
             <AppText color="inkSoft" style={styles.sheetMeta}>
@@ -622,12 +627,12 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingBottom: space.s3 },
   detailContent: { paddingBottom: space.s3, gap: space.s4 },
-  subtitle: { fontSize: 15, lineHeight: 21, marginTop: space.s2, marginBottom: space.s4 },
+  subtitle: { ...typography.subtitle, marginTop: space.s2, marginBottom: space.s4 },
   empty: { marginBottom: space.s2, lineHeight: 24 },
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   typeBadge: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill },
-  typeBadgeText: { ...typography.label, fontSize: 13 },
-  section: { gap: 12 },
+  typeBadgeText: typography.label,
+  section: { gap: space.s1_5 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -636,19 +641,19 @@ const styles = StyleSheet.create({
     paddingVertical: space.s1,
     paddingLeft: space.s1,
     paddingRight: space.s1,
-    marginBottom: 12,
+    marginBottom: space.s1_5,
   },
   info: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space.s1_5,
     minHeight: minTouchTarget,
     padding: 4,
   },
   icon: { width: 38, height: 38, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   text: { flex: 1, minWidth: 0 },
-  medName: { ...typography.bodyEm, fontSize: 15, lineHeight: 20, fontFamily: fontFamily.bold },
+  medName: typography.button,
   logButton: {
     minWidth: 76,
     minHeight: minTouchTarget,
@@ -657,8 +662,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logText: { ...typography.label, fontSize: 14, fontFamily: fontFamily.extrabold },
-  fieldLabel: { marginBottom: 12 },
+  logText: { ...typography.button, fontFamily: fontFamily.extrabold },
+  fieldLabel: { marginBottom: space.s1_5 },
   picker: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -669,11 +674,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     paddingHorizontal: 16,
   },
-  pickerText: { flex: 1, fontSize: 16 },
+  pickerText: { flex: 1 },
   options: { borderWidth: 1, borderRadius: radius.lg, marginTop: 6, paddingBottom: 4, overflow: 'hidden' },
   groupLabel: { paddingHorizontal: 16, paddingTop: space.s1, paddingBottom: 2 },
   option: { minHeight: minTouchTarget, justifyContent: 'center', paddingHorizontal: 16 },
-  optionText: { fontSize: 15, fontFamily: fontFamily.bold },
+  optionText: typography.button,
   notListed: { borderTopWidth: 1, marginTop: 6 },
   spacer: { height: space.s2 },
   typeNote: { marginBottom: space.s2 },

@@ -123,7 +123,7 @@ export default function TodayScreen() {
         {!empty && (
           <View style={styles.today}>
             <View style={styles.sectionHeader}>
-              <AppText variant="title" accessibilityRole="header">
+              <AppText variant="section" accessibilityRole="header">
                 Today
               </AppText>
               <AppText variant="caption" color="inkSoft">
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   bellie: { alignItems: 'center' },
   // On an empty day Bellie sits in the middle of the room left under the week.
   bellieEmpty: { flex: 1, justifyContent: 'center' },
-  today: { gap: 12 },
+  today: { gap: space.s1_5 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   badges: { gap: 4, alignItems: 'flex-end' },
 });

@@ -62,9 +62,14 @@ export function MedicationsStep({ onNext }: { onNext: () => void }) {
         {meds.map((med) => {
           const title = med.defaultDose ? `${med.name} ${med.defaultDose}` : med.name;
           return (
-            <View key={med.id} style={[styles.row, { backgroundColor: colors.surface }]}>
+            <View
+              key={med.id}
+              style={[
+                styles.row,
+                { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge },
+              ]}>
               <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                <Pill size={18} color={colors.clayInk} strokeWidth={2} />
+                <Pill size={20} color={colors.clayInk} strokeWidth={2} />
               </View>
               <View style={styles.text}>
                 <AppText variant="bodyEm">{title}</AppText>
@@ -99,8 +104,14 @@ export function MedicationsStep({ onNext }: { onNext: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  list: { gap: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg },
+  list: { gap: space.s1_5 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.s1_5,
+    padding: space.s1_5,
+    borderRadius: radius.lg,
+  },
   icon: { width: 36, height: 36, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   text: { flex: 1 },
   pill: {

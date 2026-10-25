@@ -42,7 +42,7 @@ export function SwipeToDelete({ label, onDelete, style, children }: Props) {
             onDelete();
           }}
           style={[styles.action, { backgroundColor: colors.cta }]}>
-          <Trash2 size={20} color={colors.ctaInk} strokeWidth={2.2} />
+          <Trash2 size={20} color={colors.ctaInk} strokeWidth={2} />
           <AppText style={[styles.actionText, { color: colors.ctaInk }]}>Delete</AppText>
         </Pressable>
       )}>
@@ -61,5 +61,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
   },
-  actionText: { ...typography.label, fontSize: 13 },
+  actionText: typography.label,
 });

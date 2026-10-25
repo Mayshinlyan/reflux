@@ -10,7 +10,7 @@ type Props = TextProps & {
 // Headlines have tight line heights and fixed room around them, so they scale less than body text.
 const HEADLINES: readonly TypographyVariant[] = ['hero', 'display', 'displaySmall', 'voice', 'voiceSmall'];
 const HEADLINE_MAX_SCALE = 1.2;
-const TEXT_MAX_SCALE = 1.4;
+const TEXT_MAX_SCALE = 2;
 
 export function AppText({ variant = 'body', color = 'ink', style, ...rest }: Props) {
   const colors = useColors();

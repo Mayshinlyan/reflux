@@ -67,6 +67,6 @@ export function RemindersStep({ initial, onNext }: Props) {
 }
 
 const styles = StyleSheet.create({
-  list: { gap: 12 },
+  list: { gap: space.s1_5 },
   hint: { marginTop: space.s2 },
 });

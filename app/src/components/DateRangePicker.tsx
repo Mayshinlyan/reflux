@@ -217,7 +217,7 @@ function Day({
         color="ink">
         {date}
       </AppText>
-      {entries > 0 && !endpoint && <View style={[styles.dot, { backgroundColor: colors.sage }]} />}
+      {entries > 0 && !endpoint && <View style={[styles.dot, { backgroundColor: colors.sageInk }]} />}
     </Pressable>
   );
 }
@@ -228,14 +228,14 @@ const styles = StyleSheet.create({
   weekday: { flex: 1, textAlign: 'center' },
   months: { paddingBottom: space.s2 },
   // Room above each title: under the weekday row and between months, so a month never runs into the next one.
-  monthTitle: { paddingTop: 40, paddingBottom: 12 },
+  monthTitle: { paddingTop: 40, paddingBottom: space.s1_5 },
   week: { flexDirection: 'row' },
   cell: { flex: 1, height: CELL_HEIGHT, alignItems: 'center', justifyContent: 'center' },
   future: { opacity: 0.35 },
   band: { position: 'absolute', top: 4, bottom: 4, left: 0, right: 0 },
   circle: { position: 'absolute', width: 40, height: 40, borderRadius: radius.pill },
-  date: { fontSize: 17, lineHeight: 24 },
+  date: { lineHeight: 24 },
   dot: { position: 'absolute', bottom: 7, width: 5, height: 5, borderRadius: 3 },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingTop: space.s2 },
+  footer: { flexDirection: 'row', justifyContent: 'space-between', gap: space.s1_5, paddingTop: space.s2 },
   reset: { width: 112 },
 });

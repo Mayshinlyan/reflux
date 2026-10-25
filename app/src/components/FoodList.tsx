@@ -363,7 +363,11 @@ export function FoodList() {
               const today = eaten.get(food.mealName.toLowerCase());
               const done = justLogged.has(food.id);
               const card = (
-                <View style={[styles.card, { backgroundColor: colors.surface }]}>
+                <View
+                  style={[
+                    styles.card,
+                    { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.edge },
+                  ]}>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Edit ${food.mealName}`}
@@ -378,7 +382,7 @@ export function FoodList() {
                       <Image source={{ uri: food.photoUri }} style={styles.icon} contentFit="cover" />
                     ) : (
                       <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                        <Utensils size={18} color={colors.clayInk} strokeWidth={2.2} />
+                        <Utensils size={20} color={colors.clayInk} strokeWidth={2} />
                       </View>
                     )}
                     <View style={styles.text}>
@@ -431,7 +435,7 @@ export function FoodList() {
 
       <BottomSheet visible={editing !== null} onClose={closeForm} scrollToTopKey={changing}>
         {/* The saved verdict first, like a meal in History; editing sits below it. */}
-        <AppText variant="title" accessibilityRole="header" style={styles.sheetTitle}>
+        <AppText variant="section" accessibilityRole="header" style={styles.sheetTitle}>
           {sheetFood?.mealName}
         </AppText>
         {/* Always there, so a food without a photo has an empty tile; the pencil waits for Edit. */}
@@ -459,7 +463,7 @@ export function FoodList() {
               hitSlop={6}
               onPress={changePhoto}
               style={({ pressed }) => [styles.photoEdit, { opacity: pressed ? 0.7 : 1 }]}>
-              <Pencil size={18} color="#fff" strokeWidth={2.2} />
+              <Pencil size={20} color="#fff" strokeWidth={2} />
             </Pressable>
           ) : null}
         </View>
@@ -527,7 +531,7 @@ export function FoodList() {
 const styles = StyleSheet.create({
   content: { paddingBottom: space.s4 },
   empty: { marginBottom: space.s2, lineHeight: 24 },
-  subtitle: { fontSize: 15, lineHeight: 21, marginTop: space.s2, marginBottom: space.s4 },
+  subtitle: { ...typography.subtitle, marginTop: space.s2, marginBottom: space.s4 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -538,18 +542,18 @@ const styles = StyleSheet.create({
     paddingRight: space.s1,
   },
   // On the swipe container, not the card, so the revealed Delete button is exactly the card's height.
-  row: { marginBottom: 12 },
+  row: { marginBottom: space.s1_5 },
   info: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space.s1_5,
     minHeight: minTouchTarget,
     padding: 4,
   },
   icon: { width: 38, height: 38, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   text: { flex: 1, minWidth: 0 },
-  foodName: { ...typography.bodyEm, fontSize: 15, lineHeight: 20, fontFamily: fontFamily.bold },
+  foodName: typography.button,
   logButton: {
     minWidth: 76,
     minHeight: minTouchTarget,
@@ -558,9 +562,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logText: { ...typography.label, fontSize: 14, fontFamily: fontFamily.extrabold },
+  logText: { ...typography.button, fontFamily: fontFamily.extrabold },
   add: { minHeight: minTouchTarget, justifyContent: 'center', paddingVertical: space.s1 },
-  addText: { ...typography.bodyEm, fontSize: 15, fontFamily: fontFamily.bold },
+  addText: typography.button,
   sheetTitle: { marginBottom: space.s1 },
   sheetPhoto: {
     width: '100%',
