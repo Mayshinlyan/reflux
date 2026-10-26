@@ -47,6 +47,36 @@ const TABS: { key: Exclude<TabKey, 'log'>; label: string; icon: ComponentType<Ta
   { key: 'settings', label: 'Settings', icon: GearSolid },
 ];
 
+export type TargetRect = { x: number; y: number; width: number; height: number };
+
+/**
+ * Where a tab button (or the Log button with its ring) sits on a screen of this size, so the app tour can
+ * spotlight it without measuring. The pill is centred, its bottom `tabBarGap` above the screen's bottom edge.
+ */
+export function tabTargetRect(
+  key: TabKey,
+  screen: { width: number; height: number },
+  bottomInset: number,
+): TargetRect {
+  const pillTop = screen.height - tabBarGap(bottomInset) - PILL_HEIGHT;
+  if (key === 'log') {
+    const centreY = pillTop + LOG_CENTRE_BELOW_BAR_TOP;
+    return {
+      x: (screen.width - LOG_OUTER) / 2,
+      y: centreY - LOG_OUTER / 2,
+      width: LOG_OUTER,
+      height: LOG_OUTER,
+    };
+  }
+  const index = TABS.findIndex((tab) => tab.key === key);
+  return {
+    x: (screen.width - PILL_WIDTH) / 2 + PILL_PAD + index * TAB_WIDTH + (index >= 2 ? SLOT_WIDTH : 0),
+    y: pillTop + PILL_PAD,
+    width: TAB_WIDTH,
+    height: TAB_HEIGHT,
+  };
+}
+
 type Props = {
   /** The screen you are on. `log` is an action, so it is never the "current" tab. */
   active: Exclude<TabKey, 'log'>;

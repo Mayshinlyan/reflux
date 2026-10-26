@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Bell, Clock, Leaf, Moon, Shield, Trash2 } from 'lucide-react-native';
+import { Bell, Clock, Compass, Leaf, Moon, Shield, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import { Screen } from '@/components/Screen';
 import { SectionTitle } from '@/components/SectionTitle';
 import { SettingsRow } from '@/components/SettingsRow';
 import { useToast } from '@/components/Toast';
+import { useTour } from '@/components/tour/TourContext';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { deleteAllData } from '@/db/repositories/data';
 import { formatClock, formatWindow, LATE_MEAL_WINDOW_OPTIONS } from '@/lib/clock';
@@ -46,6 +47,7 @@ const REMINDERS = [
 /** Settings, the last tab on the bottom bar (Figma 05). */
 export default function SettingsScreen() {
   const toast = useToast();
+  const tour = useTour();
   const insets = useSafeAreaInsets();
   const db = useDb();
   const { settings, update, reload } = useSettings();
@@ -156,6 +158,15 @@ export default function SettingsScreen() {
         />
 
         <SectionTitle>About</SectionTitle>
+        <SettingsRow
+          icon={Compass}
+          label="Replay app tour"
+          onPress={() => {
+            // Today starts it once it is on screen.
+            tour.replay();
+            router.navigate('/');
+          }}
+        />
         <SettingsRow icon={Shield} label="Privacy and disclaimer" onPress={() => setSheet('privacy')} />
 
         <View style={styles.danger}>

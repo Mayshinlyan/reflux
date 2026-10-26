@@ -4,7 +4,7 @@ import { Pencil, Trash } from 'lucide-react-native';
 import { lightColors } from '@/theme';
 
 import { ActionMenu } from '../ActionMenu';
-import { FloatingTabBar, tabBarClearance, tabBarGap, tabBarHeight } from '../FloatingTabBar';
+import { FloatingTabBar, tabBarClearance, tabBarGap, tabBarHeight, tabTargetRect } from '../FloatingTabBar';
 import { TopBar } from '../TopBar';
 
 jest.mock('expo-router', () => ({
@@ -154,6 +154,32 @@ describe('FloatingTabBar', () => {
   it('leaves content the pill, the raised Log button and a 16 gap of clearance', () => {
     expect(tabBarClearance(0)).toBe(116);
     expect(tabBarClearance(34)).toBe(122);
+  });
+
+  it('says where each button sits, for the app tour to spotlight: the four tabs either side of Log', () => {
+    const screen = { width: 402, height: 874 };
+    // The pill is 344 wide and centred: 29 in from each side, then 8 of padding. The pill's top is 80 above the bottom.
+    const top = 874 - 80 + 8;
+    expect(tabTargetRect('today', screen, 0)).toEqual({ x: 37, y: top, width: 64, height: 48 });
+    expect(tabTargetRect('history', screen, 0)).toMatchObject({ x: 101 });
+    // Log's slot (72 wide) sits between History and Profile.
+    expect(tabTargetRect('profile', screen, 0)).toMatchObject({ x: 237 });
+    expect(tabTargetRect('settings', screen, 0)).toMatchObject({ x: 301 });
+  });
+
+  it('puts the Log button’s ring in the middle of the screen, with its centre 13 below the pill’s top', () => {
+    const screen = { width: 402, height: 874 };
+    const log = tabTargetRect('log', screen, 0);
+    expect(log.width).toBe(66);
+    expect(log.x + log.width / 2).toBe(201);
+    expect(log.y + log.height / 2).toBe(874 - 80 + 13);
+  });
+
+  it('moves the tab targets up with the home indicator, as the bar does', () => {
+    const screen = { width: 402, height: 874 };
+    expect(tabTargetRect('today', screen, 0).y - tabTargetRect('today', screen, 34).y).toBe(
+      tabBarGap(34) - tabBarGap(0),
+    );
   });
 });
 

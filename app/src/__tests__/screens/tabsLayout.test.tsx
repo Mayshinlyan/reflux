@@ -8,6 +8,8 @@ const mockNavigate = jest.fn();
 let mockActiveRoute = 'index';
 
 jest.mock('expo-router', () => ({ router: { push: (href: unknown) => mockPush(href) } }));
+// The layout holds the app tour, which saves that it was seen.
+jest.mock('@/db/DatabaseProvider', () => ({ useSettings: () => ({ settings: {}, update: jest.fn() }) }));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 
 // Reanimated's native runtime can't load in Jest; use its mocks (which lack useReducedMotion).

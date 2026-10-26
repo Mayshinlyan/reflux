@@ -6,6 +6,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import { FloatingTabBar, type TabKey } from '@/components/FloatingTabBar';
 import { type LogKind, QuickLogArch } from '@/components/QuickLogArch';
+import { TourProvider } from '@/components/tour/TourContext';
 import { lightColors } from '@/theme';
 
 /** Which route each tab opens, and the reverse. Log is an action, so it has no route here. */
@@ -87,18 +88,21 @@ function TabBar({ state, navigation, insets }: BottomTabBarProps) {
 export default function TabsLayout() {
   const reduceMotion = useReducedMotion();
   return (
-    <Tabs
-      tabBar={(props) => <TabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-        animation: reduceMotion ? 'none' : 'fade',
-        sceneStyle: { backgroundColor: lightColors.bg },
-      }}>
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="history" />
-      <Tabs.Screen name="profile" />
-      <Tabs.Screen name="settings" />
-    </Tabs>
+    // The app tour is drawn over the tabs and their bar.
+    <TourProvider>
+      <Tabs
+        tabBar={(props) => <TabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+          animation: reduceMotion ? 'none' : 'fade',
+          sceneStyle: { backgroundColor: lightColors.bg },
+        }}>
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="history" />
+        <Tabs.Screen name="profile" />
+        <Tabs.Screen name="settings" />
+      </Tabs>
+    </TourProvider>
   );
 }
 

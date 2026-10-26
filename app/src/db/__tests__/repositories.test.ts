@@ -119,6 +119,15 @@ describe('settings', () => {
     expect(() => setSetting(db, 'checkInReminderMinutes', 0)).toThrow();
   });
 
+  it('remembers that the app tour was seen, and starts out not having been', () => {
+    const { db } = createTestDb();
+    expect(getSetting(db, 'tourDone')).toBe(false);
+
+    setSetting(db, 'tourDone', true);
+    expect(getSetting(db, 'tourDone')).toBe(true);
+    expect(getAllSettings(db).tourDone).toBe(true);
+  });
+
   it('has no user name until one is set, then trims it and allows clearing it', () => {
     const { db } = createTestDb();
     expect(getSetting(db, 'userName')).toBe('');
