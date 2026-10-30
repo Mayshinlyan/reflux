@@ -18,6 +18,7 @@ import { useDeleteEntry } from '@/hooks/useDeleteEntry';
 import { useInsight } from '@/hooks/useInsight';
 import { useReminderPrompt } from '@/hooks/useReminderPrompt';
 import { useTodayData } from '@/hooks/useTodayData';
+import { useTourAutoStart } from '@/hooks/useTourAutoStart';
 import { bellyMoodFor } from '@/lib/belly';
 import { notifyEntriesChanged } from '@/lib/entriesChanged';
 import { buildInsightRequest } from '@/lib/insight';
@@ -58,6 +59,11 @@ export default function TodayScreen() {
   // Short phones (iPhone SE) can't spare the roomier top gap.
   const { height } = useWindowDimensions();
 
+  // The first visit (and Settings' "Replay app tour") dims Today and points things out; the spotlights need the top in view.
+  const scroll = useRef<ScrollView>(null);
+  const showTop = useCallback(() => scroll.current?.scrollTo({ y: 0, animated: false }), []);
+  useTourAutoStart(settings.onboardingDone, showTop);
+
   // Back from Log, the strip is plain again and Bellie can be tapped again.
   useFocusEffect(
     useCallback(() => {
@@ -82,6 +88,7 @@ export default function TodayScreen() {
   return (
     <Screen edges={['top', 'left', 'right']} style={height < 700 ? styles.screenShort : styles.screen}>
       <ScrollView
+        ref={scroll}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: tabBarClearance(insets.bottom) },

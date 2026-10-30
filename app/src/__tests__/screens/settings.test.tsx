@@ -46,9 +46,13 @@ jest.mock('react-native-reanimated', () => ({
   ...jest.requireActual('react-native-reanimated/mock'),
   useReducedMotion: () => false,
 }));
+const mockReplay = jest.fn();
+const mockNavigate = jest.fn();
+jest.mock('@/components/tour/TourContext', () => ({ useTour: () => ({ replay: mockReplay }) }));
 jest.mock('expo-router', () => ({
   router: {
     push: (href: string) => mockPush(href),
+    navigate: (href: string) => mockNavigate(href),
     back: jest.fn(),
     canGoBack: () => true,
     replace: (href: string) => mockReplace(href),
@@ -96,7 +100,7 @@ describe('Settings', () => {
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
       .filter((label) =>
-        /^(Bedtime|Late-meal|Check-in|Bellie|Condition|Favorite|Medications|Symptoms|My |Privacy|Delete)/.test(
+        /^(Bedtime|Late-meal|Check-in|Bellie|Condition|Favorite|Medications|Symptoms|My |Replay|Privacy|Delete)/.test(
           label ?? '',
         ),
       );
@@ -105,9 +109,20 @@ describe('Settings', () => {
       'Late-meal window, 3 hours',
       'Check-in reminder, Off',
       "Bellie's summaries, On",
+      'Replay app tour',
       'Privacy and disclaimer',
       'Delete all my data',
     ]);
+  });
+
+  it('replays the app tour from Today', async () => {
+    await render(<SettingsScreen />);
+
+    await press('button', 'Replay app tour');
+
+    // Asks for the tour, then goes to Today, which starts it once it is on screen.
+    expect(mockReplay).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 });
 

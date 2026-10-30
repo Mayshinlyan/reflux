@@ -41,6 +41,8 @@ export type Settings = {
   widgetToken: string;
   /** True once Today's insight cards have given their little sideways nudge, so it plays only once. */
   insightNudged: boolean;
+  /** True once the first-run app tour has been finished or closed, so it starts only once ("Replay app tour" is in Settings). */
+  tourDone: boolean;
   /** Whether Bellie's day and week summaries may be asked of the AI service. Off keeps the words made on the phone. */
   summariesEnabled: boolean;
 };
@@ -60,6 +62,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reminderAsked: false,
   widgetToken: '',
   insightNudged: false,
+  tourDone: false,
   summariesEnabled: true,
 };
 

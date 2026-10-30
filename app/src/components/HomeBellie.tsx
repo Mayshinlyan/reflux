@@ -7,6 +7,7 @@ import { type BellyMood } from '@/lib/belly';
 
 import { Belly } from './Belly';
 import { SpeechBubble } from './SpeechBubble';
+import { useTourTarget } from './tour/TourContext';
 
 const BELLY_SIZE = 160;
 /** The bubble wraps long lines inside this width (Figma 02f). */
@@ -26,6 +27,8 @@ type Props = {
  */
 export function HomeBellie({ line, mood, onPress }: Props) {
   const jiggle = useBellyJiggle(BELLY_SIZE, BELLY_SIZE);
+  // The app tour spotlights her with her bubble.
+  const tourTarget = useTourTarget('bellie');
 
   // On touch-down, with the squash. A haptic isn't motion, so Reduce Motion doesn't switch it off.
   const handlePressIn = (event: GestureResponderEvent) => {
@@ -47,7 +50,7 @@ export function HomeBellie({ line, mood, onPress }: Props) {
       onPressIn={handlePressIn}
       onPressOut={jiggle.pressOut}
       onPress={handlePress}>
-      <View style={styles.wrap}>
+      <View ref={tourTarget} style={styles.wrap}>
         <View style={styles.bubble}>
           <SpeechBubble card tail="down" text={line} />
         </View>

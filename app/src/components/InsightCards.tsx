@@ -9,6 +9,7 @@ import type { Insight } from '@/types/insight';
 import { AppText } from './AppText';
 import { CarouselDots } from './CarouselDots';
 import { TipsCard } from './TipsCard';
+import { useTourTarget } from './tour/TourContext';
 
 const CARD_GAP = 12;
 /** How much of the next card shows beside the one in view, so it is clear there is more to swipe to. */
@@ -38,6 +39,8 @@ export function InsightCards({ today, week }: Props) {
   const reduceMotion = useReducedMotion();
   const { settings, update } = useSettings();
   const scroll = useRef<ScrollView>(null);
+  // The app tour spotlights the cards with their dots.
+  const tourTarget = useTourTarget('insights');
   const [page, setPage] = useState(1);
 
   const cards = useMemo<Card[]>(() => {
@@ -76,7 +79,7 @@ export function InsightCards({ today, week }: Props) {
 
   if (cards.length === 0) return null;
   return (
-    <View>
+    <View ref={tourTarget}>
       {/* Runs to the screen's right edge so the next card can show; the page's own padding is 24. */}
       <ScrollView
         ref={scroll}
