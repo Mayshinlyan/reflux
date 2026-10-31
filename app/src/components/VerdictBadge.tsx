@@ -43,6 +43,25 @@ export function VerdictBadge({ verdict, style }: { verdict: AppVerdict; style?: 
   );
 }
 
+/**
+ * A meal logged with "Just log it" while its verdict is still on the way (Figma 21f): a quiet tan pill, no icon, no
+ * verdict colour. The verdict replaces it as soon as the check finishes.
+ */
+export function CheckingBadge({ style }: { style?: StyleProp<ViewStyle> }) {
+  const colors = useColors();
+  return (
+    <View
+      style={[styles.badge, { backgroundColor: colors.surface2 }, style]}
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel="Checking this meal">
+      <AppText variant="label" color="inkSoft">
+        Checking…
+      </AppText>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',

@@ -11,7 +11,7 @@ import { ReminderPromptSheet } from '@/components/ReminderPromptSheet';
 import { Screen } from '@/components/Screen';
 import { tabBarClearance } from '@/components/FloatingTabBar';
 import { TimelineItem } from '@/components/TimelineItem';
-import { VerdictBadge } from '@/components/VerdictBadge';
+import { CheckingBadge, VerdictBadge } from '@/components/VerdictBadge';
 import { WeekStrip } from '@/components/WeekStrip';
 import { useSettings } from '@/db/DatabaseProvider';
 import { useDeleteEntry } from '@/hooks/useDeleteEntry';
@@ -23,6 +23,7 @@ import { bellyMoodFor } from '@/lib/belly';
 import { notifyEntriesChanged } from '@/lib/entriesChanged';
 import { buildInsightRequest } from '@/lib/insight';
 import { isLateMeal } from '@/lib/mealTiming';
+import { isChecking } from '@/services/pendingChecks';
 import { space } from '@/theme';
 
 function greeting(now: Date): string {
@@ -149,6 +150,7 @@ export default function TodayScreen() {
                     entry.kind === 'food' ? (
                       <View style={styles.badges}>
                         {entry.log.overallVerdict && <VerdictBadge verdict={entry.log.overallVerdict} />}
+                        {isChecking(entry.log) && <CheckingBadge />}
                         {isLateMeal(entry.at, entry.tz, settings.bedtime, settings.lateMealWindowMinutes) && (
                           <LateMealBadge />
                         )}

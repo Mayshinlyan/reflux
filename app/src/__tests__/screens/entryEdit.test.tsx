@@ -152,8 +152,7 @@ describe('Edit entry: a meal', () => {
     expect(screen.getByDisplayValue('Felt full.')).toBeTruthy();
     expect(screen.getByPlaceholderText('Add a note (optional)')).toBeTruthy();
     // The check-in's own lines and the old edit controls are gone.
-    expect(screen.queryByText('Added to today')).toBeNull();
-    expect(screen.queryByText(/You can skip this/)).toBeNull();
+    expect(screen.queryByText(/How's your belly/)).toBeNull();
     expect(screen.queryByRole('button', { name: /^Portion/ })).toBeNull();
     expect(screen.queryByRole('checkbox', { name: 'Also save to favorite foods' })).toBeNull();
   });

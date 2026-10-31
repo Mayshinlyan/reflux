@@ -13,7 +13,7 @@ import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Select } from '@/components/Select';
 import { TimelineItem } from '@/components/TimelineItem';
-import { VerdictBadge } from '@/components/VerdictBadge';
+import { CheckingBadge, VerdictBadge } from '@/components/VerdictBadge';
 import { useDb } from '@/db/DatabaseProvider';
 import { earliestEntryDayKey } from '@/db/repositories/data';
 import { listDiaryFoodLogs, listMealTagsFor } from '@/db/repositories/food';
@@ -41,6 +41,7 @@ import {
 } from '@/lib/range';
 import { currentTimeZone } from '@/lib/time';
 import { buildTimeline, type TimelineEntry, type TimelineFilter, type TimelineSection } from '@/lib/timeline';
+import { isChecking } from '@/services/pendingChecks';
 import { space } from '@/theme';
 
 /** What History is showing: a week or month you can step through, everything so far, or dates picked by hand. */
@@ -269,6 +270,8 @@ export default function HistoryScreen() {
             side={
               item.kind === 'food' && item.log.overallVerdict ? (
                 <VerdictBadge verdict={item.log.overallVerdict} />
+              ) : item.kind === 'food' && isChecking(item.log) ? (
+                <CheckingBadge />
               ) : undefined
             }
             onPress={() => open(item)}

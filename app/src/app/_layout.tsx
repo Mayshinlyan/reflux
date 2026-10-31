@@ -10,7 +10,7 @@ import { type ErrorBoundaryProps, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
 
@@ -25,6 +25,7 @@ import { onSavedFoodsChange } from '@/db/repositories/savedFoods';
 import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { initSentry, wrapRoot } from '@/lib/sentry';
+import { checkPendingMeals } from '@/services/pendingChecks';
 import { setupReminders } from '@/services/reminders';
 import { syncWidget } from '@/services/widgetSync';
 import { lightColors, space } from '@/theme';
@@ -58,6 +59,7 @@ function RootLayout() {
       <DatabaseProvider fallback={null} errorView={(retry) => <DatabaseErrorScreen onRetry={retry} />}>
         <HideSplash />
         <WidgetSync />
+        <PendingChecks />
         <ToastProvider>
           {/* Drill-downs (Entry, Edit, My additions, Favorite foods) push from the side and swipe back from the
               edge. Logging slides up as a modal and closes with a swipe down. Tabs and Welcome only cross-fade. */}
@@ -107,6 +109,19 @@ function WidgetSync() {
     sync();
     onSavedFoodsChange(sync);
     return () => onSavedFoodsChange(null);
+  }, [db]);
+  return null;
+}
+
+/** Meals logged with "Just log it" get their verdict afterwards: tried when the app opens and each time it returns. */
+function PendingChecks() {
+  const db = useDb();
+  useEffect(() => {
+    void checkPendingMeals(db);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void checkPendingMeals(db);
+    });
+    return () => subscription.remove();
   }, [db]);
   return null;
 }

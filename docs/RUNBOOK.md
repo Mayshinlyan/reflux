@@ -20,6 +20,19 @@ Every `POST /v1/analyze-food` and `POST /v1/insight` (Bellie's day and week summ
 3. Cloud Run picks up the new secret version on the next deploy or revision restart — force one with `gcloud run services update reflux-relay --region <region> --no-traffic && gcloud run services update-traffic reflux-relay --region <region> --to-latest`.
 4. Revoke the old key in the Anthropic Console once the new revision is confirmed healthy.
 
+### Rotate every 90 days, with a reminder
+
+Rotate the key by hand about every 90 days, and let Secret Manager remind you. A rotation schedule only sends a Pub/Sub message when it is due: it never changes or deletes the secret.
+
+1. Create the topic once: `gcloud pubsub topics create reflux-secret-rotation`.
+2. Let Secret Manager publish to it, or the reminders silently never arrive: `gcloud pubsub topics add-iam-policy-binding reflux-secret-rotation --member="serviceAccount:service-<project-number>@gcp-sa-secretmanager.iam.gserviceaccount.com" --role=roles/pubsub.publisher`.
+3. Set the schedule: `gcloud secrets update reflux-anthropic-api-key --add-topics=projects/<project-id>/topics/reflux-secret-rotation --next-rotation-time=<ISO time, 90 days out> --rotation-period=7776000s`. After each rotation, move `--next-rotation-time` forward.
+4. Subscribe an email or chat alert to the topic so someone sees it.
+
+### Never set an expiry on the secret
+
+An expired secret is deleted by Secret Manager and the relay can no longer start: this took the relay down on 2026-10-31 (every AI check failed with "Something went wrong"). Check with `gcloud secrets describe reflux-anthropic-api-key --format="value(expireTime,ttl)"`; it must be empty. If one is set, clear it with `gcloud secrets update reflux-anthropic-api-key --remove-expiration`. If it comes back, something (such as an organization policy) is imposing it.
+
 ## Adjusting rate limits
 
 Per-user daily limit and the global daily circuit breaker are both env vars on the Cloud Run service:
@@ -57,7 +70,7 @@ gcloud run services update-traffic reflux-relay --region <region> \
 The relay code for `POST /v1/analyze-food` is built and tested with Claude and Firebase mocked. These steps need your credentials and are not done yet. Replace `<region>` and `<project>` with your values.
 
 1. **Anthropic (dev key first):** in the Anthropic Console create a `reflux` workspace, set a monthly **spend limit** on it, and create an API key inside that workspace. Never paste the key into a file, chat or commit.
-2. **Secret Manager:** `echo -n "<key>" | gcloud secrets create reflux-anthropic-api-key --data-file=-`
+2. **Secret Manager:** `echo -n "<key>" | gcloud secrets create reflux-anthropic-api-key --data-file=-` Do not set an expiry (`--expire-time` or `--ttl`): an expired secret is deleted and the relay can no longer start.
 3. **Runtime service account** (least privilege): create `reflux-relay-sa` and grant only `roles/secretmanager.secretAccessor` on that one secret and `roles/datastore.user` on the project. Nothing else. The relay verifies Firebase tokens with Application Default Credentials, so no key file is needed.
 4. **Firebase:** enable Anonymous sign-in under Authentication. Create a Firestore database in native mode with rules that **deny all client access** (`allow read, write: if false;`); the relay reaches it through the service account, which bypasses rules.
 5. **Firestore TTL:** `gcloud firestore fields ttls update expiresAt --collection-group=rate_limits --enable-ttl` so old daily counters delete themselves after 48 h.

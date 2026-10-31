@@ -12,12 +12,15 @@ import {
   createUncheckedMeal,
   deleteFoodLog,
   getFoodLog,
+  isPendingCheck,
   listDiaryFoodLogs,
+  listPendingChecks,
   listRecentMealNames,
   listMealTags,
   listMealTagsFor,
   promoteCheckToDiary,
   saveMealDetails,
+  setMealAnalysis,
   setMealTime,
   updateFoodCheck,
   updateFoodLog,
@@ -1401,5 +1404,76 @@ describe('setMealTime', () => {
   it('refuses a meal that is not there', () => {
     const { db } = createTestDb();
     expect(() => setMealTime(db, 99, '2026-09-28T18:30:00.000Z')).toThrow('not found');
+  });
+});
+
+describe('meals waiting for a verdict ("Just log it")', () => {
+  const NOW = new Date('2026-09-29T12:00:00.000Z');
+  const ago = (hours: number) => new Date(NOW.getTime() - hours * 3_600_000).toISOString();
+  /** `createdAt` is set by the database, so age a meal by editing it. */
+  const aged = (db: ReturnType<typeof createTestDb>['db'], id: number, hours: number) =>
+    db
+      .update(foodLogs)
+      .set({ createdAt: ago(hours) })
+      .where(eq(foodLogs.id, id))
+      .run();
+
+  it('lists diary meals saved without a verdict, newest first, and nothing older than 48 hours', () => {
+    const { db } = createTestDb();
+    const old = createUncheckedMeal(db, { source: 'text', inputText: 'old toast' });
+    const first = createUncheckedMeal(db, { source: 'text', inputText: 'rice' });
+    const second = createUncheckedMeal(db, { source: 'photo' });
+    createFoodLog(db, { entryType: 'diary', source: 'text', analysis: mintTea, meta });
+    aged(db, old, 49);
+    aged(db, first, 3);
+    aged(db, second, 1);
+
+    expect(listPendingChecks(db, NOW).map((meal) => meal.id)).toEqual([second, first]);
+    expect(isPendingCheck(getFoodLog(db, first)!, NOW)).toBe(true);
+    expect(isPendingCheck(getFoodLog(db, old)!, NOW)).toBe(false);
+  });
+
+  it('is not waiting once it has a verdict, and a check is never waiting', () => {
+    const { db } = createTestDb();
+    const id = createUncheckedMeal(db, { source: 'text', inputText: 'mint tea' });
+    aged(db, id, 1);
+    expect(setMealAnalysis(db, id, { analysis: mintTea, meta })).toBe(true);
+
+    expect(isPendingCheck(getFoodLog(db, id)!, NOW)).toBe(false);
+    expect(listPendingChecks(db, NOW)).toEqual([]);
+  });
+
+  it('attaches the verdict and keeps the name that was typed', () => {
+    const { db } = createTestDb();
+    const id = createUncheckedMeal(db, { source: 'text', inputText: 'my tea' });
+
+    expect(setMealAnalysis(db, id, { analysis: mintTea, meta })).toBe(true);
+
+    expect(getFoodLog(db, id)).toMatchObject({
+      mealName: 'my tea',
+      overallVerdict: 'caution',
+      analysis: mintTea,
+      analysisMeta: meta,
+    });
+  });
+
+  it('names a photo meal from its verdict', () => {
+    const { db } = createTestDb();
+    const id = createUncheckedMeal(db, { source: 'photo', photoUri: 'file:///photos/a.jpg' });
+
+    setMealAnalysis(db, id, { analysis: mintTea, meta });
+
+    expect(getFoodLog(db, id)?.mealName).toBe('Mint tea');
+  });
+
+  it('leaves a meal that already has a verdict alone, and refuses what is not food', () => {
+    const { db } = createTestDb();
+    const id = createFoodLog(db, { entryType: 'diary', source: 'text', analysis: mintTea, meta });
+    expect(setMealAnalysis(db, id, { analysis: { ...mintTea, mealName: 'Other' }, meta })).toBe(false);
+    expect(getFoodLog(db, id)?.mealName).toBe('Mint tea');
+
+    const waiting = createUncheckedMeal(db, { source: 'text', inputText: 'rock' });
+    expect(() => setMealAnalysis(db, waiting, { analysis: { ...mintTea, isFood: false }, meta })).toThrow();
+    expect(getFoodLog(db, waiting)?.analysis).toBeNull();
   });
 });

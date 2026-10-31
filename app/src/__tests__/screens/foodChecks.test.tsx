@@ -133,24 +133,22 @@ const addDetails = async () => {
   await screen.unmount();
   await render(<LogFoodScreen />);
 };
-/** "I ate this" goes back to Today; the toast's Add details and Complete check-in finish it. */
+/** "I ate this" goes back to Today; the toast's Add details and Done finish it. */
 const ateThis = async () => {
   await press('I ate this');
   await addDetails();
-  await press('Complete check-in');
+  await press('Done');
 };
 /** The photo card opens a sheet to take a photo or choose one. */
 const takePhoto = async () => {
-  await press('Take or choose a photo');
-  await fireEvent.press(screen.getByRole('button', { name: 'Take a photo' }));
+  await press('Take a photo');
 };
 const choosePhoto = async () => {
-  await press('Take or choose a photo');
-  await fireEvent.press(screen.getByRole('button', { name: 'Choose a photo' }));
+  await press('Choose a photo');
 };
-/** The correction lives in a sheet behind "Not quite right? Tell us more". */
+/** The correction lives in a sheet behind "Not quite right?". */
 const tellUs = async (value: string) => {
-  await press('Not quite right? Tell us more');
+  await press('Not quite right?');
   await fireEvent.changeText(screen.getByLabelText('Tell us more'), value);
 };
 
@@ -177,8 +175,7 @@ describe('Food screen: checks and "I ate this"', () => {
     await type('mint tea');
     await press('Check this meal');
 
-    expect(await screen.findByText('Mint is a common trigger.')).toBeTruthy();
-    expect(screen.getAllByText('Caution').length).toBeGreaterThan(0);
+    expect(await screen.findByRole('header', { name: 'Your belly might not love this.' })).toBeTruthy();
     // Checked, not eaten: stored as a check, outside the diary (and so the pet).
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
     expect(allRows()).toMatchObject([{ entryType: 'check', inputText: 'mint tea' }]);
@@ -211,7 +208,7 @@ describe('Food screen: checks and "I ate this"', () => {
     await render(<LogFoodScreen />);
     await type('mint tea');
     await press('Check this meal');
-    await screen.findByText('Mint is a common trigger.');
+    await screen.findByRole('header', { name: 'Your belly might not love this.' });
 
     await press('Back');
 
@@ -229,7 +226,7 @@ describe('Food screen: checks and "I ate this"', () => {
 
     await waitFor(() => expect(pick).toHaveBeenCalledWith('camera', expect.any(Function)));
     // Cancelling leaves the full screen to choose from, without re-opening the camera.
-    expect(await screen.findByRole('button', { name: 'Take or choose a photo' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Take a photo' })).toBeTruthy();
     expect(pick).toHaveBeenCalledTimes(1);
   });
 
@@ -243,11 +240,11 @@ describe('Food screen: checks and "I ate this"', () => {
     await render(<LogFoodScreen />);
     await type('herbal tea');
     await press('Check this meal');
-    await screen.findByText('Mint is a common trigger.');
+    await screen.findByRole('header', { name: 'Your belly might not love this.' });
 
     await tellUs('it was chamomile');
     await press('Update verdict');
-    await screen.findByText('Chamomile is usually gentle.');
+    await screen.findByRole('header', { name: 'Your belly should be happy with this.' });
     expect(allRows()).toMatchObject([{ entryType: 'check', mealName: 'Chamomile tea' }]);
 
     await ateThis();
@@ -265,9 +262,7 @@ describe('Food screen: checks and "I ate this"', () => {
     await render(<LogFoodScreen />);
 
     await takePhoto();
-    await screen.findByLabelText('Anything we should know?');
-    await press('Check this meal');
-    await screen.findByText('Mint is a common trigger.');
+    await screen.findByRole('header', { name: 'Your belly might not love this.' });
     await ateThis();
 
     expect(store).toHaveBeenCalledTimes(1);
@@ -285,9 +280,7 @@ describe('Food screen: checks and "I ate this"', () => {
     await render(<LogFoodScreen />);
 
     await choosePhoto();
-    await screen.findByLabelText('Anything we should know?');
-    await press('Check this meal');
-    await screen.findByText('Mint is a common trigger.');
+    await screen.findByRole('header', { name: 'Your belly might not love this.' });
     expect(allRows()).toHaveLength(0);
 
     await ateThis();
@@ -298,17 +291,17 @@ describe('Food screen: checks and "I ate this"', () => {
 });
 
 describe('Food screen: saving without a verdict', () => {
-  it('saves a typed meal as a diary entry with no verdict and never calls the relay', async () => {
+  it('saves a typed meal as a diary entry at once, and keeps it without a verdict while the check cannot run', async () => {
+    analyze.mockRejectedValue(new AppError('OFFLINE'));
     await render(<LogFoodScreen />);
-    expect(screen.queryByRole('button', { name: 'Log without checking' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Just log it' })).toBeNull();
 
     await type('  grilled fish  ');
-    await press('Log without checking');
+    await press('Just log it');
     await addDetails();
-    expect(screen.getByText('Added to today')).toBeTruthy();
-    await press('Complete check-in');
+    await press('Done');
 
-    expect(analyze).not.toHaveBeenCalled();
+    await waitFor(() => expect(analyze).toHaveBeenCalledWith({ text: 'grilled fish' }));
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
       {
         entryType: 'diary',
@@ -324,16 +317,16 @@ describe('Food screen: saving without a verdict', () => {
     expect(mockBack).toHaveBeenCalledTimes(2);
   });
 
-  it('offers only the check after a photo is taken, not saving it unchecked or swapping the photo', async () => {
+  it('checks a photo as soon as it is taken, and offers no unchecked save or photo swap on the verdict', async () => {
     pick.mockResolvedValue({ status: 'ok', photo: { uri: 'file:///cache/prepared.jpg' } });
+    analyze.mockResolvedValue(mintTea);
     await render(<LogFoodScreen />);
     await choosePhoto();
 
-    expect(screen.getByRole('button', { name: 'Check this meal' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Log without checking' })).toBeNull();
+    await screen.findByRole('header', { name: 'Your belly might not love this.' });
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Just log it' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Choose a different photo' })).toBeNull();
-    expect(analyze).not.toHaveBeenCalled();
-    expect(store).not.toHaveBeenCalled();
   });
 
   it('still offers it after an offline failure, and saves the typed text', async () => {
@@ -343,9 +336,9 @@ describe('Food screen: saving without a verdict', () => {
     await press('Check this meal');
     expect(await screen.findByText(friendlyMessages.OFFLINE)).toBeTruthy();
 
-    await press('Log without checking');
+    await press('Just log it');
     await addDetails();
-    await press('Complete check-in');
+    await press('Done');
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
       { inputText: 'rice and beans', overallVerdict: null },

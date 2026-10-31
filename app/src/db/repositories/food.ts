@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, inArray, lt, max, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNull, lt, max, ne, sql } from 'drizzle-orm';
 
 import { isCustomTag, LIFESTYLE_TAG_KEYS, type LoggedTagKey } from '@/constants/lifestyleTags';
 import { cleanCustomSymptom, customSymptomLabel } from '@/constants/symptomItems';
@@ -86,6 +86,57 @@ export function createUncheckedMeal(db: AppDb, input: UncheckedMealInput): numbe
     })
     .returning({ id: foodLogs.id })
     .get().id;
+}
+
+/** How long a meal saved without a verdict waits to be checked, from when it was logged. */
+export const PENDING_CHECK_HOURS = 48;
+
+/** True for a diary meal that is still waiting for its verdict: saved without one, and not too long ago. */
+export function isPendingCheck(log: StoredFoodLog, now: Date = new Date()): boolean {
+  return (
+    log.entryType === 'diary' &&
+    log.analysis === null &&
+    Date.parse(log.createdAt) >= now.getTime() - PENDING_CHECK_HOURS * 3_600_000
+  );
+}
+
+/** Diary meals still waiting for a verdict (see `isPendingCheck`), newest first. */
+export function listPendingChecks(db: AppDb, now: Date = new Date(), limit = 10): StoredFoodLog[] {
+  const since = new Date(now.getTime() - PENDING_CHECK_HOURS * 3_600_000).toISOString();
+  return db
+    .select()
+    .from(foodLogs)
+    .where(and(eq(foodLogs.entryType, 'diary'), isNull(foodLogs.analysis), gte(foodLogs.createdAt, since)))
+    .orderBy(desc(foodLogs.id))
+    .limit(limit)
+    .all()
+    .map(toStored);
+}
+
+/**
+ * Attaches a verdict to a diary meal that was saved without one ("Just log it"). A meal that already has one is
+ * left alone (returns false). A photo meal, which was named "Meal", takes the name the check found; a typed
+ * name stays as the user wrote it.
+ */
+export function setMealAnalysis(
+  db: AppDb,
+  id: number,
+  { analysis, meta }: { analysis: MealAnalysis; meta: AnalysisMeta },
+): boolean {
+  if (!analysis.isFood) throw new Error('Only food analyses can be saved');
+  const existing = getFoodLog(db, id);
+  if (!existing || existing.entryType !== 'diary' || existing.analysis !== null) return false;
+  db.update(foodLogs)
+    .set({
+      ...(existing.inputText ? {} : { mealName: analysis.mealName }),
+      overallVerdict: analysis.overall.verdict,
+      analysis,
+      analysisMeta: meta,
+      updatedAt: nowIso(),
+    })
+    .where(and(eq(foodLogs.id, id), isNull(foodLogs.analysis)))
+    .run();
+  return true;
 }
 
 /**

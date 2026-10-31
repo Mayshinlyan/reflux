@@ -404,3 +404,4 @@ The app has no deploy step in the MVP; testers load it from the dev server in Ex
 3. **Features:** weekly RSI check-in, 7-day trend strip, export, dark mode, analytics and crash toggles.
 4. **Observability + quality:** Sentry native + source maps, analytics allowlist (verify in DebugView), Maestro E2E, nightly AI eval, `mobile.yml`.
 5. **Launch readiness:** privacy policy + terms, store privacy forms, Anthropic Usage Policy review, RSI terms, clinician review, store assets, TestFlight / Play internal beta on real devices.
+6. **Key rotation:** rotate the Anthropic key every 90 days and add a Secret Manager rotation reminder (RUNBOOK "Anthropic API key rotation"). Never set an expiry on `reflux-anthropic-api-key`: Secret Manager deletes an expired secret and the relay stops starting (this took the relay down on 2026-10-31). Verify: `gcloud secrets describe reflux-anthropic-api-key --format="value(expireTime,ttl,rotation)"` shows a next rotation date and no expiry.
