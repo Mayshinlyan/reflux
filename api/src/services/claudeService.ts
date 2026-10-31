@@ -45,6 +45,8 @@ export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 // Multi-item dishes (dim sum, a full plate) run past 1000 output tokens; a lower cap truncates them.
 const MAX_TOKENS = 3000;
 const TIMEOUT_MS = 30_000;
+/** The SDK's own retries are off; we retry once ourselves so the count can be reported. */
+export const CLIENT_SETTINGS = { maxRetries: 0, timeout: TIMEOUT_MS };
 const MAX_RETRIES = 1;
 const RETRY_DELAY_MS = 750;
 
@@ -78,17 +80,16 @@ type ToolCall = {
 };
 
 export function createClaudeService(options: {
-  apiKey: string;
-  model?: string;
+  /** The ready-made client (see `createAnthropicClient`); `apiKey` builds a plain one, as the tests do. */
   client?: Anthropic;
+  apiKey?: string;
+  model?: string;
   /** Pause before the single retry; tests set 0. */
   retryDelayMs?: number;
 }): ClaudeService {
   const retryDelayMs = options.retryDelayMs ?? RETRY_DELAY_MS;
   const model = options.model ?? DEFAULT_MODEL;
-  // The SDK's own retries are off; we retry once ourselves so the count can be reported.
-  const client =
-    options.client ?? new Anthropic({ apiKey: options.apiKey, maxRetries: 0, timeout: TIMEOUT_MS });
+  const client = options.client ?? new Anthropic({ ...CLIENT_SETTINGS, apiKey: options.apiKey });
   const analysisSchema = mealAnalysisJsonSchema();
   const insightSchema = insightJsonSchema();
 
