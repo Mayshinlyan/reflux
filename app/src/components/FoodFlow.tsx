@@ -61,6 +61,7 @@ import { dayToLoggedAt, formatMealTime } from '@/lib/mealTime';
 import { isLateMeal } from '@/lib/mealTiming';
 import { currentTimeZone } from '@/lib/time';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
+import { checkPendingMeals } from '@/services/pendingChecks';
 import { cancelCheckIn, scheduleCheckIn } from '@/services/reminders';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
@@ -83,10 +84,10 @@ const copy = {
   analyzeLabel: 'Check this meal',
   saveLabel: 'I ate this',
   updateLabel: 'Update verdict',
-  saveUncheckedLabel: 'Log without checking',
+  saveUncheckedLabel: 'Just log it',
   favoriteAdded: 'Added to favorite foods',
   keepOnlyLabel: 'Save to favorite foods only',
-  notEatingLabel: 'Not eating this',
+  notQuiteRightLabel: 'Not quite right?',
   skipLabel: 'Skip for now',
 } as const;
 
@@ -162,8 +163,7 @@ export function FoodFlow({
   const [analyzed, setAnalyzed] = useState<Analyzed | null>(
     photoUri ? { source: 'photo', uri: photoUri } : null,
   );
-  // Notes for the AI: `draft` is the photo-review box, `aiNotes` what was last sent, `correction` the post-verdict box.
-  const [draft, setDraft] = useState('');
+  // Notes for the AI: `aiNotes` is what was last sent, `correction` the post-verdict box.
   const [aiNotes, setAiNotes] = useState('');
   const [correction, setCorrection] = useState('');
   const [preparing, setPreparing] = useState(false);
@@ -223,9 +223,6 @@ export function FoodFlow({
     Haptics.selectionAsync().catch(() => {});
     setDetails((current) => ({ ...current, symptoms: new Set(current.symptoms).add(key) }));
   };
-  const [choosingPhoto, setChoosingPhoto] = useState(false);
-  // The picker opens only once the sheet has finished closing: iOS can't present it over a closing modal.
-  const pendingPhoto = useRef<PhotoSource | null>(null);
   const [telling, setTelling] = useState(false);
   const saving = useRef(false);
   const alive = useRef(true);
@@ -294,11 +291,6 @@ export function FoodFlow({
     run({ source: 'text', text: trimmed }, aiNotes);
   };
 
-  const checkPhotoWithDetails = () => {
-    if (busy || analyzed?.source !== 'photo') return;
-    run(analyzed, draft.trim());
-  };
-
   const checkPhoto = async (source: PhotoSource, fromScan = false) => {
     if (busy) return;
     setNotice(null);
@@ -315,11 +307,8 @@ export function FoodFlow({
         else router.replace('/');
       }
       if (picked.status !== 'ok') return;
-      // Not analyzed yet: the review step lets the user add optional details first.
-      setAnalyzed({ source: 'photo', uri: picked.photo.uri });
-      setDraft('');
-      setAiNotes('');
-      reset();
+      // Checked at once: corrections come after the verdict, with "Not quite right?".
+      run({ source: 'photo', uri: picked.photo.uri }, '');
     } catch {
       // Code only: the picker or manipulator error could carry file paths.
       logger.error('preparePhoto', new AppError('INPUT_REJECTED'));
@@ -337,6 +326,15 @@ export function FoodFlow({
     void checkPhoto('camera', true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on arrival; checkPhoto's state is fresh then
   }, [openCamera]);
+
+  // `photoUri`: a photo already taken and prepared is checked on arrival, once.
+  const photoChecked = useRef(false);
+  useEffect(() => {
+    if (!photoUri || photoChecked.current) return;
+    photoChecked.current = true;
+    run({ source: 'photo', uri: photoUri }, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on arrival
+  }, [photoUri]);
 
   const pickTime = () => {
     if (Platform.OS === 'android') pickTimeAndroid(eatenAt, setEatenAt);
@@ -552,6 +550,7 @@ export function FoodFlow({
       return;
     }
     mealLogged({ id: mealId, name: trimmed }, at);
+    void checkPendingMeals(db); // the verdict follows in the background
   };
 
   /** A photo whose check failed can still be logged: the meal is just "Meal" with its photo, no verdict, no relay call. */
@@ -576,10 +575,14 @@ export function FoodFlow({
       return;
     }
     mealLogged({ id: mealId, name: 'Meal' }, at);
+    void checkPendingMeals(db); // the verdict follows in the background
   };
 
   /** Cancel while a check is running: the request is dropped and the photo or text stays as it was. */
-  const cancelCheck = () => reset();
+  const cancelCheck = () => {
+    reset();
+    if (analyzed?.source === 'photo') setAnalyzed(null);
+  };
 
   /** A Quick log chip: logs the food with the verdict it was saved with (no relay call), and opens the details. */
   const logQuick = (food: StoredSavedFood) => {
@@ -661,7 +664,8 @@ export function FoodFlow({
 
   // Unchecked saves go to the diary; for Favorite foods only a new food typed by name can skip the verdict.
   const canSaveUnchecked = !myFood || myFood.id === undefined;
-  const reviewingPhoto = state.status !== 'done' && !busy && analyzed?.source === 'photo';
+  // A photo whose check failed: the photo, why, and a retry (or logging it as it is).
+  const reviewingPhoto = state.status === 'error' && !busy && analyzed?.source === 'photo';
   const errorText = notice ?? (state.status === 'error' ? state.error.friendlyMessage : '');
   const errorBanner = errorText ? (
     <View accessibilityRole="alert" style={[styles.error, { backgroundColor: colors.redTint }]}>
@@ -672,8 +676,7 @@ export function FoodFlow({
   // Log screens slide up as a modal, so a swipe down closes them. That is only on while the plain Food screen
   // is empty, so a stray drag can't drop a typed description or a photo.
   const navigation = useNavigation();
-  const swipeAway =
-    !myFood && !fromList && !openCamera && !analyzed && !text && !draft && !busy && logged === null;
+  const swipeAway = !myFood && !fromList && !openCamera && !analyzed && !text && !busy && logged === null;
   useEffect(() => {
     navigation.setOptions({ gestureEnabled: swipeAway });
   }, [navigation, swipeAway]);
@@ -688,6 +691,7 @@ export function FoodFlow({
   const backToCapture = () => {
     setCorrection('');
     setUpdated(null);
+    if (analyzed?.source === 'photo') setAnalyzed(null);
     reset();
   };
   // Once logged there is nothing to step back to: the X ends the flow, like "Skip for now".
@@ -747,23 +751,10 @@ export function FoodFlow({
           contentFit="cover"
           accessibilityLabel="Your meal photo"
         />
-        <TextField
-          label="Anything we should know?"
-          hint="(optional)"
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="e.g. homemade, no chili, oat milk"
-          maxLength={MAX_TEXT}
-          returnKeyType="done"
-          onSubmitEditing={checkPhotoWithDetails}
-        />
         {errorBanner}
         <View style={styles.actions}>
-          <Button
-            label={state.status === 'error' ? 'Try again' : copy.analyzeLabel}
-            onPress={checkPhotoWithDetails}
-          />
-          {state.status === 'error' && canSaveUnchecked && (
+          <Button label="Try again" onPress={() => run(analyzed, '')} />
+          {canSaveUnchecked && (
             <Button label={copy.saveUncheckedLabel} variant="quiet" onPress={saveUncheckedPhoto} />
           )}
         </View>
@@ -781,7 +772,8 @@ export function FoodFlow({
           setAiNotes(''); // a correction belongs to the text it was made for
         }}
         onSubmit={checkText}
-        onPickPhoto={() => setChoosingPhoto(true)}
+        onTakePhoto={() => void checkPhoto('camera')}
+        onChoosePhoto={() => void checkPhoto('library')}
         maxLength={MAX_TEXT}
         notice={errorBanner}
         suggestions={
@@ -790,7 +782,7 @@ export function FoodFlow({
           ) : undefined
         }
         onRevealField={(y) => scroll.current?.scrollTo({ y: Math.max(0, y - space.s2), animated: true })}
-        quickLog={
+        chips={
           quickFoods.length > 0 ? (
             <QuickLogRow
               foods={quickFoods}
@@ -798,7 +790,6 @@ export function FoodFlow({
                 const food = savedFoods.find((item) => item.id === id);
                 if (food) logQuick(food);
               }}
-              onSeeAll={() => router.push({ pathname: '/log/food', params: { manage: '1' } })}
             />
           ) : undefined
         }
@@ -811,7 +802,7 @@ export function FoodFlow({
   if (onDetails) {
     footer = (
       <View style={styles.footer}>
-        <Button label="Complete check-in" onPress={() => leave(true)} />
+        <Button label="Done" onPress={() => leave(true)} />
         <Pressable accessibilityRole="button" onPress={() => leave(false)} style={styles.link}>
           <AppText style={[styles.linkText, { color: colors.clayInk }]}>{copy.skipLabel}</AppText>
         </Pressable>
@@ -821,19 +812,13 @@ export function FoodFlow({
     footer = (
       <View style={styles.footer}>
         <Button label={myFood ? 'Save to favorite foods' : copy.saveLabel} onPress={save} />
-        <Button label="Not quite right? Tell us more" variant="secondary" onPress={() => setTelling(true)} />
-        {/* Quiet links, for someone only checking a food. The Food list's own check keeps it instead. */}
+        {/* Quiet links. Not eating it is the back arrow; the Food list's own check can also keep it for later. */}
+        <Pressable accessibilityRole="button" onPress={() => setTelling(true)} style={styles.link}>
+          <AppText style={[styles.linkText, { color: colors.clayInk }]}>{copy.notQuiteRightLabel}</AppText>
+        </Pressable>
         {fromList && (
           <Pressable accessibilityRole="button" onPress={saveOnly} style={styles.link}>
             <AppText style={[styles.linkText, { color: colors.clayInk }]}>{copy.keepOnlyLabel}</AppText>
-          </Pressable>
-        )}
-        {!fromList && !myFood && (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-            style={styles.link}>
-            <AppText style={[styles.linkText, { color: colors.clayInk }]}>{copy.notEatingLabel}</AppText>
           </Pressable>
         )}
       </View>
@@ -880,35 +865,6 @@ export function FoodFlow({
         </ScrollView>
         {footer}
       </KeyboardAvoidingView>
-      <BottomSheet
-        visible={choosingPhoto}
-        onClose={() => setChoosingPhoto(false)}
-        onDismissed={() => {
-          const source = pendingPhoto.current;
-          pendingPhoto.current = null;
-          if (source) void checkPhoto(source);
-        }}>
-        <AppText variant="section" accessibilityRole="header">
-          Add a photo
-        </AppText>
-        <View style={styles.sheetActions}>
-          <Button
-            label="Take a photo"
-            onPress={() => {
-              pendingPhoto.current = 'camera';
-              setChoosingPhoto(false);
-            }}
-          />
-          <Button
-            label="Choose a photo"
-            variant="secondary"
-            onPress={() => {
-              pendingPhoto.current = 'library';
-              setChoosingPhoto(false);
-            }}
-          />
-        </View>
-      </BottomSheet>
       <BottomSheet visible={telling} onClose={() => setTelling(false)}>
         <AppText variant="section" accessibilityRole="header">
           Not quite right?

@@ -1,4 +1,4 @@
-import { Check, Star } from 'lucide-react-native';
+import { Heart, Star } from 'lucide-react-native';
 import { useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -18,7 +18,7 @@ import {
   SYMPTOM_ITEMS,
   type SymptomKey,
 } from '@/constants/symptomItems';
-import { minTouchTarget, radius, space, typography, useColors } from '@/theme';
+import { minTouchTarget, space, typography, useColors } from '@/theme';
 import type { AppVerdict } from '@/types/analysis';
 
 /** The few symptoms offered right after a meal; the full list lives on the How I feel screen. */
@@ -105,15 +105,29 @@ export function FoodDetails({
         </View>
       ) : (
         <View style={styles.heading}>
-          <View style={[styles.saved, { backgroundColor: colors.sageTint }]}>
-            <Check size={16} color={colors.sageInk} strokeWidth={2} />
-            <AppText variant="label">Added to today</AppText>
+          <View style={styles.titleRow}>
+            <AppText variant="display" accessibilityRole="header" style={styles.title}>
+              {mealName}
+            </AppText>
+            {canFavorite && (
+              <Pressable
+                accessibilityRole="checkbox"
+                accessibilityLabel="Add to favorite foods"
+                accessibilityState={{ checked: state.keep }}
+                onPress={() => onChange({ ...state, keep: !state.keep })}
+                hitSlop={8}
+                style={styles.heart}>
+                <Heart
+                  size={24}
+                  color={colors.clayInk}
+                  fill={state.keep ? colors.clayInk : 'none'}
+                  strokeWidth={2}
+                />
+              </Pressable>
+            )}
           </View>
-          <AppText variant="display" accessibilityRole="header">
-            {mealName}
-          </AppText>
           <AppText variant="voice" color="inkSoft">
-            How&apos;s your belly? You can skip this.
+            How&apos;s your belly?
           </AppText>
         </View>
       )}
@@ -127,12 +141,6 @@ export function FoodDetails({
         }}>
         <AppText variant="section">What&apos;s going on?</AppText>
         <View style={styles.chips}>
-          <InlineAddChip
-            label="Add your own to What's going on?"
-            placeholder="e.g. Skipped breakfast"
-            onAdd={onAddTag}
-            onOpen={() => reveal('tags')}
-          />
           {LIFESTYLE_TAGS.map((tag) => (
             <TagChip
               key={tag.key}
@@ -149,6 +157,12 @@ export function FoodDetails({
               onPress={() => onChange({ ...state, tags: toggled(state.tags, key) })}
             />
           ))}
+          <InlineAddChip
+            label="Add your own to What's going on?"
+            placeholder="e.g. Skipped breakfast"
+            onAdd={onAddTag}
+            onOpen={() => reveal('tags')}
+          />
         </View>
       </View>
       <View
@@ -158,12 +172,6 @@ export function FoodDetails({
         }}>
         <AppText variant="section">Anything bothering you now?</AppText>
         <View style={styles.chips}>
-          <InlineAddChip
-            label="Add your own symptom"
-            placeholder="e.g. Hiccups"
-            onAdd={onAddSymptom}
-            onOpen={() => reveal('symptoms')}
-          />
           {MEAL_SYMPTOMS.map((symptom) => (
             <SymptomChip
               key={symptom.key}
@@ -180,6 +188,12 @@ export function FoodDetails({
               onToggle={() => onChange({ ...state, symptoms: toggled(state.symptoms, key) })}
             />
           ))}
+          <InlineAddChip
+            label="Add your own symptom"
+            placeholder="e.g. Hiccups"
+            onAdd={onAddSymptom}
+            onOpen={() => reveal('symptoms')}
+          />
         </View>
       </View>
       <TextField
@@ -191,7 +205,7 @@ export function FoodDetails({
         maxLength={maxNote}
         returnKeyType="done"
       />
-      {canFavorite && (
+      {edit && canFavorite && (
         <Pressable
           accessibilityRole="checkbox"
           accessibilityLabel="Add to favorite foods"
@@ -221,14 +235,9 @@ export function FoodDetails({
 const styles = StyleSheet.create({
   wrap: { gap: space.s4 },
   heading: { gap: space.s1_5, alignItems: 'flex-start' },
-  saved: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: radius.pill,
-  },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: space.s1, alignSelf: 'stretch' },
+  title: { flex: 1 },
+  heart: { width: minTouchTarget, height: minTouchTarget, alignItems: 'center', justifyContent: 'center' },
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   favorite: { flexDirection: 'row', alignItems: 'center', gap: space.s1_5, minHeight: minTouchTarget },
   favoriteText: { gap: 2 },
