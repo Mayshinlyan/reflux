@@ -23,10 +23,12 @@ type Props = Pick<
   hideLabel?: boolean;
   /** Small controls (e.g. icon buttons) inside the right edge of the input. */
   accessory?: ReactNode;
+  /** Height of a `multiline` input when empty (default 88); the feedback sheet uses 112 (Figma 19). */
+  minHeight?: number;
 };
 
 /** A labelled single-line text input in the app's style (the mockup's `.field-label` + input). */
-export function TextField({ label, hint, hideLabel = false, accessory, ...input }: Props) {
+export function TextField({ label, hint, hideLabel = false, accessory, minHeight, ...input }: Props) {
   const colors = useColors();
   const [focused, setFocused] = useState(false);
   // Filled, no outline; the focused ring is the one functional stroke.
@@ -45,7 +47,12 @@ export function TextField({ label, hint, hideLabel = false, accessory, ...input 
           onBlur={() => setFocused(false)}
           accessibilityLabel={label}
           placeholderTextColor={colors.inkSoft}
-          style={[styles.input, input.multiline && styles.multiline, { color: colors.ink }]}
+          style={[
+            styles.input,
+            input.multiline && styles.multiline,
+            input.multiline && minHeight ? { minHeight } : null,
+            { color: colors.ink },
+          ]}
         />
         {accessory && <View style={styles.accessory}>{accessory}</View>}
       </View>

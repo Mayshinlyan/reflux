@@ -65,6 +65,8 @@ jest.mock('expo-haptics', () => ({
 }));
 const mockDeleteAllPhotos = jest.fn();
 jest.mock('@/services/photoStore', () => ({ deleteAllPhotos: () => mockDeleteAllPhotos() }));
+const mockSendFeedback = jest.fn();
+jest.mock('@/services/relayClient', () => ({ sendFeedback: (message: string) => mockSendFeedback(message) }));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -75,6 +77,7 @@ beforeEach(() => {
   mockReplace.mockClear();
   mockToast.mockClear();
   mockDeleteAllPhotos.mockReset();
+  mockSendFeedback.mockReset();
 });
 afterEach(() => closeDb());
 
@@ -100,7 +103,7 @@ describe('Settings', () => {
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
       .filter((label) =>
-        /^(Bedtime|Late-meal|Check-in|Bellie|Condition|Favorite|Medications|Symptoms|My |Replay|Privacy|Delete)/.test(
+        /^(Bedtime|Late-meal|Check-in|Bellie|Condition|Favorite|Medications|Symptoms|My |Replay|Send|Privacy|Delete)/.test(
           label ?? '',
         ),
       );
@@ -110,6 +113,7 @@ describe('Settings', () => {
       'Check-in reminder, Off',
       "Bellie's summaries, On",
       'Replay app tour',
+      'Send feedback',
       'Privacy and disclaimer',
       'Delete all my data',
     ]);
@@ -123,6 +127,37 @@ describe('Settings', () => {
     // Asks for the tour, then goes to Today, which starts it once it is on screen.
     expect(mockReplay).toHaveBeenCalledTimes(1);
     expect(mockNavigate).toHaveBeenCalledWith('/');
+  });
+});
+
+describe('Settings: send feedback', () => {
+  it('sends what was typed, then closes the sheet with a thank-you toast', async () => {
+    mockSendFeedback.mockResolvedValue(undefined);
+    await render(<SettingsScreen />);
+
+    await press('button', 'Send feedback');
+    expect(screen.getByRole('header', { name: 'Send feedback' })).toBeTruthy();
+    await fireEvent.changeText(
+      screen.getByPlaceholderText("What's working? What could be better?"),
+      '  A weekly summary, please  ',
+    );
+    await press('button', 'Send');
+
+    expect(mockSendFeedback).toHaveBeenCalledWith('A weekly summary, please');
+    expect(mockToast).toHaveBeenCalledWith('Thanks, Bellie got it');
+  });
+
+  it('keeps the sheet open and the text when sending fails, and shows no toast', async () => {
+    mockSendFeedback.mockRejectedValue(new Error('boom'));
+    await render(<SettingsScreen />);
+
+    await press('button', 'Send feedback');
+    await fireEvent.changeText(screen.getByPlaceholderText("What's working? What could be better?"), 'Hi');
+    await press('button', 'Send');
+
+    expect(screen.getByText("We couldn't send that. Please try again.")).toBeTruthy();
+    expect(screen.getByDisplayValue('Hi')).toBeTruthy();
+    expect(mockToast).not.toHaveBeenCalled();
   });
 });
 
