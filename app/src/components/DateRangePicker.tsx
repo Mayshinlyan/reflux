@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -62,7 +62,7 @@ function PickerBody({ firstDayKey, todayKey, counts, initial, onApply, onClose }
   const [selection, setSelection] = useState<Selection>(
     initial ? { start: initial.startKey, end: initial.endKey } : EMPTY_SELECTION,
   );
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const scrolled = useRef(false);
   const months = monthsBetween(firstDayKey < todayKey ? firstDayKey : todayKey, todayKey);
 

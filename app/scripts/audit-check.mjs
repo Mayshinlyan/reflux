@@ -1,12 +1,9 @@
 // Fails on any high or critical production advisory that isn't listed below.
 // Plain `npm audit --audit-level=high` can't skip advisories that have no patched release yet.
 // Review this list whenever it changes: remove an entry as soon as a fix ships.
-// Note: decode-uri-component (moderate, via expo-router) is left alone on purpose. Its fixed 0.5.x
-// breaks query-string 7, which expo-router depends on.
 import { spawnSync } from 'node:child_process';
 
 const ALLOWED = {
-  'GHSA-86w9-cpqp-85rv': 'node-forge: no patched release yet (<=1.4.0); Expo code-signing tooling',
   'GHSA-mrhx-c7xc-m3w5':
     'zod: only 4.6.6+ is patched, but @expo/cli needs zod 3.x; Expo CLI build tooling, not shipped in the app',
 };

@@ -1,7 +1,14 @@
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { type ReactNode, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  type ScrollViewInstance,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
@@ -133,7 +140,7 @@ function MealEdit({ log }: { log: StoredFoodLog }) {
     note: log.notes ?? '',
     keep: false,
   });
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   // A ref, not state, so a quick second tap can't start a second save before the re-render.
   const saving = useRef(false);
   const verdict = log.analysis ? effectiveVerdict(log.analysis) : null;

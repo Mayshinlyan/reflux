@@ -4,7 +4,7 @@ A local-first mobile app for tracking acid reflux, heartburn and LPR: log sympto
 
 | Folder  | What                                                                      |
 | ------- | ------------------------------------------------------------------------- |
-| `app/`  | Expo (SDK 57) React Native client. Owns all user data, on device.         |
+| `app/`  | Expo (SDK 58) React Native client. Owns all user data, on device.         |
 | `api/`  | Stateless Node/Express relay on Cloud Run. Forwards food to Claude only.  |
 | `docs/` | PRD, runbook, style guide and clickable mockups (visual source of truth). |
 

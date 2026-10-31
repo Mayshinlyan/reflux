@@ -59,7 +59,7 @@ const FoodWidgetView = (props: FoodWidgetProps, environment: WidgetEnvironment) 
       <HStack
         modifiers={[
           padding({ horizontal: 16 }),
-          frame({ maxWidth: fill, height: 40, alignment: 'leading' }),
+          frame({ maxWidth: fill, minHeight: 40, maxHeight: 40, alignment: 'leading' }),
           background(tan, shapes.roundedRectangle({ cornerRadius: 16 })),
         ]}>
         <Text

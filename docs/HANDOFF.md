@@ -7,7 +7,7 @@ is `6ba344b`). It is built on `feat/symptom-picker` â†’ `feat/step3-symptoms` â†
 
 Read first: `docs/BUILD_PLAN.md` (architecture, design system, data model, relay API, Claude integration, security,
 CI/CD, build order), `docs/PRD.md` (product rules; keep in sync), `docs/design/mockups.html` and
-`docs/design/style-guide.html` (visual source of truth), `app/AGENTS.md` (Expo SDK 57: check docs.expo.dev, use
+`docs/design/style-guide.html` (visual source of truth), `app/AGENTS.md` (Expo SDK 58: check docs.expo.dev, use
 `npx expo install`). Layout: `app/` is the Expo client (routes in `app/src/app`, code in
 `app/src/{db,lib,components,constants,theme}`); `api/` is the stateless Express relay skeleton. Node 22.
 
