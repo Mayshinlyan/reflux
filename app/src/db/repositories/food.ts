@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gte, inArray, lt } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, lt, max, ne, sql } from 'drizzle-orm';
 
 import { isCustomTag, LIFESTYLE_TAG_KEYS, type LoggedTagKey } from '@/constants/lifestyleTags';
 import { cleanCustomSymptom, customSymptomLabel } from '@/constants/symptomItems';
@@ -86,6 +86,22 @@ export function createUncheckedMeal(db: AppDb, input: UncheckedMealInput): numbe
     })
     .returning({ id: foodLogs.id })
     .get().id;
+}
+
+/**
+ * Names of past diary meals for the suggestions while typing: each name once (ignoring case), the one eaten most
+ * recently first. Meals saved without a name ("Meal", from a photo) and checks are left out.
+ */
+export function listRecentMealNames(db: AppDb, limit = 200): string[] {
+  return db
+    .select({ name: foodLogs.mealName })
+    .from(foodLogs)
+    .where(and(eq(foodLogs.entryType, 'diary'), ne(foodLogs.mealName, 'Meal')))
+    .groupBy(sql`lower(${foodLogs.mealName})`)
+    .orderBy(desc(max(foodLogs.loggedAt)), desc(foodLogs.id))
+    .limit(limit)
+    .all()
+    .map((row) => row.name);
 }
 
 export function getFoodLog(db: AppDb, id: number): StoredFoodLog | undefined {

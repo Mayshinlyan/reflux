@@ -13,6 +13,7 @@ import {
   deleteFoodLog,
   getFoodLog,
   listDiaryFoodLogs,
+  listRecentMealNames,
   listMealTags,
   listMealTagsFor,
   promoteCheckToDiary,
@@ -559,6 +560,30 @@ describe('isFoodSaved', () => {
 
     expect(isFoodSaved(db, 'mint TEA')).toBe(true);
     expect(isFoodSaved(db, 'Oatmeal')).toBe(false);
+  });
+});
+
+describe('listRecentMealNames', () => {
+  const named = (mealName: string): MealAnalysis => ({ ...mintTea, mealName });
+
+  it('lists each diary meal name once, the most recent first, and leaves out checks and unnamed meals', () => {
+    const { db } = createTestDb();
+    const log = (entryType: 'diary' | 'check', mealName: string, loggedAt: string) =>
+      createFoodLog(db, { entryType, source: 'text', analysis: named(mealName), meta, loggedAt });
+    log('diary', 'Oatmeal', '2026-09-26T08:00:00.000Z');
+    log('diary', 'Mint tea', '2026-09-27T08:00:00.000Z');
+    log('diary', 'oatmeal', '2026-09-28T08:00:00.000Z');
+    log('check', 'Pizza', '2026-09-29T08:00:00.000Z');
+    createUncheckedMeal(db, { source: 'photo', loggedAt: '2026-09-29T09:00:00.000Z' });
+
+    expect(listRecentMealNames(db)).toEqual(['oatmeal', 'Mint tea']);
+  });
+
+  it('stops at the limit and is empty with no meals', () => {
+    const { db } = createTestDb();
+    expect(listRecentMealNames(db)).toEqual([]);
+    for (const name of ['A', 'B', 'C']) createUncheckedMeal(db, { source: 'text', inputText: name });
+    expect(listRecentMealNames(db, 2)).toHaveLength(2);
   });
 });
 

@@ -19,18 +19,21 @@ import { Button } from '@/components/Button';
 import { FoodLoading } from '@/components/FoodLoading';
 import { FoodCapture } from '@/components/food/FoodCapture';
 import { FoodDetails, type MealDetailsState } from '@/components/food/FoodDetails';
+import { FoodSuggestions } from '@/components/food/FoodSuggestions';
 import { FoodVerdict } from '@/components/food/FoodVerdict';
 import { QuickLogRow } from '@/components/food/QuickLogRow';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
 import { useToast } from '@/components/Toast';
+import { COMMON_FOODS } from '@/constants/commonFoods';
 import { analysisConditions } from '@/constants/conditions';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import {
   createFoodLog,
   createUncheckedMeal,
   getFoodLog,
+  listRecentMealNames,
   promoteCheckToDiary,
   saveMealDetails,
   setMealTime,
@@ -52,6 +55,7 @@ import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
 import { useSavedAdditions } from '@/hooks/useSavedAdditions';
 import { playChing } from '@/lib/ching';
 import { AppError } from '@/lib/errors';
+import { type FoodSuggestion, suggestFoods } from '@/lib/foodSuggestions';
 import { logger } from '@/lib/logger';
 import { dayToLoggedAt, formatMealTime } from '@/lib/mealTime';
 import { isLateMeal } from '@/lib/mealTiming';
@@ -178,7 +182,14 @@ export function FoodFlow({
   // The Quick log row is for logging what was eaten, so Favorite foods and the Food list's own check leave it out.
   // Reloaded on focus, so foods edited or removed under "See all" are right when coming back.
   const [savedFoods, setSavedFoods] = useState<StoredSavedFood[]>([]);
+  // Past meal names for the suggestions under the field (Figma row 20); every capture step has them.
+  const [recentNames, setRecentNames] = useState<string[]>([]);
   const loadSavedFoods = useCallback(() => {
+    try {
+      setRecentNames(listRecentMealNames(db));
+    } catch {
+      setRecentNames([]); // the suggestions still work from favorites and common foods
+    }
     if (myFood || fromList) return;
     try {
       setSavedFoods(listSavedFoods(db));
@@ -682,10 +693,23 @@ export function FoodFlow({
   // Once logged there is nothing to step back to: the X ends the flow, like "Skip for now".
   const onBack = logged ? () => leave(false) : showResult ? backToCapture : undefined;
   const onDetails = logged !== null;
-  const typed = trimmed.toLowerCase();
-  const quickFoods = savedFoods
-    .filter((food) => !typed || food.mealName.toLowerCase().includes(typed))
-    .map((food) => ({ id: food.id, name: food.mealName }));
+  // Quick log is the shortcut for an empty field; once typing starts, the suggestions under the field take over.
+  const quickFoods = trimmed ? [] : savedFoods.map((food) => ({ id: food.id, name: food.mealName }));
+  const suggestions = suggestFoods(trimmed, {
+    saved: savedFoods.map((food) => ({ id: food.id, name: food.mealName })),
+    recent: recentNames,
+    common: COMMON_FOODS,
+  });
+  /** A favorite logs at once, like its Quick log chip; any other food fills the field, ready to check. */
+  const pickSuggestion = (item: FoodSuggestion) => {
+    const favorite = item.source === 'favorite' ? savedFoods.find((food) => food.id === item.id) : undefined;
+    if (favorite) {
+      logQuick(favorite);
+      return;
+    }
+    setText(item.name);
+    setAiNotes('');
+  };
 
   let body;
   if (onDetails) {
@@ -760,6 +784,12 @@ export function FoodFlow({
         onPickPhoto={() => setChoosingPhoto(true)}
         maxLength={MAX_TEXT}
         notice={errorBanner}
+        suggestions={
+          suggestions.length > 0 ? (
+            <FoodSuggestions suggestions={suggestions} onPick={pickSuggestion} />
+          ) : undefined
+        }
+        onRevealField={(y) => scroll.current?.scrollTo({ y: Math.max(0, y - space.s2), animated: true })}
         quickLog={
           quickFoods.length > 0 ? (
             <QuickLogRow

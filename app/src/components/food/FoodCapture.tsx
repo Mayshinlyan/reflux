@@ -1,5 +1,5 @@
 import { Camera } from 'lucide-react-native';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
@@ -18,6 +18,10 @@ type Props = {
   notice?: ReactNode;
   /** The Quick log row, between the heading and the photo card. */
   quickLog?: ReactNode;
+  /** The suggestions under the field (Figma row 20). */
+  suggestions?: ReactNode;
+  /** Asked to scroll the field to the top when the suggestions appear, so they clear the keyboard. */
+  onRevealField?: (y: number) => void;
 };
 
 /** Figma "03b Food: capture": a heading, one big photo card, "or", and a text field. */
@@ -32,8 +36,16 @@ export function FoodCapture({
   maxLength,
   notice,
   quickLog,
+  suggestions,
+  onRevealField,
 }: Props) {
   const colors = useColors();
+  const fieldY = useRef(0);
+  const hasSuggestions = suggestions != null;
+  useEffect(() => {
+    if (hasSuggestions) onRevealField?.(fieldY.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the list appears, not when the callback changes
+  }, [hasSuggestions]);
   return (
     <View style={styles.wrap}>
       <View style={styles.heading}>
@@ -62,15 +74,18 @@ export function FoodCapture({
       <AppText variant="caption" color="inkSoft" style={styles.or}>
         or
       </AppText>
-      <TextField
-        label={fieldLabel}
-        value={text}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        maxLength={maxLength}
-        returnKeyType="done"
-        onSubmitEditing={onSubmit}
-      />
+      <View onLayout={(event) => (fieldY.current = event.nativeEvent.layout.y)}>
+        <TextField
+          label={fieldLabel}
+          value={text}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          maxLength={maxLength}
+          returnKeyType="done"
+          onSubmitEditing={onSubmit}
+        />
+        {suggestions != null && <View style={styles.suggestions}>{suggestions}</View>}
+      </View>
       {notice}
     </View>
   );
@@ -87,4 +102,6 @@ const styles = StyleSheet.create({
     gap: space.s1,
   },
   or: { textAlign: 'center' },
+  // The field keeps 16 below it; the list sits 8 under the field (Figma 20a).
+  suggestions: { marginTop: -space.s1 },
 });
