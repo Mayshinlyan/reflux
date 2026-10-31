@@ -21,4 +21,26 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ PORT: 'not-a-port-secret' })).toThrow(/PORT/);
     expect(() => loadEnv({ PORT: 'not-a-port-secret' })).not.toThrow(/secret/);
   });
+  it('reads the federation ids, and treats empty ones as not set', () => {
+    expect(
+      loadEnv({
+        ANTHROPIC_FEDERATION_RULE_ID: 'fdrl_x',
+        ANTHROPIC_ORGANIZATION_ID: 'org',
+        ANTHROPIC_SERVICE_ACCOUNT_ID: '',
+        ANTHROPIC_WORKSPACE_ID: '',
+      }),
+    ).toMatchObject({
+      ANTHROPIC_FEDERATION_RULE_ID: 'fdrl_x',
+      ANTHROPIC_ORGANIZATION_ID: 'org',
+      ANTHROPIC_SERVICE_ACCOUNT_ID: undefined,
+      ANTHROPIC_WORKSPACE_ID: undefined,
+    });
+    expect(loadEnv({ ANTHROPIC_FEDERATION_RULE_ID: '', ANTHROPIC_ORGANIZATION_ID: '' })).toMatchObject({
+      ANTHROPIC_FEDERATION_RULE_ID: undefined,
+    });
+  });
+
+  it('asks for the organization id when a federation rule id is set', () => {
+    expect(() => loadEnv({ ANTHROPIC_FEDERATION_RULE_ID: 'fdrl_x' })).toThrow(/ANTHROPIC_ORGANIZATION_ID/);
+  });
 });

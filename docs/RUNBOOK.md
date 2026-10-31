@@ -33,6 +33,21 @@ Rotate the key by hand about every 90 days, and let Secret Manager remind you. A
 
 An expired secret is deleted by Secret Manager and the relay can no longer start: this took the relay down on 2026-10-31 (every AI check failed with "Something went wrong"). Check with `gcloud secrets describe reflux-anthropic-api-key --format="value(expireTime,ttl)"`; it must be empty. If one is set, clear it with `gcloud secrets update reflux-anthropic-api-key --remove-expiration`. If it comes back, something (such as an organization policy) is imposing it.
 
+## Anthropic workload identity federation (no stored key)
+
+The relay can call Claude without any stored key: the Cloud Run service account (`reflux-relay-sa`) gets a Google-signed identity token from the metadata server, and the Anthropic SDK exchanges it for a short-lived Anthropic token. There is then no secret to leak, rotate or expire.
+
+**One-time setup in the Claude Console** (Settings > Workload identity > Connect workload > Google Cloud): issuer `https://accounts.google.com` in discovery mode; a rule that matches `audience` `https://api.anthropic.com` and both the `sub` (the service account's numeric unique ID, from `gcloud iam service-accounts describe reflux-relay-sa@<project>.iam.gserviceaccount.com --format='value(uniqueId)'`) and the `email` claim. Never use a `subject_prefix` with `*` for Google tokens: it matches service accounts in every project. Put the rule in the `reflux` workspace.
+
+**Switch it on:**
+
+1. Set four repository variables (they are identifiers, not secrets): `gh variable set ANTHROPIC_FEDERATION_RULE_ID --body fdrl_...`, and the same for `ANTHROPIC_SERVICE_ACCOUNT_ID` (`svac_...`), `ANTHROPIC_ORGANIZATION_ID` and `ANTHROPIC_WORKSPACE_ID` (`wrkspc_...`).
+2. Run the **Deploy API** workflow. The relay logs `Anthropic credentials configured` with `auth: federation` (or `api-key`) on startup, never the values. When the ids are set federation wins even while the key is still mounted; the SDK would otherwise prefer a key, so the relay never passes both.
+3. **Verify with a real check**, because the `/health` smoke test does not call Claude: take a photo or type a food in the app. A failed exchange shows in the Claude Console under Workload identity > authentication history, with the reason.
+4. Once it works, remove the key: delete `--update-secrets ANTHROPIC_API_KEY=...` from `.github/workflows/deploy-api.yml`, run `gcloud run services update reflux-relay --region us-central1 --remove-secrets ANTHROPIC_API_KEY`, then delete the secret (`gcloud secrets delete reflux-anthropic-api-key`) and revoke the key in the Claude Console. The key rotation steps above then no longer apply.
+
+**Roll back:** unset the four repository variables (or clear them on the service) and redeploy: with no ids the relay uses the stored API key again, so keep the secret until federation has run cleanly for a while.
+
 ## Adjusting rate limits
 
 Per-user daily limit and the global daily circuit breaker are both env vars on the Cloud Run service:
