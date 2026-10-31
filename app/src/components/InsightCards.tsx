@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, type ScrollViewInstance, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { useSettings } from '@/db/DatabaseProvider';
@@ -38,7 +38,7 @@ export function InsightCards({ today, week }: Props) {
   const { width } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
   const { settings, update } = useSettings();
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   // The app tour spotlights the cards with their dots.
   const tourTarget = useTourTarget('insights');
   const [page, setPage] = useState(1);

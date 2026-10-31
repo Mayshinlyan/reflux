@@ -1,6 +1,13 @@
 import { X } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
-import { AccessibilityInfo, type LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  type LayoutChangeEvent,
+  Pressable,
+  StyleSheet,
+  View,
+  type ViewInstance,
+} from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import Svg, { Polygon } from 'react-native-svg';
 
@@ -45,7 +52,7 @@ export function CoachMark({
   onHeight,
 }: Props) {
   const colors = useColors();
-  const titleRef = useRef<View>(null);
+  const titleRef = useRef<ViewInstance>(null);
   const last = number === total;
 
   // A screen reader lands on each new step's title.

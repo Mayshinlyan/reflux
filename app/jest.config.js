@@ -2,6 +2,8 @@ module.exports = {
   preset: 'jest-expo',
   // Screen tests render whole screens; the first one in a worker is slow on cold CI runners.
   testTimeout: 20000,
+  // Reanimated 4.7 ships this so its native-only setup (which throws under Jest) resolves to the web build.
+  resolver: 'react-native-reanimated/jest/resolver',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testMatch: ['**/__tests__/**/*.test.ts?(x)'],
   // Metro resolves lucide's ESM build; Jest needs its CommonJS build.
@@ -14,6 +16,6 @@ module.exports = {
     '^lucide-react-native$': '<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|react-native-svg|lucide-react-native)',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/.*|react-native-svg|lucide-react-native)',
   ],
 };
