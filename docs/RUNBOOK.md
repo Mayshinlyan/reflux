@@ -31,6 +31,8 @@ gcloud run services update reflux-relay --region <region> \
 
 Bellie's summaries (`POST /v1/insight`) have their own per-user daily allowance, `PER_USER_DAILY_INSIGHT_LIMIT` (default 20), so they never use up meal checks; both kinds of call count toward `GLOBAL_DAILY_LIMIT`.
 
+Feedback from Settings > Send feedback (`POST /v1/feedback`) has its own per-user daily allowance, `PER_USER_DAILY_FEEDBACK_LIMIT` (default 5). There is also a daily ceiling over everyone, `GLOBAL_DAILY_FEEDBACK_LIMIT` (default 500, then `503 SERVICE_BUSY`), because anonymous sign-in makes the per-user cap easy to dodge. It makes no Claude call, so it does not count toward `GLOBAL_DAILY_LIMIT` and the kill switch does not stop it. Each message is one document in the Firestore `feedback` collection (`message`, `createdAt`, and when sent `appVersion` and `platform`; no user id). Read them in the Firebase console; delete a document there to remove a message. The relay never logs the text, only its length. The collection has no TTL, so clear it out when it has been read.
+
 Raise `GLOBAL_DAILY_LIMIT` when onboarding more pilot testers; lower it if you suspect abuse. Check current usage first via the Firestore `rate_limits` collection or the relay's Claude-call log count for today.
 
 ## Responding to a GCP budget alert

@@ -12,6 +12,10 @@ const envSchema = z.object({
   GLOBAL_DAILY_LIMIT: z.coerce.number().int().positive().default(300),
   /** Bellie's day and week summaries have their own per-user cap, so they never use up meal checks. */
   PER_USER_DAILY_INSIGHT_LIMIT: z.coerce.number().int().positive().default(20),
+  /** Feedback messages per person per day; no AI cost, so it never counts toward the AI breaker above. */
+  PER_USER_DAILY_FEEDBACK_LIMIT: z.coerce.number().int().positive().default(5),
+  /** A daily ceiling on feedback from everyone, because anonymous sign-in makes a per-person cap easy to dodge. */
+  GLOBAL_DAILY_FEEDBACK_LIMIT: z.coerce.number().int().positive().default(500),
   /** Injected from Secret Manager in the cloud. Never logged. */
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   ANTHROPIC_MODEL: z.string().min(1).default('claude-sonnet-5-5'),

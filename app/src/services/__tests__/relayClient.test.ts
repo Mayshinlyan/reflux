@@ -7,7 +7,7 @@ import type { InsightRequest } from '@/types/insight';
 
 import { getNetworkStateAsync } from 'expo-network';
 
-import { analyzeFood, fetchInsight } from '../relayClient';
+import { analyzeFood, fetchInsight, sendFeedback } from '../relayClient';
 import { getIdToken } from '../firebase';
 
 // A stand-in with the parts of an expo-file-system File that Expo's multipart encoder uses.
@@ -321,5 +321,53 @@ describe('fetchInsight', () => {
     fetchMock.mockRejectedValue(new DOMException('aborted', 'AbortError'));
 
     await expect(fetchInsight(request, controller.signal)).rejects.toThrow('aborted');
+  });
+});
+
+describe('sendFeedback', () => {
+  it('posts only the message, app version and phone type, with the bearer token', async () => {
+    fetchMock.mockReturnValue(Promise.resolve(new Response(null, { status: 204 })));
+
+    await expect(sendFeedback('Love Bellie')).resolves.toBeUndefined();
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://relay.test/v1/feedback');
+    expect(init.method).toBe('POST');
+    expect(init.headers.Authorization).toBe('Bearer test-token');
+    expect(init.headers['Content-Type']).toBe('application/json');
+    const body = JSON.parse(init.body);
+    expect(body).toMatchObject({ message: 'Love Bellie', platform: 'ios' });
+    expect(Object.keys(body).every((key) => ['message', 'appVersion', 'platform'].includes(key))).toBe(true);
+  });
+
+  it('maps a relay error to its code', async () => {
+    fetchMock.mockReturnValue(json(429, { error: { code: 'RATE_LIMITED', requestId: 'r1' } }));
+
+    await expect(sendFeedback('hi')).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+  });
+
+  it('reports OFFLINE when the request fails and the phone has no connection', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Network request failed'));
+    (getNetworkStateAsync as jest.Mock).mockResolvedValueOnce({ isConnected: false });
+
+    await expect(sendFeedback('hi')).rejects.toMatchObject({ code: 'OFFLINE' });
+  });
+
+  it('reports NETWORK when the request cannot be made but the phone is online', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Network request failed'));
+    (getNetworkStateAsync as jest.Mock).mockResolvedValueOnce({
+      isConnected: true,
+      isInternetReachable: true,
+    });
+
+    await expect(sendFeedback('hi')).rejects.toMatchObject({ code: 'NETWORK' });
+  });
+
+  it('rethrows the caller abort untouched', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    fetchMock.mockRejectedValue(new DOMException('aborted', 'AbortError'));
+
+    await expect(sendFeedback('hi', controller.signal)).rejects.toThrow('aborted');
   });
 });

@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Bell, Clock, Compass, Leaf, Moon, Shield, Trash2 } from 'lucide-react-native';
+import { Bell, Clock, Compass, Leaf, MessageCircle, Moon, Shield, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '@/components/AppText';
 import { BedtimeSheet } from '@/components/BedtimeSheet';
 import { Button } from '@/components/Button';
+import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { tabBarClearance } from '@/components/FloatingTabBar';
 import { OptionSheet } from '@/components/OptionSheet';
 import { PrivacySheet } from '@/components/profile/PrivacySheet';
@@ -26,7 +27,7 @@ import { deleteAllPhotos } from '@/services/photoStore';
 import { askForReminders, cancelAllCheckIns } from '@/services/reminders';
 import { space } from '@/theme';
 
-type Sheet = 'bedtime' | 'window' | 'reminder' | 'summaries' | 'privacy' | null;
+type Sheet = 'bedtime' | 'window' | 'reminder' | 'summaries' | 'privacy' | 'feedback' | null;
 
 const WINDOWS = LATE_MEAL_WINDOW_OPTIONS.map((minutes) => ({
   value: String(minutes),
@@ -167,6 +168,7 @@ export default function SettingsScreen() {
             router.navigate('/');
           }}
         />
+        <SettingsRow icon={MessageCircle} label="Send feedback" onPress={() => setSheet('feedback')} />
         <SettingsRow icon={Shield} label="Privacy and disclaimer" onPress={() => setSheet('privacy')} />
 
         <View style={styles.danger}>
@@ -230,6 +232,15 @@ export default function SettingsScreen() {
         saveFailed={saveFailed}
       />
       <PrivacySheet visible={sheet === 'privacy'} onClose={closeSheet} />
+      <FeedbackSheet
+        visible={sheet === 'feedback'}
+        onClose={closeSheet}
+        onSent={() => {
+          closeSheet();
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          toast('Thanks, Bellie got it');
+        }}
+      />
     </Screen>
   );
 }

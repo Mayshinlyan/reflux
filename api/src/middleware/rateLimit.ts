@@ -3,7 +3,11 @@ import type { NextFunction, Request, Response } from 'express';
 import { HttpError } from '../errors.js';
 import { GLOBAL_KEY, type RateLimitStore } from '../lib/rateLimitStore.js';
 
-type Limits = { perUser: number; global: number };
+/**
+ * `global` is a daily ceiling over everyone. It counts under `globalKey` (the shared AI circuit breaker by default);
+ * a request with no AI cost passes its own key so it neither trips nor feeds that breaker. Leave `global` out for none.
+ */
+type Limits = { perUser: number; global?: number; globalKey?: string };
 
 /**
  * Per-user daily limit (429 RATE_LIMITED) plus a global daily circuit breaker (503 SERVICE_BUSY).
@@ -22,7 +26,8 @@ export function rateLimit(
       const when = now();
       const userCount = await store.increment(`${scope}_${res.locals.uid}`, when);
       if (userCount > limits.perUser) return next(new HttpError('RATE_LIMITED'));
-      const globalCount = await store.increment(GLOBAL_KEY, when);
+      if (limits.global === undefined) return next();
+      const globalCount = await store.increment(limits.globalKey ?? GLOBAL_KEY, when);
       if (globalCount > limits.global) {
         res.locals.log.warn({ limit: limits.global }, 'global circuit breaker tripped');
         return next(new HttpError('SERVICE_BUSY'));

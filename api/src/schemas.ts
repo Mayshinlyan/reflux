@@ -116,6 +116,27 @@ export function insightJsonSchema() {
   return schema as { type: 'object'; [key: string]: unknown };
 }
 
+export const MAX_FEEDBACK_CHARS = 2000;
+
+/** Feedback keeps its line breaks; other control characters become spaces and the ends are trimmed. */
+function cleanFeedback(raw: string): string {
+  return (
+    raw
+      .replace(/\r\n?/g, '\n')
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, ' ')
+      .trim()
+  );
+}
+
+/** JSON body for POST /v1/feedback: the typed message plus what version and phone it came from. Unknown fields are rejected. */
+export const feedbackBodySchema = z.strictObject({
+  // The length is checked after cleaning, so it counts what is stored (and a CRLF pair counts once, like the phone's field).
+  message: z.string().transform(cleanFeedback).pipe(z.string().min(1).max(MAX_FEEDBACK_CHARS)),
+  appVersion: z.string().max(32).optional(),
+  platform: z.enum(['ios', 'android']).optional(),
+});
+
 export type Portion = z.infer<typeof portionSchema>;
 
 export type MealAnalysis = z.infer<typeof mealAnalysisSchema>;

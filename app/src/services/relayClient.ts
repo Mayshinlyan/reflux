@@ -1,6 +1,7 @@
+import Constants from 'expo-constants';
 import { File } from 'expo-file-system';
 import { getNetworkStateAsync } from 'expo-network';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import type { ConditionKey } from '@/constants/conditions';
 import { relayBaseUrl } from '@/lib/config';
@@ -167,4 +168,37 @@ export async function fetchInsight(request: InsightRequest, signal?: AbortSignal
   // Only the fields we show, so nothing else the relay adds (like `meta`) gets cached.
   const { tone, bellieLine, summary, tips } = body;
   return { tone, bellieLine, summary, tips };
+}
+
+/** A feedback message is tiny, so it gives up sooner than a meal check. */
+const FEEDBACK_TIMEOUT_MS = 20_000;
+
+/**
+ * Sends one feedback message from the Settings sheet. Only the typed text, the app version and the phone type
+ * (iOS or Android) go, never meals, symptoms or anything else. Throws an AppError like `analyzeFood`.
+ */
+export async function sendFeedback(message: string, signal?: AbortSignal): Promise<void> {
+  const id = requestId();
+  const token = await tokenFor(id);
+  const appVersion = Constants.expoConfig?.version;
+  const body = {
+    message,
+    ...(appVersion ? { appVersion } : {}),
+    ...(Platform.OS === 'ios' || Platform.OS === 'android' ? { platform: Platform.OS } : {}),
+  };
+  const timeout = AbortSignal.timeout(FEEDBACK_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${relayBaseUrl()}/v1/feedback`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'X-Request-Id': id, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (!timeout.aborted && (await isOffline())) throw new AppError('OFFLINE', id);
+    throw new AppError(timeout.aborted ? 'AI_TIMEOUT' : 'NETWORK', id);
+  }
+  if (!response.ok) throw await toAppError(response, id);
 }

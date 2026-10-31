@@ -2,6 +2,7 @@ import { Writable } from 'node:stream';
 
 import { createApp } from '../src/app.js';
 import { type Env, loadEnv } from '../src/config/env.js';
+import { type FeedbackStore, InMemoryFeedbackStore } from '../src/lib/feedbackStore.js';
 import { createLogger } from '../src/lib/logger.js';
 import { InMemoryRateLimitStore, type RateLimitStore } from '../src/lib/rateLimitStore.js';
 import type { InsightInput } from '../src/schemas.js';
@@ -87,17 +88,24 @@ export function fakeClaude(
 
 export function testApp(
   overrides: Partial<Record<keyof Env, string>> = {},
-  deps: { claude?: ClaudeService; rateLimitStore?: RateLimitStore; verifier?: TokenVerifier } = {},
+  deps: {
+    claude?: ClaudeService;
+    rateLimitStore?: RateLimitStore;
+    verifier?: TokenVerifier;
+    feedbackStore?: FeedbackStore;
+  } = {},
 ) {
   const env = loadEnv({ NODE_ENV: 'test', ...overrides });
   const logs = memoryLogger();
   const claude = fakeClaude();
+  const feedbackStore = new InMemoryFeedbackStore();
   const app = createApp({
     env,
     logger: logs.logger,
     verifier: deps.verifier ?? fakeVerifier,
     rateLimitStore: deps.rateLimitStore ?? new InMemoryRateLimitStore(),
     claude: deps.claude ?? claude.service,
+    feedbackStore: deps.feedbackStore ?? feedbackStore,
   });
-  return { app, logs, claudeCalls: claude.calls };
+  return { app, logs, claudeCalls: claude.calls, feedback: feedbackStore.entries };
 }
