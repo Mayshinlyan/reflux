@@ -68,8 +68,8 @@ jobs:
       # (--no-traffic needs an existing service, which the first manual deploy created.)
       # --update-* keeps other env vars/secrets already on the service. ANALYSIS_ENABLED is left
       # out on purpose so a deploy never undoes the kill switch.
-      # The Anthropic federation ids are identifiers, not secrets. While they are unset (empty) the relay uses
-      # the stored API key below; once they are set it uses workload identity federation instead.
+      # The relay calls Claude with workload identity federation. The four Anthropic ids are identifiers, not
+      # secrets, and no API key is stored or mounted.
       - name: Deploy candidate (no traffic)
         env:
           PROJECT: ${{ vars.GCP_PROJECT_ID }}
@@ -87,7 +87,6 @@ jobs:
             --max-instances 3 \
             --concurrency 20 \
             --timeout 60 \
-            --update-secrets ANTHROPIC_API_KEY=reflux-anthropic-api-key:latest \
             --update-env-vars "PER_USER_DAILY_LIMIT=30,GLOBAL_DAILY_LIMIT=300,ANTHROPIC_FEDERATION_RULE_ID=$ANTHROPIC_FEDERATION_RULE_ID,ANTHROPIC_ORGANIZATION_ID=$ANTHROPIC_ORGANIZATION_ID,ANTHROPIC_SERVICE_ACCOUNT_ID=$ANTHROPIC_SERVICE_ACCOUNT_ID,ANTHROPIC_WORKSPACE_ID=$ANTHROPIC_WORKSPACE_ID" \
             --no-traffic \
             --tag candidate
