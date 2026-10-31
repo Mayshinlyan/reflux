@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { BackHandler } from 'react-native';
 
 import TabsLayout from '@/app/(tabs)/_layout';
+import { closeLogArch, openLogArch } from '@/lib/logArch';
 
 const mockPush = jest.fn();
 const mockNavigate = jest.fn();
@@ -41,6 +42,8 @@ beforeEach(() => {
   mockPush.mockClear();
   mockNavigate.mockClear();
   mockActiveRoute = 'index';
+  // The arch's state is shared, so one test's open arch must not reach the next.
+  closeLogArch();
 });
 
 describe('Tabs layout', () => {
@@ -132,6 +135,31 @@ describe('Quick log arch', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Medication' }));
 
     expect(mockPush.mock.calls).toEqual([['/log/symptoms'], ['/log/medication']]);
+  });
+
+  it('opens from Today (Bellie or a day in the week strip) and logs for that day', async () => {
+    await render(<TabsLayout />);
+
+    await act(async () => openLogArch('2026-10-28'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Food' }));
+    await act(async () => openLogArch('2026-10-28'));
+    await fireEvent.press(screen.getByRole('button', { name: 'How I feel' }));
+
+    expect(mockPush.mock.calls).toEqual([
+      [{ pathname: '/log/food', params: { date: '2026-10-28' } }],
+      [{ pathname: '/log/symptoms', params: { date: '2026-10-28' } }],
+    ]);
+  });
+
+  it('forgets the day once closed, so the + button logs for today', async () => {
+    await render(<TabsLayout />);
+    await act(async () => openLogArch('2026-10-28'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Dismiss quick log' }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Food' }));
+
+    expect(mockPush.mock.calls).toEqual([['/log/food']]);
   });
 
   it('closes from the close button without going anywhere', async () => {

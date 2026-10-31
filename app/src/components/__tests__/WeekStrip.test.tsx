@@ -53,11 +53,11 @@ describe('WeekStrip', () => {
     expect(onPressDay).not.toHaveBeenCalled();
   });
 
-  it('hints that a tap opens the Log page for the day', async () => {
+  it('hints that a tap opens the quick log for the day', async () => {
     await render(<WeekStrip days={days} loggedDays={new Set()} onPressDay={jest.fn()} />);
 
     expect(screen.getByLabelText('Tuesday 29').props.accessibilityHint).toBe(
-      'Opens the Log page for this day',
+      'Opens the quick log for this day',
     );
   });
 });

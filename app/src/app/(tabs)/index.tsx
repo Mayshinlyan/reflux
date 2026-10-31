@@ -1,11 +1,10 @@
-import { Redirect, router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { Redirect, router } from 'expo-router';
+import { useCallback, useMemo, useRef } from 'react';
 import { ScrollView, type ScrollViewInstance, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { HomeBellie } from '@/components/HomeBellie';
-import { InsightCards } from '@/components/InsightCards';
 import { LateMealBadge } from '@/components/LateMealBadge';
 import { ReminderPromptSheet } from '@/components/ReminderPromptSheet';
 import { Screen } from '@/components/Screen';
@@ -22,6 +21,7 @@ import { useTourAutoStart } from '@/hooks/useTourAutoStart';
 import { bellyMoodFor } from '@/lib/belly';
 import { notifyEntriesChanged } from '@/lib/entriesChanged';
 import { buildInsightRequest } from '@/lib/insight';
+import { openLogArch, useLogArch } from '@/lib/logArch';
 import { isLateMeal } from '@/lib/mealTiming';
 import { isChecking } from '@/services/pendingChecks';
 import { space } from '@/theme';
@@ -34,28 +34,26 @@ function greeting(now: Date): string {
 }
 
 /**
- * Today: a greeting, this week, and a big Bellie under a speech bubble with her line about the day. Tapping
- * Bellie opens the Food screen. Under her, swipeable cards (Today so far, Tips, This week) from Bellie's
- * summaries, then today's entries. The round button beside the greeting opens Profile. First launch redirects
- * to Welcome.
+ * Today: a greeting, this week, and a big Bellie under a speech bubble with her line about the day (Figma row
+ * 22), then today's entries. Bellie and a day in the week strip open the quick log arch, the same one the +
+ * button opens; a tapped day stays highlighted while it is open and the flow logs for that day. The week's own
+ * summary lives in History. First launch redirects to Welcome.
  */
 export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
-  const { todayKey, week, loggedDays, entries, weekEntries, meals } = useTodayData();
+  const { todayKey, week, loggedDays, entries, meals } = useTodayData();
   // Bellie's words: made on the phone at once, then the AI's once they arrive (and only asked for again when
   // what was logged changes).
   const dayRequest = useMemo(() => buildInsightRequest('day', entries), [entries]);
-  const weekRequest = useMemo(() => buildInsightRequest('week', weekEntries), [weekEntries]);
   const dayInsight = useInsight('day', todayKey, dayRequest);
-  const weekInsight = useInsight('week', week[0]?.key ?? todayKey, weekRequest);
   const reminder = useReminderPrompt();
   // Today reloads on this signal, so a delete (and its Undo) shows at once.
   const deleteEntry = useDeleteEntry(notifyEntriesChanged);
   const now = new Date();
-  const [picked, setPicked] = useState<string | null>(null);
-  /** The Log page is opening from Bellie: a second tap before Today leaves would open it twice. */
-  const opening = useRef(false);
+  // A past day stays highlighted while the arch is open for it.
+  const arch = useLogArch();
+  const picked = arch.open && arch.date && arch.date !== todayKey ? arch.date : null;
 
   // Short phones (iPhone SE) can't spare the roomier top gap.
   const { height } = useWindowDimensions();
@@ -64,21 +62,6 @@ export default function TodayScreen() {
   const scroll = useRef<ScrollViewInstance>(null);
   const showTop = useCallback(() => scroll.current?.scrollTo({ y: 0, animated: false }), []);
   useTourAutoStart(settings.onboardingDone, showTop);
-
-  // Back from Log, the strip is plain again and Bellie can be tapped again.
-  useFocusEffect(
-    useCallback(() => {
-      setPicked(null);
-      opening.current = false;
-    }, []),
-  );
-
-  // Log opens on the tap. A past day stays highlighted while it opens, and a second tap is ignored.
-  const pickDay = (date: string, today: string) => {
-    if (picked) return;
-    if (date !== today) setPicked(date);
-    router.push({ pathname: '/log', params: { date } });
-  };
 
   if (!settings.onboardingDone) return <Redirect href="/welcome" />;
 
@@ -107,26 +90,15 @@ export default function TodayScreen() {
           </View>
         </View>
 
-        <WeekStrip
-          days={week}
-          loggedDays={loggedDays}
-          pickedKey={picked}
-          onPressDay={(date) => pickDay(date, week.find((day) => day.isToday)?.key ?? '')}
-        />
+        <WeekStrip days={week} loggedDays={loggedDays} pickedKey={picked} onPressDay={openLogArch} />
 
         <View style={[styles.bellie, empty && styles.bellieEmpty]}>
           <HomeBellie
             line={dayInsight?.bellieLine ?? 'Tap me to log'}
             mood={mood}
-            onPress={() => {
-              if (opening.current) return;
-              opening.current = true;
-              router.push({ pathname: '/log', params: { date: week.find((day) => day.isToday)?.key ?? '' } });
-            }}
+            onPress={() => openLogArch(todayKey)}
           />
         </View>
-
-        <InsightCards today={dayInsight} week={weekInsight} />
 
         {!empty && (
           <View style={styles.today}>
