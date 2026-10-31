@@ -1527,17 +1527,21 @@ describe('Log food screen: food suggestions under the field', () => {
     expect(field().props.value).toBe('Lentil stew');
   });
 
-  it('puts a favorite first, and logs it at once with its saved verdict', async () => {
+  it('shows the favorite first and the rest A to Z, and a favorite logs at once with its saved verdict', async () => {
     saveOatmeal();
     await render(<LogFoodScreen />);
     await type('oat');
 
-    const first = screen
+    const names = screen
       .getAllByRole('button')
-      .find((button) => /^Oat/.test(button.props.accessibilityLabel ?? ''));
-    expect(first?.props.accessibilityLabel).toBe('Oatmeal with banana, favorite, logs now');
-    await fireEvent.press(first!);
+      .map((button) => button.props.accessibilityLabel as string | undefined)
+      .filter((label): label is string => /^Oat/i.test(label ?? ''));
+    expect(names[0]).toBe('Oatmeal with banana, favorite, logs now');
+    const rest = names.slice(1);
+    expect(rest.length).toBeGreaterThan(1);
+    expect(rest).toEqual([...rest].sort((a, b) => a.localeCompare(b)));
 
+    await press('Oatmeal with banana, favorite, logs now');
     const meals = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(meals).toHaveLength(1);
     expect(meals[0]).toMatchObject({ mealName: 'Oatmeal with banana', overallVerdict: 'caution' });
