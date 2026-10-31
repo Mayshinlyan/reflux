@@ -1,6 +1,6 @@
 /**
  * Pure helpers for the belly's tap response, kept apart from Reanimated so they can be unit-tested.
- * (Ported from the old pet.) Tapping the belly is play and a way into the Log page; it never changes data.
+ * (Ported from the old pet.) Tapping the belly is play and a way into the quick log; it never changes data.
  */
 
 /** Maximum tilt when the finger lands on the very edge. */

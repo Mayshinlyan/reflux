@@ -1,12 +1,13 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
-import { Alert, ScrollView } from 'react-native';
+import { Alert } from 'react-native';
 
 import TodayScreen from '@/app/(tabs)/index';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createFoodLog, listDiaryFoodLogs } from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
 import type { AppDb } from '@/db/types';
+import { closeLogArch, getLogArch } from '@/lib/logArch';
 import { fetchInsight } from '@/services/relayClient';
 import type { AppVerdict } from '@/types/analysis';
 import type { Insight } from '@/types/insight';
@@ -18,7 +19,6 @@ let mockUserName = '';
 let mockReduceMotion = true;
 let mockReminderAsked = true;
 let mockReminderMinutes: number | null = null;
-let mockNudged = true;
 const mockUpdate = jest.fn();
 const mockToast = jest.fn();
 const mockPush = jest.fn();
@@ -34,7 +34,6 @@ jest.mock('@/db/DatabaseProvider', () => ({
       lateMealWindowMinutes: 180,
       reminderAsked: mockReminderAsked,
       checkInReminderMinutes: mockReminderMinutes,
-      insightNudged: mockNudged,
       summariesEnabled: true,
     },
     update: mockUpdate,
@@ -81,7 +80,7 @@ beforeEach(() => {
   mockReduceMotion = true;
   mockReminderAsked = true;
   mockReminderMinutes = null;
-  mockNudged = true;
+  closeLogArch();
   // Bellie's summary is still on its way unless a test says otherwise.
   jest
     .mocked(fetchInsight)
@@ -144,13 +143,13 @@ describe('Today: an empty day', () => {
     expect(screen.queryByRole('button', { name: 'Profile' })).toBeNull();
   });
 
-  it('opens the Log page at once when the belly is tapped and Reduce Motion is on', async () => {
+  it('opens the quick log arch when Bellie is tapped, and pushes no page', async () => {
     await render(<TodayScreen />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
-    expect(mockPush).toHaveBeenCalledTimes(1);
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/log', params: { date: expect.any(String) } });
+    expect(getLogArch()).toEqual({ open: true, date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   describe('with motion on', () => {
@@ -158,34 +157,22 @@ describe('Today: an empty day', () => {
       mockReduceMotion = false;
     });
 
-    it('opens the Log page on the tap itself, without waiting for the jiggle', async () => {
+    it('opens the arch on the tap itself, without waiting for the jiggle', async () => {
       await render(<TodayScreen />);
 
       await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
-      expect(mockPush).toHaveBeenCalledTimes(1);
-      expect(mockPush).toHaveBeenCalledWith({ pathname: '/log', params: { date: expect.any(String) } });
-    });
-
-    it('ignores a second tap while the Log page is opening', async () => {
-      await render(<TodayScreen />);
-
-      await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
-      await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
-
-      expect(mockPush).toHaveBeenCalledTimes(1);
+      expect(getLogArch().open).toBe(true);
     });
   });
 
-  it('opens the Log page for the day tapped in the week strip', async () => {
+  it("opens the arch for today when today's circle in the week strip is tapped", async () => {
     await render(<TodayScreen />);
 
     await fireEvent.press(screen.getByLabelText(/^Today, /));
 
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/log',
-      params: { date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) },
-    });
+    expect(getLogArch().open).toBe(true);
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   describe('tapping an earlier day', () => {
@@ -195,19 +182,15 @@ describe('Today: an empty day', () => {
       return `${day.getDate()}`;
     };
 
-    it('opens the Log page for that day on the tap, and ignores a second tap', async () => {
+    it('opens the arch for that day, so the flow it opens logs for it', async () => {
       // The first day of a week has no earlier day this week, so there is nothing to tap.
       if (new Date().getDay() === 0) return;
       await render(<TodayScreen />);
 
       await fireEvent.press(screen.getByLabelText(new RegExp(`^\\w+ ${earlierDay()}`)));
-      await fireEvent.press(screen.getByLabelText(new RegExp(`^\\w+ ${earlierDay()}`)));
 
-      expect(mockPush).toHaveBeenCalledTimes(1);
-      expect(mockPush).toHaveBeenCalledWith({
-        pathname: '/log',
-        params: { date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) },
-      });
+      expect(getLogArch()).toEqual({ open: true, date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
+      expect(mockPush).not.toHaveBeenCalled();
     });
   });
 
@@ -243,49 +226,45 @@ describe("Today: Bellie's words", () => {
   const answer = (request: { range: string }) =>
     Promise.resolve(request.range === 'day' ? dayInsight : weekInsight);
 
-  it('asks for nothing and says "Tap me to log" with no cards on a day with nothing logged', async () => {
+  it('asks for nothing and says "Tap me to log" on a day with nothing logged', async () => {
     await render(<TodayScreen />);
 
     expect(screen.getByText('Tap me to log')).toBeTruthy();
-    expect(screen.queryByText('Today so far')).toBeNull();
     expect(fetchInsight).not.toHaveBeenCalled();
   });
 
-  it('shows the words made on the phone at once, with a card for today and one for the week', async () => {
+  it("shows the words made on the phone at once, in Bellie's bubble", async () => {
     seedMeal('Spicy ramen', 'caution', minutesAgo(5));
     await render(<TodayScreen />);
 
     expect(screen.getByText('Go easy tonight?')).toBeTruthy();
-    expect(screen.getByText('Today so far')).toBeTruthy();
-    expect(screen.getByText('1 meal today: 0 good, 1 to watch.')).toBeTruthy();
-    expect(screen.getByText('Tips')).toBeTruthy();
-    expect(screen.getByText('This week')).toBeTruthy();
   });
 
-  it("puts Bellie's own line in the bubble and her summaries on the cards once they arrive", async () => {
+  it("puts Bellie's own line in the bubble once it arrives, and shows no insight cards", async () => {
     jest.mocked(fetchInsight).mockImplementation(answer);
     seedMeal('Spicy ramen', 'caution', minutesAgo(5));
     await render(<TodayScreen />);
 
     expect(await screen.findByText('Easy on the spice tonight?')).toBeTruthy();
-    expect(screen.getByText('Spicy ramen at lunch. Chili keeps showing up.')).toBeTruthy();
-    expect(screen.getByText('Have spicy food earlier in the day.')).toBeTruthy();
-    expect(screen.getByText('Mostly good meals this week.')).toBeTruthy();
+    expect(screen.queryByText('Today so far')).toBeNull();
+    expect(screen.queryByText('This week')).toBeNull();
+    expect(screen.queryByText('Tips')).toBeNull();
   });
 
-  it('sends only the meal name, verdict and time, for the day and for the week', async () => {
+  it('sends only the meal name, verdict and time, and asks for the day alone', async () => {
     seedMeal('Spicy ramen', 'caution', minutesAgo(5));
     await render(<TodayScreen />);
 
     const sent = jest.mocked(fetchInsight).mock.calls.map(([request]) => request);
-    expect(sent.map((request) => request.range).sort()).toEqual(['day', 'week']);
+    // The week's summary is History's, so Today never asks for it.
+    expect(sent.map((request) => request.range)).toEqual(['day']);
     for (const request of sent) {
       expect(request.meals).toEqual([{ name: 'Spicy ramen', verdict: 'caution', when: expect.any(String) }]);
       expect(Object.keys(request).sort()).toEqual(['meals', 'range', 'symptoms', 'tags']);
     }
   });
 
-  it('tells Bellie from the rest of the screen: tapping her opens the Log page', async () => {
+  it('tells Bellie from the rest of the screen: tapping her opens the arch', async () => {
     jest.mocked(fetchInsight).mockImplementation(answer);
     seedMeal('Spicy ramen', 'caution', minutesAgo(5));
     await render(<TodayScreen />);
@@ -293,65 +272,7 @@ describe("Today: Bellie's words", () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
 
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/log', params: { date: expect.any(String) } });
-  });
-
-  describe('the sideways nudge', () => {
-    beforeEach(() => {
-      mockReduceMotion = false;
-      mockNudged = false;
-      jest.useFakeTimers();
-    });
-    afterEach(() => jest.useRealTimers());
-
-    it('plays once, after a moment, when there are cards to swipe, and is remembered', async () => {
-      seedMeal('Spicy ramen', 'caution', minutesAgo(5));
-      await render(<TodayScreen />);
-      expect(mockUpdate).not.toHaveBeenCalledWith('insightNudged', true);
-
-      await act(async () => {
-        jest.advanceTimersByTime(1000);
-      });
-
-      expect(mockUpdate).toHaveBeenCalledWith('insightNudged', true);
-    });
-
-    it('never moves the cards under a finger that is already on them', async () => {
-      // jest-expo's ScrollView already mocks scrollTo, so spyOn hands back that mock with the last test's calls on it.
-      const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(() => {});
-      scrollTo.mockClear();
-      seedMeal('Spicy ramen', 'caution', minutesAgo(5));
-      await render(<TodayScreen />);
-
-      await fireEvent(screen.getByText('Today so far'), 'touchStart');
-      await act(async () => {
-        jest.advanceTimersByTime(2000);
-      });
-
-      expect(scrollTo).not.toHaveBeenCalled();
-      // They have found the swipe, so it counts as seen.
-      expect(mockUpdate).toHaveBeenCalledWith('insightNudged', true);
-      scrollTo.mockRestore();
-    });
-
-    it('does not play again once it has been seen, or with Reduce Motion on', async () => {
-      seedMeal('Spicy ramen', 'caution', minutesAgo(5));
-      mockNudged = true;
-      const seen = await render(<TodayScreen />);
-      await act(async () => {
-        jest.advanceTimersByTime(2000);
-      });
-      expect(mockUpdate).not.toHaveBeenCalledWith('insightNudged', true);
-      await seen.unmount();
-
-      mockNudged = false;
-      mockReduceMotion = true;
-      await render(<TodayScreen />);
-      await act(async () => {
-        jest.advanceTimersByTime(2000);
-      });
-      expect(mockUpdate).not.toHaveBeenCalledWith('insightNudged', true);
-    });
+    expect(getLogArch().open).toBe(true);
   });
 });
 

@@ -1,7 +1,7 @@
 import type { TabKey } from '@/components/FloatingTabBar';
 
 /** Views on Today that register themselves as a spotlight target (see `useTourTarget`). */
-export type TourViewId = 'bellie' | 'insights';
+export type TourViewId = 'bellie';
 
 export type TourTarget = { kind: 'view'; id: TourViewId } | { kind: 'tab'; key: TabKey };
 
@@ -29,18 +29,10 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'bellie',
     title: 'Bellie',
-    body: 'Tap Bellie to log a meal. Type it, snap a photo, or pick a favorite.',
+    body: 'Bellie sums up your day in her bubble. Tap her to log food, how you feel, or a medication.',
     target: { kind: 'view', id: 'bellie' },
     pad: 8,
     radius: 28,
-  },
-  {
-    id: 'insights',
-    title: "Bellie's take",
-    body: 'Your day and week in a sentence or two. Swipe the cards for tips.',
-    target: { kind: 'view', id: 'insights' },
-    pad: 8,
-    radius: 20,
   },
   {
     id: 'log',

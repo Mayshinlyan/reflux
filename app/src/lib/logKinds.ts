@@ -4,7 +4,7 @@ import type { ColorToken } from '@/theme';
 
 export type LogKind = 'food' | 'symptoms' | 'medication';
 
-/** What can be logged, with one name, icon and tint everywhere: the quick log arch and the Log page (Figma "03a"). */
+/** What can be logged, with one name, icon and tint everywhere: the quick log arch. */
 export const LOG_KINDS: { kind: LogKind; label: string; icon: LucideIcon; tint: ColorToken }[] = [
   { kind: 'food', label: 'Food', icon: Utensils, tint: 'honeyTint' },
   { kind: 'symptoms', label: 'How I feel', icon: Activity, tint: 'clayTint' },

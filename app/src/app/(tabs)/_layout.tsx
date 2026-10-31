@@ -7,6 +7,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 import { FloatingTabBar, type TabKey } from '@/components/FloatingTabBar';
 import { type LogKind, QuickLogArch } from '@/components/QuickLogArch';
 import { TourProvider } from '@/components/tour/TourContext';
+import { closeLogArch, openLogArch, useLogArch } from '@/lib/logArch';
 import { lightColors } from '@/theme';
 
 /** Which route each tab opens, and the reverse. Log is an action, so it has no route here. */
@@ -24,8 +25,9 @@ const TAB_FOR: Record<string, Exclude<TabKey, 'log'>> = {
 };
 
 /**
- * Where each button on the quick log arch goes. Log food opens the same Food screen as tapping Bellie on Today
- * (type it, add a photo, or tap a saved food), not straight to the camera.
+ * Where each button on the quick log arch goes. Log food opens the Food screen (type it, add a photo, or tap a
+ * saved food), not straight to the camera. The arch opens from the + button, from Bellie, and from a day in
+ * Today's week strip, which hands its day on to the screen.
  */
 const LOG_ROUTE: Record<LogKind, '/log/food' | '/log/symptoms' | '/log/medication'> = {
   food: '/log/food',
@@ -36,16 +38,22 @@ const LOG_ROUTE: Record<LogKind, '/log/food' | '/log/symptoms' | '/log/medicatio
 /** Adapts the router's tab state to the Figma tab bar, with the quick log arch opening over the screen. */
 function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
   const active = TAB_FOR[state.routes[state.index]?.name ?? 'index'] ?? 'today';
-  const [logOpen, setLogOpen] = useState(false);
+  const { open: logOpen, date: logDate } = useLogArch();
   // The arch stays mounted until its close animation ends; `logOpen` is only where it is headed.
   const [archShown, setArchShown] = useState(false);
   const hideArch = useCallback(() => setArchShown(false), []);
+  // Opened from anywhere (the + button, Bellie, a day in the week strip), it is drawn from that render on. This is
+  // state derived during render, not an effect, so the arch never appears a frame late.
+  if (logOpen && !archShown) setArchShown(true);
+
+  // The store outlives this bar: if the bar goes (a reset to Welcome), the arch must not come back open.
+  useEffect(() => closeLogArch, []);
 
   // The Android back button closes the arch first.
   useEffect(() => {
     if (!logOpen) return;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      setLogOpen(false);
+      closeLogArch();
       return true;
     });
     return () => subscription.remove();
@@ -58,10 +66,10 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
           bottomInset={insets.bottom}
           open={logOpen}
           onClosed={hideArch}
-          onClose={() => setLogOpen(false)}
+          onClose={closeLogArch}
           onPick={(kind) => {
-            setLogOpen(false);
-            router.push(LOG_ROUTE[kind]);
+            closeLogArch();
+            router.push(logDate ? { pathname: LOG_ROUTE[kind], params: { date: logDate } } : LOG_ROUTE[kind]);
           }}
         />
       )}
@@ -72,11 +80,11 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
           bottomInset={insets.bottom}
           onSelect={(tab) => {
             if (tab === 'log') {
-              if (!logOpen) setArchShown(true);
-              setLogOpen(!logOpen);
+              if (logOpen) closeLogArch();
+              else openLogArch();
               return;
             }
-            setLogOpen(false);
+            closeLogArch();
             // `navigateToTab` takes the route's key, which isn't its name.
             const target = state.routes.find((route) => route.name === ROUTE_FOR[tab]);
             if (tab !== active && target) navigateToTab(target.key);

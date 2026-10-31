@@ -74,7 +74,6 @@ function RootLayout() {
               name="welcome"
               options={{ gestureEnabled: false, animation: reduceMotion ? 'none' : 'fade' }}
             />
-            <Stack.Screen name="log/index" options={{ presentation: 'modal' }} />
             <Stack.Screen
               name="log/food"
               options={({ route }) => ({

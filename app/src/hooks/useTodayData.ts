@@ -21,15 +21,13 @@ export type TodayData = {
   loggedDays: ReadonlySet<string>;
   /** Today's entries, newest first. */
   entries: TimelineEntry[];
-  /** This week's entries (Sunday to Saturday, today's included), newest first: what Bellie's week summary is made from. */
-  weekEntries: TimelineEntry[];
   /** Today's meals, oldest first (the order of the ring's arcs). */
   meals: { verdict: AppVerdict | null }[];
 };
 
 const emptyDay = (): TodayData => {
   const todayKey = localDayKey(new Date().toISOString(), currentTimeZone());
-  return { todayKey, week: weekOf(todayKey), loggedDays: new Set(), entries: [], weekEntries: [], meals: [] };
+  return { todayKey, week: weekOf(todayKey), loggedDays: new Set(), entries: [], meals: [] };
 };
 
 /** A week and a day of padding, so entries logged in far-off zones aren't clipped. */
@@ -62,13 +60,11 @@ export function useTodayData(): TodayData {
         .flatMap((entry) => (entry.kind === 'food' ? [{ verdict: entry.log.overallVerdict ?? null }] : []))
         .reverse();
       const week = weekOf(todayKey);
-      const weekKeys = new Set(week.map((day) => day.key));
       setData({
         todayKey,
         week,
         loggedDays: new Set(sections.map((section) => section.dayKey)),
         entries,
-        weekEntries: sections.filter((section) => weekKeys.has(section.dayKey)).flatMap((s) => s.entries),
         meals,
       });
     } catch (error) {
