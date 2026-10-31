@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  type ScrollViewInstance,
   StyleSheet,
   View,
 } from 'react-native';
@@ -145,7 +146,7 @@ export default function LogSymptomsScreen() {
   /** The meal the user linked. None by default, so a different meal (after a time change) starts unlinked; a meal that opened this screen stays linked. */
   const [linkedId, setLinkedId] = useState<number | null>(afterMeal?.id ?? null);
   const [step, setStep] = useState(1);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
 
   const goBack = useCallback(() => {
     if (step > 1) setStep(step - 1);

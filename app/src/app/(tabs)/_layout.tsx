@@ -34,7 +34,7 @@ const LOG_ROUTE: Record<LogKind, '/log/food' | '/log/symptoms' | '/log/medicatio
 };
 
 /** Adapts the router's tab state to the Figma tab bar, with the quick log arch opening over the screen. */
-function TabBar({ state, navigation, insets }: BottomTabBarProps) {
+function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
   const active = TAB_FOR[state.routes[state.index]?.name ?? 'index'] ?? 'today';
   const [logOpen, setLogOpen] = useState(false);
   // The arch stays mounted until its close animation ends; `logOpen` is only where it is headed.
@@ -77,7 +77,9 @@ function TabBar({ state, navigation, insets }: BottomTabBarProps) {
               return;
             }
             setLogOpen(false);
-            if (tab !== active) navigation.navigate(ROUTE_FOR[tab]);
+            // `navigateToTab` takes the route's key, which isn't its name.
+            const target = state.routes.find((route) => route.name === ROUTE_FOR[tab]);
+            if (tab !== active && target) navigateToTab(target.key);
           }}
         />
       </View>

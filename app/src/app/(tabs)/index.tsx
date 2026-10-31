@@ -1,6 +1,6 @@
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, type ScrollViewInstance, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
@@ -60,7 +60,7 @@ export default function TodayScreen() {
   const { height } = useWindowDimensions();
 
   // The first visit (and Settings' "Replay app tour") dims Today and points things out; the spotlights need the top in view.
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const showTop = useCallback(() => scroll.current?.scrollTo({ y: 0, animated: false }), []);
   useTourAutoStart(settings.onboardingDone, showTop);
 

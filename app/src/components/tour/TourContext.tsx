@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { BackHandler, StyleSheet, View } from 'react-native';
+import { BackHandler, StyleSheet, View, type ViewInstance } from 'react-native';
 
 import { useSettings } from '@/db/DatabaseProvider';
 import { logger } from '@/lib/logger';
@@ -30,7 +30,7 @@ type TourApi = {
   /** A replay has been asked for and Today hasn't started it yet. */
   requested: boolean;
   /** Lets a view on Today be spotlighted; returns how to stop. */
-  register: (id: TourViewId, ref: RefObject<View | null>) => () => void;
+  register: (id: TourViewId, ref: RefObject<ViewInstance | null>) => () => void;
 };
 
 // Outside a provider (a screen under test on its own) the tour simply never starts.
@@ -48,7 +48,7 @@ export const useTour = () => useContext(TourContext);
 /** Marks a view as something the tour can spotlight; put the returned ref on it. */
 export function useTourTarget(id: TourViewId) {
   const { register } = useTour();
-  const ref = useRef<View>(null);
+  const ref = useRef<ViewInstance>(null);
   useEffect(() => register(id, ref), [id, register]);
   return ref;
 }
@@ -59,7 +59,7 @@ export function useTourTarget(id: TourViewId) {
  */
 export function TourProvider({ children }: { children: ReactNode }) {
   const { update } = useSettings();
-  const views = useRef(new Map<TourViewId, RefObject<View | null>>());
+  const views = useRef(new Map<TourViewId, RefObject<ViewInstance | null>>());
   const [session, setSession] = useState<Session | null>(null);
   // Mirrors `session` so the callbacks below stay the same function for the screen's life.
   const current = useRef<Session | null>(null);
@@ -70,7 +70,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     setSession(next);
   }, []);
 
-  const register = useCallback((id: TourViewId, ref: RefObject<View | null>) => {
+  const register = useCallback((id: TourViewId, ref: RefObject<ViewInstance | null>) => {
     views.current.set(id, ref);
     return () => {
       if (views.current.get(id) === ref) views.current.delete(id);

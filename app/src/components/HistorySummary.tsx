@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, type ScrollViewInstance, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import Svg, { Circle, Path } from 'react-native-svg';
 
@@ -66,7 +66,7 @@ export function HistorySummary({
   const cardWidth = width - 2 * space.s3;
   const step = cardWidth + CARD_GAP;
   const [page, setPage] = useState(1);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const reduceMotion = useReducedMotion();
   const count = insight ? CARDS + 1 : CARDS;
   return (

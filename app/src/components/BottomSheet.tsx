@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  type ScrollViewInstance,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -66,7 +67,7 @@ export function BottomSheet({
   const reduceMotion = useReducedMotion();
   const { height: screenHeight } = useWindowDimensions();
   const wasVisible = useRef(false);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   // The Modal stays up while the sheet animates out; `visible` only says where it is headed.
   const [seenVisible, setSeenVisible] = useState(visible);
   const [closing, setClosing] = useState(false);

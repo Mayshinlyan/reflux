@@ -24,10 +24,11 @@ jest.mock('expo-router/js-tabs', () => {
   const Tabs = ({ tabBar }: { tabBar: (props: unknown) => React.ReactNode }) =>
     tabBar({
       state: {
-        index: 0,
-        routes: [{ name: mockActiveRoute }],
+        index: ['index', 'history', 'profile', 'settings'].indexOf(mockActiveRoute),
+        routes: ['index', 'history', 'profile', 'settings'].map((name) => ({ name, key: `${name}-key` })),
       },
-      navigation: { navigate: (name: string) => mockNavigate(name) },
+      // The real bar navigates by a route's key, not its name.
+      navigateToTab: (key: string) => mockNavigate(key),
       insets: { top: 0, bottom: 34, left: 0, right: 0 },
     });
   Tabs.Screen = function Screen() {
@@ -85,7 +86,7 @@ describe('Tabs layout', () => {
     await fireEvent.press(screen.getByRole('tab', { name: 'Profile' }));
     await fireEvent.press(screen.getByRole('tab', { name: 'Settings' }));
 
-    expect(mockNavigate.mock.calls).toEqual([['profile'], ['settings']]);
+    expect(mockNavigate.mock.calls).toEqual([['profile-key'], ['settings-key']]);
   });
 
   it('switches to the tab that is tapped, and ignores a tap on the current one', async () => {
@@ -94,7 +95,7 @@ describe('Tabs layout', () => {
     await fireEvent.press(screen.getByRole('tab', { name: 'History' }));
     await fireEvent.press(screen.getByRole('tab', { name: 'Today' }));
 
-    expect(mockNavigate.mock.calls).toEqual([['history']]);
+    expect(mockNavigate.mock.calls).toEqual([['history-key']]);
   });
 });
 
@@ -160,7 +161,7 @@ describe('Quick log arch', () => {
     await fireEvent.press(screen.getByRole('tab', { name: 'History' }));
 
     expect(screen.queryByRole('button', { name: 'Food' })).toBeNull();
-    expect(mockNavigate).toHaveBeenCalledWith('history');
+    expect(mockNavigate).toHaveBeenCalledWith('history-key');
   });
 
   it('closes on the Android back button instead of leaving the screen', async () => {

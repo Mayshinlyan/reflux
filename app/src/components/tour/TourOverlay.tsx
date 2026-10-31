@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { type LayoutChangeEvent, StyleSheet, View } from 'react-native';
+import { type LayoutChangeEvent, StyleSheet, View, type ViewInstance } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
@@ -22,7 +22,7 @@ type Size = { width: number; height: number };
 type Props = {
   steps: readonly TourStep[];
   index: number;
-  getView: (id: TourViewId) => View | null;
+  getView: (id: TourViewId) => ViewInstance | null;
   onNext: () => void;
   onBack: () => void;
   onClose: () => void;
@@ -62,7 +62,7 @@ function Scrim({ size, hole, radius }: { size: Size; hole: TargetRect | null; ra
 export function TourOverlay({ steps, index, getView, onNext, onBack, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
-  const root = useRef<View>(null);
+  const root = useRef<ViewInstance>(null);
   const [size, setSize] = useState<Size | null>(null);
   const [measured, setMeasured] = useState<{ id: string; rect: TargetRect | null } | null>(null);
   const [cardHeight, setCardHeight] = useState(CARD_ESTIMATE);
