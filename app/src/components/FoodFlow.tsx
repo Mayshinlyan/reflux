@@ -55,7 +55,7 @@ import { useAnalyzeFood } from '@/hooks/useAnalyzeFood';
 import { useSavedAdditions } from '@/hooks/useSavedAdditions';
 import { playChing } from '@/lib/ching';
 import { AppError } from '@/lib/errors';
-import { type FoodSuggestion, suggestFoods } from '@/lib/foodSuggestions';
+import { applySuggestion, type FoodSuggestion, suggestFoods, suggestForPhrase } from '@/lib/foodSuggestions';
 import { logger } from '@/lib/logger';
 import { dayToLoggedAt, formatMealTime } from '@/lib/mealTime';
 import { isLateMeal } from '@/lib/mealTiming';
@@ -699,11 +699,17 @@ export function FoodFlow({
   const onDetails = logged !== null;
   // Quick log is the shortcut for an empty field; once typing starts, the suggestions under the field take over.
   const quickFoods = trimmed ? [] : savedFoods.map((food) => ({ id: food.id, name: food.mealName }));
-  const suggestions = suggestFoods(trimmed, {
+  const suggestionSources = {
     saved: savedFoods.map((food) => ({ id: food.id, name: food.mealName })),
     recent: recentNames,
     common: COMMON_FOODS,
-  });
+  };
+  const suggestions = suggestFoods(trimmed, suggestionSources);
+  // The same foods in the "Not quite right?" box (Figma row 23): the last words typed are matched, and a pick
+  // replaces them. A favorite only fills the text there; it is not logged.
+  const phrase = suggestForPhrase(correction, suggestionSources);
+  const pickPhraseSuggestion = (item: FoodSuggestion) =>
+    setCorrection(applySuggestion(correction, phrase.replaceFrom, item.name).slice(0, MAX_TEXT));
   /** A favorite logs at once, like its Quick log chip; any other food fills the field, ready to check. */
   const pickSuggestion = (item: FoodSuggestion) => {
     const favorite = item.source === 'favorite' ? savedFoods.find((food) => food.id === item.id) : undefined;
@@ -879,6 +885,13 @@ export function FoodFlow({
             returnKeyType="done"
             onSubmitEditing={submitCorrection}
           />
+          {phrase.suggestions.length > 0 && (
+            <FoodSuggestions
+              suggestions={phrase.suggestions}
+              onPick={pickPhraseSuggestion}
+              favoritesLogNow={false}
+            />
+          )}
           <Button label={copy.updateLabel} disabled={!hasComment} onPress={submitCorrection} />
         </View>
       </BottomSheet>
