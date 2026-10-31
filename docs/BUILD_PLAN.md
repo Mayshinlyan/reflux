@@ -286,7 +286,7 @@ The main risk without App Check is that anyone who finds the relay URL can mint 
 - **External HTTPS load balancer + Cloud Armor:** path allowlist, per-IP rate ban, custom domain; Cloud Run ingress internal + load balancer only (about $25/mo from credits).
 - **Model Armor** on text input and reasoning output.
 - Min-app-version check; separate dev/prod projects.
-- **Anthropic workload identity federation (WIF)** (built: the relay uses it when the four `ANTHROPIC_*` ids are set, see RUNBOOK "Anthropic workload identity federation"; the stored key remains the fallback until it has run cleanly) in place of the long-lived `ANTHROPIC_API_KEY` in Secret Manager, so no static Anthropic secret exists. In the Anthropic org create a federation issuer, rule and service account for the Cloud Run identity; have `claudeService` use the SDK's zero-argument client when the federation env vars are set (keep the key as a fallback for local dev); then delete the secret and revoke the key. First confirm WIF is available on the account and check the current SDK docs for the exact env vars. The MVP uses an API key with a workspace spend limit.
+- **Anthropic workload identity federation (WIF)** (done: the relay uses it when the four `ANTHROPIC_*` ids are set, see RUNBOOK "Anthropic access: workload identity federation"; the deploy no longer mounts the stored key; the secret is then unmounted, deleted and the key revoked by hand, see RUNBOOK "Retiring the old key") in place of the long-lived `ANTHROPIC_API_KEY` in Secret Manager, so no static Anthropic secret exists. `ANTHROPIC_API_KEY` is still read for local development.
 - Raise the global circuit breaker to fit expected traffic.
 - Monitoring alerts on App Check failures and Cloud Armor bans.
 
@@ -377,7 +377,7 @@ The app has no deploy step in the MVP; testers load it from the dev server in Ex
 
 ## Operations (`docs/RUNBOOK.md`)
 
-- **MVP:** kill switch, Anthropic key rotation, adjusting per-user and global limits, responding to budget alerts, rolling back a Cloud Run revision, running the pilot (start the tunnel dev server; tester instructions for Expo Go).
+- **MVP:** kill switch, Anthropic federation setup and rollback, adjusting per-user and global limits, responding to budget alerts, rolling back a Cloud Run revision, running the pilot (start the tunnel dev server; tester instructions for Expo Go).
 - **M2 adds:** raising `MIN_APP_VERSION`, EAS update rollback, Cloud Armor rule tuning.
 
 ## Build Order & Verification
@@ -404,4 +404,4 @@ The app has no deploy step in the MVP; testers load it from the dev server in Ex
 3. **Features:** weekly RSI check-in, 7-day trend strip, export, dark mode, analytics and crash toggles.
 4. **Observability + quality:** Sentry native + source maps, analytics allowlist (verify in DebugView), Maestro E2E, nightly AI eval, `mobile.yml`.
 5. **Launch readiness:** privacy policy + terms, store privacy forms, Anthropic Usage Policy review, RSI terms, clinician review, store assets, TestFlight / Play internal beta on real devices.
-6. **Key rotation:** rotate the Anthropic key every 90 days and add a Secret Manager rotation reminder (RUNBOOK "Anthropic API key rotation"). Never set an expiry on `reflux-anthropic-api-key`: Secret Manager deletes an expired secret and the relay stops starting (this took the relay down on 2026-10-31). Verify: `gcloud secrets describe reflux-anthropic-api-key --format="value(expireTime,ttl,rotation)"` shows a next rotation date and no expiry.
+6. **Key rotation: not needed.** Workload identity federation replaced the stored key, so nothing is rotated or can expire (an expired secret took the relay down on 2026-10-31). Verify once the old key is retired: `gcloud secrets list` shows no `reflux-anthropic-api-key`.

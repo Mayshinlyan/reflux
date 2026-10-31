@@ -198,10 +198,16 @@ function isRetryable(error: unknown): boolean {
 }
 
 function toHttpError(error: unknown): HttpError {
+  // The error's class name only, never its message: a failed federation exchange is then visible in the log.
+  const upstreamErrorName = error instanceof Error ? error.constructor.name : null;
   const logContext =
     error instanceof Anthropic.APIError
-      ? { upstreamStatus: error.status ?? null, upstreamRequestId: error.requestID ?? null }
-      : { upstreamStatus: null, upstreamRequestId: null };
+      ? {
+          upstreamStatus: error.status ?? null,
+          upstreamRequestId: error.requestID ?? null,
+          upstreamErrorName,
+        }
+      : { upstreamStatus: null, upstreamRequestId: null, upstreamErrorName };
   if (error instanceof Anthropic.APIConnectionTimeoutError) {
     return new HttpError('AI_TIMEOUT', undefined, logContext);
   }

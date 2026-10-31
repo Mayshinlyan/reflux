@@ -43,4 +43,10 @@ describe('loadEnv', () => {
   it('asks for the organization id when a federation rule id is set', () => {
     expect(() => loadEnv({ ANTHROPIC_FEDERATION_RULE_ID: 'fdrl_x' })).toThrow(/ANTHROPIC_ORGANIZATION_ID/);
   });
+
+  it('refuses other federation ids without the rule id, instead of silently ignoring them', () => {
+    expect(() => loadEnv({ ANTHROPIC_ORGANIZATION_ID: 'org' })).toThrow(/ANTHROPIC_ORGANIZATION_ID/);
+    expect(() => loadEnv({ ANTHROPIC_SERVICE_ACCOUNT_ID: 'svac_x' })).toThrow(/ANTHROPIC_SERVICE_ACCOUNT_ID/);
+    expect(() => loadEnv({ ANTHROPIC_WORKSPACE_ID: 'wrkspc_x' })).toThrow(/ANTHROPIC_WORKSPACE_ID/);
+  });
 });

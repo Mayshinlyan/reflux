@@ -43,6 +43,18 @@ const envSchema = z
         message: 'required when ANTHROPIC_FEDERATION_RULE_ID is set',
       });
     }
+    // Without the rule id the other ids are ignored and the relay would silently fall back to the key.
+    if (!env.ANTHROPIC_FEDERATION_RULE_ID) {
+      for (const name of [
+        'ANTHROPIC_ORGANIZATION_ID',
+        'ANTHROPIC_SERVICE_ACCOUNT_ID',
+        'ANTHROPIC_WORKSPACE_ID',
+      ] as const) {
+        if (env[name]) {
+          ctx.addIssue({ code: 'custom', path: [name], message: 'requires ANTHROPIC_FEDERATION_RULE_ID' });
+        }
+      }
+    }
   });
 
 export type Env = z.infer<typeof envSchema>;

@@ -206,6 +206,20 @@ describe('claudeService telemetry and errors', () => {
     expect(create).toHaveBeenCalledTimes(2);
   });
 
+  it('logs only the error class name of an upstream failure, never its message', async () => {
+    const create = vi
+      .fn()
+      .mockRejectedValue(new Anthropic.AuthenticationError(401, {}, 'secret detail', new Headers()));
+    const error = await serviceWith(create)
+      .analyze({ kind: 'text', text: 'tea' })
+      .catch((caught: unknown) => caught);
+    expect(error).toMatchObject({
+      code: 'AI_UPSTREAM_ERROR',
+      logContext: { upstreamStatus: 401, upstreamErrorName: 'AuthenticationError' },
+    });
+    expect(JSON.stringify((error as { logContext: unknown }).logContext)).not.toContain('secret detail');
+  });
+
   it('does not retry client errors', async () => {
     const create = vi.fn().mockRejectedValue(new Anthropic.BadRequestError(400, {}, 'bad', new Headers()));
     await expect(serviceWith(create).analyze({ kind: 'text', text: 'tea' })).rejects.toMatchObject({
