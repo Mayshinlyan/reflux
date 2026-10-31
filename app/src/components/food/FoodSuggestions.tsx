@@ -9,13 +9,15 @@ import { fontFamily, minTouchTarget, radius, space, useColors } from '@/theme';
 type Props = {
   suggestions: FoodSuggestion[];
   onPick: (suggestion: FoodSuggestion) => void;
+  /** False where a favorite only fills the text (the correction sheet), so it isn't read out as logging. */
+  favoritesLogNow?: boolean;
 };
 
 /**
  * Figma row 20: the foods matching what is being typed, in a surface card right under "Describe it". The typed part
  * is bold; a favorite has a clay heart and logs at once, the others fill the field.
  */
-export function FoodSuggestions({ suggestions, onPick }: Props) {
+export function FoodSuggestions({ suggestions, onPick, favoritesLogNow = true }: Props) {
   const colors = useColors();
   const count = suggestions.length;
   const announced = useRef(0);
@@ -37,7 +39,9 @@ export function FoodSuggestions({ suggestions, onPick }: Props) {
           <Pressable
             key={`${item.source}:${item.name}`}
             accessibilityRole="button"
-            accessibilityLabel={favorite ? `${item.name}, favorite, logs now` : item.name}
+            accessibilityLabel={
+              favorite ? `${item.name}, favorite${favoritesLogNow ? ', logs now' : ''}` : item.name
+            }
             onPress={() => onPick(item)}
             style={({ pressed }) => [
               styles.row,

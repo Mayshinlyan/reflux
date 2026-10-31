@@ -1,4 +1,4 @@
-import { MAX_SUGGESTIONS, suggestFoods } from '../foodSuggestions';
+import { applySuggestion, MAX_SUGGESTIONS, suggestForPhrase, suggestFoods } from '../foodSuggestions';
 
 const none = { saved: [], recent: [], common: [] } as const;
 
@@ -86,5 +86,59 @@ describe('suggestFoods', () => {
 
   it('suggests nothing when nothing matches', () => {
     expect(suggestFoods('zzz', { ...none, common: ['Oatmeal'] })).toEqual([]);
+  });
+});
+
+describe('suggestForPhrase', () => {
+  const sources = {
+    saved: [{ id: 3, name: 'Creamy pumpkin soup' }],
+    recent: ['Pumpkin soup'],
+    common: ['Roasted pumpkin soup', 'Cream cheese', 'Oatmeal'],
+  };
+
+  it('matches the last words typed and says where they start', () => {
+    const text = "it's pumpkin so";
+    const { suggestions, replaceFrom } = suggestForPhrase(text, sources);
+    expect(suggestions.map((s) => s.name)).toEqual([
+      'Creamy pumpkin soup',
+      'Pumpkin soup',
+      'Roasted pumpkin soup',
+    ]);
+    expect(text.slice(replaceFrom)).toBe('pumpkin so');
+  });
+
+  it('falls back to fewer words when the longer phrase finds nothing', () => {
+    const text = 'no cream';
+    const { suggestions, replaceFrom } = suggestForPhrase(text, sources);
+    expect(suggestions.map((s) => s.name)).toEqual(['Creamy pumpkin soup', 'Cream cheese']);
+    expect(text.slice(replaceFrom)).toBe('cream');
+  });
+
+  it('only looks after the last comma', () => {
+    const text = 'pumpkin soup, oat';
+    const { suggestions, replaceFrom } = suggestForPhrase(text, sources);
+    expect(suggestions.map((s) => s.name)).toEqual(['Oatmeal']);
+    expect(text.slice(replaceFrom)).toBe('oat');
+  });
+
+  it('waits for two letters', () => {
+    expect(suggestForPhrase('it is o', sources).suggestions).toEqual([]);
+    expect(suggestForPhrase('', sources).suggestions).toEqual([]);
+  });
+
+  it('suggests nothing after a space or comma', () => {
+    expect(suggestForPhrase('pumpkin so ', sources).suggestions).toEqual([]);
+    expect(suggestForPhrase('pumpkin,', sources).suggestions).toEqual([]);
+  });
+
+  it('stops once the words are a food in full, even a favorite', () => {
+    expect(suggestForPhrase('it is oatmeal', sources).suggestions).toEqual([]);
+    expect(suggestForPhrase('it is creamy pumpkin soup', sources).suggestions).toEqual([]);
+  });
+});
+
+describe('applySuggestion', () => {
+  it('replaces the typed words with the food and a space', () => {
+    expect(applySuggestion("it's pumpkin so", 5, 'Pumpkin soup')).toBe("it's Pumpkin soup ");
   });
 });
