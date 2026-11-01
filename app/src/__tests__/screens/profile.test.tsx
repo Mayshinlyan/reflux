@@ -233,27 +233,12 @@ describe('Profile: condition', () => {
 });
 
 describe('Profile: usual symptoms', () => {
-  it('starts from the saved symptoms and saves the new picks in catalog order', async () => {
-    setSetting(mockDb, 'usualSymptoms', ['burping']);
+  it('opens the Usual symptoms page, not a sheet of every symptom', async () => {
     await render(<ProfileScreen />);
-    await press('button', 'Usual symptoms');
-    expect(screen.getByRole('checkbox', { name: 'Burping' }).props.accessibilityState.checked).toBe(true);
 
-    await press('checkbox', 'Heartburn');
-    await press('button', 'Save');
-
-    expect(getSetting(mockDb, 'usualSymptoms')).toEqual(['heartburn', 'burping']);
-    expect(screen.queryByRole('checkbox', { name: 'Heartburn' })).toBeNull();
-  });
-
-  it('can be emptied', async () => {
-    setSetting(mockDb, 'usualSymptoms', ['burping']);
-    await render(<ProfileScreen />);
     await press('button', 'Usual symptoms');
 
-    await press('checkbox', 'Burping');
-    await press('button', 'Save');
-
-    expect(getSetting(mockDb, 'usualSymptoms')).toEqual([]);
+    expect(mockPush).toHaveBeenCalledWith('/usual-symptoms');
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
   });
 });

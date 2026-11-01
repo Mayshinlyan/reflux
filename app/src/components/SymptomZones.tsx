@@ -15,13 +15,18 @@ type Props = {
   onToggle: (key: SymptomKey) => void;
   /** Puts the areas these conditions affect first. */
   conditions?: readonly ConditionKey[];
+  /** Symptoms to leave out (already on a list); an area with none left is left out too. */
+  hidden?: ReadonlySet<SymptomKey>;
 };
 
 /** Every symptom, grouped by body area (Throat & voice, Chest, Tummy), as chips to toggle. */
-export function SymptomZones({ selected, onToggle, conditions = [] }: Props) {
+export function SymptomZones({ selected, onToggle, conditions = [], hidden }: Props) {
+  const zones = orderedZones(conditions)
+    .map((zone) => ({ ...zone, symptoms: zone.symptoms.filter((key) => !hidden?.has(key)) }))
+    .filter((zone) => zone.symptoms.length > 0);
   return (
     <>
-      {orderedZones(conditions).map((zone, index) => (
+      {zones.map((zone, index) => (
         <View key={zone.key} style={index > 0 && styles.zone}>
           <AppText variant="section">{zone.label}</AppText>
           <View style={styles.chips}>

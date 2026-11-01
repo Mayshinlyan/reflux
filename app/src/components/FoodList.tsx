@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { Pencil, Utensils } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
@@ -18,10 +18,8 @@ import { VERDICT_LABELS } from '@/components/VerdictBadge';
 import { VerdictSelect } from '@/components/VerdictSelect';
 import { analysisConditions } from '@/constants/conditions';
 import { useDb } from '@/db/DatabaseProvider';
-import { listDiaryFoodLogs } from '@/db/repositories/food';
 import {
   listSavedFoods,
-  logSavedFood,
   MAX_SAVED_FOOD_NAME,
   removeSavedFood,
   renameSavedFood,
@@ -30,55 +28,27 @@ import {
   updateSavedFood,
 } from '@/db/repositories/savedFoods';
 import { getSetting } from '@/db/repositories/settings';
-import type { AppDb } from '@/db/types';
-import { playChing } from '@/lib/ching';
 import { AppError, friendlyMessages } from '@/lib/errors';
-import { formatTime, localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
 import { formatIngredients, parseIngredients, withIngredients } from '@/lib/ingredients';
 import { effectiveVerdict, withUserVerdict } from '@/lib/verdict';
-import { currentTimeZone } from '@/lib/time';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
 import { deletePhoto, savePhoto } from '@/services/photoStore';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import type { AppVerdict } from '@/types/analysis';
-import { cardEdge, fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
+import { cardEdge, minTouchTarget, radius, space, typography, useColors } from '@/theme';
 
-/** How long a row says "Logged ✓" (and ignores taps) after a one-tap log, so a double-tap can't log twice. */
-const LOGGED_FLASH_MS = 2500;
-const DAY_MS = 86_400_000;
 /** The relay's cap on `details`, and ours on the ingredient list typed in the sheet. */
 const MAX_DETAILS = 300;
 /** Shown in the sheet's photo tile when a food has no photo. */
 const FILLER_PHOTO = require('@/assets/images/filler.jpg');
 
-/** What has been eaten today, per meal name (lower case): how many times and when last. */
-type EatenToday = Map<string, { count: number; lastAt: string; tz: string }>;
-
-function loadEatenToday(db: AppDb): EatenToday {
-  const now = new Date();
-  const tz = currentTimeZone();
-  const today = localDayKey(now.toISOString(), tz);
-  const meals = listDiaryFoodLogs(db, {
-    from: new Date(now.getTime() - 2 * DAY_MS).toISOString(),
-    to: new Date(now.getTime() + DAY_MS).toISOString(),
-  });
-  const eaten: EatenToday = new Map();
-  for (const meal of meals) {
-    if (localDayKey(meal.loggedAt, meal.tz) !== today) continue;
-    const key = meal.mealName.toLowerCase();
-    // Meals come oldest first, so the last one seen is the most recent.
-    eaten.set(key, { count: (eaten.get(key)?.count ?? 0) + 1, lastAt: meal.loggedAt, tz: meal.tz });
-  }
-  return eaten;
-}
-
 /**
  * Favorite foods (Profile > Favorite foods, and "See all" in the food capture's Quick log row): the saved foods as
- * filled cards. Tapping a card opens it to rename, re-check or remove, the Log button logs it (now, or earlier
- * in the past week) with the verdict it was saved with and no new analysis, and a left swipe deletes it.
- * "Log a new food" checks one from a photo or a description; the result can be logged as eaten, saved to this
- * list, or both.
+ * filled cards (Figma row 25, the same layout as Medications and Usual symptoms: a title, the cards, an "Add" button
+ * at the bottom, no instruction line). Tapping a card opens it to rename, re-check or remove, and a left swipe
+ * deletes it. Logging a favorite happens in the food capture's Quick log chips, not here. "Add a food" checks one
+ * from a photo or a description; the result can be logged as eaten, saved to this list, or both.
  */
 export function FoodList() {
   const colors = useColors();
@@ -86,10 +56,7 @@ export function FoodList() {
   const toast = useToast();
 
   const [foods, setFoods] = useState<StoredSavedFood[]>([]);
-  const [eaten, setEaten] = useState<EatenToday>(new Map());
   const [loadFailed, setLoadFailed] = useState(false);
-  const [justLogged, setJustLogged] = useState<ReadonlySet<number>>(new Set());
-  const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
   const [editing, setEditing] = useState<StoredSavedFood | null>(null);
   // What the sheet shows. Not cleared on close, so the sheet keeps its content while it slides away.
@@ -115,7 +82,6 @@ export function FoodList() {
   const reload = useCallback(() => {
     try {
       setFoods(listSavedFoods(db));
-      setEaten(loadEatenToday(db));
       setLoadFailed(false);
     } catch (error) {
       logger.error('loadSavedFoods', error);
@@ -123,11 +89,6 @@ export function FoodList() {
     }
   }, [db]);
   useFocusEffect(reload);
-
-  useEffect(() => {
-    const pending = timers.current;
-    return () => pending.forEach((timer) => clearTimeout(timer));
-  }, []);
 
   const trimmedName = name.trim();
   const closeForm = () => {
@@ -176,44 +137,6 @@ export function FoodList() {
     }
     setEditing(null);
     router.push({ pathname: '/log/food', params: { myFood: '1', food: String(id) } });
-  };
-
-  /**
-   * Log was tapped: the meal is logged now, like a Quick log chip. The toast's "Add details" opens the check-in
-   * page, where the time and any symptoms can be set.
-   */
-  const logOnce = (food: StoredSavedFood) => {
-    // `disabled` only applies after a re-render, so two taps in the same instant must be caught here.
-    if (timers.current.has(food.id)) return;
-    let loggedId: number;
-    try {
-      loggedId = logSavedFood(db, food.id);
-    } catch (error) {
-      logger.error('logSavedFood', error);
-      Alert.alert("Couldn't log", friendlyMessages.INTERNAL);
-      return;
-    }
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    playChing();
-    toast(`${food.mealName} logged`, {
-      action: {
-        label: 'Add details',
-        onPress: () => router.push({ pathname: '/log/food', params: { details: String(loggedId) } }),
-      },
-    });
-    setJustLogged((current) => new Set(current).add(food.id));
-    timers.current.set(
-      food.id,
-      setTimeout(() => {
-        timers.current.delete(food.id);
-        setJustLogged((current) => {
-          const next = new Set(current);
-          next.delete(food.id);
-          return next;
-        });
-      }, LOGGED_FLASH_MS),
-    );
-    reload();
   };
 
   const ingredientNames = parseIngredients(ingredientsText);
@@ -340,14 +263,11 @@ export function FoodList() {
   };
 
   return (
-    <Screen>
+    <Screen style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <BackHeader />
-        <AppText variant="display" accessibilityRole="header">
+        <AppText variant="display" accessibilityRole="header" style={styles.title}>
           Favorite foods
-        </AppText>
-        <AppText color="inkSoft" style={styles.subtitle}>
-          Tap a food to edit it.
         </AppText>
         {loadFailed && foods.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
@@ -355,13 +275,11 @@ export function FoodList() {
           </AppText>
         ) : foods.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
-            Add the foods you eat often, or save a meal from History, then log each one with a single tap.
+            No favorite foods yet.
           </AppText>
         ) : (
           <>
             {foods.map((food) => {
-              const today = eaten.get(food.mealName.toLowerCase());
-              const done = justLogged.has(food.id);
               const card = (
                 <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
                   <Pressable
@@ -387,28 +305,8 @@ export function FoodList() {
                       </AppText>
                       <AppText variant="caption" color="inkSoft">
                         {food.overallVerdict ? VERDICT_LABELS[food.overallVerdict] : 'No verdict'}
-                        {today
-                          ? ` · Eaten today ${formatTime(today.lastAt, today.tz)}${today.count > 1 ? ` (${today.count}×)` : ''}`
-                          : ''}
                       </AppText>
                     </View>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={done ? `${food.mealName} logged` : `Log ${food.mealName}`}
-                    accessibilityState={{ disabled: done }}
-                    disabled={done}
-                    onPress={() => logOnce(food)}
-                    style={({ pressed }) => [
-                      styles.logButton,
-                      {
-                        backgroundColor: done ? colors.sageInk : colors.sageTint,
-                        opacity: pressed ? 0.8 : 1,
-                      },
-                    ]}>
-                    <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
-                      {done ? 'Logged ✓' : 'Log'}
-                    </AppText>
                   </Pressable>
                 </View>
               );
@@ -424,10 +322,10 @@ export function FoodList() {
             })}
           </>
         )}
-        <Pressable accessibilityRole="button" onPress={addFood} style={styles.add}>
-          <AppText style={[styles.addText, { color: colors.clayInk }]}>+ Log a new food</AppText>
-        </Pressable>
       </ScrollView>
+      <View style={styles.footer}>
+        <Button label="Add a food" variant="secondary" onPress={addFood} />
+      </View>
 
       <BottomSheet visible={editing !== null} onClose={closeForm} scrollToTopKey={changing}>
         {/* The saved verdict first, like a meal in History; editing sits below it. */}
@@ -525,9 +423,12 @@ export function FoodList() {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: space.s4 },
+  screen: { paddingBottom: 0 },
+  content: { paddingBottom: space.s3 },
   empty: { marginBottom: space.s2, lineHeight: 24 },
-  subtitle: { ...typography.subtitle, marginTop: space.s2, marginBottom: space.s4 },
+  // No instruction line under the title, so the title itself leaves the gap before the first card.
+  title: { marginBottom: space.s4 },
+  footer: { paddingTop: space.s2 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -550,17 +451,6 @@ const styles = StyleSheet.create({
   icon: { width: 38, height: 38, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   text: { flex: 1, minWidth: 0 },
   foodName: typography.button,
-  logButton: {
-    minWidth: 76,
-    minHeight: minTouchTarget,
-    paddingHorizontal: 16,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logText: { ...typography.button, fontFamily: fontFamily.extrabold },
-  add: { minHeight: minTouchTarget, justifyContent: 'center', paddingVertical: space.s1 },
-  addText: typography.button,
   sheetTitle: { marginBottom: space.s1 },
   sheetPhoto: {
     width: '100%',

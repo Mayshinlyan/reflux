@@ -6,6 +6,7 @@ import { AppText } from '@/components/AppText';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { SymptomZones } from '@/components/SymptomZones';
+import { BODY_ZONES } from '@/constants/bodyZones';
 import { SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
 import { useSettings } from '@/db/DatabaseProvider';
 import { friendlyMessages } from '@/lib/errors';
@@ -13,13 +14,16 @@ import { logger } from '@/lib/logger';
 import { space } from '@/theme';
 
 /**
- * Pick the symptoms you usually feel (Figma 06c). They are shown first when you log.
- * Give it a new `key` each time it opens so it starts from the saved list.
+ * Add to your usual symptoms (Figma row 25, 25e): only the symptoms that are not on the list yet, by body area.
+ * They are shown first when you log. Give it a new `key` each time it opens so it starts with nothing picked.
  */
-export function SymptomsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function AddSymptomsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { settings, update } = useSettings();
-  const [selected, setSelected] = useState<ReadonlySet<SymptomKey>>(new Set(settings.usualSymptoms));
+  const [selected, setSelected] = useState<ReadonlySet<SymptomKey>>(new Set());
   const [saveFailed, setSaveFailed] = useState(false);
+  const usual = new Set(settings.usualSymptoms);
+  // Only symptoms still offered (every one belongs to a body area), so a retired key never blocks "all added".
+  const allAdded = BODY_ZONES.every((zone) => zone.symptoms.every((key) => usual.has(key)));
 
   const toggle = (key: SymptomKey) =>
     setSelected((current) => {
@@ -33,7 +37,7 @@ export function SymptomsSheet({ visible, onClose }: { visible: boolean; onClose:
       // In catalog order, so the saved list doesn't depend on tap order.
       update(
         'usualSymptoms',
-        SYMPTOM_KEYS.filter((key) => selected.has(key)),
+        SYMPTOM_KEYS.filter((key) => usual.has(key) || selected.has(key)),
       );
     } catch (error) {
       logger.error('saveUsualSymptoms', error);
@@ -47,17 +51,28 @@ export function SymptomsSheet({ visible, onClose }: { visible: boolean; onClose:
   return (
     <BottomSheet visible={visible} onClose={onClose}>
       <AppText variant="section" accessibilityRole="header" style={styles.title}>
-        Usual symptoms
+        Add a symptom
       </AppText>
-      <SymptomZones selected={selected} onToggle={toggle} conditions={settings.conditions} />
-      <View style={styles.footer}>
-        {saveFailed && (
-          <AppText color="redInk" style={styles.error}>
-            {friendlyMessages.INTERNAL}
-          </AppText>
-        )}
-        <Button label="Save" onPress={save} />
-      </View>
+      {allAdded ? (
+        <AppText color="inkSoft">They are all on your list.</AppText>
+      ) : (
+        <>
+          <SymptomZones
+            selected={selected}
+            onToggle={toggle}
+            conditions={settings.conditions}
+            hidden={usual as ReadonlySet<SymptomKey>}
+          />
+          <View style={styles.footer}>
+            {saveFailed && (
+              <AppText color="redInk" style={styles.error}>
+                {friendlyMessages.INTERNAL}
+              </AppText>
+            )}
+            <Button label="Add" onPress={save} disabled={selected.size === 0} />
+          </View>
+        </>
+      )}
     </BottomSheet>
   );
 }

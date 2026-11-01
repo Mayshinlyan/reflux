@@ -205,9 +205,22 @@ describe('Medications: logging', () => {
     expect(screen.getByText(/PPI · Taken today /)).toBeTruthy();
   });
 
-  it('explains what to do when there are no medications yet', async () => {
+  it('says so in a few words when there are no medications yet', async () => {
     await render(<MedicationScreen />);
-    expect(screen.getByText(/Add the medications you take/)).toBeTruthy();
+    expect(screen.getByText('No medications yet.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add a medication' })).toBeTruthy();
+  });
+
+  it('has no instruction line under the title when managing, and keeps it when logging', async () => {
+    seedOmeprazole();
+    const { unmount } = await render(<MedicationScreen />);
+    expect(screen.queryByText('Tap a medication to see it.')).toBeNull();
+    expect(screen.queryByText(/Tap Log for a dose now/)).toBeNull();
+    await unmount();
+
+    mockParams = {};
+    await render(<MedicationScreen />);
+    expect(screen.getByText(/Tap Log for a dose now/)).toBeTruthy();
   });
 });
 
@@ -475,7 +488,7 @@ describe('Medications: editing and removing', () => {
     expect(listMedications(mockDb)).toEqual([]);
     expect(listMedications(mockDb, { includeArchived: true })).toHaveLength(1);
     expect(listMedicationLogs(mockDb, ALL_TIME)).toHaveLength(1);
-    expect(screen.getByText(/Add the medications you take/)).toBeTruthy();
+    expect(screen.getByText('No medications yet.')).toBeTruthy();
     expect(mockToast).toHaveBeenCalledWith('Removed from your list');
     alert.mockRestore();
   });

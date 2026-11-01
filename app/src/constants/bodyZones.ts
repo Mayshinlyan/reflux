@@ -30,6 +30,9 @@ export const BODY_ZONES: readonly { key: ZoneKey; label: string; symptoms: reado
 
 export const zoneLabel = (zone: ZoneKey) => BODY_ZONES.find((z) => z.key === zone)?.label ?? zone;
 export const zoneSymptoms = (zone: ZoneKey) => BODY_ZONES.find((z) => z.key === zone)?.symptoms ?? [];
+/** The name of the body area a built-in symptom belongs to ("Chest"), for a line under it in a list. */
+export const zoneOfSymptom = (key: SymptomKey) =>
+  BODY_ZONES.find((zone) => zone.symptoms.includes(key))?.label ?? OTHER_AREA_LABEL;
 
 /** The area each condition shows first. */
 const CONDITION_ZONE: Partial<Record<ConditionKey, ZoneKey>> = {
