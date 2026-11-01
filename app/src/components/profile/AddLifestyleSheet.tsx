@@ -52,7 +52,8 @@ export function AddLifestyleSheet({
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose}>
+    // On the page `bg`, so the field's `surface` fill shows as a box before it is focused (like the feedback sheet).
+    <BottomSheet visible={visible} onClose={onClose} tone="bg">
       <AppText variant="section" accessibilityRole="header" style={styles.title}>
         Add a lifestyle
       </AppText>
