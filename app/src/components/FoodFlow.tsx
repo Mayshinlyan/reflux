@@ -132,7 +132,7 @@ export type MyFoodTarget = { id?: number; name?: string };
  * `openCamera` opens the camera as soon as the screen appears (the widget's "Snap food" bubble; a denied camera
  * keeps this screen and says why).
  * With `myFood`, the verdict is saved to "Favorite foods" instead, and nothing goes into the diary.
- * `fromList` ("Log a new food" on the Food list) also offers saving the result to favorite foods only; saving
+ * `fromList` ("Add a food" on the Food list) also offers saving the result to favorite foods only; saving
  * without a verdict still logs the meal to the diary.
  * `date` (a day tapped in Today's week strip) logs the meal at noon of that earlier day instead of now.
  * `quickLog` (a saved food tapped on the home-screen widget) logs that food as soon as the screen appears, exactly
