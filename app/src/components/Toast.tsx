@@ -19,7 +19,7 @@ const ACTION_TOAST_MS = 5000;
 
 const ToastContext = createContext<(message: string, options?: ToastOptions) => void>(() => {});
 
-/** Shows a short confirmation ("Symptoms logged") near the bottom of the screen. */
+/** Shows a short confirmation ("Logged") near the bottom of the screen. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();

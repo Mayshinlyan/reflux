@@ -7,7 +7,7 @@ import { AppText } from './AppText';
 
 /**
  * `quietDanger` is a plain red text button for destructive actions that shouldn't compete with the main one;
- * `quiet` is the same in clay ink, for a way out that sits under a primary button ("Complete check-in").
+ * `quiet` is the same in clay ink, for a way out that sits under a primary button ("No symptoms").
  */
 type Variant = 'primary' | 'secondary' | 'danger' | 'quietDanger' | 'quiet';
 

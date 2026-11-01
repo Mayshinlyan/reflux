@@ -546,8 +546,8 @@ export default function MedicationScreen() {
                   accessibilityHint={manage ? 'Shows its details' : 'Opens time, dose and note'}
                   onPress={() => (manage ? setViewing(med) : openDetail(med))}
                   style={styles.info}>
-                  <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                    <Pill size={20} color={colors.clayInk} strokeWidth={2} />
+                  <View style={[styles.icon, { backgroundColor: colors.sageTint }]}>
+                    <Pill size={20} color={colors.sageInk} strokeWidth={2} />
                   </View>
                   <View style={styles.text}>
                     <AppText style={styles.medName} numberOfLines={2}>
@@ -559,23 +559,26 @@ export default function MedicationScreen() {
                     </AppText>
                   </View>
                 </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
-                  accessibilityState={{ disabled: done }}
-                  disabled={done}
-                  onPress={() => logDose(med, dayAt ? { at: dayAt } : undefined)}
-                  style={({ pressed }) => [
-                    styles.logButton,
-                    {
-                      backgroundColor: done ? colors.sageInk : colors.sageTint,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}>
-                  <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
-                    {done ? 'Logged ✓' : 'Log'}
-                  </AppText>
-                </Pressable>
+                {/* Managing the list, not logging: a tap opens the medication, so no Log pill. */}
+                {!manage && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
+                    accessibilityState={{ disabled: done }}
+                    disabled={done}
+                    onPress={() => logDose(med, dayAt ? { at: dayAt } : undefined)}
+                    style={({ pressed }) => [
+                      styles.logButton,
+                      {
+                        backgroundColor: done ? colors.sageInk : colors.sageTint,
+                        opacity: pressed ? 0.8 : 1,
+                      },
+                    ]}>
+                    <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
+                      {done ? 'Logged ✓' : 'Log'}
+                    </AppText>
+                  </Pressable>
+                )}
               </View>
             );
           })

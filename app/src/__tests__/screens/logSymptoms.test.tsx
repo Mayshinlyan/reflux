@@ -81,20 +81,29 @@ describe('symptomsTitle', () => {
 });
 
 describe('Log symptoms screen: pick, then details', () => {
-  it('completes the check-in from the first step, skipping the details', async () => {
+  it('waits for a symptom before Next, then saves from the details with Done', async () => {
     await render(<LogSymptomsScreen />);
-    const complete = screen.getByRole('button', { name: 'Complete check-in' });
-    expect(complete.props.accessibilityState).toMatchObject({ disabled: true });
+    expect(screen.getByRole('button', { name: 'Next' }).props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+    // There is no Done on the first step.
+    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
 
     await choose('Heartburn');
-    await press('button', 'Complete check-in');
+    expect(screen.getByRole('button', { name: 'Next' }).props.accessibilityState).not.toMatchObject({
+      disabled: true,
+    });
+    // With a symptom picked the quiet "No symptoms" link is not offered.
+    expect(screen.queryByRole('button', { name: 'No symptoms' })).toBeNull();
+    await press('button', 'Next');
+    await press('button', 'Done');
 
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]).toMatchObject({
       items: [{ key: 'heartburn', score: 1 }],
       tags: [],
       notes: null,
     });
-    expect(mockToast).toHaveBeenCalledWith('Symptoms logged');
+    expect(mockToast).toHaveBeenCalledWith('Logged');
     expect(mockBack).toHaveBeenCalled();
   });
 
@@ -112,14 +121,12 @@ describe('Log symptoms screen: pick, then details', () => {
   it('chooses symptoms across areas, then saves them with lifestyle chips and a note', async () => {
     await render(<LogSymptomsScreen />);
 
-    // Pick: nothing is chosen yet. Next is on (it skips to the details); there is nothing to complete.
+    // Pick: nothing is chosen yet, so Next waits and the only way on is "No symptoms".
     expect(screen.getByText('How do you feel?')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Next' }).props.accessibilityState).not.toMatchObject({
+    expect(screen.getByRole('button', { name: 'Next' }).props.accessibilityState).toMatchObject({
       disabled: true,
     });
-    expect(screen.getByRole('button', { name: 'Complete check-in' }).props.accessibilityState).toMatchObject({
-      disabled: true,
-    });
+    expect(screen.getByRole('button', { name: 'No symptoms' })).toBeTruthy();
 
     await choose('Heartburn');
     await choose('Feeling full', 'Stomach pain');
@@ -133,7 +140,7 @@ describe('Log symptoms screen: pick, then details', () => {
     expect(screen.getByText('Heartburn, stomach pain and 1 more')).toBeTruthy();
     await press('checkbox', 'Large meal');
     await fireEvent.changeText(screen.getByLabelText('Note'), 'after dinner');
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
 
     const [log] = listSymptomLogs(mockDb, ALL_TIME);
     // Canonical order, one row per symptom, no severity chosen by the user.
@@ -144,7 +151,7 @@ describe('Log symptoms screen: pick, then details', () => {
     ]);
     expect(log?.tags).toEqual(['large_meal']);
     expect(log?.notes).toBe('after dinner');
-    expect(mockToast).toHaveBeenCalledWith('Symptoms logged');
+    expect(mockToast).toHaveBeenCalledWith('Logged');
     expect(mockChing).toHaveBeenCalledTimes(1);
     expect(mockBack).toHaveBeenCalled();
   });
@@ -153,7 +160,7 @@ describe('Log symptoms screen: pick, then details', () => {
     await render(<LogSymptomsScreen />);
     await choose('Hoarse voice');
     await press('button', 'Next');
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
 
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]).toMatchObject({
       items: [{ key: 'hoarseness', score: 1 }],
@@ -271,7 +278,7 @@ describe('Log symptoms screen: the meal they followed', () => {
     expect(screen.getByText('Tap to link it to these symptoms.')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: /^Meal: late tacos/ }));
     expect(screen.getByText('Linked to these symptoms. Tap to unlink.')).toBeTruthy();
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
 
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.foodLogId).toBe(tacos);
   });
@@ -280,7 +287,7 @@ describe('Log symptoms screen: the meal they followed', () => {
     createUncheckedMeal(mockDb, { source: 'text', inputText: 'late tacos', loggedAt: minutesAgo(30) });
     await render(<LogSymptomsScreen />);
     await toDetails();
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.foodLogId).toBeNull();
     await screen.unmount();
 
@@ -289,7 +296,7 @@ describe('Log symptoms screen: the meal they followed', () => {
     await fireEvent.press(screen.getByRole('button', { name: /^Meal: late tacos/ }));
     await fireEvent.press(screen.getByRole('button', { name: /^Meal: late tacos/ }));
     expect(screen.getByText('Tap to link it to these symptoms.')).toBeTruthy();
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
     expect(listSymptomLogs(mockDb, ALL_TIME)[1]?.foodLogId).toBeNull();
   });
 
@@ -310,7 +317,7 @@ describe('Log symptoms screen: the meal they followed', () => {
     mockParams = { afterFood: String(id) };
     await render(<LogSymptomsScreen />);
     await toDetails();
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
 
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.foodLogId).toBe(id);
   });
@@ -324,7 +331,7 @@ describe('Log symptoms screen: the meal they followed', () => {
     mockParams = { afterFood: String(id) };
     await render(<LogSymptomsScreen />);
     await toDetails();
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
 
     expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(`meal-${id}`);
   });
@@ -332,7 +339,7 @@ describe('Log symptoms screen: the meal they followed', () => {
   it('leaves reminders alone for a check-in that is not about a meal', async () => {
     await render(<LogSymptomsScreen />);
     await toDetails();
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
 
     expect(Notifications.cancelScheduledNotificationAsync).not.toHaveBeenCalled();
   });
@@ -439,7 +446,7 @@ describe('Log symptoms screen: logging on an earlier day (from the week strip)',
   const saveHeartburn = async () => {
     await choose('Heartburn');
     await press('button', 'Next');
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
   };
 
   it('shows that day in the time pill and saves the entry on it, at noon', async () => {
@@ -449,7 +456,7 @@ describe('Log symptoms screen: logging on an earlier day (from the week strip)',
     await choose('Heartburn');
     await press('button', 'Next');
     expect(screen.getByText(/12:00 PM$/)).toBeTruthy();
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
 
     const [log] = listSymptomLogs(mockDb, ALL_TIME);
     expect(new Date(log!.loggedAt).getTime()).toBe(
@@ -492,7 +499,7 @@ describe('Adding your own with a + chip', () => {
     expect(listSavedSymptoms(mockDb)).toMatchObject([{ name: 'Hiccups', kind: 'symptom', zone: 'chest' }]);
     await press('button', 'Next');
     expect(screen.getByText('Hiccups')).toBeTruthy(); // the details title
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
 
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.items).toEqual([{ key: 'custom:Hiccups', score: 1 }]);
   });
@@ -509,7 +516,8 @@ describe('Adding your own with a + chip', () => {
       checked: false,
     });
     await choose('Dry mouth');
-    await press('button', 'Complete check-in');
+    await press('button', 'Next');
+    await press('button', 'Done');
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.items).toEqual([{ key: 'custom:Dry mouth', score: 1 }]);
   });
 
@@ -591,7 +599,7 @@ describe('Adding your own with a + chip', () => {
     expect(listSavedSymptoms(mockDb)).toMatchObject([
       { name: 'Skipped breakfast', kind: 'lifestyle', zone: null },
     ]);
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
 
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.tags).toEqual(['custom:Skipped breakfast']);
   });
@@ -602,7 +610,7 @@ describe('Adding your own with a + chip', () => {
     await press('button', 'Next');
 
     await addTo("What's going on?", 'stress');
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
 
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.tags).toEqual(['stress']);
     expect(listSavedSymptoms(mockDb)).toEqual([]);
@@ -672,34 +680,34 @@ describe('Log symptoms screen: lifestyle on its own', () => {
   const isDisabled = (name: string) =>
     Boolean(screen.getByRole('button', { name }).props.accessibilityState?.disabled);
 
-  it('goes on with nothing picked, titles the details "Just checking in", and saves once something is picked', async () => {
+  it('goes on with "No symptoms", titles the details "Just checking in", and saves once something is picked', async () => {
     await render(<LogSymptomsScreen />);
-    expect(isDisabled('Next')).toBe(false);
-    await press('button', 'Next');
+    expect(isDisabled('Next')).toBe(true);
+    await press('button', 'No symptoms');
 
     expect(screen.getByText('Just checking in')).toBeTruthy();
-    expect(isDisabled('Complete check-in')).toBe(true); // nothing to save yet
+    expect(isDisabled('Done')).toBe(true); // nothing to save yet
 
     await press('checkbox', 'Stress');
     await press('checkbox', 'Lay down after eating');
-    expect(isDisabled('Complete check-in')).toBe(false);
-    await press('button', 'Complete check-in');
+    expect(isDisabled('Done')).toBe(false);
+    await press('button', 'Done');
 
     const [log] = listSymptomLogs(mockDb, ALL_TIME);
     expect(log?.items).toEqual([]);
     expect(log?.tags.sort()).toEqual(['lay_down_after_eating', 'stress']);
-    expect(mockToast).toHaveBeenCalledWith('Lifestyle logged');
+    expect(mockToast).toHaveBeenCalledWith('Logged');
     expect(mockBack).toHaveBeenCalled();
   });
 
   it('offers no meal to link, and saves no link, when there are no symptoms', async () => {
     createUncheckedMeal(mockDb, { source: 'text', inputText: 'late tacos', loggedAt: minutesAgo(30) });
     await render(<LogSymptomsScreen />);
-    await press('button', 'Next');
+    await press('button', 'No symptoms');
 
     expect(screen.queryByText('Recent meal')).toBeNull();
     await press('checkbox', 'Stress');
-    await press('button', 'Complete check-in');
+    await press('button', 'Done');
     expect(listSymptomLogs(mockDb, ALL_TIME)[0]?.foodLogId).toBeNull();
   });
 

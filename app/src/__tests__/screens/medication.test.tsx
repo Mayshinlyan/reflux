@@ -137,7 +137,18 @@ describe('Medications: logging', () => {
     expect(screen.queryByText(/Any symptoms/)).toBeNull();
   });
 
+  it('has no Log pills when managing the list: a tap opens the medication', async () => {
+    seedOmeprazole();
+    await render(<MedicationScreen />);
+
+    expect(screen.queryByRole('button', { name: 'Log Omeprazole 20mg' })).toBeNull();
+    expect(screen.queryByText('Log')).toBeNull();
+    await press('button', 'Omeprazole 20mg');
+    expect(screen.getByText('Remove from my list')).toBeTruthy();
+  });
+
   it('confirms on the row, says when it was last taken today, and ignores a double-tap', async () => {
+    mockParams = {};
     jest.useFakeTimers();
     seedOmeprazole();
     await render(<MedicationScreen />);
@@ -154,6 +165,7 @@ describe('Medications: logging', () => {
   });
 
   it('cannot log twice from two taps in the same instant', async () => {
+    mockParams = {};
     jest.useFakeTimers();
     seedOmeprazole();
     await render(<MedicationScreen />);
@@ -169,6 +181,7 @@ describe('Medications: logging', () => {
   });
 
   it('returns to "Log" after a moment so a second dose can be logged, and counts them', async () => {
+    mockParams = {};
     jest.useFakeTimers();
     seedOmeprazole();
     await render(<MedicationScreen />);
@@ -334,7 +347,7 @@ describe('Medications: adding', () => {
       }),
     ]);
     expect(mockToast).toHaveBeenCalledWith('Famotidine (Pepcid) added');
-    expect(screen.getByRole('button', { name: 'Log Famotidine (Pepcid) 20mg' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Famotidine (Pepcid) 20mg' })).toBeTruthy();
   });
 
   it('cannot add until a medication is chosen', async () => {
@@ -441,7 +454,7 @@ describe('Medications: editing and removing', () => {
 
     expect(listMedications(mockDb)[0]).toMatchObject({ name: 'Omeprazole (generic)', defaultDose: '40mg' });
     expect(listMedicationLogs(mockDb, ALL_TIME)[0]).toMatchObject({ name: 'Omeprazole', doseText: '20mg' });
-    expect(screen.getByRole('button', { name: 'Log Omeprazole (generic) 40mg' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Omeprazole (generic) 40mg' })).toBeTruthy();
   });
 
   it('removes a medication from the list after confirming, but keeps its logs', async () => {

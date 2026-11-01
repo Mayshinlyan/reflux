@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { Ellipsis, Pencil, Trash2 } from 'lucide-react-native';
+import { Ellipsis, Heart, Pencil, Trash2 } from 'lucide-react-native';
 import { type ReactNode, useCallback, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,12 +11,12 @@ import { Screen } from '@/components/Screen';
 import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
 import { BackHeader } from '@/components/BackHeader';
-import { VerdictHero, VerdictTip, VerdictWhy } from '@/components/food/FoodVerdict';
+import { VerdictHero, VerdictMore } from '@/components/food/FoodVerdict';
 import { TopBarButton } from '@/components/TopBar';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { getFoodLog, listMealTags } from '@/db/repositories/food';
-import { isFoodSaved } from '@/db/repositories/savedFoods';
+import { removeSavedFood, saveFoodFromLog, savedFoodIdByName } from '@/db/repositories/savedFoods';
 import { listSymptomLogsForMeal } from '@/db/repositories/symptoms';
 import { useDeleteEntry } from '@/hooks/useDeleteEntry';
 import { type LoadedEntry, loadEntry } from '@/lib/entry';
@@ -56,6 +56,20 @@ export default function EntryScreen() {
 
   const deleteEntry = useDeleteEntry(() => router.back());
 
+  // A meal can be a favorite food: the heart saves it, and a second tap takes it out again.
+  const [, refreshSaved] = useState(0);
+  const savedId = entry?.kind === 'food' ? savedFoodIdByName(db, entry.log.mealName) : null;
+  const toggleSaved = () => {
+    if (entry?.kind !== 'food') return;
+    try {
+      if (savedId !== null) removeSavedFood(db, savedId);
+      else saveFoodFromLog(db, entry.log.id);
+    } catch (error) {
+      logger.error('toggleSavedFood', error);
+    }
+    refreshSaved((count) => count + 1);
+  };
+
   const edit = () => {
     setMenuOpen(false);
     if (!entry) return;
@@ -89,7 +103,21 @@ export default function EntryScreen() {
 
   return (
     <Screen>
-      <BackHeader right={<TopBarButton icon={Ellipsis} label="More" onPress={() => setMenuOpen(true)} />} />
+      <BackHeader
+        right={
+          <View style={styles.topRight}>
+            {entry.kind === 'food' && (
+              <TopBarButton
+                icon={Heart}
+                active={savedId !== null}
+                label={savedId !== null ? 'Remove from favorite foods' : 'Add to favorite foods'}
+                onPress={toggleSaved}
+              />
+            )}
+            <TopBarButton icon={Ellipsis} label="More" onPress={() => setMenuOpen(true)} />
+          </View>
+        }
+      />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {entry.kind === 'food' && <MealView log={entry.log} />}
         {entry.kind === 'symptom' && <SymptomView log={entry.log} />}
@@ -209,8 +237,6 @@ function NoteCard({ notes }: { notes: string | null }) {
   ) : null;
 }
 
-const PORTION_LABELS = { small: 'Small', regular: 'Regular', large: 'Large' } as const;
-
 function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] }) {
   const db = useDb();
   const colors = useColors();
@@ -223,48 +249,51 @@ function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] 
   const keys = [...new Set(after.flatMap((symptoms) => symptoms.items.map((item) => item.key)))];
   const first = after[0];
   const { analysis } = log;
-  // A meal with a stored verdict shows it the way the verdict screen did (Figma 04b.1): Bellie and the verdict
-  // on top, the details on one sheet, and the tip and why at the bottom of it.
+  // A meal with a stored verdict (Figma row 24, 24a): the name and when first, then Bellie with the badge and the
+  // one-line reason, what happened after the meal, and a closed "Why?" holding the tip and the reasons.
   if (analysis) {
+    const hasAfter = (keys.length > 0 && first !== undefined) || Boolean(log.notes);
     return (
       <>
-        <VerdictHero analysis={analysis} late={late} showTriggers={false} />
         <View style={styles.meal}>
           <AppText variant="display" accessibilityRole="header" style={styles.centered}>
             {log.mealName}
           </AppText>
           <AppText variant="small" color="inkSoft" style={styles.centered}>
-            {`${formatWhen(log.loggedAt, log.tz)} · ${PORTION_LABELS[log.portion ?? 'regular']} portion`}
+            {formatWhen(log.loggedAt, log.tz)}
           </AppText>
-          {tags.length > 0 && (
+          {/* Only what the user picked themselves; the reasons behind the verdict are under "Why?". */}
+          {lifestyle.length > 0 && (
             <View style={[styles.chips, styles.centeredChips]}>
-              {tags.map((label) => (
+              {lifestyle.map((label) => (
                 <TagChip key={label} label={label} selected={false} readOnly />
               ))}
             </View>
           )}
         </View>
-        <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
-          {keys.length > 0 && first && (
-            <Section title="Symptoms">
-              <View style={styles.chips}>
-                {keys.map((key) => (
-                  <SymptomChip key={key} label={symptomLabel(key)} selected readOnly />
-                ))}
-              </View>
-              <AppText variant="caption" color="inkSoft">
-                {`Logged at ${formatTime(first.loggedAt, first.tz)}`}
-              </AppText>
-            </Section>
-          )}
-          {log.notes ? (
-            <Section title="Note">
-              <AppText variant="small">{log.notes}</AppText>
-            </Section>
-          ) : null}
-          <VerdictTip tip={analysis.overall.tip} />
-          <VerdictWhy analysis={analysis} late={late} plain />
-        </View>
+        <VerdictHero analysis={analysis} late={late} showTriggers={false} showBubble={false} />
+        {hasAfter && (
+          <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
+            {keys.length > 0 && first && (
+              <Section title="Symptoms">
+                <View style={styles.chips}>
+                  {keys.map((key) => (
+                    <SymptomChip key={key} label={symptomLabel(key)} selected readOnly />
+                  ))}
+                </View>
+                <AppText variant="caption" color="inkSoft">
+                  {`Logged at ${formatTime(first.loggedAt, first.tz)}`}
+                </AppText>
+              </Section>
+            )}
+            {log.notes ? (
+              <Section title="Note">
+                <AppText variant="small">{log.notes}</AppText>
+              </Section>
+            ) : null}
+          </View>
+        )}
+        <VerdictMore analysis={analysis} late={late} />
       </>
     );
   }
@@ -276,10 +305,6 @@ function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] 
       <Card>
         <AppText variant="bodyEm">{formatWhen(log.loggedAt, log.tz)}</AppText>
         <Tags labels={tags} />
-      </Card>
-      <Card title="Details">
-        <DetailRow label="Portion" value={PORTION_LABELS[log.portion ?? 'regular']} />
-        <DetailRow label="Saved to favorite foods" value={isFoodSaved(db, log.mealName) ? 'Yes' : 'No'} />
       </Card>
       {keys.length > 0 && first && (
         <Card title="Symptoms">
@@ -370,6 +395,7 @@ function DoseView({ log }: { log: Extract<LoadedEntry, { kind: 'medication' }>['
 
 const styles = StyleSheet.create({
   content: { gap: space.s3, paddingBottom: space.s4 },
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: space.s1 },
   heading: { gap: space.s2 },
   card: { borderRadius: radius.lg, padding: space.s2, gap: space.s1_5 },
   // The logged-meal page: the name, when and tags sit open on the page, the rest on one sheet.

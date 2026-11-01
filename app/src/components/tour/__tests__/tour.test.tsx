@@ -89,6 +89,8 @@ describe('App tour', () => {
 
     expect(screen.getByText('A quick look around')).toBeTruthy();
     expect(screen.getByLabelText('Step 1 of 5')).toBeTruthy();
+    // Sentence case, not capitals.
+    expect(screen.getByText('1 of 5')).toBeTruthy();
     expect(screen.queryByLabelText('Back')).toBeNull();
   });
 

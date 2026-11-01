@@ -2,7 +2,6 @@ import { orderedZones } from '../bodyZones';
 import {
   conditionsForAnalysis,
   legacyCondition,
-  managingLine,
   pickCondition,
   readConditions,
   suggestedSymptoms,
@@ -25,15 +24,6 @@ describe('conditions', () => {
     expect(pickCondition(['unsure'], 'gastritis')).toEqual(['gastritis']);
     expect(pickCondition(['gastritis'], 'gastritis')).toEqual([]);
     expect(pickCondition(['unsure'], 'unsure')).toEqual([]);
-  });
-
-  it('describes what you are managing', () => {
-    expect(managingLine(['unsure'])).toBe('Just tracking for now');
-    expect(managingLine(['gastritis'])).toBe('Managing gastritis');
-    expect(managingLine(['acid_reflux', 'lpr'])).toBe('Managing acid reflux and silent reflux');
-    expect(managingLine(['acid_reflux', 'lpr', 'gastritis'])).toBe(
-      'Managing acid reflux, silent reflux and gastritis',
-    );
   });
 
   it('keeps "Not sure yet" away from the relay', () => {

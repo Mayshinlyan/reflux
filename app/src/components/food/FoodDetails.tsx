@@ -1,4 +1,4 @@
-import { Heart, Star } from 'lucide-react-native';
+import { Heart } from 'lucide-react-native';
 import { useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -212,7 +212,7 @@ export function FoodDetails({
           accessibilityState={{ checked: state.keep }}
           onPress={() => onChange({ ...state, keep: !state.keep })}
           style={styles.favorite}>
-          <Star
+          <Heart
             size={24}
             color={colors.clayInk}
             fill={state.keep ? colors.clayInk : 'none'}

@@ -71,26 +71,20 @@ describe('Profile', () => {
   it('invites you to add a name on a fresh install', async () => {
     await render(<ProfileScreen />);
 
-    expect(screen.getByRole('header', { name: 'Your name' })).toBeTruthy();
-    expect(screen.getByText('Just tracking for now')).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Profile' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add your name' })).toBeTruthy();
-    expect(screen.getByText('Tap to pick the ones you usually feel.')).toBeTruthy();
+    expect(screen.getByText('Add your name')).toBeTruthy();
   });
 
-  it('shows the name, what you are managing, and your usual symptoms', async () => {
+  it('shows the name, which is the way to edit it, with no separate Edit name button', async () => {
     setSetting(mockDb, 'userName', 'May');
-    setSetting(mockDb, 'conditions', ['acid_reflux', 'lpr']);
-    setSetting(mockDb, 'usualSymptoms', ['heartburn', 'burping']);
     await render(<ProfileScreen />);
 
-    expect(screen.getByRole('header', { name: 'May' })).toBeTruthy();
-    expect(screen.getByText('Managing acid reflux and silent reflux')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Edit name' })).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Condition, Acid reflux or GERD, Silent reflux (LPR), change' }),
-    ).toBeTruthy();
-    expect(screen.getByText('Heartburn')).toBeTruthy();
-    expect(screen.getByText('Burping')).toBeTruthy();
+    expect(screen.getByText('May')).toBeTruthy();
+    // One button for the name: its label says what it does, its value is the name.
+    const name = screen.getByRole('button', { name: 'Edit name' });
+    expect(name.props.accessibilityValue).toEqual({ text: 'May' });
+    expect(screen.getAllByRole('button', { name: 'Edit name' })).toHaveLength(1);
   });
 
   it('has no back button or gear, since Profile is a tab', async () => {
@@ -100,15 +94,17 @@ describe('Profile', () => {
     expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull();
   });
 
-  it('lists Favorite foods, Medications and Symptoms and lifestyles under Your lists', async () => {
+  it('lists Condition, Usual symptoms, Favorite foods, Medications and My own chips under Your lists', async () => {
     await render(<ProfileScreen />);
 
     expect(screen.getByRole('header', { name: 'Your lists' })).toBeTruthy();
     const rows = screen
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
-      .filter((label) => /^(Favorite foods|Medications|Symptoms and lifestyles)$/.test(label ?? ''));
-    expect(rows).toEqual(['Favorite foods', 'Medications', 'Symptoms and lifestyles']);
+      .filter((label) =>
+        /^(Condition|Usual symptoms|Favorite foods|Medications|My own chips)$/.test(label ?? ''),
+      );
+    expect(rows).toEqual(['Condition', 'Usual symptoms', 'Favorite foods', 'Medications', 'My own chips']);
   });
 
   it('opens Favorite foods', async () => {
@@ -127,10 +123,10 @@ describe('Profile', () => {
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/medication', params: { manage: '1' } });
   });
 
-  it('opens Symptoms and lifestyles', async () => {
+  it('opens My own chips', async () => {
     await render(<ProfileScreen />);
 
-    await press('button', 'Symptoms and lifestyles');
+    await press('button', 'My own chips');
 
     expect(mockPush).toHaveBeenCalledWith('/my-additions');
   });
@@ -145,7 +141,7 @@ describe('Profile: name', () => {
     await press('button', 'Save');
 
     expect(getSetting(mockDb, 'userName')).toBe('May');
-    expect(screen.getByRole('header', { name: 'May' })).toBeTruthy();
+    expect(screen.getByText('May')).toBeTruthy();
     expect(screen.queryByLabelText('Your name')).toBeNull();
   });
 
@@ -188,7 +184,7 @@ describe('Profile: avatar', () => {
 });
 
 describe('Profile: condition', () => {
-  const change = 'Condition, Acid reflux or GERD, change';
+  const change = 'Condition';
 
   it('lists the conditions with the current ones checked', async () => {
     setSetting(mockDb, 'conditions', ['acid_reflux']);
@@ -212,14 +208,13 @@ describe('Profile: condition', () => {
     await press('button', 'Save');
 
     expect(getSetting(mockDb, 'conditions')).toEqual(['acid_reflux', 'lpr']);
-    expect(screen.getByText('Managing acid reflux and silent reflux')).toBeTruthy();
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
   });
 
   it('"Not sure yet" clears the rest, and picking a condition clears "Not sure yet"', async () => {
     setSetting(mockDb, 'conditions', ['acid_reflux', 'lpr']);
     await render(<ProfileScreen />);
-    await press('button', 'Condition, Acid reflux or GERD, Silent reflux (LPR), change');
+    await press('button', 'Condition');
 
     const checked = () =>
       screen
@@ -234,7 +229,6 @@ describe('Profile: condition', () => {
     await press('button', 'Save');
 
     expect(getSetting(mockDb, 'conditions')).toEqual(['gastritis']);
-    expect(screen.getByText('Managing gastritis')).toBeTruthy();
   });
 });
 
@@ -242,7 +236,7 @@ describe('Profile: usual symptoms', () => {
   it('starts from the saved symptoms and saves the new picks in catalog order', async () => {
     setSetting(mockDb, 'usualSymptoms', ['burping']);
     await render(<ProfileScreen />);
-    await press('button', 'Usual symptoms, change');
+    await press('button', 'Usual symptoms');
     expect(screen.getByRole('checkbox', { name: 'Burping' }).props.accessibilityState.checked).toBe(true);
 
     await press('checkbox', 'Heartburn');
@@ -255,12 +249,11 @@ describe('Profile: usual symptoms', () => {
   it('can be emptied', async () => {
     setSetting(mockDb, 'usualSymptoms', ['burping']);
     await render(<ProfileScreen />);
-    await press('button', 'Usual symptoms, change');
+    await press('button', 'Usual symptoms');
 
     await press('checkbox', 'Burping');
     await press('button', 'Save');
 
     expect(getSetting(mockDb, 'usualSymptoms')).toEqual([]);
-    expect(screen.getByText('Tap to pick the ones you usually feel.')).toBeTruthy();
   });
 });

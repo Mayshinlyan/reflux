@@ -12,10 +12,16 @@ const SIZE = 44;
 /** Width of the back/more circle, so other things in the bar (the onboarding progress bar) can sit beside it. */
 export const TOP_BAR_BUTTON_SIZE = SIZE;
 
-type ButtonProps = { icon: LucideIcon; label: string; onPress: () => void };
+type ButtonProps = {
+  icon: LucideIcon;
+  label: string;
+  onPress: () => void;
+  /** A switched-on toggle (a saved heart): the icon is filled in clay. */
+  active?: boolean;
+};
 
-/** The 44pt filled circle used at either end of the top bar (back, more). */
-export function TopBarButton({ icon: Icon, label, onPress }: ButtonProps) {
+/** The 44pt filled circle used at either end of the top bar (back, more, and a heart that saves). */
+export function TopBarButton({ icon: Icon, label, onPress, active = false }: ButtonProps) {
   const colors = useColors();
   return (
     <Pressable
@@ -26,7 +32,12 @@ export function TopBarButton({ icon: Icon, label, onPress }: ButtonProps) {
         styles.button,
         { backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
       ]}>
-      <Icon size={24} color={colors.ink} strokeWidth={2} />
+      <Icon
+        size={24}
+        color={active ? colors.clay : colors.ink}
+        fill={active ? colors.clay : 'none'}
+        strokeWidth={2}
+      />
     </Pressable>
   );
 }
