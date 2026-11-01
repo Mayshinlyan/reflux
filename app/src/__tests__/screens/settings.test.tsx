@@ -234,7 +234,11 @@ describe('Settings: privacy and disclaimer', () => {
     expect(screen.getByText('Stored on your phone')).toBeTruthy();
     expect(screen.getByText('Meal checks and summaries use AI')).toBeTruthy();
     // What is sent, and what is not, in a few plain words.
-    expect(screen.getByText(/we send your meals, symptoms and conditions to an AI service/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        /we send your meal photos or descriptions, symptoms, lifestyle tags and conditions to an AI service/,
+      ),
+    ).toBeTruthy();
     expect(screen.getByText(/along with anything you type when checking a meal/)).toBeTruthy();
     expect(
       screen.getByText(/The notes on your entries, your medications and your name stay on your phone/),
