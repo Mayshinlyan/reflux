@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Activity, Pencil, Pill, Stethoscope, Thermometer, Utensils } from 'lucide-react-native';
+import { Leaf, Pencil, Pill, Stethoscope, Thermometer, Utensils } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,7 +20,7 @@ type Sheet = 'avatar' | 'name' | 'condition' | null;
 
 /**
  * You: who you are and your lists (Figma row 24). A tab on the bottom bar. Condition is a sheet; Usual symptoms,
- * Favorite foods, Medications and My own chips are pages.
+ * Favorite foods, Medications and Lifestyle are pages.
  */
 export default function ProfileScreen() {
   const colors = useColors();
@@ -87,7 +87,7 @@ export default function ProfileScreen() {
           label="Medications"
           onPress={() => router.push({ pathname: '/log/medication', params: { manage: '1' } })}
         />
-        <SettingsRow icon={Activity} label="My own chips" onPress={() => router.push('/my-additions')} />
+        <SettingsRow icon={Leaf} label="Lifestyle" onPress={() => router.push('/lifestyle')} />
       </ScrollView>
 
       <AvatarSheet key={`avatar-${opened}`} visible={sheet === 'avatar'} onClose={close} />

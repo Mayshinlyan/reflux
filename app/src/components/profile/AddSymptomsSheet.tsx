@@ -49,7 +49,8 @@ export function AddSymptomsSheet({ visible, onClose }: { visible: boolean; onClo
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose}>
+    // On the page `bg`, so the unselected chips' `surface` fill shows against the sheet.
+    <BottomSheet visible={visible} onClose={onClose} tone="bg">
       <AppText variant="section" accessibilityRole="header" style={styles.title}>
         Add a symptom
       </AppText>
