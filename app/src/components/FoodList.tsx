@@ -327,7 +327,8 @@ export function FoodList() {
         <Button label="Add a food" variant="secondary" onPress={addFood} />
       </View>
 
-      <BottomSheet visible={editing !== null} onClose={closeForm} scrollToTopKey={changing}>
+      {/* On the page `bg`, so the fields' `surface` fill shows as boxes before they are focused. */}
+      <BottomSheet visible={editing !== null} onClose={closeForm} scrollToTopKey={changing} tone="bg">
         {/* The saved verdict first, like a meal in History; editing sits below it. */}
         <AppText variant="section" accessibilityRole="header" style={styles.sheetTitle}>
           {sheetFood?.mealName}
