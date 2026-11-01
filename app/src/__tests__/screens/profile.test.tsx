@@ -94,7 +94,7 @@ describe('Profile', () => {
     expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull();
   });
 
-  it('lists Condition, Usual symptoms, Favorite foods, Medications and My own chips under Your lists', async () => {
+  it('lists Condition, Usual symptoms, Favorite foods, Medications and Lifestyle under Your lists', async () => {
     await render(<ProfileScreen />);
 
     expect(screen.getByRole('header', { name: 'Your lists' })).toBeTruthy();
@@ -102,9 +102,9 @@ describe('Profile', () => {
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
       .filter((label) =>
-        /^(Condition|Usual symptoms|Favorite foods|Medications|My own chips)$/.test(label ?? ''),
+        /^(Condition|Usual symptoms|Favorite foods|Medications|Lifestyle)$/.test(label ?? ''),
       );
-    expect(rows).toEqual(['Condition', 'Usual symptoms', 'Favorite foods', 'Medications', 'My own chips']);
+    expect(rows).toEqual(['Condition', 'Usual symptoms', 'Favorite foods', 'Medications', 'Lifestyle']);
   });
 
   it('opens Favorite foods', async () => {
@@ -123,12 +123,12 @@ describe('Profile', () => {
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/medication', params: { manage: '1' } });
   });
 
-  it('opens My own chips', async () => {
+  it('opens Lifestyle', async () => {
     await render(<ProfileScreen />);
 
-    await press('button', 'My own chips');
+    await press('button', 'Lifestyle');
 
-    expect(mockPush).toHaveBeenCalledWith('/my-additions');
+    expect(mockPush).toHaveBeenCalledWith('/lifestyle');
   });
 });
 

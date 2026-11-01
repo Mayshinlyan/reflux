@@ -3,7 +3,9 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import UsualSymptomsScreen from '@/app/usual-symptoms';
 import { BODY_ZONES } from '@/constants/bodyZones';
 import { createTestDb } from '@/db/__tests__/testDb';
+import { createSavedSymptom, listSavedSymptoms } from '@/db/repositories/savedSymptoms';
 import { getSetting, setSetting } from '@/db/repositories/settings';
+import { createSymptomLog, listSymptomLogs } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 
 let mockDb: AppDb;
@@ -48,6 +50,10 @@ jest.mock('react-native-reanimated', () => ({
 }));
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), canGoBack: () => true, replace: jest.fn() },
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('react').useEffect(effect, [effect]);
+  },
 }));
 jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn(() => Promise.resolve()) }));
 
@@ -140,5 +146,40 @@ describe('Usual symptoms: Add a symptom', () => {
 
     expect(screen.getByText('They are all on your list.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add' })).toBeNull();
+  });
+});
+
+describe('Usual symptoms: symptoms you typed yourself', () => {
+  it('lists them after the chosen ones, each with the area it was added in', async () => {
+    setSetting(mockDb, 'usualSymptoms', ['heartburn']);
+    createSavedSymptom(mockDb, 'Jaw tightness', 'symptom', 'throat');
+    createSavedSymptom(mockDb, 'Hiccups');
+    createSavedSymptom(mockDb, 'Skipped breakfast', 'lifestyle'); // lifestyle lives on its own page
+    await render(<UsualSymptomsScreen />);
+
+    const names = screen
+      .getAllByRole('button')
+      .map((button) => button.props.accessibilityLabel as string)
+      .filter((label) => ['Heartburn', 'Hiccups', 'Jaw tightness', 'Skipped breakfast'].includes(label));
+    expect(names).toEqual(['Heartburn', 'Hiccups', 'Jaw tightness']);
+    expect(screen.getByText('Other')).toBeTruthy(); // Hiccups: no area
+    expect(screen.queryByText('No usual symptoms yet.')).toBeNull();
+  });
+
+  it('opens one to remove it, and entries already logged keep it', async () => {
+    createSavedSymptom(mockDb, 'Hiccups');
+    createSymptomLog(mockDb, { items: [{ key: 'custom:Hiccups' }] });
+    await render(<UsualSymptomsScreen />);
+
+    await press('button', 'Hiccups');
+    await press('button', 'Remove');
+
+    expect(listSavedSymptoms(mockDb, 'symptom')).toEqual([]);
+    expect(screen.queryByRole('button', { name: 'Hiccups' })).toBeNull();
+    const logs = listSymptomLogs(mockDb, {
+      from: '2000-01-01T00:00:00.000Z',
+      to: '2100-01-01T00:00:00.000Z',
+    });
+    expect(logs[0]?.items).toEqual([{ key: 'custom:Hiccups', score: 1 }]);
   });
 });
