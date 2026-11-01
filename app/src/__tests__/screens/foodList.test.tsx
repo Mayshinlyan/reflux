@@ -100,7 +100,7 @@ describe('Food screen: which view', () => {
     expect(screen.queryByText(/check flow/)).toBeNull();
   });
 
-  it('opens the check for "Log a new food"', async () => {
+  it('opens the check for "Add a food"', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     mockParams = { check: '1' };
     await render(<LogFoodScreen />);

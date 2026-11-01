@@ -37,6 +37,7 @@ export default function UsualSymptomsScreen() {
   const db = useDb();
   const { settings, update } = useSettings();
   const [own, setOwn] = useState<SavedSymptom[]>([]);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [adding, setAdding] = useState(false);
   // Bumped on every open, so the add sheet starts with nothing picked (see the sheet's `key` note).
   const [opened, setOpened] = useState(0);
@@ -47,8 +48,10 @@ export default function UsualSymptomsScreen() {
   const reload = useCallback(() => {
     try {
       setOwn(listSavedSymptoms(db, 'symptom'));
+      setLoadFailed(false);
     } catch (error) {
       logger.error('listSavedSymptoms', error);
+      setLoadFailed(true);
     }
   }, [db]);
   useFocusEffect(reload);
@@ -91,7 +94,9 @@ export default function UsualSymptomsScreen() {
         </AppText>
         {usual.length === 0 && own.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
-            No usual symptoms yet.
+            {loadFailed
+              ? `${friendlyMessages.INTERNAL} Your usual symptoms are still on this phone.`
+              : 'No usual symptoms yet.'}
           </AppText>
         ) : (
           <>

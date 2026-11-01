@@ -13,7 +13,7 @@ import { isQuickLogAllowed } from '@/lib/widgetLinks';
 /**
  * The Food screen: straight to "What did you eat?" (a photo or a typed description), with the saved foods as a
  * Quick log row on top. `?manage=1` (Profile > Favorite foods, and "See all") lists the saved foods to edit or log
- * instead. `?check=1` ("+ Log a new food" there) is the same check, which can also save the result to favorite foods.
+ * instead. `?check=1` ("Add a food" there) is the same check, which can also save the result to favorite foods.
  * `?photoUri=` (a photo already taken and prepared) starts on that photo's review step.
  * `?camera=1` opens the camera straight away (the home-screen widget's "Snap food" bubble; a denied camera
  * keeps this screen and says why). The tab bar's "+" and Bellie on Today both open this screen plain.

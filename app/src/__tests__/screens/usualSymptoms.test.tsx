@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import UsualSymptomsScreen from '@/app/usual-symptoms';
 import { BODY_ZONES } from '@/constants/bodyZones';
 import { createTestDb } from '@/db/__tests__/testDb';
+import * as savedSymptomsRepo from '@/db/repositories/savedSymptoms';
 import { createSavedSymptom, listSavedSymptoms } from '@/db/repositories/savedSymptoms';
 import { getSetting, setSetting } from '@/db/repositories/settings';
 import { createSymptomLog, listSymptomLogs } from '@/db/repositories/symptoms';
@@ -91,6 +92,17 @@ describe('Usual symptoms', () => {
 
     expect(screen.getByText('No usual symptoms yet.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add a symptom' })).toBeTruthy();
+  });
+
+  it('says the list could not load, and that it is still on the phone, when reading fails', async () => {
+    const list = jest.spyOn(savedSymptomsRepo, 'listSavedSymptoms').mockImplementation(() => {
+      throw new Error('read failed');
+    });
+    await render(<UsualSymptomsScreen />);
+    list.mockRestore();
+
+    expect(screen.getByText(/Your usual symptoms are still on this phone\./)).toBeTruthy();
+    expect(screen.queryByText('No usual symptoms yet.')).toBeNull();
   });
 
   it('opens a symptom to remove it, leaving the others', async () => {

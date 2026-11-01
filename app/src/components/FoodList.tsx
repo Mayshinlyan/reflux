@@ -121,7 +121,7 @@ export function FoodList() {
     setChanging(false);
   };
 
-  /** "Log a new food": the photo/text check. */
+  /** "Add a food": the photo/text check. */
   const addFood = () => router.push({ pathname: '/log/food', params: { check: '1' } });
 
   const checkFood = () => {
