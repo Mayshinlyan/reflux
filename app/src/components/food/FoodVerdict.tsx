@@ -94,13 +94,17 @@ export function VerdictHero({
   late,
   showTriggers = true,
   showBadge = true,
-}: Props & { showTriggers?: boolean; showBadge?: boolean }) {
+  showBubble = true,
+}: Props & { showTriggers?: boolean; showBadge?: boolean; showBubble?: boolean }) {
   const verdict = effectiveVerdict(analysis);
   const triggers = showTriggers ? matchedTriggerLabels(analysis, { late }) : [];
   const { summary } = analysis.overall;
   return (
     <View style={styles.hero}>
-      <SpeechBubble card tail="down" text={BELLY_VERDICT_HEADLINE[verdict]} accessibilityRole="header" />
+      {/* A logged meal's page leaves the bubble out: the badge and the summary already say it. */}
+      {showBubble && (
+        <SpeechBubble card tail="down" text={BELLY_VERDICT_HEADLINE[verdict]} accessibilityRole="header" />
+      )}
       <Belly mood={bellyMoodFor(verdict)} size={120} />
       {showBadge && <VerdictBadge verdict={verdict} style={styles.badge} />}
       {summary ? <AppText style={styles.summary}>{summary}</AppText> : null}

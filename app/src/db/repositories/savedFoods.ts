@@ -230,13 +230,17 @@ export function saveCheckedFood(
   return { id, created: true, mealName };
 }
 
-/** Whether a meal of this name is already in "Favorite foods" (the same match `saveFoodFromLog` uses). */
+/** The "Favorite foods" entry with this meal name (the same match `saveFoodFromLog` uses), or null. */
+export function savedFoodIdByName(db: AppDb, mealName: string): number | null {
+  const row = db
+    .select({ id: savedFoods.id })
+    .from(savedFoods)
+    .where(sql`lower(${savedFoods.mealName}) = lower(${mealName})`)
+    .get();
+  return row ? row.id : null;
+}
+
+/** Whether a meal of this name is already in "Favorite foods". */
 export function isFoodSaved(db: AppDb, mealName: string): boolean {
-  return (
-    db
-      .select({ id: savedFoods.id })
-      .from(savedFoods)
-      .where(sql`lower(${savedFoods.mealName}) = lower(${mealName})`)
-      .get() !== undefined
-  );
+  return savedFoodIdByName(db, mealName) !== null;
 }

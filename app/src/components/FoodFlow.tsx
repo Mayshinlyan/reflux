@@ -369,7 +369,7 @@ export function FoodFlow({
   };
 
   /**
-   * Leaves the check-in. "Complete check-in" (`withExtras`) puts the lifestyle tags, note and time on the meal
+   * Leaves the details. "Done" (`withExtras`) puts the lifestyle tags, note and time on the meal
    * that is already logged, and any symptoms as a symptom log linked to it; "Skip for now" and the X leave
    * those out, except a changed time, which is always kept. A starred favorite is kept either way. The meal's portion is left as it was. Nothing is lost
    * if the extras fail, the meal is saved.

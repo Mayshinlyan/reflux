@@ -9,7 +9,7 @@ import EntryScreen from '@/app/entry/index';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createFoodLog, getFoodLog, saveMealDetails, updateFoodLog } from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
-import { createSavedFood } from '@/db/repositories/savedFoods';
+import { createSavedFood, isFoodSaved } from '@/db/repositories/savedFoods';
 import { createSymptomLog, getSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 
@@ -118,7 +118,7 @@ describe('Entry: a meal', () => {
     expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
   });
 
-  it('shows the verdict on top, then the name, when and portion, tags, symptoms after and note', async () => {
+  it('shows the name and when, then the verdict, the tags they picked, symptoms after and note', async () => {
     const id = seedTacos();
     saveMealDetails(mockDb, id, { portion: 'large', tags: ['large_meal'], notes: 'Felt fine until later.' });
     createSymptomLog(mockDb, {
@@ -129,26 +129,27 @@ describe('Entry: a meal', () => {
     mockParams = { kind: 'food', id: String(id) };
     await render(<EntryScreen />);
 
-    // The same verdict the verdict screen gave: Bellie, a bubble with the headline, and the badge.
-    expect(screen.getByRole('header', { name: 'Your belly might not love this.' })).toBeTruthy();
+    // Bellie and the badge say the verdict; there is no speech bubble repeating it.
+    expect(screen.queryByRole('header', { name: 'Your belly might not love this.' })).toBeNull();
     expect(screen.getByLabelText('Belly feels cautious')).toBeTruthy();
     expect(screen.getByLabelText('Caution')).toBeTruthy();
     expect(screen.getByRole('header', { name: 'Spicy chicken tacos' })).toBeTruthy();
-    expect(screen.getByText('Sat, Oct 10 · 7:45 PM · Large portion')).toBeTruthy();
-    // Lifestyle tags, matched triggers, and Late meal (7:45 PM is within 3 hours of 10:30 PM).
+    // Just when it was eaten: no portion, which can't be set anywhere.
+    expect(screen.getByText('Sat, Oct 10 · 7:45 PM')).toBeTruthy();
+    expect(screen.queryByText(/portion/i)).toBeNull();
+    // Only the tags they picked; the matched triggers and Late meal live under "Why?".
     expect(screen.getByText('Large meal')).toBeTruthy();
-    expect(screen.getByText('Spicy')).toBeTruthy();
-    expect(screen.getByText('Late meal')).toBeTruthy();
+    expect(screen.queryByText('Spicy')).toBeNull();
+    expect(screen.queryByText('Late meal')).toBeNull();
     expect(screen.getByText('Symptoms')).toBeTruthy();
     expect(screen.getByText('Heartburn')).toBeTruthy();
     expect(screen.getByText('Burping')).toBeTruthy();
     expect(screen.getByText('Logged at 9:40 PM')).toBeTruthy();
     expect(screen.getByText('Felt fine until later.')).toBeTruthy();
-    // No Details card on a meal with a verdict: the portion is on the line under the name.
     expect(screen.queryByText('Details')).toBeNull();
   });
 
-  it('ends with why the verdict is what it is, plus the AI summary and tip when there are any', async () => {
+  it('shows the AI summary, and keeps the tip and the reasons behind a closed "Why?"', async () => {
     const id = seedTacos(at(10, 19, 45), {
       summary: 'Spicy and acidic, and eaten close to bedtime.',
       tip: 'Try a milder salsa, or have it earlier.',
@@ -157,9 +158,16 @@ describe('Entry: a meal', () => {
     await render(<EntryScreen />);
 
     expect(screen.getByText('Spicy and acidic, and eaten close to bedtime.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Why?' }).props.accessibilityState).toMatchObject({
+      expanded: false,
+    });
+    expect(screen.queryByText('Better next time')).toBeNull();
+    expect(screen.queryByText('Chili can irritate.')).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Why?' }));
+
     expect(screen.getByText('Better next time')).toBeTruthy();
     expect(screen.getByText('Try a milder salsa, or have it earlier.')).toBeTruthy();
-    expect(screen.getByText('Why we think so')).toBeTruthy();
     expect(screen.getByText('Chili can irritate.')).toBeTruthy();
     expect(screen.getByText(/Key ingredients:\s*chili/)).toBeTruthy();
   });
@@ -169,8 +177,10 @@ describe('Entry: a meal', () => {
     mockParams = { kind: 'food', id: String(id) };
     await render(<EntryScreen />);
 
+    await fireEvent.press(screen.getByRole('button', { name: 'Why?' }));
+
     expect(screen.queryByText('Better next time')).toBeNull();
-    expect(screen.getByText('Why we think so')).toBeTruthy();
+    expect(screen.getByText('Chili can irritate.')).toBeTruthy();
   });
 
   it('leaves out the symptoms, note and tags when there is nothing to show', async () => {
@@ -182,21 +192,32 @@ describe('Entry: a meal', () => {
     expect(screen.queryByText('Symptoms')).toBeNull();
     expect(screen.queryByText('Note')).toBeNull();
     expect(screen.queryByText('Late meal')).toBeNull();
-    expect(screen.getByText('Sat, Oct 10 · 8:00 AM · Regular portion')).toBeTruthy();
+    expect(screen.getByText('Sat, Oct 10 · 8:00 AM')).toBeTruthy();
   });
 
-  it('says whether a meal saved without a verdict is in favorite foods', async () => {
+  it('saves the meal to favorite foods with the heart, and takes it out with a second tap', async () => {
+    const id = seedTacos();
+    mockParams = { kind: 'food', id: String(id) };
+    await render(<EntryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add to favorite foods' }));
+    expect(isFoodSaved(mockDb, 'Spicy chicken tacos')).toBe(true);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove from favorite foods' }));
+    expect(isFoodSaved(mockDb, 'Spicy chicken tacos')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Add to favorite foods' })).toBeTruthy();
+  });
+
+  it('shows the heart filled when the meal is already a favorite, with no Saved row', async () => {
     const id = seedTacos();
     mockSqlite.exec('UPDATE food_logs SET overall_verdict = NULL, analysis = NULL, analysis_meta = NULL');
-    mockParams = { kind: 'food', id: String(id) };
-    const { unmount } = await render(<EntryScreen />);
-    expect(screen.getByText('Saved to favorite foods')).toBeTruthy();
-    expect(screen.getByText('No')).toBeTruthy();
-    await unmount();
-
     createSavedFood(mockDb, 'Spicy chicken tacos');
+    mockParams = { kind: 'food', id: String(id) };
     await render(<EntryScreen />);
-    expect(screen.getByText('Yes')).toBeTruthy();
+
+    expect(screen.getByRole('button', { name: 'Remove from favorite foods' })).toBeTruthy();
+    expect(screen.queryByText('Saved to favorite foods')).toBeNull();
+    expect(screen.queryByText('Portion')).toBeNull();
   });
 
   it('shows a meal saved without a verdict with no badge', async () => {

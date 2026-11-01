@@ -286,7 +286,7 @@ The main risk without App Check is that anyone who finds the relay URL can mint 
 - **External HTTPS load balancer + Cloud Armor:** path allowlist, per-IP rate ban, custom domain; Cloud Run ingress internal + load balancer only (about $25/mo from credits).
 - **Model Armor** on text input and reasoning output.
 - Min-app-version check; separate dev/prod projects.
-- **Anthropic workload identity federation (WIF)** (done: the relay uses it when the four `ANTHROPIC_*` ids are set, see RUNBOOK "Anthropic access: workload identity federation"; the deploy no longer mounts the stored key; the secret is then unmounted, deleted and the key revoked by hand, see RUNBOOK "Retiring the old key") in place of the long-lived `ANTHROPIC_API_KEY` in Secret Manager, so no static Anthropic secret exists. `ANTHROPIC_API_KEY` is still read for local development.
+- **Anthropic workload identity federation (WIF)** (done: the relay uses it when the four `ANTHROPIC_*` ids are set, see RUNBOOK "Anthropic access: workload identity federation"; the deploy no longer mounts the stored key; the secret was unmounted and deleted by hand on 2026-10-31, see RUNBOOK "Retiring the old key") in place of the long-lived `ANTHROPIC_API_KEY` in Secret Manager, so no static Anthropic secret exists. `ANTHROPIC_API_KEY` is still read for local development.
 - Raise the global circuit breaker to fit expected traffic.
 - Monitoring alerts on App Check failures and Cloud Armor bans.
 
@@ -404,4 +404,4 @@ The app has no deploy step in the MVP; testers load it from the dev server in Ex
 3. **Features:** weekly RSI check-in, 7-day trend strip, export, dark mode, analytics and crash toggles.
 4. **Observability + quality:** Sentry native + source maps, analytics allowlist (verify in DebugView), Maestro E2E, nightly AI eval, `mobile.yml`.
 5. **Launch readiness:** privacy policy + terms, store privacy forms, Anthropic Usage Policy review, RSI terms, clinician review, store assets, TestFlight / Play internal beta on real devices.
-6. **Key rotation: not needed.** Workload identity federation replaced the stored key, so nothing is rotated or can expire (an expired secret took the relay down on 2026-10-31). Verify once the old key is retired: `gcloud secrets list` shows no `reflux-anthropic-api-key`.
+6. **Key rotation: not needed.** Workload identity federation replaced the stored key, so nothing is rotated or can expire (an expired secret took the relay down on 2026-10-31). The old key was retired on 2026-10-31 (unmounted, then the secret deleted): `gcloud secrets list` shows no `reflux-anthropic-api-key`.

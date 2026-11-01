@@ -18,7 +18,7 @@ import { minTouchTarget, space, useColors } from '@/theme';
 import { type Placement, TAIL_HEIGHT, TAIL_WIDTH } from './layout';
 
 type Props = {
-  /** 1-based, for "2 OF 7". */
+  /** 1-based, for "2 of 7". */
   number: number;
   total: number;
   title: string;
@@ -35,7 +35,7 @@ type Props = {
 };
 
 /**
- * Figma row 18 "App tour": a white card with an "N OF M" label, a title, a line of help, a close button, Back and
+ * Figma row 18 "App tour": a white card with an "N of M" label, a title, a line of help, a close button, Back and
  * Next (Done on the last step), and a tail pointing at the cut-out. It fades in on every step.
  */
 export function CoachMark({
@@ -85,7 +85,7 @@ export function CoachMark({
             color="cta"
             accessibilityLabel={`Step ${number} of ${total}`}
             style={styles.count}>
-            {`${number} OF ${total}`}
+            {`${number} of ${total}`}
           </AppText>
           <Pressable
             accessibilityRole="button"

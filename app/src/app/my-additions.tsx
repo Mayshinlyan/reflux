@@ -15,7 +15,7 @@ import { logger } from '@/lib/logger';
 import { cardEdge, radius, space, typography, useColors } from '@/theme';
 
 /**
- * Symptoms and lifestyles (Profile > Your lists, Figma 05c): the symptoms and lifestyle factors typed with a "+" chip,
+ * My own chips (Profile > Your lists, Figma 05c): the symptoms and lifestyle factors typed with a "+" chip,
  * as filled cards with their kind underneath. A left swipe removes one from the quick-pick chips; entries
  * already logged keep it. Adding happens where you log, so there is no add button and no edit.
  */
@@ -63,7 +63,7 @@ export default function MyAdditionsScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <BackHeader />
         <AppText variant="display" accessibilityRole="header">
-          Symptoms and lifestyles
+          My own chips
         </AppText>
         <AppText color="inkSoft" style={styles.subtitle}>
           Swipe left to remove one.

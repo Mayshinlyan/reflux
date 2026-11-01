@@ -377,8 +377,8 @@ export function FoodList() {
                     {food.photoUri ? (
                       <Image source={{ uri: food.photoUri }} style={styles.icon} contentFit="cover" />
                     ) : (
-                      <View style={[styles.icon, { backgroundColor: colors.clayTint }]}>
-                        <Utensils size={20} color={colors.clayInk} strokeWidth={2} />
+                      <View style={[styles.icon, { backgroundColor: colors.honeyTint }]}>
+                        <Utensils size={20} color={colors.honeyInk} strokeWidth={2} />
                       </View>
                     )}
                     <View style={styles.text}>

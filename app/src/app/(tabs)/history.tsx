@@ -1,5 +1,4 @@
 import { router, useFocusEffect } from 'expo-router';
-import { Infinity as InfinityIcon } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SectionList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,9 +48,9 @@ type Kind = 'week' | 'month' | 'all' | 'custom';
 
 /** The segments; a custom range has none selected. */
 const SEGMENTS = [
-  { value: 'week', label: 'W', accessibilityLabel: 'Week' },
-  { value: 'month', label: 'M', accessibilityLabel: 'Month' },
-  { value: 'all', label: 'All time', icon: InfinityIcon },
+  { value: 'week', label: 'Week', accessibilityLabel: 'Week' },
+  { value: 'month', label: 'Month', accessibilityLabel: 'Month' },
+  { value: 'all', label: 'All', accessibilityLabel: 'All time' },
 ] as const;
 
 const FILTERS: { value: TimelineFilter; label: string }[] = [

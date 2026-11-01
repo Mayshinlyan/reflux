@@ -1,21 +1,31 @@
-import { Activity, Leaf, type LucideIcon, Pill, Utensils } from 'lucide-react-native';
+import { Leaf, type LucideIcon } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { type LogKind, logKindStyle } from '@/lib/logKinds';
 import type { TimelineKind } from '@/lib/timeline';
 import { cardEdge, type ColorToken, radius, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { SwipeToDelete } from './SwipeToDelete';
 
-const KIND_STYLE: Record<TimelineKind, { icon: LucideIcon; bg: ColorToken; fg: ColorToken; noun: string }> = {
-  symptom: { icon: Activity, bg: 'surface2', fg: 'ink', noun: 'Symptoms' },
-  food: { icon: Utensils, bg: 'surface2', fg: 'ink', noun: 'Meal' },
-  medication: { icon: Pill, bg: 'clayTint', fg: 'clayInk', noun: 'Medication' },
-};
+type RowStyle = { icon: LucideIcon; bg: ColorToken; fg: ColorToken; noun: string };
 
-/** A check-in with lifestyle factors and no symptoms: the leaf, not the pulse. */
-const LIFESTYLE_STYLE = { icon: Leaf, bg: 'surface2', fg: 'ink', noun: 'Lifestyle' } as const;
+const LOG_KIND_OF: Record<TimelineKind, LogKind> = {
+  symptom: 'symptoms',
+  food: 'food',
+  medication: 'medication',
+};
+const NOUN: Record<TimelineKind, string> = { symptom: 'Symptoms', food: 'Meal', medication: 'Medication' };
+
+/** One colour per kind, the same as the quick log arch (`lib/logKinds`). */
+function kindStyle(kind: TimelineKind): RowStyle {
+  const { icon, tint, ink } = logKindStyle(LOG_KIND_OF[kind]);
+  return { icon, bg: tint, fg: ink, noun: NOUN[kind] };
+}
+
+/** A check-in with lifestyle factors and no symptoms: the leaf, not the pulse, in the How I feel clay. */
+const LIFESTYLE_STYLE: RowStyle = { icon: Leaf, bg: 'clayTint', fg: 'clayInk', noun: 'Lifestyle' };
 
 type Props = {
   kind: TimelineKind;
@@ -33,7 +43,7 @@ type Props = {
 /** One diary row (Figma "Meal row" / "Medication row"): filled `surface`, no border. Doses carry a "Taken" pill. */
 export function TimelineItem({ kind, lifestyle, title, time, onPress, side, onDelete }: Props) {
   const colors = useColors();
-  const { icon: Icon, bg, fg, noun } = lifestyle ? LIFESTYLE_STYLE : KIND_STYLE[kind];
+  const { icon: Icon, bg, fg, noun } = lifestyle ? LIFESTYLE_STYLE : kindStyle(kind);
   const canSwipe = Boolean(onDelete);
   const row = (
     <Pressable

@@ -5,28 +5,24 @@ export const CONDITIONS = [
   {
     key: 'acid_reflux',
     label: 'Acid reflux or GERD',
-    short: 'acid reflux',
     hint: 'Heartburn, sour taste, burping',
     feeling: 'Burning in my chest',
   },
   {
     key: 'lpr',
     label: 'Silent reflux (LPR)',
-    short: 'silent reflux',
     hint: 'Hoarse voice, throat clearing',
     feeling: 'Hoarse voice, throat clearing',
   },
   {
     key: 'gastritis',
     label: 'Gastritis',
-    short: 'gastritis',
     hint: 'Stomach irritation, pain, feeling full',
     feeling: 'Stomach pain or feeling full',
   },
   {
     key: 'unsure',
     label: 'Not sure yet',
-    short: '',
     hint: 'Track first, decide later',
     feeling: "I'm not sure yet",
   },
@@ -76,24 +72,6 @@ export function pickCondition(current: readonly ConditionKey[], key: ConditionKe
   const rest: ConditionKey[] = current.filter((item) => item !== 'unsure');
   const next = rest.includes(key) ? rest.filter((item) => item !== key) : [...rest, key];
   return CONDITION_KEYS.filter((item) => next.includes(item));
-}
-
-/** The line under the name on the Profile, e.g. "Managing acid reflux and silent reflux". */
-export function managingLine(conditions: readonly ConditionKey[]): string {
-  const names = CONDITIONS.filter((item) => item.short && conditions.includes(item.key)).map(
-    (item) => item.short,
-  );
-  if (names.length === 0) return 'Just tracking for now';
-  const list =
-    names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
-  return `Managing ${list}`;
-}
-
-/** The labels to show on the Profile card. */
-export function conditionLabels(conditions: readonly ConditionKey[]): string {
-  return CONDITIONS.filter((item) => conditions.includes(item.key))
-    .map((item) => item.label)
-    .join(', ');
 }
 
 /** What the relay is told: the real conditions, never "Not sure yet". */

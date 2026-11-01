@@ -81,7 +81,8 @@ export function symptomsTitle(labels: string[]): string {
 /**
  * "How I feel" in two steps (Figma 03k): (1) tap what applies, grouped by body area, each group starting with a
  * "+" chip to add your own; (2) optional details: when, a note, what's going on (lifestyle) and the meal it
- * followed. "Complete check-in" is on both steps, so step 2 can be skipped. With `?id=`, edits that entry.
+ * followed. "Next" waits for a symptom; "No symptoms" skips to step 2 for lifestyle on its own, and "Done" saves
+ * from there. With `?id=`, edits that entry.
  */
 export default function LogSymptomsScreen() {
   const db = useDb();
@@ -336,9 +337,7 @@ export default function LogSymptomsScreen() {
     if (editingId === undefined && linked) void cancelCheckIn(linked.id);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     if (editingId === undefined) playChing();
-    toast(
-      editingId !== undefined ? 'Entry updated' : picked.length > 0 ? 'Symptoms logged' : 'Lifestyle logged',
-    );
+    toast(editingId !== undefined ? 'Entry updated' : 'Logged');
     router.back();
   };
 
@@ -505,18 +504,30 @@ export default function LogSymptomsScreen() {
         <View style={styles.footer}>
           {step === 1 ? (
             <>
-              <Button label="Next" onPress={() => setStep(2)} />
               <Button
-                variant="quiet"
-                label={editingId !== undefined ? 'Save changes' : 'Complete check-in'}
-                onPress={save}
-                disabled={!canSave}
-                accessibilityHint={saveHint}
+                label="Next"
+                onPress={() => setStep(2)}
+                disabled={editingId === undefined && picked.length === 0}
+                accessibilityHint={
+                  editingId === undefined && picked.length === 0 ? 'Pick a symptom first' : undefined
+                }
               />
+              {editingId !== undefined ? (
+                <Button
+                  variant="quiet"
+                  label="Save changes"
+                  onPress={save}
+                  disabled={!canSave}
+                  accessibilityHint={saveHint}
+                />
+              ) : picked.length === 0 ? (
+                // Lifestyle-only logging: skip the symptoms and go to "what's going on".
+                <Button variant="quiet" label="No symptoms" onPress={() => setStep(2)} />
+              ) : null}
             </>
           ) : (
             <Button
-              label={editingId !== undefined ? 'Save changes' : 'Complete check-in'}
+              label={editingId !== undefined ? 'Save changes' : 'Done'}
               onPress={save}
               disabled={!canSave}
               accessibilityHint={saveHint}
