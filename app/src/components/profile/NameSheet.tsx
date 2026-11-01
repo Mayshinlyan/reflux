@@ -34,7 +34,8 @@ export function NameSheet({ visible, onClose }: { visible: boolean; onClose: () 
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose}>
+    // On the page `bg`, so the field's `surface` fill shows as a box before it is focused.
+    <BottomSheet visible={visible} onClose={onClose} tone="bg">
       <TextField
         label="Your name"
         value={draft}

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Activity, Pencil, Pill, Stethoscope, Thermometer, Utensils } from 'lucide-react-native';
+import { Leaf, Pencil, Pill, Stethoscope, Thermometer, Utensils } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,16 +10,18 @@ import { tabBarClearance } from '@/components/FloatingTabBar';
 import { AvatarSheet } from '@/components/profile/AvatarSheet';
 import { ConditionSheet } from '@/components/profile/ConditionSheet';
 import { NameSheet } from '@/components/profile/NameSheet';
-import { SymptomsSheet } from '@/components/profile/SymptomsSheet';
 import { Screen } from '@/components/Screen';
 import { SectionTitle } from '@/components/SectionTitle';
 import { SettingsRow } from '@/components/SettingsRow';
 import { useSettings } from '@/db/DatabaseProvider';
 import { radius, space, useColors } from '@/theme';
 
-type Sheet = 'avatar' | 'name' | 'condition' | 'symptoms' | null;
+type Sheet = 'avatar' | 'name' | 'condition' | null;
 
-/** You: who you are and your lists, condition and usual symptoms included (Figma row 24). A tab on the bottom bar. */
+/**
+ * You: who you are and your lists (Figma row 24). A tab on the bottom bar. Condition is a sheet; Usual symptoms,
+ * Favorite foods, Medications and Lifestyle are pages.
+ */
 export default function ProfileScreen() {
   const colors = useColors();
   const { settings } = useSettings();
@@ -70,7 +72,11 @@ export default function ProfileScreen() {
 
         <SectionTitle first>Your lists</SectionTitle>
         <SettingsRow icon={Stethoscope} label="Condition" onPress={() => open('condition')} />
-        <SettingsRow icon={Thermometer} label="Usual symptoms" onPress={() => open('symptoms')} />
+        <SettingsRow
+          icon={Thermometer}
+          label="Usual symptoms"
+          onPress={() => router.push('/usual-symptoms')}
+        />
         <SettingsRow
           icon={Utensils}
           label="Favorite foods"
@@ -81,13 +87,12 @@ export default function ProfileScreen() {
           label="Medications"
           onPress={() => router.push({ pathname: '/log/medication', params: { manage: '1' } })}
         />
-        <SettingsRow icon={Activity} label="My own chips" onPress={() => router.push('/my-additions')} />
+        <SettingsRow icon={Leaf} label="Lifestyle" onPress={() => router.push('/lifestyle')} />
       </ScrollView>
 
       <AvatarSheet key={`avatar-${opened}`} visible={sheet === 'avatar'} onClose={close} />
       <NameSheet key={`name-${opened}`} visible={sheet === 'name'} onClose={close} />
       <ConditionSheet key={`condition-${opened}`} visible={sheet === 'condition'} onClose={close} />
-      <SymptomsSheet key={`symptoms-${opened}`} visible={sheet === 'symptoms'} onClose={close} />
     </Screen>
   );
 }

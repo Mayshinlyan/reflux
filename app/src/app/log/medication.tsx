@@ -516,21 +516,24 @@ export default function MedicationScreen() {
     <Screen style={styles.screen}>
       <BackHeader />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <AppText variant="display" accessibilityRole="header">
+        <AppText variant="display" accessibilityRole="header" style={manage ? styles.manageTitle : undefined}>
           {manage ? 'Medications' : 'Which medication?'}
         </AppText>
-        <AppText color="inkSoft" style={styles.subtitle}>
-          {manage
-            ? 'Tap a medication to see it.'
-            : 'Tap Log for a dose now, or a medicine to change its details.'}
-        </AppText>
+        {/* Managing the list needs no instruction (Figma row 25); logging a dose does. */}
+        {!manage && (
+          <AppText color="inkSoft" style={styles.subtitle}>
+            Tap Log for a dose now, or a medicine to change its details.
+          </AppText>
+        )}
         {loadFailed && meds.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
             {`${friendlyMessages.INTERNAL} Your medications are still on this phone.`}
           </AppText>
         ) : meds.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
-            Add the medications you take, then log each one with a single tap.
+            {manage
+              ? 'No medications yet.'
+              : 'Add the medications you take, then log each one with a single tap.'}
           </AppText>
         ) : (
           meds.map((med) => {
@@ -628,6 +631,8 @@ const styles = StyleSheet.create({
   content: { paddingBottom: space.s3 },
   detailContent: { paddingBottom: space.s3, gap: space.s4 },
   subtitle: { ...typography.subtitle, marginTop: space.s2, marginBottom: space.s4 },
+  // No subtitle when managing, so the title leaves the gap before the first card.
+  manageTitle: { marginBottom: space.s4 },
   empty: { marginBottom: space.s2, lineHeight: 24 },
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   typeBadge: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill },

@@ -94,7 +94,7 @@ describe('Profile', () => {
     expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull();
   });
 
-  it('lists Condition, Usual symptoms, Favorite foods, Medications and My own chips under Your lists', async () => {
+  it('lists Condition, Usual symptoms, Favorite foods, Medications and Lifestyle under Your lists', async () => {
     await render(<ProfileScreen />);
 
     expect(screen.getByRole('header', { name: 'Your lists' })).toBeTruthy();
@@ -102,9 +102,9 @@ describe('Profile', () => {
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
       .filter((label) =>
-        /^(Condition|Usual symptoms|Favorite foods|Medications|My own chips)$/.test(label ?? ''),
+        /^(Condition|Usual symptoms|Favorite foods|Medications|Lifestyle)$/.test(label ?? ''),
       );
-    expect(rows).toEqual(['Condition', 'Usual symptoms', 'Favorite foods', 'Medications', 'My own chips']);
+    expect(rows).toEqual(['Condition', 'Usual symptoms', 'Favorite foods', 'Medications', 'Lifestyle']);
   });
 
   it('opens Favorite foods', async () => {
@@ -123,12 +123,12 @@ describe('Profile', () => {
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/medication', params: { manage: '1' } });
   });
 
-  it('opens My own chips', async () => {
+  it('opens Lifestyle', async () => {
     await render(<ProfileScreen />);
 
-    await press('button', 'My own chips');
+    await press('button', 'Lifestyle');
 
-    expect(mockPush).toHaveBeenCalledWith('/my-additions');
+    expect(mockPush).toHaveBeenCalledWith('/lifestyle');
   });
 });
 
@@ -233,27 +233,12 @@ describe('Profile: condition', () => {
 });
 
 describe('Profile: usual symptoms', () => {
-  it('starts from the saved symptoms and saves the new picks in catalog order', async () => {
-    setSetting(mockDb, 'usualSymptoms', ['burping']);
+  it('opens the Usual symptoms page, not a sheet of every symptom', async () => {
     await render(<ProfileScreen />);
-    await press('button', 'Usual symptoms');
-    expect(screen.getByRole('checkbox', { name: 'Burping' }).props.accessibilityState.checked).toBe(true);
 
-    await press('checkbox', 'Heartburn');
-    await press('button', 'Save');
-
-    expect(getSetting(mockDb, 'usualSymptoms')).toEqual(['heartburn', 'burping']);
-    expect(screen.queryByRole('checkbox', { name: 'Heartburn' })).toBeNull();
-  });
-
-  it('can be emptied', async () => {
-    setSetting(mockDb, 'usualSymptoms', ['burping']);
-    await render(<ProfileScreen />);
     await press('button', 'Usual symptoms');
 
-    await press('checkbox', 'Burping');
-    await press('button', 'Save');
-
-    expect(getSetting(mockDb, 'usualSymptoms')).toEqual([]);
+    expect(mockPush).toHaveBeenCalledWith('/usual-symptoms');
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
   });
 });

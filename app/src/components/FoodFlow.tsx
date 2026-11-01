@@ -871,7 +871,8 @@ export function FoodFlow({
         </ScrollView>
         {footer}
       </KeyboardAvoidingView>
-      <BottomSheet visible={telling} onClose={() => setTelling(false)}>
+      {/* On the page `bg`, so the field's `surface` fill shows as a box before it is focused. */}
+      <BottomSheet visible={telling} onClose={() => setTelling(false)} tone="bg">
         <AppText variant="section" accessibilityRole="header">
           Not quite right?
         </AppText>

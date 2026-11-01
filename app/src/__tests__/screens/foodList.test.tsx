@@ -5,7 +5,7 @@ import LogFoodScreen from '@/app/log/food';
 import { FoodList } from '@/components/FoodList';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
-import { createSavedFood, listSavedFoods, saveCheckedFood } from '@/db/repositories/savedFoods';
+import { createSavedFood, listSavedFoods, logSavedFood, saveCheckedFood } from '@/db/repositories/savedFoods';
 import { setSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';
 import type { MealAnalysis } from '@/types/analysis';
@@ -116,56 +116,27 @@ describe('Food screen: which view', () => {
 });
 
 describe('Food screen: Favorite foods', () => {
-  it('has a "Favorite foods" heading and a subtitle', async () => {
+  it('has a "Favorite foods" heading and no instruction line', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
     expect(screen.getByRole('header', { name: 'Favorite foods' })).toBeTruthy();
-    expect(screen.getByText('Tap a food to edit it.')).toBeTruthy();
+    expect(screen.queryByText('Tap a food to edit it.')).toBeNull();
     expect(screen.queryByText('Quick Log')).toBeNull();
   });
 
-  it('logs right now on the tap, with no time question, and the Log button shows it for a moment', async () => {
-    jest.useFakeTimers();
+  it('only manages the list: no Log pill, and logging stays in the Quick log chips', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
 
-    await press('Log Oatmeal');
-
-    expect(screen.queryByText('When did you eat this?')).toBeNull();
-    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
-    expect(new Date(meal.loggedAt).getTime()).toBeLessThanOrEqual(Date.now());
-    expect(mockToast).toHaveBeenCalledWith(
-      'Oatmeal logged',
-      expect.objectContaining({ action: expect.objectContaining({ label: 'Add details' }) }),
-    );
-    expect(screen.getByText('Logged ✓')).toBeTruthy();
-    expect(screen.getByText(/Eaten today/)).toBeTruthy();
-
-    await act(async () => {
-      jest.advanceTimersByTime(3000);
-    });
-    expect(screen.getByRole('button', { name: 'Log Oatmeal' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Log Oatmeal' })).toBeNull();
+    expect(screen.queryByText('Log')).toBeNull();
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
   });
 
-  it('opens the check-in details from the toast, where time and symptoms are set', async () => {
+  it('"Add a food" opens the check', async () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
-
-    await press('Log Oatmeal');
-    const [, options] = mockToast.mock.calls[0];
-    options.action.onPress();
-
-    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/log/food',
-      params: { details: String(meal.id) },
-    });
-  });
-
-  it('"Log a new food" opens the check', async () => {
-    createSavedFood(mockDb, 'Oatmeal');
-    await render(<FoodList />);
-    await press('+ Log a new food');
+    await press('Add a food');
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/log/food', params: { check: '1' } });
   });
 
@@ -464,9 +435,9 @@ describe('Food screen: Favorite foods', () => {
 
   it('removes a food after confirming, and leaves past meals alone', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    createSavedFood(mockDb, 'Oatmeal');
+    const id = createSavedFood(mockDb, 'Oatmeal');
+    logSavedFood(mockDb, id); // a past meal, which Remove must keep
     await render(<FoodList />);
-    await press('Log Oatmeal');
 
     await press('Edit Oatmeal');
     await press('Remove from my list');
@@ -520,8 +491,9 @@ describe('Food screen: Favorite foods', () => {
     alert.mockRestore();
   });
 
-  it('explains what to do once the last food is removed', async () => {
+  it('says so in a few words when there are no favorite foods, with Add a food still at the bottom', async () => {
     await render(<FoodList />);
-    expect(screen.getByText(/Add the foods you eat often/)).toBeTruthy();
+    expect(screen.getByText('No favorite foods yet.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add a food' })).toBeTruthy();
   });
 });
