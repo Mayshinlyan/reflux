@@ -206,6 +206,8 @@ describe('Welcome', () => {
 
     expect(bar(4)).toBeTruthy();
     expect(screen.getByText('Private by default')).toBeTruthy();
+    // The longer wording is for Settings; onboarding stays light.
+    expect(screen.queryByText(/kept without your name/)).toBeNull();
   });
 
   describe('reminders', () => {

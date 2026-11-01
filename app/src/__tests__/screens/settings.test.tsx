@@ -243,6 +243,7 @@ describe('Settings: privacy and disclaimer', () => {
     expect(
       screen.getByText(/The notes on your entries, your medications and your name stay on your phone/),
     ).toBeTruthy();
+    expect(screen.getByText(/If you send feedback, the message is kept without your name/)).toBeTruthy();
     expect(screen.getByText('Not medical advice')).toBeTruthy();
   });
 });
