@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { DateRangePicker } from '@/components/DateRangePicker';
+import { FeedbackButton, feedbackButtonClearance } from '@/components/FeedbackButton';
 import { tabBarClearance } from '@/components/FloatingTabBar';
 import { HistorySummary, statsCardHeight } from '@/components/HistorySummary';
 import { RangeStepper } from '@/components/RangeStepper';
@@ -280,7 +281,11 @@ export default function HistoryScreen() {
         )}
         stickySectionHeadersEnabled={false}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.list, { paddingBottom: tabBarClearance(insets.bottom) }]}
+        // The Feedback pill floats over the lower right, so the last entry scrolls up past it too.
+        contentContainerStyle={[
+          styles.list,
+          { paddingBottom: Math.max(tabBarClearance(insets.bottom), feedbackButtonClearance(insets.bottom)) },
+        ]}
         ListEmptyComponent={
           <View style={styles.empty}>
             <AppText variant="section" style={styles.emptyTitle}>
@@ -296,6 +301,8 @@ export default function HistoryScreen() {
           </View>
         }
       />
+
+      <FeedbackButton />
 
       <DateRangePicker
         visible={picking}

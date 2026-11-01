@@ -23,7 +23,10 @@ describe('FeedbackSheet', () => {
   it('says what is sent, and keeps Send muted until something is typed', async () => {
     await render(<FeedbackSheet visible onClose={jest.fn()} onSent={jest.fn()} />);
 
-    expect(screen.getByRole('header', { name: 'Send feedback' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Tell us what you think' })).toBeTruthy();
+    expect(
+      screen.getByText('Something missing, confusing or great? It goes straight to the team.'),
+    ).toBeTruthy();
     expect(screen.getByText('Only what you write here is sent. No meals or symptoms.')).toBeTruthy();
     expect(sendButton().props.accessibilityState).toMatchObject({ disabled: true });
 
