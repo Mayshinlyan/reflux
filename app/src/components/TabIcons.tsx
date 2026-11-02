@@ -4,7 +4,7 @@ export type TabIconProps = {
   size: number;
   /** The solid shape: ink when its tab is selected, the muted inkMuted when it is not. */
   color: string;
-  /** The door, the clock hands and the gear's hub are cut out of the shape in the colour behind it: the pill, or the tan highlight. */
+  /** The door and the clock hands are cut out of the shape in the colour behind it: the pill, or the tan highlight. */
   cutout: string;
 };
 
@@ -35,17 +35,16 @@ export function PersonSolid({ size, color }: TabIconProps) {
   );
 }
 
-/** Figma "Icon/Settings filled": the app's gear, solid, with its hub cut out. */
-export function GearSolid({ size, color, cutout }: TabIconProps) {
+/** Figma "Icon/Kitchen filled": a solid chef's hat. Nothing to cut out, so `cutout` is unused. */
+export function ChefHatSolid({ size, color }: TabIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"
+        d="M17 21a1 1 0 0 0 1-1v-5.35c0-.457.316-.844.727-1.041a4 4 0 0 0-2.134-7.589 5 5 0 0 0-9.186 0 4 4 0 0 0-2.134 7.588c.411.198.727.585.727 1.041V20a1 1 0 0 0 1 1Z"
         fill={color}
         stroke={color}
         {...STROKE}
       />
-      <Circle cx={12} cy={12} r={3} fill={cutout} />
     </Svg>
   );
 }

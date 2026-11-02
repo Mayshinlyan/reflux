@@ -96,7 +96,7 @@ describe('App tour', () => {
 
   it('leaves out a step whose spotlight is not on Today, so the count matches what is shown', async () => {
     await start();
-    // No Bellie or insight cards are registered here: Log, History, Profile and Settings remain.
+    // No Bellie or insight cards are registered here: Log, History, Kitchen and Profile remain.
     expect(screen.getByLabelText('Step 1 of 5')).toBeTruthy();
   });
 
@@ -118,7 +118,7 @@ describe('App tour', () => {
     await fireEvent.press(screen.getByLabelText('Next'));
     await fireEvent.press(screen.getByLabelText('Next'));
 
-    expect(screen.getByText('Settings')).toBeTruthy();
+    expect(screen.getByText('Profile')).toBeTruthy();
     expect(screen.queryByLabelText('Next')).toBeNull();
     expect(mockUpdate).not.toHaveBeenCalled();
 

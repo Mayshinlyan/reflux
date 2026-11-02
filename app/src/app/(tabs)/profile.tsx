@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Leaf, Pencil, Pill, Stethoscope, Thermometer, Utensils } from 'lucide-react-native';
+import { Leaf, Pencil, Pill, Settings, Stethoscope, Thermometer, Utensils } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,14 +13,15 @@ import { NameSheet } from '@/components/profile/NameSheet';
 import { Screen } from '@/components/Screen';
 import { SectionTitle } from '@/components/SectionTitle';
 import { SettingsRow } from '@/components/SettingsRow';
+import { TopBarButton } from '@/components/TopBar';
 import { useSettings } from '@/db/DatabaseProvider';
 import { radius, space, useColors } from '@/theme';
 
 type Sheet = 'avatar' | 'name' | 'condition' | null;
 
 /**
- * You: who you are and your lists (Figma row 24). A tab on the bottom bar. Condition is a sheet; Usual symptoms,
- * Favorite foods, Medications and Lifestyle are pages.
+ * You: who you are and your lists (Figma row 24). A tab on the bottom bar, with a gear at the top right that opens
+ * Settings (Figma row 29g). Condition is a sheet; Usual symptoms, Favorite foods, Medications and Lifestyle are pages.
  */
 export default function ProfileScreen() {
   const colors = useColors();
@@ -41,9 +42,12 @@ export default function ProfileScreen() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance(insets.bottom) }]}
         showsVerticalScrollIndicator={false}>
-        <AppText variant="display" accessibilityRole="header" style={styles.title}>
-          Profile
-        </AppText>
+        <View style={styles.header}>
+          <AppText variant="display" accessibilityRole="header" style={styles.title}>
+            Profile
+          </AppText>
+          <TopBarButton icon={Settings} label="Settings" onPress={() => router.push('/settings')} />
+        </View>
 
         <View style={styles.identity}>
           <Pressable
@@ -99,7 +103,8 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   content: { paddingTop: space.s2 },
-  title: { marginBottom: space.s4 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: space.s2, marginBottom: space.s4 },
+  title: { flex: 1 },
   identity: { alignItems: 'center', marginBottom: space.s4 },
   name: { marginTop: space.s1 },
   badge: {

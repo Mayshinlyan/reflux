@@ -23,22 +23,23 @@ describe('FloatingTabBar', () => {
     mockReduceMotion = false;
   });
 
-  it('has Log, Today, History, Profile and Settings, and reports the one tapped', async () => {
+  it('has Log, Today, History, Kitchen and Profile, and reports the one tapped', async () => {
     const onSelect = jest.fn();
     await render(<FloatingTabBar active="today" bottomInset={0} onSelect={onSelect} />);
 
-    for (const name of ['Log', 'Today', 'History', 'Profile', 'Settings']) {
+    for (const name of ['Log', 'Today', 'History', 'Kitchen', 'Profile']) {
       expect(screen.getByLabelText(name)).toBeTruthy();
     }
+    expect(screen.queryByLabelText('Settings')).toBeNull();
     await fireEvent.press(screen.getByLabelText('History'));
     await fireEvent.press(screen.getByLabelText('Log'));
+    await fireEvent.press(screen.getByLabelText('Kitchen'));
     await fireEvent.press(screen.getByLabelText('Profile'));
-    await fireEvent.press(screen.getByLabelText('Settings'));
 
     expect(onSelect).toHaveBeenNthCalledWith(1, 'history');
     expect(onSelect).toHaveBeenNthCalledWith(2, 'log');
-    expect(onSelect).toHaveBeenNthCalledWith(3, 'profile');
-    expect(onSelect).toHaveBeenNthCalledWith(4, 'settings');
+    expect(onSelect).toHaveBeenNthCalledWith(3, 'kitchen');
+    expect(onSelect).toHaveBeenNthCalledWith(4, 'profile');
   });
 
   it('marks only the current tab as selected, with a small tan circle behind it and no background on the tabs', async () => {
@@ -50,7 +51,7 @@ describe('FloatingTabBar', () => {
     expect(screen.getByRole('tab', { name: 'Today' }).props.accessibilityState).toMatchObject({
       selected: false,
     });
-    for (const name of ['Today', 'History', 'Profile', 'Settings']) {
+    for (const name of ['Today', 'History', 'Kitchen', 'Profile']) {
       expect(screen.getByRole('tab', { name })).not.toHaveStyle({ backgroundColor: lightColors.surface2 });
     }
     expect(screen.getByTestId('tab-highlight')).toHaveStyle({
@@ -84,13 +85,13 @@ describe('FloatingTabBar', () => {
     // Two tabs, then the Log slot, then two more: the last two sit 72 further right.
     for (const [active, left] of [
       ['history', 82],
-      ['profile', 218],
-      ['settings', 282],
+      ['kitchen', 218],
+      ['profile', 282],
     ] as const) {
       await rerender(<FloatingTabBar active={active} bottomInset={0} onSelect={jest.fn()} />);
       expect(screen.getByTestId('tab-highlight')).toHaveStyle({ left });
     }
-    expect(screen.getByRole('tab', { name: 'Settings' }).props.accessibilityState).toMatchObject({
+    expect(screen.getByRole('tab', { name: 'Profile' }).props.accessibilityState).toMatchObject({
       selected: true,
     });
   });
@@ -117,8 +118,8 @@ describe('FloatingTabBar', () => {
     expect(screen.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual([
       'Today',
       'History',
+      'Kitchen',
       'Profile',
-      'Settings',
     ]);
     expect(screen.queryByRole('tab', { name: 'Log' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Log' })).toBeTruthy();
@@ -162,9 +163,9 @@ describe('FloatingTabBar', () => {
     const top = 874 - 80 + 8;
     expect(tabTargetRect('today', screen, 0)).toEqual({ x: 37, y: top, width: 64, height: 48 });
     expect(tabTargetRect('history', screen, 0)).toMatchObject({ x: 101 });
-    // Log's slot (72 wide) sits between History and Profile.
-    expect(tabTargetRect('profile', screen, 0)).toMatchObject({ x: 237 });
-    expect(tabTargetRect('settings', screen, 0)).toMatchObject({ x: 301 });
+    // Log's slot (72 wide) sits between History and Kitchen.
+    expect(tabTargetRect('kitchen', screen, 0)).toMatchObject({ x: 237 });
+    expect(tabTargetRect('profile', screen, 0)).toMatchObject({ x: 301 });
   });
 
   it('puts the Log button’s ring in the middle of the screen, with its centre 13 below the pill’s top', () => {

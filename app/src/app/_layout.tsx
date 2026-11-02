@@ -20,6 +20,7 @@ import { CheckInRouter } from '@/components/CheckInRouter';
 import { Screen } from '@/components/Screen';
 import { preloadChing } from '@/lib/ching';
 import { ToastProvider } from '@/components/Toast';
+import { TourProvider } from '@/components/tour/TourContext';
 import { DatabaseProvider, useDb } from '@/db/DatabaseProvider';
 import { onSavedFoodsChange } from '@/db/repositories/savedFoods';
 import { friendlyMessages } from '@/lib/errors';
@@ -61,30 +62,35 @@ function RootLayout() {
         <WidgetSync />
         <PendingChecks />
         <ToastProvider>
-          {/* Drill-downs (Entry, Edit, My additions, Favorite foods) push from the side and swipe back from the
-              edge. Logging slides up as a modal and closes with a swipe down. Tabs and Welcome only cross-fade. */}
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              animation: reduceMotion ? 'none' : 'default',
-              contentStyle: { backgroundColor: lightColors.bg },
-            }}>
-            <Stack.Screen name="(tabs)" options={{ animation: reduceMotion ? 'none' : 'fade' }} />
-            <Stack.Screen
-              name="welcome"
-              options={{ gestureEnabled: false, animation: reduceMotion ? 'none' : 'fade' }}
-            />
-            <Stack.Screen
-              name="log/food"
-              options={({ route }) => ({
-                // Favorite foods is a list you drill into, not a log.
-                presentation:
-                  (route.params as { manage?: string } | undefined)?.manage === '1' ? 'card' : 'modal',
-              })}
-            />
-            <Stack.Screen name="log/symptoms" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="log/medication" options={{ presentation: 'modal' }} />
-          </Stack>
+          {/* The app tour is drawn over whatever screen is up (the tabs and their bar), and Settings, which sits
+              outside the tabs, can ask for a replay. */}
+          <TourProvider>
+            {/* Drill-downs (Settings, Entry, Edit, My additions, Favorite foods) push from the side and swipe back
+                from the edge. Logging slides up as a modal and closes with a swipe down. Tabs and Welcome only
+                cross-fade. */}
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: reduceMotion ? 'none' : 'default',
+                contentStyle: { backgroundColor: lightColors.bg },
+              }}>
+              <Stack.Screen name="(tabs)" options={{ animation: reduceMotion ? 'none' : 'fade' }} />
+              <Stack.Screen
+                name="welcome"
+                options={{ gestureEnabled: false, animation: reduceMotion ? 'none' : 'fade' }}
+              />
+              <Stack.Screen
+                name="log/food"
+                options={({ route }) => ({
+                  // Favorite foods is a list you drill into, not a log.
+                  presentation:
+                    (route.params as { manage?: string } | undefined)?.manage === '1' ? 'card' : 'modal',
+                })}
+              />
+              <Stack.Screen name="log/symptoms" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="log/medication" options={{ presentation: 'modal' }} />
+            </Stack>
+          </TourProvider>
           <CheckInRouter />
         </ToastProvider>
       </DatabaseProvider>

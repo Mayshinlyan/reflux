@@ -1,6 +1,16 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Bell, Clock, Compass, Leaf, MessageCircle, Moon, Shield, Trash2 } from 'lucide-react-native';
+import {
+  Bell,
+  ChevronLeft,
+  Clock,
+  Compass,
+  Leaf,
+  MessageCircle,
+  Moon,
+  Shield,
+  Trash2,
+} from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,13 +19,13 @@ import { AppText } from '@/components/AppText';
 import { BedtimeSheet } from '@/components/BedtimeSheet';
 import { Button } from '@/components/Button';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
-import { tabBarClearance } from '@/components/FloatingTabBar';
 import { OptionSheet } from '@/components/OptionSheet';
 import { PrivacySheet } from '@/components/profile/PrivacySheet';
 import { Screen } from '@/components/Screen';
 import { SectionTitle } from '@/components/SectionTitle';
 import { SettingsRow } from '@/components/SettingsRow';
 import { useToast } from '@/components/Toast';
+import { TopBarButton } from '@/components/TopBar';
 import { useTour } from '@/components/tour/TourContext';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { deleteAllData } from '@/db/repositories/data';
@@ -45,7 +55,7 @@ const REMINDERS = [
   ...REMINDER_OPTIONS.map((minutes) => ({ value: String(minutes), label: reminderOptionLabel(minutes) })),
 ];
 
-/** Settings, the last tab on the bottom bar (Figma 05). */
+/** Settings, pushed from the gear at the top of Profile (Figma row 29i). It has a Back button and no bottom bar. */
 export default function SettingsScreen() {
   const toast = useToast();
   const tour = useTour();
@@ -126,11 +136,18 @@ export default function SettingsScreen() {
 
   return (
     <Screen edges={['top', 'left', 'right']}>
-      <AppText variant="display" accessibilityRole="header" style={styles.title}>
-        Settings
-      </AppText>
+      <View style={styles.header}>
+        <TopBarButton
+          icon={ChevronLeft}
+          label="Back"
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+        />
+        <AppText variant="display" accessibilityRole="header" style={styles.title}>
+          Settings
+        </AppText>
+      </View>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + space.s4 }}
         showsVerticalScrollIndicator={false}>
         <SectionTitle first>Preferences</SectionTitle>
         <SettingsRow
@@ -246,7 +263,8 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { marginBottom: space.s4 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: space.s2, marginBottom: space.s4 },
+  title: { flex: 1 },
   danger: { marginTop: space.s2 },
   blocked: { marginTop: space.s2, gap: space.s1 },
 });
