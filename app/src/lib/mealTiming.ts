@@ -23,7 +23,7 @@ function clockFormatter(tz: string): Intl.DateTimeFormat {
 }
 
 /** Minutes since local midnight for `iso` in `tz`. Unknown zones fall back to UTC. */
-function minutesOfDay(iso: string, tz: string): number {
+export function minutesOfDay(iso: string, tz: string): number {
   const date = new Date(iso);
   let parts: Intl.DateTimeFormatPart[];
   try {

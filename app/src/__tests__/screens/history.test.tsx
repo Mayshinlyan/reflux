@@ -9,6 +9,7 @@ import {
   createUncheckedMeal,
   listDiaryFoodLogs,
   saveMealDetails,
+  updateFoodLog,
 } from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
 import { createSymptomLog } from '@/db/repositories/symptoms';
@@ -118,6 +119,13 @@ const seedMeal = (name: string, verdict: Verdict, loggedAt: string) =>
     meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
   });
 
+/** A meal marked good by hand: the AI's own verdicts are only ok, caution or trigger. */
+const seedGoodMeal = (name: string, loggedAt: string) => {
+  const id = seedMeal(name, 'ok', loggedAt);
+  updateFoodLog(mockDb, id, { name, verdict: 'good' });
+  return id;
+};
+
 const seedSymptom = (loggedAt: string) =>
   createSymptomLog(mockDb, { items: [{ key: 'heartburn' }, { key: 'burping' }], loggedAt });
 
@@ -140,9 +148,10 @@ describe('History: the week', () => {
     seedWeek();
     await render(<HistoryScreen />);
 
-    expect(screen.getByText('Today')).toBeTruthy();
-    expect(screen.getByText('Yesterday')).toBeTruthy();
-    expect(screen.getByText('Thursday, Oct 8')).toBeTruthy();
+    // The week card names the same days, so the list's own headings are found by role.
+    expect(screen.getByRole('header', { name: 'Today' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Yesterday' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Thursday, Oct 8' })).toBeTruthy();
     expect(screen.getByText('Spicy chicken tacos')).toBeTruthy();
     expect(screen.getByText('Grilled salmon')).toBeTruthy();
     // Last week's meal is outside the shown week.
@@ -230,12 +239,11 @@ describe('History: the week', () => {
 });
 
 describe('History: the stats cards', () => {
-  it('counts the shown week on the Food card: meals, days with symptoms and the verdict mix', async () => {
+  it('counts the shown week on the Food card: meals and the verdict mix', async () => {
     seedWeek();
     await render(<HistoryScreen />);
 
     expect(screen.getByText('4 meals')).toBeTruthy();
-    expect(screen.getByText('2 days with symptoms')).toBeTruthy();
     // Every verdict is in the legend, even one with no meals.
     for (const name of ['Good', 'Okay', 'Caution', 'Avoid']) {
       expect(screen.getAllByText(name).length).toBeGreaterThan(0);
@@ -243,32 +251,29 @@ describe('History: the stats cards', () => {
     expect(screen.getByText('None of your meals were good.')).toBeTruthy();
   });
 
-  it('ranks the symptoms logged in the shown week on the Top symptoms card', async () => {
+  it('names the symptoms logged most in one line on the Food card, which replaces Top symptoms', async () => {
     seedWeek();
     createSymptomLog(mockDb, { items: [{ key: 'heartburn' }], loggedAt: at(9, 9) });
     await render(<HistoryScreen />);
 
-    expect(screen.getByText('Top symptoms')).toBeTruthy();
-    const rows = screen.getAllByLabelText(/^(Heartburn|Burping), \d$/);
-    expect(rows.map((row) => row.props.accessibilityLabel)).toEqual(['Heartburn, 3', 'Burping, 2']);
+    expect(screen.getByText('Mostly heartburn and burping.')).toBeTruthy();
+    expect(screen.queryByText('Top symptoms')).toBeNull();
   });
 
-  it('counts the tags of meals and symptom entries on the Top tags card, with unused tags at 0', async () => {
+  it('names the lifestyle factors logged most in one line on the When card, which replaces Top tags', async () => {
     const meal = seedMeal('Pasta', 'ok', at(10, 12));
     saveMealDetails(mockDb, meal, { tags: ['large_meal', 'stress'] });
     createSymptomLog(mockDb, { items: [{ key: 'heartburn' }], tags: ['stress'], loggedAt: at(10, 20) });
     await render(<HistoryScreen />);
 
-    expect(screen.getByText('Top tags')).toBeTruthy();
-    expect(screen.getByLabelText('Stress, 2')).toBeTruthy();
-    expect(screen.getByLabelText('Large meal, 1')).toBeTruthy();
-    expect(screen.getByLabelText('Alcohol, 0')).toBeTruthy();
+    expect(screen.getByText('Often logged with stress and large meal.')).toBeTruthy();
+    expect(screen.queryByText('Top tags')).toBeNull();
   });
 
-  it('shows three cards with the first one marked in the dots', async () => {
+  it('shows four cards for a week, with the first one marked in the dots', async () => {
     await render(<HistoryScreen />);
 
-    expect(screen.getByLabelText('Card 1 of 3')).toBeTruthy();
+    expect(screen.getByLabelText('Card 1 of 4')).toBeTruthy();
   });
 
   it('is not changed by the Entries filter', async () => {
@@ -281,21 +286,135 @@ describe('History: the stats cards', () => {
     expect(screen.getByText('4 meals')).toBeTruthy();
   });
 
-  it('uses the singular for one meal and one day', async () => {
+  it('uses the singular for one meal and one calm day', async () => {
     seedMeal('Toast', 'ok', at(10, 8));
+    seedMeal('Soup', 'ok', at(9, 8));
     seedSymptom(at(10, 9));
     await render(<HistoryScreen />);
 
-    expect(screen.getByText('1 meal')).toBeTruthy();
-    expect(screen.getByText('1 day with symptoms')).toBeTruthy();
+    expect(screen.getByText('2 meals')).toBeTruthy();
+    expect(screen.getByText('1 calm day')).toBeTruthy();
   });
 
-  it('says no symptoms and shows the rows empty when none were logged', async () => {
+  it('says no symptoms were logged on the When card, with the four parts of the day empty', async () => {
     seedMeal('Toast', 'ok', at(10, 8));
     await render(<HistoryScreen />);
 
-    expect(screen.getByText('No symptoms')).toBeTruthy();
-    expect(screen.getByLabelText('Hoarse voice, 0')).toBeTruthy();
+    expect(screen.getByText('When it shows up')).toBeTruthy();
+    expect(screen.getByText('No symptoms logged')).toBeTruthy();
+    for (const part of ['Morning', 'Afternoon', 'Evening', 'Night']) {
+      expect(screen.getByLabelText(`${part}, 0`)).toBeTruthy();
+    }
+  });
+});
+
+describe('History: how the week and month went', () => {
+  it('counts the calm days and lists the week newest first, saying what was logged each day', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+
+    // Only 9 Oct has something logged and no symptoms; last week's one entry was calm too.
+    expect(screen.getByText('1 calm day')).toBeTruthy();
+    expect(screen.getByText('Same as last week')).toBeTruthy();
+    expect(screen.getByLabelText('Today, Heartburn, Burping')).toBeTruthy();
+    expect(screen.getByLabelText('Yesterday, Calm day')).toBeTruthy();
+    expect(screen.getByLabelText('Thursday, Oct 8, Heartburn, Burping')).toBeTruthy();
+    expect(screen.getByLabelText('Sunday, Oct 4, Nothing logged')).toBeTruthy();
+    // The key to the colours.
+    expect(screen.getByText('1 to 2 symptoms')).toBeTruthy();
+    expect(screen.getByText('3 or more')).toBeTruthy();
+  });
+
+  it('says how many more calm days than last week', async () => {
+    seedMeal('Toast', 'ok', at(9, 8));
+    seedMeal('Soup', 'ok', at(10, 8));
+    seedSymptom(at(1, 12));
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('2 calm days')).toBeTruthy();
+    expect(screen.getByText('2 more than last week')).toBeTruthy();
+  });
+
+  it('shows a month as a calendar of the same days, and leaves days still to come blank', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
+
+    expect(screen.getByText('2 calm days')).toBeTruthy();
+    expect(screen.getByLabelText('Thursday, Oct 8, Heartburn, Burping')).toBeTruthy();
+    expect(screen.getByLabelText('Yesterday, Calm day')).toBeTruthy();
+    expect(screen.queryByLabelText(/^Sunday, Oct 11/)).toBeNull();
+  });
+
+  it('has no card for the days over all time, which would be a very long list', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'All time' }));
+
+    expect(screen.getByLabelText('Card 1 of 3')).toBeTruthy();
+    expect(screen.queryByText(/calm day/)).toBeNull();
+  });
+});
+
+describe('History: what sat well and when it shows up', () => {
+  /** Meals at 19:00 with a symptom entry two hours later, and a meal eaten twice with nothing after. */
+  const seedPatterns = () => {
+    seedGoodMeal('Oatmeal', at(5, 8));
+    seedGoodMeal('Oatmeal', at(6, 8));
+    seedMeal('Spicy tacos', 'caution', at(7, 19));
+    seedSymptom(at(7, 21));
+    seedMeal('Spicy tacos', 'caution', at(8, 19));
+    seedSymptom(at(8, 21));
+  };
+
+  it('lists the meals that sat well and the ones worth watching, from the symptoms logged after them', async () => {
+    seedPatterns();
+    await render(<HistoryScreen />);
+
+    expect(screen.getByLabelText('Oatmeal, eaten 2 times, no symptoms after')).toBeTruthy();
+    expect(screen.getByLabelText('Spicy tacos, symptoms after 2 of 2 times')).toBeTruthy();
+    expect(screen.getByText('Just what Bellie noticed, not what caused it.')).toBeTruthy();
+  });
+
+  it('asks for symptoms after meals when no meal has been eaten twice', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('Nothing to compare yet')).toBeTruthy();
+    expect(
+      screen.getByText('Log symptoms after meals and Bellie will start spotting patterns.'),
+    ).toBeTruthy();
+  });
+
+  it('titles the When card by where most symptoms fell, with a count for every part of the day', async () => {
+    seedPatterns();
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('Mostly evenings')).toBeTruthy();
+    expect(screen.getByLabelText('Evening, 4')).toBeTruthy();
+    expect(screen.getByLabelText('Morning, 0')).toBeTruthy();
+  });
+
+  it('counts meals eaten close to bedtime and how many were followed by symptoms', async () => {
+    seedWeek();
+    await render(<HistoryScreen />);
+
+    // The pasta at 20:00 is within 3 hours of the 22:30 bedtime, and symptoms followed at 22:00.
+    expect(screen.getByText('1 late meal')).toBeTruthy();
+    expect(screen.getByText('Within 3 hours of bedtime. 1 was followed by symptoms.')).toBeTruthy();
+  });
+
+  it('says how the good meals compare with last week on the Food card', async () => {
+    seedGoodMeal('A', at(1, 12));
+    seedMeal('B', 'trigger', at(2, 12));
+    seedMeal('C', 'trigger', at(3, 12));
+    seedGoodMeal('D', at(10, 8));
+    seedMeal('E', 'trigger', at(10, 9));
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('50% good, up from 33% last week')).toBeTruthy();
   });
 });
 
@@ -316,8 +435,8 @@ describe('History: the Entries filter', () => {
     await fireEvent.press(screen.getByRole('radio', { name: 'Medications' }));
     expect(screen.getByText('Omeprazole 20 mg')).toBeTruthy();
     expect(screen.queryByText('Spicy chicken tacos')).toBeNull();
-    // A day with nothing of that kind has no heading.
-    expect(screen.queryByText('Yesterday')).toBeNull();
+    // A day with nothing of that kind has no heading (the week card still names every day).
+    expect(screen.queryByRole('header', { name: 'Yesterday' })).toBeNull();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Show, Medications' }));
     await fireEvent.press(screen.getByRole('radio', { name: 'All' }));
@@ -343,11 +462,11 @@ describe("History: Bellie's week", () => {
     tips: ['Eat dinner a little earlier.'],
   };
 
-  it('makes her card the first of four, in words made on the phone until her summary arrives', async () => {
+  it('makes her card the first of five, in words made on the phone until her summary arrives', async () => {
     seedWeek();
     await render(<HistoryScreen />);
 
-    expect(screen.getByLabelText('Card 1 of 4')).toBeTruthy();
+    expect(screen.getByLabelText('Card 1 of 5')).toBeTruthy();
     expect(screen.getByText('Tips')).toBeTruthy();
     expect(
       screen.getByRole('header', { name: /^(A good week so far!|A few bumps this week\.)$/ }),
@@ -382,14 +501,14 @@ describe("History: Bellie's week", () => {
 
     await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
 
-    expect(screen.getByLabelText('Card 1 of 3')).toBeTruthy();
+    expect(screen.getByLabelText('Card 1 of 4')).toBeTruthy();
     expect(fetchInsight).not.toHaveBeenCalled();
   });
 
   it('has no card of hers for a week with nothing logged', async () => {
     await render(<HistoryScreen />);
 
-    expect(screen.getByLabelText('Card 1 of 3')).toBeTruthy();
+    expect(screen.getByLabelText('Card 1 of 4')).toBeTruthy();
     expect(fetchInsight).not.toHaveBeenCalled();
   });
 });
@@ -405,7 +524,7 @@ describe('History: stepping through weeks and months', () => {
     expect(screen.getByText('Old pasta')).toBeTruthy();
     expect(screen.queryByText('Spicy chicken tacos')).toBeNull();
     expect(screen.getByText('1 meal')).toBeTruthy();
-    expect(screen.getByText('Thursday, Oct 1')).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Thursday, Oct 1' })).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Next week' }));
     expect(screen.getByText('Oct 4 – 10')).toBeTruthy();
