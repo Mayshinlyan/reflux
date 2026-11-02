@@ -30,8 +30,9 @@ function failureMessage(error: unknown): string {
 }
 
 /**
- * Settings, About, "Send feedback" (Figma 19): one multiline field in a bottom sheet. Send stays muted until
- * something is typed. Only the typed text goes to the relay (never meals or symptoms), and a message that
+ * "Tell us what you think" (Figma 19, 27), opened from Settings, About, "Send feedback" and from History's
+ * Feedback pill: one multiline field in a bottom sheet. Send stays muted until something is
+ * typed. Only the typed text goes to the relay (never meals or symptoms), and a message that
  * didn't send stays in the field, so closing and reopening the sheet doesn't lose it.
  */
 export function FeedbackSheet({ visible, onClose, onSent }: Props) {
@@ -60,10 +61,10 @@ export function FeedbackSheet({ visible, onClose, onSent }: Props) {
   return (
     <BottomSheet visible={visible} onClose={onClose} tone="bg">
       <AppText variant="displaySmall" accessibilityRole="header">
-        Send feedback
+        Tell us what you think
       </AppText>
       <AppText color="inkSoft" style={styles.note}>
-        Tell Bellie what&apos;s working and what isn&apos;t.
+        Something missing, confusing or great? It goes straight to the team.
       </AppText>
       <TextField
         label="Your feedback"
