@@ -39,3 +39,21 @@ export type RecipeRequest = {
   /** Dishes already shown this round, so "Generate more" gives new ones. */
   shown?: string[];
 };
+
+/** A change to one recipe's ingredients. Mirrors the relay's `recipeAdjustBodySchema`. */
+export type RecipeChange =
+  | { kind: 'swap'; ingredient: string; with?: string }
+  | { kind: 'remove'; ingredient: string }
+  | { kind: 'add'; ingredients: string[] };
+
+/**
+ * What is sent to change a recipe: the recipe itself (without the phone's own `look`), the change, what the person is
+ * managing, and food names only. Mirrors the relay's `recipeAdjustBodySchema`.
+ */
+export type AdjustRequest = {
+  recipe: Omit<Recipe, 'look'>;
+  change: RecipeChange;
+  conditions?: Exclude<ConditionKey, 'unsure'>[];
+  triggers?: string[];
+  avoid?: string[];
+};

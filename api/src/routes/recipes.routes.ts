@@ -17,7 +17,7 @@ import {
 import type { AnalyzeDeps } from './analyze.routes.js';
 
 /** The same kill switch as meal checks: answers SERVICE_BUSY before any auth, quota or Claude work happens. */
-function killSwitch(enabled: boolean) {
+export function killSwitch(enabled: boolean) {
   return (_req: Request, _res: Response, next: NextFunction) =>
     next(enabled ? undefined : new HttpError('SERVICE_BUSY'));
 }

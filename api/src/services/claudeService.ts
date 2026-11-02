@@ -9,13 +9,16 @@ import {
   textUserMessage,
 } from '../prompts/foodAnalysisPrompt.js';
 import { INSIGHT_SYSTEM_PROMPT, INSIGHT_TOOL_NAME, insightUserMessage } from '../prompts/insightPrompt.js';
+import { ADJUST_SYSTEM_PROMPT, ADJUST_TOOL_NAME, adjustUserMessage } from '../prompts/recipeAdjustPrompt.js';
 import { RECIPE_SYSTEM_PROMPT, RECIPE_TOOL_NAME, recipeUserMessage } from '../prompts/recipePrompt.js';
 import {
   type InsightInput,
   insightJsonSchema,
   mealAnalysisJsonSchema,
   type Portion,
+  type RecipeAdjustInput,
   type RecipeIdeasInput,
+  recipeAdjustJsonSchema,
   recipeIdeasJsonSchema,
 } from '../schemas.js';
 
@@ -49,6 +52,8 @@ export interface ClaudeService {
   insight(input: InsightInput): Promise<ClaudeResult>;
   /** Three recipe ideas that go easy on the person's belly (the Kitchen). */
   recipes(input: RecipeIdeasInput): Promise<ClaudeResult>;
+  /** One recipe rewritten for a change to its ingredients (swap, remove, add). */
+  adjust(input: RecipeAdjustInput): Promise<ClaudeResult>;
 }
 
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -56,6 +61,8 @@ export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 const MAX_TOKENS = 3000;
 // Three full recipes (ingredients and steps) are longer than a meal check, so they get more room and more time.
 const RECIPE_MAX_TOKENS = 5000;
+// One recipe is about a third of a round.
+const ADJUST_MAX_TOKENS = 2500;
 const RECIPE_TIMEOUT_MS = 60_000;
 const TIMEOUT_MS = 30_000;
 /** The SDK's own retries are off; we retry once ourselves so the count can be reported. */
@@ -109,6 +116,7 @@ export function createClaudeService(options: {
   const analysisSchema = mealAnalysisJsonSchema();
   const insightSchema = insightJsonSchema();
   const recipeSchema = recipeIdeasJsonSchema();
+  const adjustSchema = recipeAdjustJsonSchema();
 
   async function call({
     system,
@@ -217,6 +225,17 @@ export function createClaudeService(options: {
         timeoutMs: RECIPE_TIMEOUT_MS,
       });
     },
+    adjust(input) {
+      return call({
+        system: ADJUST_SYSTEM_PROMPT,
+        toolName: ADJUST_TOOL_NAME,
+        toolDescription: 'Report the one rewritten recipe. Call exactly once.',
+        inputSchema: adjustSchema,
+        content: [{ type: 'text', text: adjustUserMessage(input) }],
+        maxTokens: ADJUST_MAX_TOKENS,
+        timeoutMs: RECIPE_TIMEOUT_MS,
+      });
+    },
   };
 }
 
@@ -257,6 +276,9 @@ export function createUnavailableClaudeService(model = DEFAULT_MODEL): ClaudeSer
       throw new HttpError('SERVICE_BUSY');
     },
     async recipes() {
+      throw new HttpError('SERVICE_BUSY');
+    },
+    async adjust() {
       throw new HttpError('SERVICE_BUSY');
     },
   };

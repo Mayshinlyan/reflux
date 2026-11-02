@@ -5,7 +5,7 @@ import { type Env, loadEnv } from '../src/config/env.js';
 import { type FeedbackStore, InMemoryFeedbackStore } from '../src/lib/feedbackStore.js';
 import { createLogger } from '../src/lib/logger.js';
 import { InMemoryRateLimitStore, type RateLimitStore } from '../src/lib/rateLimitStore.js';
-import type { InsightInput, RecipeIdeasInput } from '../src/schemas.js';
+import type { InsightInput, RecipeAdjustInput, RecipeIdeasInput } from '../src/schemas.js';
 import type { ClaudeInput, ClaudeResult, ClaudeService } from '../src/services/claudeService.js';
 import type { TokenVerifier } from '../src/services/tokenVerifier.js';
 
@@ -102,10 +102,14 @@ export function fakeClaude(
   respond: (input: ClaudeInput) => unknown | Promise<unknown> = () => goodAnalysis,
   respondInsight: (input: InsightInput) => unknown | Promise<unknown> = () => goodInsight,
   respondRecipes: (input: RecipeIdeasInput) => unknown | Promise<unknown> = () => goodRecipes,
+  respondAdjust: (input: RecipeAdjustInput) => unknown | Promise<unknown> = () => ({
+    recipe: goodRecipes.recipes[0],
+  }),
 ) {
   const calls: ClaudeInput[] = [];
   const insightCalls: InsightInput[] = [];
   const recipeCalls: RecipeIdeasInput[] = [];
+  const adjustCalls: RecipeAdjustInput[] = [];
   const service: ClaudeService = {
     model: 'claude-test-model',
     async analyze(input): Promise<ClaudeResult> {
@@ -120,8 +124,12 @@ export function fakeClaude(
       recipeCalls.push(input);
       return { raw: await respondRecipes(input), telemetry };
     },
+    async adjust(input): Promise<ClaudeResult> {
+      adjustCalls.push(input);
+      return { raw: await respondAdjust(input), telemetry };
+    },
   };
-  return { service, calls, insightCalls, recipeCalls };
+  return { service, calls, insightCalls, recipeCalls, adjustCalls };
 }
 
 export function testApp(

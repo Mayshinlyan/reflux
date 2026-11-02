@@ -72,6 +72,20 @@ export function saveRecipe(db: AppDb, recipe: Recipe, cuisine: CuisineKey): Stor
   return toStored(row) as StoredRecipe;
 }
 
+/** Puts an edited version of a saved recipe in its place (rating kept). */
+export function updateSavedRecipe(db: AppDb, id: number, recipe: Recipe): void {
+  db.update(savedRecipes)
+    .set({
+      title: recipe.title,
+      minutes: Math.round(recipe.minutes),
+      serves: Math.round(recipe.serves),
+      recipe: pickRecipe(recipe),
+      updatedAt: nowIso(),
+    })
+    .where(eq(savedRecipes.id, id))
+    .run();
+}
+
 export function removeSavedRecipe(db: AppDb, id: number): void {
   db.delete(savedRecipes).where(eq(savedRecipes.id, id)).run();
 }

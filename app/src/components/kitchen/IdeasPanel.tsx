@@ -145,7 +145,7 @@ function Cards({
             <AppText variant="subtitle" color="inkSoft" numberOfLines={3}>
               {recipe.why}
             </AppText>
-            <Button label="Cook this" accessibilityHint={recipe.title} onPress={() => onCook(recipe)} />
+            <Button label="Use this recipe" accessibilityHint={recipe.title} onPress={() => onCook(recipe)} />
           </View>
         )}
       />

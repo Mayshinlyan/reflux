@@ -7,9 +7,9 @@ import type { InsightRequest } from '@/types/insight';
 
 import { getNetworkStateAsync } from 'expo-network';
 
-import type { RecipeRequest } from '@/types/recipe';
+import type { AdjustRequest, RecipeRequest } from '@/types/recipe';
 
-import { analyzeFood, fetchInsight, fetchRecipeIdeas, sendFeedback } from '../relayClient';
+import { adjustRecipe, analyzeFood, fetchInsight, fetchRecipeIdeas, sendFeedback } from '../relayClient';
 import { getIdToken } from '../firebase';
 
 // A stand-in with the parts of an expo-file-system File that Expo's multipart encoder uses.
@@ -452,5 +452,50 @@ describe('sendFeedback', () => {
     fetchMock.mockRejectedValue(new DOMException('aborted', 'AbortError'));
 
     await expect(sendFeedback('hi', controller.signal)).rejects.toThrow('aborted');
+  });
+});
+
+describe('adjustRecipe', () => {
+  const recipe = {
+    title: 'Kimchi egg fried rice',
+    minutes: 20,
+    serves: 2,
+    why: 'Soft rice and egg are easy on the stomach.',
+    tip: '',
+    ingredients: ['1 1/2 cups cooked rice', '2 eggs'],
+    steps: ['Chop the kimchi.', 'Stir-fry it.'],
+  };
+  const request: AdjustRequest = {
+    recipe,
+    change: { kind: 'swap', ingredient: '2 eggs', with: 'tofu' },
+    avoid: ['Peanuts'],
+  };
+
+  it('posts the change to the adjust route and returns the one recipe, without extras', async () => {
+    fetchMock.mockReturnValue(json(200, { recipe: { ...recipe, extra: 'x' }, meta: { model: 'm' } }));
+
+    await expect(adjustRecipe(request)).resolves.toEqual(recipe);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://relay.test/v1/recipe-adjust');
+    expect(init.method).toBe('POST');
+    expect(init.headers.Authorization).toBe('Bearer test-token');
+    expect(JSON.parse(init.body)).toEqual(request);
+  });
+
+  it('maps a relay error to its code', async () => {
+    fetchMock.mockReturnValue(json(429, { error: { code: 'RATE_LIMITED', requestId: 'r1' } }));
+
+    await expect(adjustRecipe(request)).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+  });
+
+  it.each([
+    ['no recipe', { meta: {} }],
+    ['a recipe without steps', { recipe: { ...recipe, steps: [] } }],
+    ['a list of recipes instead', { recipes: [recipe] }],
+  ])('reports AI_INVALID_OUTPUT for %s', async (_name, body) => {
+    fetchMock.mockReturnValue(json(200, body));
+
+    await expect(adjustRecipe(request)).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
   });
 });

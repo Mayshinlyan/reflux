@@ -1,10 +1,12 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import RecipeScreen from '@/app/recipe';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { getSavedRecipe, listSavedRecipes, saveRecipe } from '@/db/repositories/savedRecipes';
 import type { AppDb } from '@/db/types';
+import { AppError } from '@/lib/errors';
 import { setRecipeDraft } from '@/lib/recipeDraft';
+import { adjustRecipe } from '@/services/relayClient';
 import type { Recipe } from '@/types/recipe';
 
 let mockDb: AppDb;
@@ -34,6 +36,35 @@ jest.mock('expo-router', () => ({
   },
   useLocalSearchParams: () => mockParams,
 }));
+jest.mock('@/services/relayClient', () => ({ adjustRecipe: jest.fn() }));
+const mockToast = jest.fn();
+jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
+// The real sheet is a native Modal, which never reports that it closed; this one does, as the edit waits for it.
+jest.mock('@/components/BottomSheet', () => {
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const { useEffect, useRef } = require('react');
+  const { View } = require('react-native');
+  /* eslint-enable @typescript-eslint/no-require-imports */
+  return {
+    BottomSheet: ({
+      visible,
+      onDismissed,
+      children,
+    }: {
+      visible: boolean;
+      onDismissed?: () => void;
+      children: unknown;
+    }) => {
+      const wasVisible = useRef(false);
+      useEffect(() => {
+        if (wasVisible.current && !visible) onDismissed?.();
+        wasVisible.current = visible;
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only a change of `visible` counts
+      }, [visible]);
+      return visible ? <View>{children}</View> : null;
+    },
+  };
+});
 jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn(() => Promise.resolve()) }));
 
 const recipe: Recipe = {
@@ -46,6 +77,7 @@ const recipe: Recipe = {
   steps: ['Chop the kimchi.', 'Stir-fry it in the oil.', 'Add the rice, then the eggs.'],
 };
 
+const adjust = adjustRecipe as jest.Mock;
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
 
 beforeEach(() => {
@@ -54,6 +86,8 @@ beforeEach(() => {
   closeDb = () => sqlite.close();
   mockParams = {};
   mockPush.mockClear();
+  adjust.mockReset();
+  mockToast.mockClear();
   setRecipeDraft({ recipe, cuisine: 'korean' });
 });
 afterEach(() => {
@@ -247,5 +281,154 @@ describe('Recipe: how was it', () => {
 
     await press('Not for me');
     expect(getSavedRecipe(mockDb, saved.id)?.rating).toBeNull();
+  });
+});
+
+describe('Recipe: changing the ingredients', () => {
+  const changed: Recipe = {
+    ...recipe,
+    ingredients: ['1 1/2 cups cooked rice', '2 eggs', '1 cup spinach'],
+    steps: ['Wilt the spinach.', 'Stir-fry it in the oil.', 'Add the rice, then the eggs.'],
+  };
+
+  it('opens Swap and Remove under an ingredient', async () => {
+    await render(<RecipeScreen />);
+
+    await press('2 eggs');
+
+    expect(screen.getByRole('menuitem', { name: 'Swap' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Remove' })).toBeTruthy();
+  });
+
+  it('removes an ingredient: asks for the rewrite and shows the new recipe', async () => {
+    adjust.mockResolvedValue(changed);
+    await render(<RecipeScreen />);
+
+    await press('2 eggs');
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'Remove' }));
+
+    await waitFor(() => expect(screen.getByText('1 cup spinach')).toBeTruthy());
+    expect(adjust.mock.calls[0]?.[0]).toMatchObject({
+      change: { kind: 'remove', ingredient: '2 eggs' },
+      recipe: { title: 'Kimchi egg fried rice' },
+    });
+    expect(screen.queryByText('1 tbsp sesame oil')).toBeNull();
+  });
+
+  it('sends the recipe without the phone-only picture, and keeps the picture on the new one', async () => {
+    setRecipeDraft({ recipe: { ...recipe, look: 3 }, cuisine: 'korean' });
+    adjust.mockResolvedValue(changed);
+    await render(<RecipeScreen />);
+
+    await press('2 eggs');
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'Remove' }));
+
+    await waitFor(() => expect(screen.getByText('1 cup spinach')).toBeTruthy());
+    expect(adjust.mock.calls[0]?.[0].recipe).not.toHaveProperty('look');
+    expect(screen.getByTestId('recipe-art-3', { includeHiddenElements: true })).toBeTruthy();
+  });
+
+  it('swaps with a food you type', async () => {
+    adjust.mockResolvedValue(changed);
+    await render(<RecipeScreen />);
+
+    await press('2 eggs');
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'Swap' }));
+    await fireEvent.changeText(screen.getByPlaceholderText('Something else, like cabbage'), 'tofu');
+    await press('Swap for tofu');
+
+    await waitFor(() => expect(adjust).toHaveBeenCalledTimes(1));
+    expect(adjust.mock.calls[0]?.[0].change).toEqual({ kind: 'swap', ingredient: '2 eggs', with: 'tofu' });
+  });
+
+  it('lets Bellie pick the swap when nothing is typed', async () => {
+    adjust.mockResolvedValue(changed);
+    await render(<RecipeScreen />);
+
+    await press('2 eggs');
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'Swap' }));
+    await press('Let Bellie pick');
+
+    await waitFor(() => expect(adjust).toHaveBeenCalledTimes(1));
+    expect(adjust.mock.calls[0]?.[0].change).toEqual({ kind: 'swap', ingredient: '2 eggs' });
+  });
+
+  it('adds typed ingredients', async () => {
+    adjust.mockResolvedValue(changed);
+    await render(<RecipeScreen />);
+
+    await press('Add an ingredient');
+    expect(screen.getByRole('button', { name: 'Update my recipe' })).toBeDisabled();
+    await fireEvent.changeText(screen.getByPlaceholderText('Like zucchini, tofu'), 'spinach, tofu');
+    await press('Update my recipe');
+
+    await waitFor(() => expect(adjust).toHaveBeenCalledTimes(1));
+    expect(adjust.mock.calls[0]?.[0].change).toEqual({ kind: 'add', ingredients: ['spinach', 'tofu'] });
+  });
+
+  it('keeps the recipe as it was when the update fails, and says so', async () => {
+    adjust.mockRejectedValue(new AppError('NETWORK'));
+    await render(<RecipeScreen />);
+
+    await press('2 eggs');
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'Remove' }));
+
+    await waitFor(() => expect(adjust).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('2 eggs')).toBeTruthy();
+    expect(screen.queryByText('1 cup spinach')).toBeNull();
+    expect(mockToast).toHaveBeenCalledWith(
+      "Couldn't update. Check your connection. Your recipe is as it was.",
+    );
+  });
+
+  it('says so when the day’s edits are used up', async () => {
+    adjust.mockRejectedValue(new AppError('RATE_LIMITED'));
+    await render(<RecipeScreen />);
+
+    await press('2 eggs');
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'Remove' }));
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith('Bellie needs a rest from edits today. Try again tomorrow.'),
+    );
+  });
+
+  it('offers Undo, which brings the earlier version back, one edit at a time', async () => {
+    const second: Recipe = { ...changed, ingredients: ['1 1/2 cups cooked rice', '1 cup spinach'] };
+    adjust.mockResolvedValueOnce(changed).mockResolvedValueOnce(second);
+    await render(<RecipeScreen />);
+
+    await press('2 eggs');
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'Remove' }));
+    await waitFor(() => expect(screen.getByText('1 cup spinach')).toBeTruthy());
+    expect(mockToast).toHaveBeenLastCalledWith('Recipe updated', {
+      action: { label: 'Undo', onPress: expect.any(Function) },
+    });
+    await press('2 eggs');
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'Remove' }));
+    await waitFor(() => expect(screen.queryByText('2 eggs')).toBeNull());
+
+    const undo = () => mockToast.mock.calls.at(-1)?.[1].action.onPress();
+    await act(async () => undo());
+    expect(screen.getByText('2 eggs')).toBeTruthy();
+    expect(screen.getByText('1 cup spinach')).toBeTruthy();
+    await act(async () => undo());
+    expect(screen.queryByText('1 cup spinach')).toBeNull();
+    expect(screen.getByText('1 tbsp sesame oil')).toBeTruthy();
+  });
+
+  it('keeps an edited saved recipe saved, with the new version in the list', async () => {
+    adjust.mockResolvedValue(changed);
+    const saved = saveRecipe(mockDb, recipe, 'korean');
+    setRecipeDraft(null);
+    mockParams = { saved: String(saved.id) };
+    await render(<RecipeScreen />);
+
+    await press('2 eggs');
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'Remove' }));
+
+    await waitFor(() => expect(screen.getByText('1 cup spinach')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Saved' })).toBeTruthy();
+    expect(getSavedRecipe(mockDb, saved.id)?.recipe.ingredients).toContain('1 cup spinach');
   });
 });

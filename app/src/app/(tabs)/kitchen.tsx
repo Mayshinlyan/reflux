@@ -8,6 +8,7 @@ import { Belly } from '@/components/Belly';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { tabBarClearance } from '@/components/FloatingTabBar';
+import { AiIdeasButton } from '@/components/kitchen/AiIdeasButton';
 import { IdeasPanel, type IdeasStatus } from '@/components/kitchen/IdeasPanel';
 import { type IdeasChoices, IdeasSheet } from '@/components/kitchen/IdeasSheet';
 import { RecipeRow } from '@/components/kitchen/RecipeRow';
@@ -66,6 +67,13 @@ export default function KitchenScreen() {
   }, [db]);
   useFocusEffect(reload);
 
+  const initial = {
+    cuisine: isCuisineKey(settings.kitchenCuisine) ? settings.kitchenCuisine : 'any',
+    time: isRecipeTime(settings.kitchenTime) ? settings.kitchenTime : '40',
+    serves: settings.kitchenServes,
+  } as const;
+  const ideasCount = settings.kitchenIdeas?.recipes.length ?? 0;
+
   const left = roundsLeft(settings.kitchenRounds, todayKey());
   const closed = left === 0;
 
@@ -107,6 +115,12 @@ export default function KitchenScreen() {
         logger.error('countKitchenRound', error);
       }
       setResults({ status: 'ready', cuisine: choices.cuisine, recipes });
+      // Kept, so "AI Ideas" can bring this round back after the sheet is closed or the app restarted.
+      try {
+        update('kitchenIdeas', { cuisine: choices.cuisine, recipes });
+      } catch (error) {
+        logger.error('saveKitchenIdeas', error);
+      }
     } catch (error) {
       if (controller.signal.aborted) return;
       logger.error('fetchRecipeIdeas', error);
@@ -155,18 +169,27 @@ export default function KitchenScreen() {
     openAfterClose.current = false;
     router.push('/recipe');
   };
+  /** Looks back at the last round: free, it asks nothing of the AI and does not count as a round. */
+  const lookBack = () => {
+    const last = settings.kitchenIdeas;
+    if (!last) return;
+    // After a restart there are no choices to ask again with, so they are rebuilt from how the sheet was left.
+    lastChoices.current ??= {
+      cuisine: last.cuisine,
+      time: initial.time,
+      serves: initial.serves,
+      want: '',
+    };
+    if (shown.current.length === 0) shown.current = last.recipes.map((recipe) => recipe.title);
+    setResults({ status: 'ready', cuisine: last.cuisine, recipes: last.recipes });
+    setPanelOpen(true);
+  };
   const retry = () => {
     if (lastChoices.current) void run(lastChoices.current, true);
   };
   const more = () => {
     if (lastChoices.current && !closed) void run(lastChoices.current, true);
   };
-
-  const initial = {
-    cuisine: isCuisineKey(settings.kitchenCuisine) ? settings.kitchenCuisine : 'any',
-    time: isRecipeTime(settings.kitchenTime) ? settings.kitchenTime : '40',
-    serves: settings.kitchenServes,
-  } as const;
 
   return (
     <Screen edges={['top', 'left', 'right']}>
@@ -194,7 +217,20 @@ export default function KitchenScreen() {
             </View>
             <Belly mood={closed ? 'okay' : 'happy'} size={72} />
           </View>
-          <Button label={closed ? 'Back tomorrow' : 'Get ideas'} disabled={closed} onPress={openAsk} />
+          <View style={styles.buttons}>
+            <View style={styles.fill}>
+              <Button
+                label={closed ? 'Back tomorrow' : ideasCount > 0 ? 'New ideas' : 'Get ideas'}
+                disabled={closed}
+                onPress={openAsk}
+              />
+            </View>
+            {ideasCount > 0 && (
+              <View style={styles.fill}>
+                <AiIdeasButton count={ideasCount} onPress={lookBack} />
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -250,5 +286,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, padding: space.s3 - 4, gap: space.s2 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: space.s1 + 4 },
   cardText: { flex: 1, gap: 4 },
+  buttons: { flexDirection: 'row', gap: space.s1 + 2 },
+  fill: { flex: 1 },
   section: { gap: space.s1 + 4 },
 });

@@ -12,8 +12,10 @@ import {
 } from '@/constants/cuisines';
 import { RETIRED_SYMPTOM_KEYS, SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
 import { type PetAnimal, PETS } from '@/lib/pets';
+import { isRecipe } from '@/lib/recipe';
 import { REMINDER_OPTIONS } from '@/lib/reminderTiming';
 import { nowIso } from '@/lib/time';
+import type { Recipe } from '@/types/recipe';
 
 import { appSettings } from '../schema';
 import type { AppDb } from '../types';
@@ -57,6 +59,8 @@ export type Settings = {
   kitchenServes: number;
   /** How many Kitchen rounds (three ideas each) were made on `day` (a local "YYYY-MM-DD"); a new day starts at none. */
   kitchenRounds: { day: string; count: number };
+  /** The last round of ideas, kept so "AI Ideas" can bring them back after the sheet is closed or the app restarted. */
+  kitchenIdeas: { cuisine: CuisineKey; recipes: Recipe[] } | null;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -79,6 +83,7 @@ export const DEFAULT_SETTINGS: Settings = {
   kitchenTime: '40',
   kitchenServes: 2,
   kitchenRounds: { day: '', count: 0 },
+  kitchenIdeas: null,
 };
 
 export type SettingKey = keyof Settings;
@@ -149,6 +154,13 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
     if (typeof rounds?.day !== 'string' || !Number.isInteger(rounds.count) || rounds.count < 0) {
       throw new Error('kitchenRounds must be a day and a count');
     }
+  }
+  if (key === 'kitchenIdeas') {
+    const ideas = value as Settings['kitchenIdeas'];
+    const valid =
+      ideas === null ||
+      (isCuisineKey(ideas?.cuisine) && Array.isArray(ideas.recipes) && ideas.recipes.every(isRecipe));
+    if (!valid) throw new Error('kitchenIdeas must be null or a cuisine with recipes');
   }
 }
 

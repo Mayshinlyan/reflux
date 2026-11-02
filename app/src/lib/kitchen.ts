@@ -7,7 +7,7 @@ import { listSavedFoods } from '@/db/repositories/savedFoods';
 import { foodLogs } from '@/db/schema';
 import type { AppDb } from '@/db/types';
 import { currentTimeZone } from '@/lib/time';
-import type { RecipeRequest } from '@/types/recipe';
+import type { AdjustRequest, Recipe, RecipeChange, RecipeRequest } from '@/types/recipe';
 
 import { localDayKey } from './localDay';
 import { cleanFoodName } from './recipe';
@@ -113,3 +113,34 @@ export function buildRecipeRequest(db: AppDb, choices: Choices): RecipeRequest {
   }
   return request;
 }
+
+/** How many ingredient edits one recipe keeps for Undo. */
+export const MAX_UNDO = 5;
+
+/**
+ * What to send to change one recipe: the recipe (without the phone's own picture), the change, the condition, and the
+ * foods that bothered the person or that they never eat. Never symptoms, notes, photos or the person's name.
+ */
+export function buildAdjustRequest(
+  db: AppDb,
+  input: { recipe: Recipe; change: RecipeChange; conditions: readonly ConditionKey[] },
+): AdjustRequest {
+  const { look: _look, ...recipe } = input.recipe;
+  const request: AdjustRequest = { recipe, change: input.change };
+  const conditions = input.conditions.filter(
+    (key): key is Exclude<ConditionKey, 'unsure'> => key !== 'unsure',
+  );
+  if (conditions.length > 0) request.conditions = conditions;
+  const triggers = triggerFoodNames(db);
+  if (triggers.length > 0) request.triggers = triggers;
+  const avoid = uniqueNames(
+    listAvoidFoods(db).map((food) => food.name),
+    MAX_AVOID,
+  );
+  if (avoid.length > 0) request.avoid = avoid;
+  return request;
+}
+
+/** The earlier versions to keep for Undo: the newest last, at most five. */
+export const pushUndo = (stack: readonly Recipe[], previous: Recipe): Recipe[] =>
+  [...stack, previous].slice(-MAX_UNDO);

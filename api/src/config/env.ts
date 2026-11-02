@@ -21,6 +21,11 @@ const envSchema = z
      * "Try again" after a failure without the relay refusing first. Its own counter, so it never uses up meal checks.
      */
     PER_USER_DAILY_RECIPE_LIMIT: z.coerce.number().int().positive().default(15),
+    /**
+     * Kitchen ingredient edits (swap, remove, add) per person per day. Each rewrites one recipe, a smaller call than a
+     * round of ideas, and it has its own counter so it never uses up rounds or meal checks.
+     */
+    PER_USER_DAILY_ADJUST_LIMIT: z.coerce.number().int().positive().default(40),
     /** Feedback messages per person per day; no AI cost, so it never counts toward the AI breaker above. */
     PER_USER_DAILY_FEEDBACK_LIMIT: z.coerce.number().int().positive().default(5),
     /** A daily ceiling on feedback from everyone, because anonymous sign-in makes a per-person cap easy to dodge. */
