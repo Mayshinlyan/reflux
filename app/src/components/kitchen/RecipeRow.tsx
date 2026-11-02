@@ -5,7 +5,7 @@ import { AppText } from '@/components/AppText';
 import { Belly } from '@/components/Belly';
 import { recipeMeta } from '@/lib/recipe';
 import { LOOKS, lookFor } from '@/lib/recipeLook';
-import { radius, space, useColors } from '@/theme';
+import { cardEdge, radius, space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
 
 type Props = {
@@ -21,7 +21,10 @@ export function RecipeRow({ recipe, onPress }: Props) {
       accessibilityRole="button"
       accessibilityLabel={`${recipe.title}, ${recipeMeta(recipe)}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.row, { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 }]}>
+      style={({ pressed }) => [
+        styles.row,
+        { backgroundColor: colors.surface, ...cardEdge(colors), opacity: pressed ? 0.85 : 1 },
+      ]}>
       <View style={[styles.thumb, { backgroundColor: colors[LOOKS[lookFor(recipe)]!.tint] }]}>
         <Belly mood="happy" size={30} />
       </View>

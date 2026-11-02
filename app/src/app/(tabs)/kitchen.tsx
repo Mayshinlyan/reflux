@@ -25,7 +25,7 @@ import { logger } from '@/lib/logger';
 import { parseWanted } from '@/lib/recipe';
 import { setRecipeDraft } from '@/lib/recipeDraft';
 import { fetchRecipeIdeas } from '@/services/relayClient';
-import { radius, space, useColors } from '@/theme';
+import { cardEdge, radius, space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
 
 type Results = { status: IdeasStatus; cuisine: CuisineKey; recipes: Recipe[]; errorCode?: ErrorCode };
@@ -205,7 +205,7 @@ export default function KitchenScreen() {
           </AppText>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+        <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
           <View style={styles.cardTop}>
             <View style={styles.cardText}>
               <AppText variant="displaySmall">{closed ? 'Kitchen is closed' : 'Cook something'}</AppText>

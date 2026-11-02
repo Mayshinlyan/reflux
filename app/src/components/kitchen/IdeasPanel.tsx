@@ -10,7 +10,7 @@ import type { ErrorCode } from '@/lib/errors';
 import { ideasErrorMessage } from '@/lib/kitchenCopy';
 import { recipeMeta } from '@/lib/recipe';
 import { lookFor } from '@/lib/recipeLook';
-import { minTouchTarget, radius, space, useColors } from '@/theme';
+import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
 
 import { RecipeArt } from './RecipeArt';
@@ -85,7 +85,7 @@ export function IdeasPanel({
       </View>
 
       {status === 'loading' && (
-        <View style={[styles.waitCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.waitCard, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
           <FoodLoading source="recipes" />
           <AppText variant="caption" color="inkMuted" style={styles.center}>
             This usually takes about 15 seconds.
@@ -130,7 +130,7 @@ function Cards({
         keyOf={(recipe, index) => `${recipe.title}-${index}`}
         labelOf={(recipe, index) => `Idea ${index + 1} of ${recipes.length}: ${recipe.title}`}
         renderItem={(recipe) => (
-          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
             <RecipeArt look={lookFor(recipe)} height={168} />
             <AppText variant="displaySmall">{recipe.title}</AppText>
             <AppText variant="subtitle" color="inkSoft">

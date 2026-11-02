@@ -17,7 +17,7 @@ import {
   type RecipeTime,
 } from '@/constants/cuisines';
 import { skipsLine } from '@/lib/kitchenCopy';
-import { minTouchTarget, radius, space, useColors } from '@/theme';
+import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
 
 export type IdeasChoices = { cuisine: CuisineKey; time: RecipeTime; serves: number; want: string };
 
@@ -73,7 +73,7 @@ export function IdeasSheet({ visible, onClose, onDismissed, initial, skipped, on
           accessibilityLabel={`Cuisine, ${cuisineLabel(cuisine)}`}
           accessibilityState={{ expanded: menuOpen }}
           onPress={() => setMenuOpen((open) => !open)}
-          style={[styles.row, { backgroundColor: colors.surface }]}>
+          style={[styles.row, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
           <AppText style={styles.rowLabel}>Cuisine</AppText>
           <AppText variant="bodyEm">{cuisineLabel(cuisine)}</AppText>
           {menuOpen ? (
@@ -86,7 +86,7 @@ export function IdeasSheet({ visible, onClose, onDismissed, initial, skipped, on
           <View
             accessibilityRole="radiogroup"
             accessibilityLabel="Cuisine"
-            style={[styles.menu, { backgroundColor: colors.surface }]}>
+            style={[styles.menu, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
             <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
               {CUISINES.map((option) => {
                 const selected = option.key === cuisine;
@@ -115,12 +115,12 @@ export function IdeasSheet({ visible, onClose, onDismissed, initial, skipped, on
           </View>
         )}
 
-        <View style={[styles.row, { backgroundColor: colors.surface }]}>
+        <View style={[styles.row, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
           <AppText style={styles.rowLabel}>Ready in</AppText>
           <SegmentedControl options={RECIPE_TIMES} value={time} onChange={setTime} />
         </View>
 
-        <View style={[styles.row, { backgroundColor: colors.surface }]}>
+        <View style={[styles.row, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
           <AppText style={styles.rowLabel}>Serves</AppText>
           <View style={[styles.stepper, { backgroundColor: colors.surface2 }]}>
             <StepButton
