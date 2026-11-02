@@ -52,6 +52,8 @@ export default function KitchenScreen() {
   const shown = useRef<string[]>([]);
   // Opening a recipe waits for the sheet to finish closing, so the page isn't pushed under a closing modal.
   const openAfterClose = useRef(false);
+  // Likewise, "Get ideas" waits for the choices sheet to close before asking and opening the ideas sheet.
+  const pendingAsk = useRef<IdeasChoices | null>(null);
 
   const reload = useCallback(() => {
     try {
@@ -67,6 +69,8 @@ export default function KitchenScreen() {
   const closed = left === 0;
 
   const openAsk = () => {
+    // Starting over drops an ask still waiting for the old sheet to close, so a cancelled one never runs later.
+    pendingAsk.current = null;
     setOpened((count) => count + 1);
     setAsking(true);
   };
@@ -119,7 +123,15 @@ export default function KitchenScreen() {
     } catch (error) {
       logger.error('saveKitchenChoices', error);
     }
+    // The ideas sheet opens only once this one has finished closing: a second sheet can't open on top of one that
+    // is still sliding away (on an iPhone it never appears, and the screen looks stuck).
+    pendingAsk.current = choices;
     setAsking(false);
+  };
+  const afterAsk = () => {
+    const choices = pendingAsk.current;
+    if (!choices) return;
+    pendingAsk.current = null;
     void run(choices, false);
   };
 
@@ -205,6 +217,7 @@ export default function KitchenScreen() {
         key={`ask-${opened}`}
         visible={asking}
         onClose={() => setAsking(false)}
+        onDismissed={afterAsk}
         initial={initial}
         skipped={skipped}
         onSubmit={submit}
