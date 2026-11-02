@@ -22,21 +22,24 @@ import { isQuickLogAllowed } from '@/lib/widgetLinks';
  * that day. `?quickLog=<id>&t=<token>` (a saved food on the home-screen widget) logs that saved food at once,
  * like its Quick log chip; without the widget's token, or for a removed food, it is just this screen.
  * `?details=<id>` (the "Add details" button on the Meal logged toast) opens the details step for that diary meal.
+ * `?prefill=<text>` starts the "Describe it" box with that text (a Kitchen recipe's "Log this meal").
  */
 export default function LogFoodScreen() {
   const db = useDb();
-  const { photoUri, camera, check, myFood, food, manage, date, quickLog, t, details } = useLocalSearchParams<{
-    photoUri?: string;
-    camera?: string;
-    check?: string;
-    myFood?: string;
-    food?: string;
-    manage?: string;
-    date?: string;
-    quickLog?: string;
-    t?: string;
-    details?: string;
-  }>();
+  const { photoUri, camera, check, myFood, food, manage, date, quickLog, t, details, prefill } =
+    useLocalSearchParams<{
+      photoUri?: string;
+      camera?: string;
+      check?: string;
+      myFood?: string;
+      food?: string;
+      manage?: string;
+      date?: string;
+      quickLog?: string;
+      t?: string;
+      details?: string;
+      prefill?: string;
+    }>();
   const detailsFor = Number.isInteger(Number(details)) && details ? Number(details) : undefined;
   // A link can open the app from anywhere, so only the widget's own (token-carrying) link may log a meal.
   const quickFood = useMemo<StoredSavedFood | undefined>(() => {
@@ -78,6 +81,7 @@ export default function LogFoodScreen() {
       date={date}
       quickLog={quickFood}
       detailsFor={detailsFor}
+      initialText={prefill ? prefill.slice(0, 200) : undefined}
     />
   );
 }

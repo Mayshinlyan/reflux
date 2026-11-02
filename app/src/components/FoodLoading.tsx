@@ -13,13 +13,13 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { LOADING_STEP_MS, loadingMessage } from '@/lib/loadingMessages';
+import { LOADING_STEP_MS, type LoadingSource, loadingMessage } from '@/lib/loadingMessages';
 import { radius, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
 type Props = {
-  source: 'text' | 'photo' | 'correction';
+  source: LoadingSource;
   /** Shown as a small preview while a photo is being looked at. */
   photoUri?: string;
 };

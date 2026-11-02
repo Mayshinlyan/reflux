@@ -19,8 +19,9 @@ import {
   INSIGHT_TOOL_NAME,
   insightUserMessage,
 } from '../src/prompts/insightPrompt.js';
+import { RECIPE_SYSTEM_PROMPT, RECIPE_TOOL_NAME, recipeUserMessage } from '../src/prompts/recipePrompt.js';
 import { mealAnalysisSchema } from '../src/schemas.js';
-import { goodAnalysis, goodInsight } from './helpers.js';
+import { goodAnalysis, goodInsight, goodRecipes } from './helpers.js';
 
 function message(overrides: Record<string, unknown> = {}) {
   return {
@@ -89,6 +90,44 @@ describe('claudeService request', () => {
     expect(request.tools[0].name).toBe(INSIGHT_TOOL_NAME);
     expect(request.messages[0].content[0].text).toBe(insightUserMessage(input));
     expect(result.raw).toEqual(goodInsight);
+  });
+
+  it('asks for recipes with the cached recipe prompt, a bigger answer and a longer wait', async () => {
+    const create = vi.fn().mockResolvedValue(
+      message({
+        content: [{ type: 'tool_use', id: 'tu_r', name: RECIPE_TOOL_NAME, input: goodRecipes }],
+      }),
+    );
+    const input = { cuisine: 'thai' as const, time: '40' as const, serves: 3, avoid: ['peanuts'] };
+    const result = await serviceWith(create).recipes(input);
+
+    expect(create).toHaveBeenCalledTimes(1);
+    const [request, options] = create.mock.calls[0] as [
+      {
+        system: unknown;
+        tools: { name: string }[];
+        messages: { content: { text: string }[] }[];
+        max_tokens: number;
+      },
+      { timeout: number },
+    ];
+    expect(request.system).toEqual([
+      { type: 'text', text: RECIPE_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+    ]);
+    expect(request.tools).toHaveLength(1);
+    expect(request.tools[0]?.name).toBe(RECIPE_TOOL_NAME);
+    expect(request.messages[0]?.content[0]?.text).toBe(recipeUserMessage(input));
+    // Three full recipes need more room and time than a meal check.
+    expect(request.max_tokens).toBeGreaterThan(3000);
+    expect(options.timeout).toBeGreaterThan(30_000);
+    expect(result.raw).toEqual(goodRecipes);
+  });
+
+  it('does not change the wait for meal checks and summaries', async () => {
+    const create = vi.fn().mockResolvedValue(message());
+    await serviceWith(create).analyze({ kind: 'text', text: 'mint tea' });
+
+    expect(create.mock.calls[0]).toHaveLength(1);
   });
 
   it('forces the insight tool by name on a model that allows forced tool use', async () => {

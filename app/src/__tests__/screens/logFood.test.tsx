@@ -33,6 +33,7 @@ let mockParams: {
   quickLog?: string;
   t?: string;
   details?: string;
+  prefill?: string;
 } = {};
 
 jest.mock('@/db/DatabaseProvider', () => ({
@@ -251,6 +252,33 @@ describe('Log food screen: Save to favorite foods', () => {
 
     expect(listSavedFoods(mockDb)).toHaveLength(0);
     expect(mockToast).toHaveBeenCalledTimes(1); // only "Meal logged"
+  });
+});
+
+describe('Log food screen: from a Kitchen recipe (?prefill=)', () => {
+  it('starts with the dish typed in, ready to check like any typed meal', async () => {
+    mockParams = { prefill: 'Kimchi egg fried rice' };
+    analyze.mockResolvedValue(result);
+    await render(<LogFoodScreen />);
+
+    expect(screen.getByLabelText('Describe it').props.value).toBe('Kimchi egg fried rice');
+    await press('Check this meal');
+
+    expect(analyze.mock.calls[0]?.[0]).toMatchObject({ text: 'Kimchi egg fried rice' });
+  });
+
+  it('cuts a very long prefill so a link cannot fill the box', async () => {
+    mockParams = { prefill: 'x'.repeat(500) };
+    await render(<LogFoodScreen />);
+
+    expect(screen.getByLabelText('Describe it').props.value).toHaveLength(200);
+  });
+
+  it('is an empty box with no prefill', async () => {
+    mockParams = {};
+    await render(<LogFoodScreen />);
+
+    expect(screen.getByLabelText('Describe it').props.value).toBe('');
   });
 });
 
