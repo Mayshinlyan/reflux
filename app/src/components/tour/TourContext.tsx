@@ -54,7 +54,8 @@ export function useTourTarget(id: TourViewId) {
 }
 
 /**
- * Figma row 18 "App tour". Wraps the tab screens and draws the tour over them (and over the tab bar). It runs once,
+ * Figma row 18 "App tour". Wraps the whole app's screens (it sits in the root layout, so Settings can replay it) and
+ * draws the tour over them, the tab bar included. It runs once,
  * on the first visit to Today, and is remembered as `tourDone` however it ends: Done, the X, or the back button.
  */
 export function TourProvider({ children }: { children: ReactNode }) {

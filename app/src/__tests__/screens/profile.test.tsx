@@ -87,11 +87,13 @@ describe('Profile', () => {
     expect(screen.getAllByRole('button', { name: 'Edit name' })).toHaveLength(1);
   });
 
-  it('has no back button or gear, since Profile is a tab', async () => {
+  it('has no back button, since Profile is a tab, but a gear at the top that opens Settings', async () => {
     await render(<ProfileScreen />);
 
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Settings' }));
+
+    expect(mockPush).toHaveBeenCalledWith('/settings');
   });
 
   it('lists Condition, Usual symptoms, Favorite foods, Medications and Lifestyle under Your lists', async () => {

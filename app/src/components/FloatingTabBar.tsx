@@ -6,9 +6,9 @@ import Animated from 'react-native-reanimated';
 import { useTabBarPress } from '@/hooks/useTabBarPress';
 import { shadow, space, useColors } from '@/theme';
 
-import { ClockSolid, GearSolid, HouseSolid, PersonSolid, type TabIconProps } from './TabIcons';
+import { ChefHatSolid, ClockSolid, HouseSolid, PersonSolid, type TabIconProps } from './TabIcons';
 
-export type TabKey = 'log' | 'today' | 'history' | 'profile' | 'settings';
+export type TabKey = 'log' | 'today' | 'history' | 'kitchen' | 'profile';
 
 /** The olive Log button, the cream ring around it, and how far the ring rises above the pill's top edge. */
 const LOG_BUTTON_SIZE = 56;
@@ -43,8 +43,8 @@ export const tabBarClearance = (bottomInset: number) =>
 const TABS: { key: Exclude<TabKey, 'log'>; label: string; icon: ComponentType<TabIconProps> }[] = [
   { key: 'today', label: 'Today', icon: HouseSolid },
   { key: 'history', label: 'History', icon: ClockSolid },
+  { key: 'kitchen', label: 'Kitchen', icon: ChefHatSolid },
   { key: 'profile', label: 'Profile', icon: PersonSolid },
-  { key: 'settings', label: 'Settings', icon: GearSolid },
 ];
 
 export type TargetRect = { x: number; y: number; width: number; height: number };
@@ -88,8 +88,8 @@ type Props = {
 };
 
 /**
- * Figma "Tab bar floating": a compact `surface` pill centred above the bottom edge. Today, History, Profile and
- * Settings are icon-only tabs of solid shapes (two either side of the Log slot): the current one is `ink` on a small tan `surface2` circle, the other a muted
+ * Figma "Tab bar floating (Kitchen)": a compact `surface` pill centred above the bottom edge. Today, History, Kitchen and
+ * Profile are icon-only tabs of solid shapes (two either side of the Log slot): the current one is `ink` on a small tan `surface2` circle, the other a muted
  * `inkMuted` silhouette; it just changes tab, it never slides. The olive Log button, ringed in the page colour, rises
  * over the pill's top edge. A pressed tab's icon shrinks a little and eases back on release (see `useTabBarPress`),
  * as does the Log button. Icon-only, so every button carries a label.

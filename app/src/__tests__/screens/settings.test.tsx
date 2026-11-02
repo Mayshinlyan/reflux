@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
 import { Alert, type AlertButton, Linking } from 'react-native';
 
-import SettingsScreen from '@/app/(tabs)/settings';
+import SettingsScreen from '@/app/settings';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createMedication, listMedications } from '@/db/repositories/medications';
 import { getSetting, setSetting } from '@/db/repositories/settings';
@@ -48,12 +48,13 @@ jest.mock('react-native-reanimated', () => ({
 }));
 const mockReplay = jest.fn();
 const mockNavigate = jest.fn();
+const mockBack = jest.fn();
 jest.mock('@/components/tour/TourContext', () => ({ useTour: () => ({ replay: mockReplay }) }));
 jest.mock('expo-router', () => ({
   router: {
     push: (href: string) => mockPush(href),
     navigate: (href: string) => mockNavigate(href),
-    back: jest.fn(),
+    back: () => mockBack(),
     canGoBack: () => true,
     replace: (href: string) => mockReplace(href),
   },
@@ -91,6 +92,14 @@ describe('Settings', () => {
     expect(screen.getByRole('header', { name: 'Settings' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Bedtime, 10:30 PM' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Late-meal window, 3 hours' })).toBeTruthy();
+  });
+
+  it('is a pushed screen with a Back button, not a tab', async () => {
+    await render(<SettingsScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
   it('groups the rows as Figma does, with no condition row, no pet and no lists (they live in Profile)', async () => {

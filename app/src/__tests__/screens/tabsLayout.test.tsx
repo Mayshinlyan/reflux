@@ -9,8 +9,6 @@ const mockNavigate = jest.fn();
 let mockActiveRoute = 'index';
 
 jest.mock('expo-router', () => ({ router: { push: (href: unknown) => mockPush(href) } }));
-// The layout holds the app tour, which saves that it was seen.
-jest.mock('@/db/DatabaseProvider', () => ({ useSettings: () => ({ settings: {}, update: jest.fn() }) }));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 
 // Reanimated's native runtime can't load in Jest; use its mocks (which lack useReducedMotion).
@@ -25,8 +23,8 @@ jest.mock('expo-router/js-tabs', () => {
   const Tabs = ({ tabBar }: { tabBar: (props: unknown) => React.ReactNode }) =>
     tabBar({
       state: {
-        index: ['index', 'history', 'profile', 'settings'].indexOf(mockActiveRoute),
-        routes: ['index', 'history', 'profile', 'settings'].map((name) => ({ name, key: `${name}-key` })),
+        index: ['index', 'history', 'kitchen', 'profile'].indexOf(mockActiveRoute),
+        routes: ['index', 'history', 'kitchen', 'profile'].map((name) => ({ name, key: `${name}-key` })),
       },
       // The real bar navigates by a route's key, not its name.
       navigateToTab: (key: string) => mockNavigate(key),
@@ -59,20 +57,20 @@ describe('Tabs layout', () => {
     });
   });
 
-  it('has Today, History, Profile and Settings tabs', async () => {
+  it('has Today, History, Kitchen and Profile tabs, and no Settings tab', async () => {
     await render(<TabsLayout />);
 
     expect(screen.getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual([
       'Today',
       'History',
+      'Kitchen',
       'Profile',
-      'Settings',
     ]);
   });
 
   it.each([
+    ['kitchen', 'Kitchen'],
     ['profile', 'Profile'],
-    ['settings', 'Settings'],
   ])('marks the %s tab when that screen is current', async (route, name) => {
     mockActiveRoute = route;
     await render(<TabsLayout />);
@@ -83,13 +81,13 @@ describe('Tabs layout', () => {
     });
   });
 
-  it('opens Profile and Settings from their tabs', async () => {
+  it('opens Kitchen and Profile from their tabs', async () => {
     await render(<TabsLayout />);
 
+    await fireEvent.press(screen.getByRole('tab', { name: 'Kitchen' }));
     await fireEvent.press(screen.getByRole('tab', { name: 'Profile' }));
-    await fireEvent.press(screen.getByRole('tab', { name: 'Settings' }));
 
-    expect(mockNavigate.mock.calls).toEqual([['profile-key'], ['settings-key']]);
+    expect(mockNavigate.mock.calls).toEqual([['kitchen-key'], ['profile-key']]);
   });
 
   it('switches to the tab that is tapped, and ignores a tap on the current one', async () => {
