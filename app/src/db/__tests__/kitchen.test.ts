@@ -13,7 +13,6 @@ import {
   removeSavedRecipe,
   saveRecipe,
   setRecipeRating,
-  updateSavedRecipe,
 } from '../repositories/savedRecipes';
 import { DEFAULT_SETTINGS, getAllSettings, getSetting, setSetting } from '../repositories/settings';
 import type { Recipe } from '@/types/recipe';
@@ -138,23 +137,6 @@ describe('saved recipes', () => {
 
     removeSavedRecipe(db, saved.id);
     expect(getSavedRecipe(db, saved.id)).toBeNull();
-  });
-
-  it('puts an edited version in a saved recipe’s place and keeps its rating', () => {
-    const saved = saveRecipe(db, recipe, 'korean');
-    setRecipeRating(db, saved.id, 'up');
-
-    updateSavedRecipe(db, saved.id, {
-      ...recipe,
-      title: 'Spinach egg fried rice',
-      ingredients: ['1 cup rice', 'spinach'],
-    });
-
-    const stored = getSavedRecipe(db, saved.id);
-    expect(stored?.recipe.title).toBe('Spinach egg fried rice');
-    expect(stored?.recipe.ingredients).toEqual(['1 cup rice', 'spinach']);
-    expect(stored?.rating).toBe('up');
-    expect(listSavedRecipes(db)).toHaveLength(1);
   });
 
   it('skips a row whose stored recipe has the wrong shape instead of crashing', () => {

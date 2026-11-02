@@ -3,21 +3,11 @@ import { createAvoidFood } from '@/db/repositories/avoidFoods';
 import { createSavedFood } from '@/db/repositories/savedFoods';
 import { foodLogs, savedFoods } from '@/db/schema';
 import type { AppDb } from '@/db/types';
-import type { Recipe } from '@/types/recipe';
 
 import { eq } from 'drizzle-orm';
 
-import {
-  buildAdjustRequest,
-  buildRecipeRequest,
-  countRound,
-  KITCHEN_DAILY_ROUNDS,
-  MAX_UNDO,
-  pushUndo,
-  roundsLeft,
-  roundsToday,
-} from '../kitchen';
-import { editErrorMessage, ideasErrorMessage, skipsLine } from '../kitchenCopy';
+import { buildRecipeRequest, countRound, KITCHEN_DAILY_ROUNDS, roundsLeft, roundsToday } from '../kitchen';
+import { ideasErrorMessage, skipsLine } from '../kitchenCopy';
 
 let db: AppDb;
 let close: () => void;
@@ -172,74 +162,5 @@ describe('ideasErrorMessage', () => {
     expect(ideasErrorMessage('RATE_LIMITED')).toMatch(/closed till tomorrow/);
     expect(ideasErrorMessage('SERVICE_BUSY')).toMatch(/short break/);
     expect(ideasErrorMessage('AI_INVALID_OUTPUT')).toMatch(/Something went wrong/);
-  });
-});
-
-const dish = {
-  title: 'Kimchi egg fried rice',
-  minutes: 20,
-  serves: 2,
-  why: 'Soft and mild.',
-  tip: '',
-  ingredients: ['1 cup rice', '2 eggs'],
-  steps: ['Cook the rice.', 'Add the eggs.'],
-  look: 2,
-};
-
-describe('buildAdjustRequest', () => {
-  const change = { kind: 'remove', ingredient: '2 eggs' } as const;
-
-  it('sends the recipe without the phone-only picture, the change and the condition', () => {
-    const request = buildAdjustRequest(db, { recipe: dish, change, conditions: ['acid_reflux'] });
-
-    expect(request.recipe).not.toHaveProperty('look');
-    expect(request).toEqual({
-      recipe: { ...dish, look: undefined },
-      change,
-      conditions: ['acid_reflux'],
-    });
-    expect(Object.keys(request.recipe)).toEqual([
-      'title',
-      'minutes',
-      'serves',
-      'why',
-      'tip',
-      'ingredients',
-      'steps',
-    ]);
-  });
-
-  it('adds the foods that bothered the person and the ones they never eat, and leaves out empty lists', () => {
-    createAvoidFood(db, 'Peanuts');
-    const id = createSavedFood(db, 'Spicy tacos');
-    db.update(savedFoods).set({ overallVerdict: 'trigger' }).where(eq(savedFoods.id, id)).run();
-
-    expect(buildAdjustRequest(db, { recipe: dish, change, conditions: ['unsure'] })).toMatchObject({
-      avoid: ['Peanuts'],
-      triggers: ['Spicy tacos'],
-    });
-    expect(buildAdjustRequest(db, { recipe: dish, change, conditions: ['unsure'] })).not.toHaveProperty(
-      'conditions',
-    );
-  });
-});
-
-describe('pushUndo', () => {
-  it('keeps the earlier versions, newest last, and only the last five', () => {
-    let stack: Recipe[] = [];
-    for (let n = 1; n <= MAX_UNDO + 2; n += 1) stack = pushUndo(stack, { ...dish, title: `Version ${n}` });
-
-    expect(stack).toHaveLength(MAX_UNDO);
-    expect(stack[0]?.title).toBe('Version 3');
-    expect(stack.at(-1)?.title).toBe(`Version ${MAX_UNDO + 2}`);
-  });
-});
-
-describe('editErrorMessage', () => {
-  it('always says the recipe is as it was, or that the day’s edits are used up', () => {
-    expect(editErrorMessage('NETWORK')).toMatch(/as it was/);
-    expect(editErrorMessage('AI_INVALID_OUTPUT')).toMatch(/as it was/);
-    expect(editErrorMessage('AI_TIMEOUT')).toMatch(/as it was/);
-    expect(editErrorMessage('RATE_LIMITED')).toMatch(/rest from edits today/);
   });
 });

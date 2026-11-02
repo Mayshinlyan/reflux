@@ -13,19 +13,6 @@ export function skipsLine(names: readonly string[]): string {
   return `Skips ${lower[0]}, ${lower[1]} and ${more} more ${more === 1 ? 'food' : 'foods'} you don't eat.`;
 }
 
-/** Why an ingredient edit didn't happen, in Bellie's plain words (Figma 31h). The recipe is always as it was. */
-export function editErrorMessage(code: ErrorCode): string {
-  switch (code) {
-    case 'RATE_LIMITED':
-      return 'Bellie needs a rest from edits today. Try again tomorrow.';
-    case 'OFFLINE':
-    case 'NETWORK':
-      return "Couldn't update. Check your connection. Your recipe is as it was.";
-    default:
-      return "Couldn't update. Your recipe is as it was.";
-  }
-}
-
 /**
  * Why a round of ideas didn't happen, in Bellie's plain words (Figma 29l). A failed round never counts toward the
  * day's 10, and the screen says so.

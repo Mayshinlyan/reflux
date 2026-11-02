@@ -11,7 +11,6 @@ describe('loadEnv', () => {
       PER_USER_DAILY_LIMIT: 30,
       GLOBAL_DAILY_LIMIT: 300,
       PER_USER_DAILY_RECIPE_LIMIT: 15,
-      PER_USER_DAILY_ADJUST_LIMIT: 40,
     });
   });
 

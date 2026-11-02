@@ -176,48 +176,6 @@ export const recipeIdeasSchema = z.strictObject({ recipes: z.array(recipeSchema)
 export type RecipeIdeas = z.infer<typeof recipeIdeasSchema>;
 export type Recipe = z.infer<typeof recipeSchema>;
 
-/** Text that may be empty (a recipe's tip), sanitized like food text. */
-const text = (max: number) => z.string().max(max).transform(sanitizeFoodText);
-const line = (max: number) => z.string().max(max).transform(sanitizeFoodText).pipe(z.string().min(1));
-
-/** The recipe the app holds, sent back to be changed. The same caps as a recipe, sanitized like any food text. */
-const recipeInputSchema = z.strictObject({
-  title: line(60),
-  minutes: z.number().int().min(5).max(240),
-  serves: z.number().int().min(1).max(12),
-  why: line(240),
-  tip: text(180),
-  ingredients: z.array(line(80)).min(2).max(24),
-  steps: z.array(line(280)).min(2).max(12),
-});
-
-/**
- * A change to the ingredients of one recipe (POST /v1/recipe-adjust): swap one for another (or let Bellie pick),
- * remove one, or add some. Food names and the recipe only; never symptom logs, notes or photos.
- */
-export const recipeAdjustBodySchema = z.strictObject({
-  recipe: recipeInputSchema,
-  change: z.discriminatedUnion('kind', [
-    z.strictObject({ kind: z.literal('swap'), ingredient: line(80), with: line(60).optional() }),
-    z.strictObject({ kind: z.literal('remove'), ingredient: line(80) }),
-    z.strictObject({ kind: z.literal('add'), ingredients: z.array(line(60)).min(1).max(10) }),
-  ]),
-  conditions: conditionsSchema.optional(),
-  triggers: z.array(label(60)).max(20).optional(),
-  avoid: z.array(label(60)).max(30).optional(),
-});
-
-export type RecipeAdjustInput = z.infer<typeof recipeAdjustBodySchema>;
-
-export const recipeAdjustSchema = z.strictObject({ recipe: recipeSchema });
-export type RecipeAdjust = z.infer<typeof recipeAdjustSchema>;
-
-/** JSON Schema handed to Claude as the adjust tool's input schema. */
-export function recipeAdjustJsonSchema() {
-  const { $schema: _ignored, ...schema } = z.toJSONSchema(recipeAdjustSchema) as Record<string, unknown>;
-  return schema as { type: 'object'; [key: string]: unknown };
-}
-
 /** JSON Schema handed to Claude as the recipe tool's input schema. */
 export function recipeIdeasJsonSchema() {
   const { $schema: _ignored, ...schema } = z.toJSONSchema(recipeIdeasSchema) as Record<string, unknown>;

@@ -7,10 +7,10 @@ import type { ConditionKey } from '@/constants/conditions';
 import { relayBaseUrl } from '@/lib/config';
 import { AppError, isRelayErrorCode } from '@/lib/errors';
 import { isInsight } from '@/lib/insight';
-import { isRecipe, isRecipeIdeas, pickRecipe } from '@/lib/recipe';
+import { isRecipeIdeas, pickRecipe } from '@/lib/recipe';
 import type { AnalysisMeta, MealAnalysis, Portion } from '@/types/analysis';
 import type { Insight, InsightRequest } from '@/types/insight';
-import type { AdjustRequest, Recipe, RecipeRequest } from '@/types/recipe';
+import type { Recipe, RecipeRequest } from '@/types/recipe';
 
 import { getIdToken } from './firebase';
 
@@ -180,38 +180,15 @@ const RECIPES_TIMEOUT_MS = 75_000;
  * food names only (see `RecipeRequest`). Throws an AppError like `analyzeFood`; the Kitchen then offers Try again.
  */
 export async function fetchRecipeIdeas(request: RecipeRequest, signal?: AbortSignal): Promise<Recipe[]> {
-  const { body, id } = await postRecipeJson('/v1/recipe-ideas', request, signal);
-  if (!isRecipeIdeas(body)) throw new AppError('AI_INVALID_OUTPUT', id);
-  // Only the fields we show, so nothing else the relay adds (like `meta`) is kept.
-  return body.recipes.map(pickRecipe);
-}
-
-/**
- * Asks the relay to rewrite one recipe for a change to its ingredients (swap, remove, add). Carries the recipe, the
- * change, the condition and food names only (see `AdjustRequest`). Throws an AppError like `fetchRecipeIdeas`.
- */
-export async function adjustRecipe(request: AdjustRequest, signal?: AbortSignal): Promise<Recipe> {
-  const { body, id } = await postRecipeJson('/v1/recipe-adjust', request, signal);
-  const recipe = (body as { recipe?: unknown } | null)?.recipe;
-  if (!isRecipe(recipe)) throw new AppError('AI_INVALID_OUTPUT', id);
-  return pickRecipe(recipe);
-}
-
-/** One authorized POST to a Kitchen route, with the Kitchen's long wait; returns the parsed answer and the request id. */
-async function postRecipeJson(
-  path: string,
-  payload: unknown,
-  signal?: AbortSignal,
-): Promise<{ body: unknown; id: string }> {
   const id = requestId();
   const token = await tokenFor(id);
   const timeout = AbortSignal.timeout(RECIPES_TIMEOUT_MS);
   let response: Response;
   try {
-    response = await fetch(`${relayBaseUrl()}${path}`, {
+    response = await fetch(`${relayBaseUrl()}/v1/recipe-ideas`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'X-Request-Id': id, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(request),
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });
   } catch (error) {
@@ -221,11 +198,15 @@ async function postRecipeJson(
   }
 
   if (!response.ok) throw await toAppError(response, id);
+  let body: unknown;
   try {
-    return { body: await response.json(), id };
+    body = await response.json();
   } catch {
     throw new AppError('AI_INVALID_OUTPUT', id);
   }
+  if (!isRecipeIdeas(body)) throw new AppError('AI_INVALID_OUTPUT', id);
+  // Only the fields we show, so nothing else the relay adds (like `meta`) is kept.
+  return body.recipes.map(pickRecipe);
 }
 
 /** A feedback message is tiny, so it gives up sooner than a meal check. */
