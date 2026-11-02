@@ -136,7 +136,7 @@ describe('Settings: send feedback', () => {
     await render(<SettingsScreen />);
 
     await press('button', 'Send feedback');
-    expect(screen.getByRole('header', { name: 'Send feedback' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Tell us what you think' })).toBeTruthy();
     await fireEvent.changeText(
       screen.getByPlaceholderText("What's working? What could be better?"),
       '  A weekly summary, please  ',
