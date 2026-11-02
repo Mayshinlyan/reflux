@@ -14,7 +14,7 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { Select } from '@/components/Select';
 import { TimelineItem } from '@/components/TimelineItem';
 import { CheckingBadge, VerdictBadge } from '@/components/VerdictBadge';
-import { useDb } from '@/db/DatabaseProvider';
+import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { earliestEntryDayKey } from '@/db/repositories/data';
 import { listDiaryFoodLogs, listMealTagsFor } from '@/db/repositories/food';
 import { listMedicationLogs } from '@/db/repositories/medications';
@@ -29,6 +29,7 @@ import { summarize } from '@/lib/historySummary';
 import { buildInsightRequest } from '@/lib/insight';
 import { localDayKey } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
+import { buildStats } from '@/lib/statsCards';
 import {
   inPeriod,
   isCurrent,
@@ -87,6 +88,7 @@ function loadPeriod(db: AppDb, period: Period): TimelineSection[] {
 
 export default function HistoryScreen() {
   const db = useDb();
+  const { settings } = useSettings();
   const [kind, setKind] = useState<Kind>('week');
   /** The week, month or hand-picked dates shown; for all time it is worked out from the first entry. */
   const [span, setSpan] = useState<Period>(() => periodOf('week', todayKeyNow()));
@@ -94,6 +96,8 @@ export default function HistoryScreen() {
   const [picking, setPicking] = useState(false);
   const [dayCounts, setDayCounts] = useState<ReadonlyMap<string, number>>(new Map());
   const [sections, setSections] = useState<TimelineSection[]>([]);
+  /** The week or month before the shown one, to compare the stats with; none for all time or picked dates. */
+  const [previousSections, setPreviousSections] = useState<TimelineSection[] | null>(null);
   const [mealTags, setMealTags] = useState<ReadonlyMap<number, readonly LoggedTagKey[]>>(new Map());
   const [todayKey, setTodayKey] = useState(todayKeyNow);
   const [firstDayKey, setFirstDayKey] = useState<string | undefined>(undefined);
@@ -109,6 +113,9 @@ export default function HistoryScreen() {
     try {
       const loaded = loadPeriod(db, period);
       setSections(loaded);
+      setPreviousSections(
+        kind === 'week' || kind === 'month' ? loadPeriod(db, shiftPeriod(kind, period, -1)) : null,
+      );
       setMealTags(
         listMealTagsFor(
           db,
@@ -125,7 +132,7 @@ export default function HistoryScreen() {
       // Say so, rather than showing "Nothing here yet" and making it look like data is gone.
       setLoadFailed(true);
     }
-  }, [db, period]);
+  }, [db, kind, period]);
 
   // Reload whenever History comes back into view (e.g. after editing an entry).
   useFocusEffect(reload);
@@ -142,6 +149,20 @@ export default function HistoryScreen() {
         mealTags,
       ),
     [sections, mealTags],
+  );
+  const stats = useMemo(
+    () =>
+      buildStats({
+        entries: sections.flatMap((section) => section.entries),
+        previousEntries: previousSections?.flatMap((section) => section.entries) ?? null,
+        kind,
+        period,
+        todayKey,
+        bedtime: settings.bedtime,
+        windowMinutes: settings.lateMealWindowMinutes,
+        now: new Date(),
+      }),
+    [sections, previousSections, kind, period, todayKey, settings.bedtime, settings.lateMealWindowMinutes],
   );
   // Bellie's summary of the shown week, the first stats card; not for a month, all time or picked dates.
   const weekRequest = useMemo(
@@ -247,7 +268,7 @@ export default function HistoryScreen() {
                 />
               </View>
             </View>
-            <HistorySummary summary={summary} height={cardHeight} insight={weekInsight} />
+            <HistorySummary summary={summary} stats={stats} height={cardHeight} insight={weekInsight} />
             <View style={styles.entriesHead}>
               <AppText variant="section" accessibilityRole="header">
                 Entries

@@ -7,24 +7,24 @@ import {
   donutSegments,
   goodLine,
   type HistorySummary as Summary,
-  type RankedCount,
   SUMMARY_VERDICTS,
 } from '@/lib/historySummary';
-import { cardEdge, type ColorToken, radius, space, useColors, verdictColors } from '@/theme';
+import { goodComparison, mostlySymptoms, type PeriodStats } from '@/lib/statsCards';
+import { space, useColors, verdictColors } from '@/theme';
 import type { Insight } from '@/types/insight';
 
 import { AppText } from './AppText';
 import { Belly } from './Belly';
 import { CarouselDots, DOTS_ROW } from './CarouselDots';
+import { tabBarHeight } from './FloatingTabBar';
+import { DaysCard } from './stats/DaysCard';
+import { MealsCard } from './stats/MealsCard';
+import { StatCard, StatHeader } from './stats/StatCard';
+import { WhenCard } from './stats/WhenCard';
 import { TipsCard } from './TipsCard';
 import { VERDICT_LABELS } from './VerdictBadge';
 
-import { tabBarHeight } from './FloatingTabBar';
-
 const CARD_GAP = 12;
-const CARDS = 3;
-/** The card's padding on every side (Figma 04a). The dots are under the card, not in it. */
-const CARD_PAD = 20;
 /** The gap between the dots and the tab bar (Figma 12b). */
 const TAB_BAR_GAP = 8;
 /** The least a card is tall, so the Food donut and the bars have room on a short phone (it then scrolls under the bar). */
@@ -47,18 +47,23 @@ const DONUT_MAX = 256;
 const DONUT_MIN = 160;
 /** What Food needs besides the donut: padding, header, legend, caption and the gaps between them. */
 const FOOD_FIXED = 264;
+/** The second line under the donut (the symptoms logged most) and the gap above it. */
+const FOOD_EXTRA_LINE = 32;
 
 /**
- * Figma "04a" stats carousel: full-width swipeable cards for the shown period (Food, Top symptoms, Top tags)
- * with round page dots under them (tap one to jump to that card). With Bellie's summary of the week (`insight`),
- * her card comes first (Figma "04a.4", "12b"), so there are four.
+ * Figma "04a" and row 28: the stats carousel, full-width swipeable cards for the shown period with round page
+ * dots under them (tap one to jump to that card). In order: how the week or month went (not for all time or
+ * picked dates), what sat well, when symptoms show up, and Food. With Bellie's summary of the week (`insight`),
+ * her card comes first (Figma "04a.4", "12b").
  */
 export function HistorySummary({
   summary,
+  stats,
   height,
   insight,
 }: {
   summary: Summary;
+  stats: PeriodStats;
   height: number;
   insight?: Insight | null;
 }) {
@@ -68,7 +73,8 @@ export function HistorySummary({
   const [page, setPage] = useState(1);
   const scroll = useRef<ScrollViewInstance>(null);
   const reduceMotion = useReducedMotion();
-  const count = insight ? CARDS + 1 : CARDS;
+  // Food, what sat well and when it shows up are always there; the days only for a week or a month.
+  const count = 3 + (stats.unit ? 1 : 0) + (insight ? 1 : 0);
   return (
     <View>
       <ScrollView
@@ -85,9 +91,10 @@ export function HistorySummary({
           setPage((current) => (current === next ? current : next));
         }}>
         {insight ? <WeekCard insight={insight} width={cardWidth} height={height} /> : null}
-        <FoodCard summary={summary} width={cardWidth} height={height} />
-        <SymptomsCard summary={summary} width={cardWidth} height={height} />
-        <TagsCard summary={summary} width={cardWidth} height={height} />
+        {stats.unit ? <DaysCard stats={stats} width={cardWidth} height={height} /> : null}
+        <MealsCard patterns={stats.patterns} width={cardWidth} height={height} />
+        <WhenCard stats={stats} summary={summary} width={cardWidth} height={height} />
+        <FoodCard summary={summary} stats={stats} width={cardWidth} height={height} />
       </ScrollView>
       <CarouselDots
         page={Math.min(page, count)}
@@ -103,7 +110,7 @@ type CardProps = { summary: Summary; width: number; height: number };
 /** Bellie's week: her face for the tone, a line, a sentence about what stood out, and her tips. */
 function WeekCard({ insight, width, height }: { insight: Insight; width: number; height: number }) {
   return (
-    <Card width={width} height={height} gap={space.s2}>
+    <StatCard width={width} height={height} gap={space.s2}>
       <View style={styles.week}>
         <Belly mood={insight.tone === 'nudge' ? 'okay' : 'happy'} size={88} />
         <AppText variant="displaySmall" accessibilityRole="header" style={styles.centered}>
@@ -112,58 +119,23 @@ function WeekCard({ insight, width, height }: { insight: Insight; width: number;
         <AppText style={styles.centered}>{insight.summary}</AppText>
       </View>
       {insight.tips.length > 0 && <TipsCard tips={insight.tips} />}
-    </Card>
+    </StatCard>
   );
 }
 
-/** Food spreads its parts down the card; the bar cards stack theirs from the top with `gap` between. */
-function Card({
-  width,
-  height,
-  gap,
-  children,
-}: {
-  width: number;
-  height: number;
-  gap?: number;
-  children: React.ReactNode;
-}) {
+/**
+ * The donut with how many meals were good, and how that compares with the last week or month. The symptoms
+ * logged most are one line under it (they used to be a card of their own).
+ */
+function FoodCard({ summary, stats, width, height }: CardProps & { stats: PeriodStats }) {
   const colors = useColors();
-  return (
-    <View
-      style={[
-        styles.card,
-        {
-          width,
-          minHeight: height,
-          backgroundColor: colors.surface,
-          ...cardEdge(colors),
-        },
-        gap ? { gap } : { justifyContent: 'space-between' },
-      ]}>
-      {children}
-    </View>
+  const good = summary.verdicts.good;
+  const mostly = mostlySymptoms(summary);
+  const comparison = stats.unit ? goodComparison(summary, stats.previousSummary, stats.unit) : undefined;
+  const size = Math.max(
+    DONUT_MIN,
+    Math.min(DONUT_MAX, width - 2 * space.s3, height - FOOD_FIXED - (mostly ? FOOD_EXTRA_LINE : 0)),
   );
-}
-
-function Header({ title, aside }: { title: string; aside?: string }) {
-  return (
-    <View>
-      <AppText variant="displaySmall" accessibilityRole="header">
-        {title}
-      </AppText>
-      {aside ? (
-        <AppText variant="caption" color="inkSoft">
-          {aside}
-        </AppText>
-      ) : null}
-    </View>
-  );
-}
-
-function FoodCard({ summary, width, height }: CardProps) {
-  const colors = useColors();
-  const size = Math.max(DONUT_MIN, Math.min(DONUT_MAX, width - 2 * space.s3, height - FOOD_FIXED));
   // Figma's ring: the hole is 70% of the width, so the stroke is the remaining 30% of the radius.
   const stroke = (size / 2) * 0.3;
   const ring = size / 2 - stroke / 2;
@@ -174,12 +146,11 @@ function FoodCard({ summary, width, height }: CardProps) {
   });
   const segments = donutSegments(summary.verdicts);
   const mealWord = summary.meals === 1 ? 'meal' : 'meals';
-  const good = summary.verdicts.good;
   return (
-    <Card width={width} height={height}>
-      <Header
+    <StatCard width={width} height={height}>
+      <StatHeader
         title={`${summary.meals} ${mealWord}`}
-        aside={good === 0 ? undefined : good === 1 ? '1 was good' : `${good} were good`}
+        aside={comparison ?? (good === 0 ? undefined : good === 1 ? '1 was good' : `${good} were good`)}
       />
       <View style={styles.chart}>
         <View style={{ width: size, height: size }}>
@@ -239,64 +210,24 @@ function FoodCard({ summary, width, height }: CardProps) {
           ))}
         </View>
       </View>
-      <AppText variant="voiceSmall" color="inkSoft">
-        {goodLine(summary)}
-      </AppText>
-    </Card>
-  );
-}
-
-function SymptomsCard({ summary, width, height }: CardProps) {
-  const dayWord = summary.symptomDays === 1 ? 'day' : 'days';
-  return (
-    <Card width={width} height={height} gap={space.s2}>
-      <Header
-        title="Top symptoms"
-        aside={summary.symptomDays === 0 ? 'No symptoms' : `${summary.symptomDays} ${dayWord} with symptoms`}
-      />
-      <Bars rows={summary.symptoms} fill="clay" />
-    </Card>
-  );
-}
-
-function TagsCard({ summary, width, height }: CardProps) {
-  return (
-    <Card width={width} height={height} gap={space.s2}>
-      <Header title="Top tags" />
-      <Bars rows={summary.tags} fill="sage" />
-    </Card>
-  );
-}
-
-/** Ranked rows: the name and count, then a bar as long as the count is next to the biggest. A 0 is an empty track. */
-function Bars({ rows, fill }: { rows: RankedCount[]; fill: ColorToken }) {
-  const colors = useColors();
-  const most = Math.max(1, ...rows.map((row) => row.count));
-  return (
-    <View style={styles.bars}>
-      {rows.map((row) => (
-        <View key={row.key} accessible accessibilityLabel={`${row.label}, ${row.count}`} style={styles.bar}>
-          <View style={styles.barTop}>
-            <AppText numberOfLines={1} style={styles.barLabel}>
-              {row.label}
-            </AppText>
-            <AppText color="inkSoft">{String(row.count)}</AppText>
-          </View>
-          <View style={[styles.track, { backgroundColor: colors.surface2 }]}>
-            <View
-              style={{ width: `${(row.count / most) * 100}%`, height: '100%', backgroundColor: colors[fill] }}
-            />
-          </View>
-        </View>
-      ))}
-    </View>
+      <View style={styles.lines}>
+        <AppText variant="voiceSmall" color="inkSoft">
+          {goodLine(summary)}
+        </AppText>
+        {mostly ? (
+          <AppText variant="voiceSmall" color="inkSoft">
+            {`Mostly ${mostly}.`}
+          </AppText>
+        ) : null}
+      </View>
+    </StatCard>
   );
 }
 
 const styles = StyleSheet.create({
   cards: { gap: CARD_GAP },
-  card: { borderRadius: radius.lg, padding: CARD_PAD, overflow: 'hidden' },
   week: { alignItems: 'center', gap: space.s2 },
+  lines: { gap: space.s1 },
   centered: { textAlign: 'center' },
   chart: { alignItems: 'center', gap: space.s4 },
   centre: {
@@ -312,10 +243,4 @@ const styles = StyleSheet.create({
   legendItem: { alignItems: 'center', gap: 4 },
   legendName: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  // The rows share what height is left; 8 is the least between them.
-  bars: { flex: 1, gap: 8, justifyContent: 'space-between' },
-  bar: { gap: 4 },
-  barTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s1 },
-  barLabel: { flex: 1 },
-  track: { height: 14, borderRadius: 7, overflow: 'hidden' },
 });
