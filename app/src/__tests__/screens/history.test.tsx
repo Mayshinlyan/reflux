@@ -277,14 +277,14 @@ describe('History: the stats cards', () => {
     expect(screen.getByText('4 meals')).toBeTruthy();
   });
 
-  it('uses the singular for one meal and one calm day', async () => {
+  it('uses the singular for one meal and one day without symptoms', async () => {
     seedMeal('Toast', 'ok', at(10, 8));
     seedMeal('Soup', 'ok', at(9, 8));
     seedSymptom(at(10, 9));
     await render(<HistoryScreen />);
 
     expect(screen.getByText('2 meals')).toBeTruthy();
-    expect(screen.getByText('1 calm day')).toBeTruthy();
+    expect(screen.getByText('1 day without symptoms')).toBeTruthy();
   });
 
   it('says no symptoms were logged on the When card, with the four parts of the day empty', async () => {
@@ -292,7 +292,8 @@ describe('History: the stats cards', () => {
     await render(<HistoryScreen />);
 
     expect(screen.getByText('When it shows up')).toBeTruthy();
-    expect(screen.getByText('No symptoms logged')).toBeTruthy();
+    // Under the When card's title, and on today's row of the week card.
+    expect(screen.getAllByText('No symptoms logged')).toHaveLength(2);
     for (const part of ['Morning', 'Afternoon', 'Evening', 'Night']) {
       expect(screen.getByLabelText(`${part}, 0`)).toBeTruthy();
     }
@@ -300,15 +301,15 @@ describe('History: the stats cards', () => {
 });
 
 describe('History: how the week and month went', () => {
-  it('counts the calm days and lists the week newest first, saying what was logged each day', async () => {
+  it('counts the days without symptoms and lists the week newest first, saying what was logged each day', async () => {
     seedWeek();
     await render(<HistoryScreen />);
 
     // Only 9 Oct has something logged and no symptoms; last week's one entry was calm too.
-    expect(screen.getByText('1 calm day')).toBeTruthy();
+    expect(screen.getByText('1 day without symptoms')).toBeTruthy();
     expect(screen.getByText('Same as last week')).toBeTruthy();
     expect(screen.getByLabelText('Today, Heartburn, Burping')).toBeTruthy();
-    expect(screen.getByLabelText('Yesterday, Calm day')).toBeTruthy();
+    expect(screen.getByLabelText('Yesterday, No symptoms logged')).toBeTruthy();
     expect(screen.getByLabelText('Thursday, Oct 8, Heartburn, Burping')).toBeTruthy();
     expect(screen.getByLabelText('Sunday, Oct 4, Nothing logged')).toBeTruthy();
     // The key to the colours.
@@ -316,13 +317,21 @@ describe('History: how the week and month went', () => {
     expect(screen.getByText('3 or more')).toBeTruthy();
   });
 
-  it('says how many more calm days than last week', async () => {
+  it('counts a day with only a caution meal as a day without symptoms: the verdict is not an outcome', async () => {
+    seedMeal('Ramen', 'caution', at(10, 12));
+    await render(<HistoryScreen />);
+
+    expect(screen.getByText('1 day without symptoms')).toBeTruthy();
+    expect(screen.getByLabelText('Today, No symptoms logged')).toBeTruthy();
+  });
+
+  it('says how many more days without symptoms than last week', async () => {
     seedMeal('Toast', 'ok', at(9, 8));
     seedMeal('Soup', 'ok', at(10, 8));
     seedSymptom(at(1, 12));
     await render(<HistoryScreen />);
 
-    expect(screen.getByText('2 calm days')).toBeTruthy();
+    expect(screen.getByText('2 days without symptoms')).toBeTruthy();
     expect(screen.getByText('2 more than last week')).toBeTruthy();
   });
 
@@ -332,9 +341,9 @@ describe('History: how the week and month went', () => {
 
     await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
 
-    expect(screen.getByText('2 calm days')).toBeTruthy();
+    expect(screen.getByText('2 days without symptoms')).toBeTruthy();
     expect(screen.getByLabelText('Thursday, Oct 8, Heartburn, Burping')).toBeTruthy();
-    expect(screen.getByLabelText('Yesterday, Calm day')).toBeTruthy();
+    expect(screen.getByLabelText('Yesterday, No symptoms logged')).toBeTruthy();
     expect(screen.queryByLabelText(/^Sunday, Oct 11/)).toBeNull();
   });
 
@@ -345,7 +354,7 @@ describe('History: how the week and month went', () => {
     await fireEvent.press(screen.getByRole('tab', { name: 'All time' }));
 
     expect(screen.getByLabelText('Card 1 of 3')).toBeTruthy();
-    expect(screen.queryByText(/calm day/)).toBeNull();
+    expect(screen.queryByText(/without symptoms/)).toBeNull();
   });
 });
 

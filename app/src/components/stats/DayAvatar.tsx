@@ -6,7 +6,7 @@ import { type ColorToken, useColors } from '@/theme';
 
 import { Belly } from '../Belly';
 
-/** Bellie on a disc in the same colours as the Food donut: green is calm, yellow a few symptoms, red many. */
+/** Bellie on a disc in the same colours as the Food donut: green is no symptoms logged, yellow a few, red many. */
 export const DAY_TONES: Record<
   Exclude<DayState, 'none'>,
   { disc: ColorToken; dot: ColorToken; mood: BellyMood }
