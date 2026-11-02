@@ -7,9 +7,7 @@ import type { InsightRequest } from '@/types/insight';
 
 import { getNetworkStateAsync } from 'expo-network';
 
-import type { RecipeRequest } from '@/types/recipe';
-
-import { analyzeFood, fetchInsight, fetchRecipeIdeas, sendFeedback } from '../relayClient';
+import { analyzeFood, fetchInsight, sendFeedback } from '../relayClient';
 import { getIdToken } from '../firebase';
 
 // A stand-in with the parts of an expo-file-system File that Expo's multipart encoder uses.
@@ -323,87 +321,6 @@ describe('fetchInsight', () => {
     fetchMock.mockRejectedValue(new DOMException('aborted', 'AbortError'));
 
     await expect(fetchInsight(request, controller.signal)).rejects.toThrow('aborted');
-  });
-});
-
-describe('fetchRecipeIdeas', () => {
-  const request: RecipeRequest = {
-    cuisine: 'korean',
-    time: '20',
-    serves: 2,
-    conditions: ['acid_reflux'],
-    avoid: ['Peanuts'],
-  };
-  const recipe = {
-    title: 'Kimchi egg fried rice',
-    minutes: 20,
-    serves: 2,
-    why: 'Soft rice and egg are easy on the stomach.',
-    tip: '',
-    ingredients: ['1 1/2 cups cooked rice', '2 eggs'],
-    steps: ['Chop the kimchi.', 'Stir-fry it.'],
-  };
-
-  it('posts the request as JSON with the bearer token, and returns just the recipes', async () => {
-    fetchMock.mockReturnValue(
-      json(200, { recipes: [{ ...recipe, extra: 'x' }], meta: { model: 'm', promptVersion: 'recipes-v1' } }),
-    );
-
-    await expect(fetchRecipeIdeas(request)).resolves.toEqual([recipe]);
-
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('https://relay.test/v1/recipe-ideas');
-    expect(init.method).toBe('POST');
-    expect(init.headers.Authorization).toBe('Bearer test-token');
-    expect(init.headers['Content-Type']).toBe('application/json');
-    expect(JSON.parse(init.body)).toEqual(request);
-  });
-
-  it('maps a relay error to its code, so the Kitchen can say the right thing', async () => {
-    fetchMock.mockReturnValue(json(429, { error: { code: 'RATE_LIMITED', requestId: 'r1' } }));
-
-    await expect(fetchRecipeIdeas(request)).rejects.toMatchObject({ code: 'RATE_LIMITED' });
-  });
-
-  it.each([
-    ['no recipes', { recipes: [] }],
-    ['a recipe without steps', { recipes: [{ ...recipe, steps: [] }] }],
-    ['no recipes field', { meal: 'x' }],
-  ])('reports AI_INVALID_OUTPUT for %s', async (_name, body) => {
-    fetchMock.mockReturnValue(json(200, body));
-
-    await expect(fetchRecipeIdeas(request)).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
-  });
-
-  it('reports AI_INVALID_OUTPUT when a 200 body is not JSON', async () => {
-    fetchMock.mockReturnValue(Promise.resolve(new Response('nope', { status: 200 })));
-
-    await expect(fetchRecipeIdeas(request)).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
-  });
-
-  it('reports OFFLINE when the request fails and the phone has no connection', async () => {
-    fetchMock.mockRejectedValue(new TypeError('Network request failed'));
-    (getNetworkStateAsync as jest.Mock).mockResolvedValueOnce({ isConnected: false });
-
-    await expect(fetchRecipeIdeas(request)).rejects.toMatchObject({ code: 'OFFLINE' });
-  });
-
-  it('reports NETWORK when the request cannot be made but the phone is online', async () => {
-    fetchMock.mockRejectedValue(new TypeError('Network request failed'));
-    (getNetworkStateAsync as jest.Mock).mockResolvedValueOnce({
-      isConnected: true,
-      isInternetReachable: true,
-    });
-
-    await expect(fetchRecipeIdeas(request)).rejects.toMatchObject({ code: 'NETWORK' });
-  });
-
-  it('rethrows the caller abort untouched, so Stop never shows an error', async () => {
-    const controller = new AbortController();
-    controller.abort();
-    fetchMock.mockRejectedValue(new DOMException('aborted', 'AbortError'));
-
-    await expect(fetchRecipeIdeas(request, controller.signal)).rejects.toThrow('aborted');
   });
 });
 

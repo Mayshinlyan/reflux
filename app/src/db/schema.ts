@@ -201,43 +201,6 @@ export const savedSymptoms = sqliteTable(
   (t) => [uniqueIndex('saved_symptoms_name_uq').on(sql`lower(${t.name})`)],
 );
 
-/**
- * "I don't eat" (Profile > Your lists): foods the user never eats, an allergy or a diet. The Kitchen sends them to the
- * recipe service as a hard rule. Names only; the name is unique ignoring capitals.
- */
-export const avoidFoods = sqliteTable(
-  'avoid_foods',
-  {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    name: text('name').notNull(),
-    ...timestamps,
-  },
-  (t) => [uniqueIndex('avoid_foods_name_uq').on(sql`lower(${t.name})`)],
-);
-
-/**
- * Recipes saved from the Kitchen. `recipe` is the whole recipe as the relay sent it (why it is gentle, a tip, the
- * ingredients and the steps), so a saved recipe works with no connection. `rating` is the thumbs after cooking.
- */
-export const savedRecipes = sqliteTable(
-  'saved_recipes',
-  {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    title: text('title').notNull(),
-    /** A cuisine key (see constants/cuisines). */
-    cuisine: text('cuisine').notNull(),
-    minutes: integer('minutes').notNull(),
-    serves: integer('serves').notNull(),
-    recipe: text('recipe', { mode: 'json' }).notNull(),
-    rating: text('rating', { enum: ['up', 'down'] }),
-    ...timestamps,
-  },
-  (t) => [
-    index('saved_recipes_created_idx').on(t.createdAt),
-    check('saved_recipes_rating_check', sql`${t.rating} in ('up', 'down')`),
-  ],
-);
-
 /** Key/value settings. Values are JSON-encoded; see repositories/settings.ts for keys and defaults. */
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
@@ -250,6 +213,4 @@ export type FoodLog = typeof foodLogs.$inferSelect;
 export type Medication = typeof medications.$inferSelect;
 export type SavedFood = typeof savedFoods.$inferSelect;
 export type SavedSymptom = typeof savedSymptoms.$inferSelect;
-export type AvoidFood = typeof avoidFoods.$inferSelect;
-export type SavedRecipe = typeof savedRecipes.$inferSelect;
 export type MedicationLog = typeof medicationLogs.$inferSelect;

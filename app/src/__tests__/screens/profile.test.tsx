@@ -96,7 +96,7 @@ describe('Profile', () => {
     expect(mockPush).toHaveBeenCalledWith('/settings');
   });
 
-  it("lists Condition, Usual symptoms, Favorite foods, I don't eat, Medications and Lifestyle under Your lists", async () => {
+  it('lists Condition, Usual symptoms, Favorite foods, Medications and Lifestyle under Your lists', async () => {
     await render(<ProfileScreen />);
 
     expect(screen.getByRole('header', { name: 'Your lists' })).toBeTruthy();
@@ -104,24 +104,9 @@ describe('Profile', () => {
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
       .filter((label) =>
-        /^(Condition|Usual symptoms|Favorite foods|I don't eat|Medications|Lifestyle)$/.test(label ?? ''),
+        /^(Condition|Usual symptoms|Favorite foods|Medications|Lifestyle)$/.test(label ?? ''),
       );
-    expect(rows).toEqual([
-      'Condition',
-      'Usual symptoms',
-      'Favorite foods',
-      "I don't eat",
-      'Medications',
-      'Lifestyle',
-    ]);
-  });
-
-  it("opens I don't eat", async () => {
-    await render(<ProfileScreen />);
-
-    await press('button', "I don't eat");
-
-    expect(mockPush).toHaveBeenCalledWith('/avoid-foods');
+    expect(rows).toEqual(['Condition', 'Usual symptoms', 'Favorite foods', 'Medications', 'Lifestyle']);
   });
 
   it('opens Favorite foods', async () => {

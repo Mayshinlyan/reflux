@@ -4,7 +4,7 @@ import type { Portion } from '../schemas.js';
 export const PROMPT_VERSION = 'food-analysis-v7';
 export const TOOL_NAME = 'report_meal_analysis';
 
-export function rulesetSection(): string {
+function rulesetSection(): string {
   return CATEGORIES.map((key) => {
     const entry = ruleset.categories[key];
     return `- ${key}: ${entry.description} Example keywords: ${entry.keywords.join(', ')}.`;
@@ -12,7 +12,7 @@ export function rulesetSection(): string {
 }
 
 /** Per condition, the categories to weigh more strictly. Fixed text from the ruleset, the same for every user. */
-export function conditionsSection(): string {
+function conditionsSection(): string {
   return CONDITIONS.map((key) => {
     const entry = ruleset.conditions[key];
     return `- ${key} (${entry.label}): ${entry.emphasis.join(', ')}.`;

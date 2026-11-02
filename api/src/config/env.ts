@@ -16,11 +16,6 @@ const envSchema = z
     GLOBAL_DAILY_LIMIT: z.coerce.number().int().positive().default(300),
     /** Bellie's day and week summaries have their own per-user cap, so they never use up meal checks. */
     PER_USER_DAILY_INSIGHT_LIMIT: z.coerce.number().int().positive().default(20),
-    /**
-     * Kitchen recipe rounds (three ideas each) per person per day. The app stops at 10 a day, so this leaves room for
-     * "Try again" after a failure without the relay refusing first. Its own counter, so it never uses up meal checks.
-     */
-    PER_USER_DAILY_RECIPE_LIMIT: z.coerce.number().int().positive().default(15),
     /** Feedback messages per person per day; no AI cost, so it never counts toward the AI breaker above. */
     PER_USER_DAILY_FEEDBACK_LIMIT: z.coerce.number().int().positive().default(5),
     /** A daily ceiling on feedback from everyone, because anonymous sign-in makes a per-person cap easy to dodge. */

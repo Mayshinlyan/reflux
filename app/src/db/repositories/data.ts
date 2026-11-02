@@ -4,13 +4,11 @@ import { localDayKey } from '@/lib/localDay';
 
 import {
   appSettings,
-  avoidFoods,
   foodLogs,
   foodLogTags,
   medicationLogs,
   medications,
   savedFoods,
-  savedRecipes,
   savedSymptoms,
   symptomLogItems,
   symptomLogs,
@@ -21,7 +19,7 @@ import { notifySavedFoodsChanged } from './savedFoods';
 
 /**
  * Deletes everything on the phone (symptoms, meals and checks, medications and their history, favorite
- * foods, the user's own symptoms and tags, saved recipes and the "I don't eat" list) and every setting, including the name, conditions, bedtime,
+ * foods, the user's own symptoms and tags) and every setting, including the name, conditions, bedtime,
  * reminders, Bellie's cached summaries and `onboardingDone`, in one transaction. The user sets Bellie up
  * again afterwards, as the delete-all alert says. Meal photos live outside the database; the caller removes
  * them with `deleteAllPhotos()`.
@@ -38,8 +36,6 @@ export function deleteAllData(db: AppDb): void {
     tx.delete(medications).run();
     tx.delete(savedFoods).run();
     tx.delete(savedSymptoms).run();
-    tx.delete(savedRecipes).run();
-    tx.delete(avoidFoods).run();
     tx.delete(appSettings).run();
   });
   notifySavedFoodsChanged(); // the widget lists saved foods and holds a token that was just reset

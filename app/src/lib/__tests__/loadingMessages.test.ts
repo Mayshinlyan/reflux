@@ -27,16 +27,6 @@ describe('loadingMessage', () => {
     ]);
   });
 
-  it('uses lines about cooking while the Kitchen makes recipe ideas', () => {
-    expect([0, 1, 2, 3, 9].map((step) => loadingMessage(step, 'recipes'))).toEqual([
-      'Bellie is cooking up ideas…',
-      'Choosing foods that go easy on you…',
-      'Writing out the steps…',
-      'Almost there…',
-      'Almost there…',
-    ]);
-  });
-
   it('never goes out of range for a bad step', () => {
     expect(loadingMessage(-3, 'text')).toBe('Looking at your food…');
   });

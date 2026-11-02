@@ -137,7 +137,6 @@ export type MyFoodTarget = { id?: number; name?: string };
  * `date` (a day tapped in Today's week strip) logs the meal at noon of that earlier day instead of now.
  * `quickLog` (a saved food tapped on the home-screen widget) logs that food as soon as the screen appears, exactly
  * like tapping its Quick log chip.
- * `initialText` starts the "Describe it" box with some text, e.g. a Kitchen recipe's name (Log this meal).
  */
 export function FoodFlow({
   photoUri,
@@ -147,7 +146,6 @@ export function FoodFlow({
   date,
   quickLog,
   detailsFor,
-  initialText,
 }: {
   photoUri?: string;
   openCamera?: boolean;
@@ -156,13 +154,12 @@ export function FoodFlow({
   date?: string;
   quickLog?: StoredSavedFood;
   detailsFor?: number;
-  initialText?: string;
 }) {
   const colors = useColors();
   const db = useDb();
   const toast = useToast();
   const { state, analyze, reset } = useAnalyzeFood();
-  const [text, setText] = useState(myFood?.name ?? initialText ?? '');
+  const [text, setText] = useState(myFood?.name ?? '');
   const [analyzed, setAnalyzed] = useState<Analyzed | null>(
     photoUri ? { source: 'photo', uri: photoUri } : null,
   );

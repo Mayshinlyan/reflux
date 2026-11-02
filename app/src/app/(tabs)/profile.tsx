@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Ban, Leaf, Pencil, Pill, Settings, Stethoscope, Thermometer, Utensils } from 'lucide-react-native';
+import { Leaf, Pencil, Pill, Settings, Stethoscope, Thermometer, Utensils } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -86,7 +86,6 @@ export default function ProfileScreen() {
           label="Favorite foods"
           onPress={() => router.push({ pathname: '/log/food', params: { manage: '1' } })}
         />
-        <SettingsRow icon={Ban} label="I don't eat" onPress={() => router.push('/avoid-foods')} />
         <SettingsRow
           icon={Pill}
           label="Medications"

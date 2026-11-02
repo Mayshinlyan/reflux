@@ -9,15 +9,7 @@ import {
   textUserMessage,
 } from '../prompts/foodAnalysisPrompt.js';
 import { INSIGHT_SYSTEM_PROMPT, INSIGHT_TOOL_NAME, insightUserMessage } from '../prompts/insightPrompt.js';
-import { RECIPE_SYSTEM_PROMPT, RECIPE_TOOL_NAME, recipeUserMessage } from '../prompts/recipePrompt.js';
-import {
-  type InsightInput,
-  insightJsonSchema,
-  mealAnalysisJsonSchema,
-  type Portion,
-  type RecipeIdeasInput,
-  recipeIdeasJsonSchema,
-} from '../schemas.js';
+import { type InsightInput, insightJsonSchema, mealAnalysisJsonSchema, type Portion } from '../schemas.js';
 
 export type ClaudeInput =
   | { kind: 'text'; text: string; details?: string; portion?: Portion; conditions?: Condition[] }
@@ -47,16 +39,11 @@ export interface ClaudeService {
   analyze(input: ClaudeInput): Promise<ClaudeResult>;
   /** Bellie's day or week summary of what the person logged. */
   insight(input: InsightInput): Promise<ClaudeResult>;
-  /** Three recipe ideas that go easy on the person's belly (the Kitchen). */
-  recipes(input: RecipeIdeasInput): Promise<ClaudeResult>;
 }
 
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 // Multi-item dishes (dim sum, a full plate) run past 1000 output tokens; a lower cap truncates them.
 const MAX_TOKENS = 3000;
-// Three full recipes (ingredients and steps) are longer than a meal check, so they get more room and more time.
-const RECIPE_MAX_TOKENS = 5000;
-const RECIPE_TIMEOUT_MS = 60_000;
 const TIMEOUT_MS = 30_000;
 /** The SDK's own retries are off; we retry once ourselves so the count can be reported. */
 export const CLIENT_SETTINGS = { maxRetries: 0, timeout: TIMEOUT_MS };
@@ -90,9 +77,6 @@ type ToolCall = {
   toolDescription: string;
   inputSchema: { type: 'object'; [key: string]: unknown };
   content: Anthropic.ContentBlockParam[];
-  /** For a long answer: more output room, and a longer wait than the client's default. */
-  maxTokens?: number;
-  timeoutMs?: number;
 };
 
 export function createClaudeService(options: {
@@ -108,7 +92,6 @@ export function createClaudeService(options: {
   const client = options.client ?? new Anthropic({ ...CLIENT_SETTINGS, apiKey: options.apiKey });
   const analysisSchema = mealAnalysisJsonSchema();
   const insightSchema = insightJsonSchema();
-  const recipeSchema = recipeIdeasJsonSchema();
 
   async function call({
     system,
@@ -116,13 +99,11 @@ export function createClaudeService(options: {
     toolDescription,
     inputSchema,
     content,
-    maxTokens = MAX_TOKENS,
-    timeoutMs,
   }: ToolCall): Promise<ClaudeResult> {
     const params = modelParams(model, toolName);
     const request = {
       model,
-      max_tokens: maxTokens,
+      max_tokens: MAX_TOKENS,
       // The fixed system prompt is the cached prefix (tools render before system).
       system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
       tools: [{ name: toolName, description: toolDescription, input_schema: inputSchema }],
@@ -135,9 +116,7 @@ export function createClaudeService(options: {
     let retries = 0;
     for (;;) {
       try {
-        const message = timeoutMs
-          ? await client.messages.create(request, { timeout: timeoutMs })
-          : await client.messages.create(request);
+        const message = await client.messages.create(request);
         const telemetry: ClaudeTelemetry = {
           model,
           latencyMs: Date.now() - started,
@@ -206,17 +185,6 @@ export function createClaudeService(options: {
         content: [{ type: 'text', text: insightUserMessage(input) }],
       });
     },
-    recipes(input) {
-      return call({
-        system: RECIPE_SYSTEM_PROMPT,
-        toolName: RECIPE_TOOL_NAME,
-        toolDescription: 'Report three recipe ideas that go easy on the reflux belly. Call exactly once.',
-        inputSchema: recipeSchema,
-        content: [{ type: 'text', text: recipeUserMessage(input) }],
-        maxTokens: RECIPE_MAX_TOKENS,
-        timeoutMs: RECIPE_TIMEOUT_MS,
-      });
-    },
   };
 }
 
@@ -254,9 +222,6 @@ export function createUnavailableClaudeService(model = DEFAULT_MODEL): ClaudeSer
       throw new HttpError('SERVICE_BUSY');
     },
     async insight() {
-      throw new HttpError('SERVICE_BUSY');
-    },
-    async recipes() {
       throw new HttpError('SERVICE_BUSY');
     },
   };

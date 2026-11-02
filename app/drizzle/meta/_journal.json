@@ -64,13 +64,6 @@
       "when": 1791860568208,
       "tag": "0008_saved_kind_zone",
       "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "6",
-      "when": 1793587183129,
-      "tag": "0009_kitchen",
-      "breakpoints": true
     }
   ]
 }
