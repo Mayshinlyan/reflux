@@ -105,9 +105,9 @@ describe('calmHeadline and calmComparison', () => {
     }));
 
   it('words the count', () => {
-    expect(calmHeadline(states('ccsn'))).toBe('2 calm days');
-    expect(calmHeadline(states('csn'))).toBe('1 calm day');
-    expect(calmHeadline(states('ssn'))).toBe('No calm days');
+    expect(calmHeadline(states('ccsn'))).toBe('2 days without symptoms');
+    expect(calmHeadline(states('csn'))).toBe('1 day without symptoms');
+    expect(calmHeadline(states('ssn'))).toBe('No days without symptoms');
   });
 
   it('says how it compares with the last period', () => {

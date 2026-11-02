@@ -30,7 +30,8 @@ const dayKeyOfEntry = (entry: TimelineEntry) => localDayKey(entry.at, entry.tz);
 
 /**
  * One stat per day from the period's first day to its last, or to `todayKey` if that comes first (days still to
- * come have nothing to say). A day with any entry and no symptoms is calm.
+ * come have nothing to say). A day with any entry and no symptoms is `calm`: the state's name, shown to the
+ * person as "no symptoms logged".
  */
 export function dayStats(entries: readonly TimelineEntry[], period: Period, todayKey: string): DayStat[] {
   const logged = new Set<string>();
@@ -62,10 +63,13 @@ export function dayStats(entries: readonly TimelineEntry[], period: Period, toda
 
 export const calmDays = (days: readonly DayStat[]) => days.filter((day) => day.state === 'calm').length;
 
-/** "4 calm days", "1 calm day", "No calm days". */
+/**
+ * "4 days without symptoms", "1 day without symptoms", "No days without symptoms". It counts symptoms logged,
+ * never the verdicts of the meals eaten: a day with a caution meal and no symptoms is still one of these days.
+ */
 export function calmHeadline(days: readonly DayStat[]): string {
   const calm = calmDays(days);
-  return calm === 0 ? 'No calm days' : `${calm} calm ${calm === 1 ? 'day' : 'days'}`;
+  return calm === 0 ? 'No days without symptoms' : `${calm} ${calm === 1 ? 'day' : 'days'} without symptoms`;
 }
 
 /**

@@ -15,14 +15,14 @@ const MONTH_AVATAR = 34;
 /** What a day says in words, for the row under its name and for a screen reader. */
 export function dayText(day: DayStat): string {
   if (day.state === 'none') return 'Nothing logged';
-  if (day.state === 'calm') return 'Calm day';
+  if (day.state === 'calm') return 'No symptoms logged';
   return day.symptoms.join(', ');
 }
 
 /**
  * Figma row 28a and 28e: how the shown week or month went. A week is a list, newest first, each day a Bellie on a
- * coloured disc with what was logged; a month is a calendar of the same discs. The header counts the calm days
- * and says how that compares with the last week or month.
+ * coloured disc with what was logged; a month is a calendar of the same discs. The header counts the days
+ * without symptoms and says how that compares with the last week or month.
  */
 export function DaysCard({ stats, width, height }: { stats: PeriodStats; width: number; height: number }) {
   const unit = stats.unit ?? 'week';
@@ -122,7 +122,7 @@ function MonthGrid({ stats }: { stats: PeriodStats }) {
 function Legend() {
   const colors = useColors();
   const items = [
-    { tone: DAY_TONES.calm, label: 'Calm' },
+    { tone: DAY_TONES.calm, label: 'No symptoms' },
     { tone: DAY_TONES.some, label: '1 to 2 symptoms' },
     { tone: DAY_TONES.lots, label: '3 or more' },
   ];
