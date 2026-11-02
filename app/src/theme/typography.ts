@@ -24,6 +24,8 @@ export const typography = {
   // Headings, sheet and screen titles: the Figma "Belly/Section" style (it also replaced "Belly/Title").
   section: { fontFamily: fontFamily.bold, fontSize: 20, lineHeight: 26 },
   sectionSm: { fontFamily: fontFamily.semibold, fontSize: 18, lineHeight: 24 },
+  // The one instruction to read at a time, at arm's length: a recipe's step card (Figma 29e3).
+  lead: { fontFamily: fontFamily.regular, fontSize: 20, lineHeight: 28 },
   body: { fontFamily: fontFamily.regular, fontSize: 17, lineHeight: 25.5 },
   bodyEm: { fontFamily: fontFamily.semibold, fontSize: 17, lineHeight: 25.5 },
   small: { fontFamily: fontFamily.regular, fontSize: 15, lineHeight: 22 },

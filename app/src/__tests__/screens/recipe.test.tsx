@@ -72,12 +72,26 @@ describe('Recipe', () => {
     expect(screen.getByText('Soft rice and egg are easy on the stomach.')).toBeTruthy();
     expect(screen.getByText('Belly tip')).toBeTruthy();
     expect(screen.getByText('Eat it warm, not hot.')).toBeTruthy();
-    expect(screen.getByRole('header', { name: 'Ingredients' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ingredients, 3 items' })).toBeTruthy();
     expect(screen.getByText('for 2')).toBeTruthy();
     for (const item of recipe.ingredients) expect(screen.getByText(item)).toBeTruthy();
     expect(screen.getByRole('header', { name: 'Steps' })).toBeTruthy();
     for (const step of recipe.steps) expect(screen.getByText(step)).toBeTruthy();
     expect(screen.getByText('Ideas, not medical advice.')).toBeTruthy();
+  });
+
+  it('shows the picture it was given, and a saved one keeps its own', async () => {
+    setRecipeDraft({ recipe: { ...recipe, look: 3 }, cuisine: 'korean' });
+    await render(<RecipeScreen />);
+
+    expect(screen.getByTestId('recipe-art-3', { includeHiddenElements: true })).toBeTruthy();
+  });
+
+  it('gives the why and the tip a white card each with its own title, not coloured text on a coloured box', async () => {
+    await render(<RecipeScreen />);
+
+    expect(screen.getByRole('header', { name: "Why it's gentle" })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Belly tip' })).toBeTruthy();
   });
 
   it('leaves out the tip when there is none', async () => {
@@ -110,6 +124,68 @@ describe('Recipe', () => {
     await render(<RecipeScreen />);
 
     expect(screen.getByText('That recipe is gone')).toBeTruthy();
+  });
+});
+
+describe('Recipe: the ingredients open and close', () => {
+  it('start open, close from the header to one line, and open again', async () => {
+    await render(<RecipeScreen />);
+    expect(screen.getByText('for 2')).toBeTruthy();
+    expect(screen.getByText('1 1/2 cups cooked rice')).toBeTruthy();
+
+    await press('Ingredients, 3 items');
+
+    expect(screen.queryByText('1 1/2 cups cooked rice')).toBeNull();
+    expect(screen.getByText('3 items · for 2')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Ingredients, 3 items' }).props.accessibilityState,
+    ).toMatchObject({
+      expanded: false,
+    });
+
+    await press('Ingredients, 3 items');
+
+    expect(screen.getByText('1 1/2 cups cooked rice')).toBeTruthy();
+    expect(screen.getByText('for 2')).toBeTruthy();
+  });
+
+  it('close without touching the steps below', async () => {
+    await render(<RecipeScreen />);
+
+    await press('Ingredients, 3 items');
+
+    for (const step of recipe.steps) expect(screen.getByText(step)).toBeTruthy();
+  });
+});
+
+describe('Recipe: the steps as cards', () => {
+  it('make one card per step, numbered out of the total', async () => {
+    await render(<RecipeScreen />);
+
+    for (let i = 1; i <= recipe.steps.length; i += 1) {
+      expect(screen.getByText(`Step ${i} of ${recipe.steps.length}`)).toBeTruthy();
+    }
+  });
+
+  it('show a time chip on a step that names a time, and none on one that does not', async () => {
+    setRecipeDraft({
+      recipe: {
+        ...recipe,
+        steps: ['Chop the kimchi.', 'Simmer for 10 minutes.', 'Bake for 12 to 15 minutes.'],
+      },
+      cuisine: 'korean',
+    });
+    await render(<RecipeScreen />);
+
+    expect(screen.getByText('10 min')).toBeTruthy();
+    expect(screen.getByText('12–15 min')).toBeTruthy();
+    expect(screen.queryAllByText(/min$/)).toHaveLength(2);
+  });
+
+  it('have dots to go to a step, one per step', async () => {
+    await render(<RecipeScreen />);
+
+    expect(screen.getByLabelText(`Card 1 of ${recipe.steps.length}`)).toBeTruthy();
   });
 });
 

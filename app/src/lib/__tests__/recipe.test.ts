@@ -58,6 +58,22 @@ describe('pickRecipe', () => {
     );
     expect(picked.ingredients).not.toBe(recipe.ingredients);
   });
+
+  it('keeps a real look, and leaves the field out when there is none or it is not one of the five', () => {
+    expect(pickRecipe({ ...recipe, look: 2 }).look).toBe(2);
+    expect('look' in pickRecipe(recipe)).toBe(false);
+    expect('look' in pickRecipe({ ...recipe, look: 8 })).toBe(false);
+  });
+});
+
+describe('isRecipe and the look', () => {
+  it('accepts a recipe with or without a look, and refuses one with a look that does not exist', () => {
+    expect(isRecipe({ ...recipe, look: 0 })).toBe(true);
+    expect(isRecipe({ ...recipe, look: 4 })).toBe(true);
+    expect(isRecipe(recipe)).toBe(true);
+    expect(isRecipe({ ...recipe, look: 5 })).toBe(false);
+    expect(isRecipe({ ...recipe, look: 'bowl' })).toBe(false);
+  });
 });
 
 describe('parseWanted', () => {

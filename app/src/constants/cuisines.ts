@@ -1,5 +1,3 @@
-import type { ColorToken } from '@/theme';
-
 /** The Kitchen's cuisines, A to Z with "Any" first (Figma row 29b2). Keys match the relay's `CUISINES`. */
 export const CUISINES = [
   { key: 'any', label: 'Any' },
@@ -24,23 +22,6 @@ export const isCuisineKey = (value: unknown): value is CuisineKey =>
 export function cuisineLabel(key: CuisineKey): string {
   return CUISINES.find((cuisine) => cuisine.key === key)?.label ?? 'Any';
 }
-
-/**
- * The colour behind each cuisine's Bellie art. Every cuisine has its own, so a list of ideas never repeats a
- * background. These tints stand in for the cuisine illustrations until those are drawn.
- */
-export const CUISINE_TINT: Record<CuisineKey, ColorToken> = {
-  any: 'surface2',
-  chinese: 'redTint',
-  indian: 'honeyTint',
-  italian: 'goodTint',
-  japanese: 'roseTint',
-  korean: 'clayTint',
-  mediterranean: 'skyTint',
-  mexican: 'lavenderTint',
-  thai: 'mintTint',
-  vietnamese: 'sageTint',
-};
 
 /** "Ready in": a limit on the total time, prep included. Keys match the relay's `RECIPE_TIMES`. */
 export const RECIPE_TIMES = [

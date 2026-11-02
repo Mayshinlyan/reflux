@@ -1,5 +1,7 @@
 import type { Recipe } from '@/types/recipe';
 
+import { isLook } from './recipeLook';
+
 const isStringList = (value: unknown, min: number): value is string[] =>
   Array.isArray(value) &&
   value.length >= min &&
@@ -19,7 +21,9 @@ export function isRecipe(value: unknown): value is Recipe {
     typeof recipe.why === 'string' &&
     typeof recipe.tip === 'string' &&
     isStringList(recipe.ingredients, 1) &&
-    isStringList(recipe.steps, 1)
+    isStringList(recipe.steps, 1) &&
+    // The look is the phone's own and optional; one that is not a real look is a bad recipe, not a crash later.
+    (recipe.look === undefined || isLook(recipe.look))
   );
 }
 
@@ -32,8 +36,17 @@ export function isRecipeIdeas(value: unknown): value is { recipes: Recipe[] } {
 
 /** Only the fields the app shows, so nothing else the relay adds (like `meta`) gets saved. */
 export function pickRecipe(recipe: Recipe): Recipe {
-  const { title, minutes, serves, why, tip, ingredients, steps } = recipe;
-  return { title, minutes, serves, why, tip, ingredients: [...ingredients], steps: [...steps] };
+  const { title, minutes, serves, why, tip, ingredients, steps, look } = recipe;
+  return {
+    title,
+    minutes,
+    serves,
+    why,
+    tip,
+    ingredients: [...ingredients],
+    steps: [...steps],
+    ...(isLook(look) ? { look } : {}),
+  };
 }
 
 /** The relay's caps on what a request may carry (see its `recipeIdeasBodySchema`). */
