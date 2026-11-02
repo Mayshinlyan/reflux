@@ -5,7 +5,7 @@ import { type Env, loadEnv } from '../src/config/env.js';
 import { type FeedbackStore, InMemoryFeedbackStore } from '../src/lib/feedbackStore.js';
 import { createLogger } from '../src/lib/logger.js';
 import { InMemoryRateLimitStore, type RateLimitStore } from '../src/lib/rateLimitStore.js';
-import type { InsightInput } from '../src/schemas.js';
+import type { InsightInput, RecipeIdeasInput } from '../src/schemas.js';
 import type { ClaudeInput, ClaudeResult, ClaudeService } from '../src/services/claudeService.js';
 import type { TokenVerifier } from '../src/services/tokenVerifier.js';
 
@@ -55,6 +55,38 @@ export const goodInsight = {
   tips: ['Have spicy food earlier in the day.', 'Try a milder salsa.'],
 };
 
+export const goodRecipes = {
+  recipes: [
+    {
+      title: 'Kimchi egg fried rice',
+      minutes: 20,
+      serves: 2,
+      why: 'Soft rice and egg are easy on the stomach, and the kimchi is rinsed to tone down the acid.',
+      tip: 'Eat it warm, not hot.',
+      ingredients: ['1 1/2 cups cooked rice', '2 eggs', '1/2 cup kimchi, rinsed', '1 tbsp sesame oil'],
+      steps: ['Rinse and chop the kimchi.', 'Stir-fry it in the oil.', 'Add the rice, then the eggs.'],
+    },
+    {
+      title: 'Tofu soondubu stew',
+      minutes: 25,
+      serves: 2,
+      why: 'Silky tofu in a mild broth, with the chili cut right back.',
+      tip: '',
+      ingredients: ['1 block soft tofu', '2 cups mild broth', '1 scallion'],
+      steps: ['Heat the broth.', 'Add the tofu in spoonfuls.', 'Simmer for 10 minutes.'],
+    },
+    {
+      title: 'Miso salmon bowl',
+      minutes: 25,
+      serves: 2,
+      why: 'Baked fish and rice are gentle, and miso adds flavor without heat.',
+      tip: 'Sit upright for a while after eating.',
+      ingredients: ['2 salmon fillets (4 oz each)', '1 tbsp miso', '1 cup cooked rice'],
+      steps: ['Spread the miso on the salmon.', 'Bake for 12 minutes.', 'Serve over the rice.'],
+    },
+  ],
+};
+
 const telemetry = {
   model: 'claude-test-model',
   latencyMs: 12,
@@ -69,9 +101,11 @@ const telemetry = {
 export function fakeClaude(
   respond: (input: ClaudeInput) => unknown | Promise<unknown> = () => goodAnalysis,
   respondInsight: (input: InsightInput) => unknown | Promise<unknown> = () => goodInsight,
+  respondRecipes: (input: RecipeIdeasInput) => unknown | Promise<unknown> = () => goodRecipes,
 ) {
   const calls: ClaudeInput[] = [];
   const insightCalls: InsightInput[] = [];
+  const recipeCalls: RecipeIdeasInput[] = [];
   const service: ClaudeService = {
     model: 'claude-test-model',
     async analyze(input): Promise<ClaudeResult> {
@@ -82,8 +116,12 @@ export function fakeClaude(
       insightCalls.push(input);
       return { raw: await respondInsight(input), telemetry };
     },
+    async recipes(input): Promise<ClaudeResult> {
+      recipeCalls.push(input);
+      return { raw: await respondRecipes(input), telemetry };
+    },
   };
-  return { service, calls, insightCalls };
+  return { service, calls, insightCalls, recipeCalls };
 }
 
 export function testApp(

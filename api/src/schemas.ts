@@ -116,6 +116,72 @@ export function insightJsonSchema() {
   return schema as { type: 'object'; [key: string]: unknown };
 }
 
+/** The cuisines the Kitchen offers; `any` leaves the choice to Bellie. A fixed set, so it can go into the prompt as is. */
+export const CUISINES = [
+  'any',
+  'chinese',
+  'indian',
+  'italian',
+  'japanese',
+  'korean',
+  'mediterranean',
+  'mexican',
+  'thai',
+  'vietnamese',
+] as const;
+
+/** "Ready in": 20 or 40 minutes at most (prep included), or `long` for no limit. */
+export const RECIPE_TIMES = ['20', '40', 'long'] as const;
+
+/**
+ * What the Kitchen's recipe ideas are built from (POST /v1/recipe-ideas): the choices on the sheet, what the person
+ * is managing, and food names only (favorites, foods that bothered them, foods they never eat, dishes already shown).
+ * Never symptom logs, notes, photos or the person's name. Unknown fields are rejected.
+ */
+export const recipeIdeasBodySchema = z.strictObject({
+  cuisine: z.enum(CUISINES),
+  time: z.enum(RECIPE_TIMES),
+  serves: z.number().int().min(1).max(6),
+  conditions: conditionsSchema.optional(),
+  /** Ingredients the person typed to use. */
+  want: z.array(label(40)).max(10).optional(),
+  favorites: z.array(label(60)).max(15).optional(),
+  /** Foods that bothered them before: kept out, or at least gone easy on. */
+  triggers: z.array(label(60)).max(20).optional(),
+  /** Foods they never eat (an allergy, a diet). A hard rule, checked again on the way back. */
+  avoid: z.array(label(60)).max(30).optional(),
+  /** Dishes already shown this session, so "Generate more" gives new ones. */
+  shown: z.array(label(80)).max(12).optional(),
+});
+
+export type RecipeIdeasInput = z.infer<typeof recipeIdeasBodySchema>;
+
+/** One recipe. Lengths leave a margin over what the prompt asks for, so a slightly long answer doesn't fail. */
+const recipeSchema = z.strictObject({
+  title: z.string().min(1).max(60),
+  /** Total time, prep included. */
+  minutes: z.number().int().min(5).max(240),
+  serves: z.number().int().min(1).max(12),
+  /** Why it goes easy on the belly: a sentence or two. */
+  why: z.string().min(1).max(240),
+  /** One practical tip about eating it; may be empty. */
+  tip: z.string().max(180),
+  /** Each with its amount in US cups and spoons, e.g. "1 1/2 cups cooked rice". */
+  ingredients: z.array(z.string().min(1).max(80)).min(2).max(24),
+  steps: z.array(z.string().min(1).max(280)).min(2).max(12),
+});
+
+export const recipeIdeasSchema = z.strictObject({ recipes: z.array(recipeSchema).min(1).max(3) });
+
+export type RecipeIdeas = z.infer<typeof recipeIdeasSchema>;
+export type Recipe = z.infer<typeof recipeSchema>;
+
+/** JSON Schema handed to Claude as the recipe tool's input schema. */
+export function recipeIdeasJsonSchema() {
+  const { $schema: _ignored, ...schema } = z.toJSONSchema(recipeIdeasSchema) as Record<string, unknown>;
+  return schema as { type: 'object'; [key: string]: unknown };
+}
+
 export const MAX_FEEDBACK_CHARS = 2000;
 
 /** Feedback keeps its line breaks; other control characters become spaces and the ends are trimmed. */

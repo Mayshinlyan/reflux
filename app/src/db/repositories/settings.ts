@@ -2,6 +2,14 @@ import { eq } from 'drizzle-orm';
 
 import { AVATAR_KEYS, type AvatarKey } from '@/constants/avatars';
 import { CONDITION_KEYS, type ConditionKey, legacyCondition, readConditions } from '@/constants/conditions';
+import {
+  type CuisineKey,
+  isCuisineKey,
+  isRecipeTime,
+  MAX_SERVES,
+  MIN_SERVES,
+  type RecipeTime,
+} from '@/constants/cuisines';
 import { RETIRED_SYMPTOM_KEYS, SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
 import { type PetAnimal, PETS } from '@/lib/pets';
 import { REMINDER_OPTIONS } from '@/lib/reminderTiming';
@@ -43,6 +51,12 @@ export type Settings = {
   tourDone: boolean;
   /** Whether Bellie's day and week summaries may be asked of the AI service. Off keeps the words made on the phone. */
   summariesEnabled: boolean;
+  /** The Kitchen sheet's last choices, so it opens as you left it (Figma row 29b). */
+  kitchenCuisine: CuisineKey;
+  kitchenTime: RecipeTime;
+  kitchenServes: number;
+  /** How many Kitchen rounds (three ideas each) were made on `day` (a local "YYYY-MM-DD"); a new day starts at none. */
+  kitchenRounds: { day: string; count: number };
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -61,6 +75,10 @@ export const DEFAULT_SETTINGS: Settings = {
   widgetToken: '',
   tourDone: false,
   summariesEnabled: true,
+  kitchenCuisine: 'any',
+  kitchenTime: '40',
+  kitchenServes: 2,
+  kitchenRounds: { day: '', count: 0 },
 };
 
 export type SettingKey = keyof Settings;
@@ -116,6 +134,20 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
     const minutes = value as number;
     if (!Number.isInteger(minutes) || minutes < 0 || minutes > 360) {
       throw new Error('lateMealWindowMinutes must be 0–360');
+    }
+  }
+  if (key === 'kitchenCuisine' && !isCuisineKey(value)) throw new Error(`Unknown cuisine: ${String(value)}`);
+  if (key === 'kitchenTime' && !isRecipeTime(value)) throw new Error(`Unknown recipe time: ${String(value)}`);
+  if (key === 'kitchenServes') {
+    const serves = value as number;
+    if (!Number.isInteger(serves) || serves < MIN_SERVES || serves > MAX_SERVES) {
+      throw new Error(`kitchenServes must be ${MIN_SERVES}–${MAX_SERVES}`);
+    }
+  }
+  if (key === 'kitchenRounds') {
+    const rounds = value as Settings['kitchenRounds'];
+    if (typeof rounds?.day !== 'string' || !Number.isInteger(rounds.count) || rounds.count < 0) {
+      throw new Error('kitchenRounds must be a day and a count');
     }
   }
 }

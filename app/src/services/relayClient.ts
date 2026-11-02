@@ -7,8 +7,10 @@ import type { ConditionKey } from '@/constants/conditions';
 import { relayBaseUrl } from '@/lib/config';
 import { AppError, isRelayErrorCode } from '@/lib/errors';
 import { isInsight } from '@/lib/insight';
+import { isRecipeIdeas, pickRecipe } from '@/lib/recipe';
 import type { AnalysisMeta, MealAnalysis, Portion } from '@/types/analysis';
 import type { Insight, InsightRequest } from '@/types/insight';
+import type { Recipe, RecipeRequest } from '@/types/recipe';
 
 import { getIdToken } from './firebase';
 
@@ -168,6 +170,43 @@ export async function fetchInsight(request: InsightRequest, signal?: AbortSignal
   // Only the fields we show, so nothing else the relay adds (like `meta`) gets cached.
   const { tone, bellieLine, summary, tips } = body;
   return { tone, bellieLine, summary, tips };
+}
+
+// Three full recipes take longer than a meal check, and the relay waits up to a minute for them, so the phone waits a bit longer.
+const RECIPES_TIMEOUT_MS = 75_000;
+
+/**
+ * Asks the relay for three recipe ideas (the Kitchen). The request carries the sheet's choices, the condition and
+ * food names only (see `RecipeRequest`). Throws an AppError like `analyzeFood`; the Kitchen then offers Try again.
+ */
+export async function fetchRecipeIdeas(request: RecipeRequest, signal?: AbortSignal): Promise<Recipe[]> {
+  const id = requestId();
+  const token = await tokenFor(id);
+  const timeout = AbortSignal.timeout(RECIPES_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${relayBaseUrl()}/v1/recipe-ideas`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'X-Request-Id': id, 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (!timeout.aborted && (await isOffline())) throw new AppError('OFFLINE', id);
+    throw new AppError(timeout.aborted ? 'AI_TIMEOUT' : 'NETWORK', id);
+  }
+
+  if (!response.ok) throw await toAppError(response, id);
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new AppError('AI_INVALID_OUTPUT', id);
+  }
+  if (!isRecipeIdeas(body)) throw new AppError('AI_INVALID_OUTPUT', id);
+  // Only the fields we show, so nothing else the relay adds (like `meta`) is kept.
+  return body.recipes.map(pickRecipe);
 }
 
 /** A feedback message is tiny, so it gives up sooner than a meal check. */

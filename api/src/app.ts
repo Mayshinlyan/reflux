@@ -10,6 +10,7 @@ import { type AnalyzeDeps, analyzeRoutes } from './routes/analyze.routes.js';
 import { feedbackRoutes } from './routes/feedback.routes.js';
 import { healthRoutes } from './routes/health.routes.js';
 import { insightRoutes } from './routes/insight.routes.js';
+import { recipeRoutes } from './routes/recipes.routes.js';
 
 export type AppDeps = { env: Env; logger: Logger; feedbackStore: FeedbackStore } & Omit<AnalyzeDeps, 'env'>;
 
@@ -27,6 +28,7 @@ export function createApp({ env, logger, verifier, rateLimitStore, claude, feedb
   app.use(healthRoutes());
   app.use(analyzeRoutes({ env, verifier, rateLimitStore, claude }));
   app.use(insightRoutes({ env, verifier, rateLimitStore, claude }));
+  app.use(recipeRoutes({ env, verifier, rateLimitStore, claude }));
   app.use(feedbackRoutes({ env, verifier, rateLimitStore, feedbackStore }));
 
   app.use(notFoundHandler);

@@ -23,9 +23,25 @@ const PHOTO_MESSAGES = [
   'Almost there…',
 ] as const;
 
+/** Shown in the Kitchen while recipe ideas are made, which takes longer than a meal check (Figma row 29c). */
+const RECIPE_MESSAGES = [
+  'Bellie is cooking up ideas…',
+  'Choosing foods that go easy on you…',
+  'Writing out the steps…',
+  'Almost there…',
+] as const;
+
+export type LoadingSource = 'text' | 'photo' | 'correction' | 'recipes';
+
+const MESSAGES: Record<LoadingSource, readonly string[]> = {
+  text: TEXT_MESSAGES,
+  photo: PHOTO_MESSAGES,
+  correction: CORRECTION_MESSAGES,
+  recipes: RECIPE_MESSAGES,
+};
+
 /** Reassuring progress lines, so a wait feels like work is happening. Stays on the last one. */
-export function loadingMessage(step: number, source: 'text' | 'photo' | 'correction'): string {
-  const messages =
-    source === 'correction' ? CORRECTION_MESSAGES : source === 'photo' ? PHOTO_MESSAGES : TEXT_MESSAGES;
-  return messages[Math.min(Math.max(step, 0), messages.length - 1)] ?? messages[0];
+export function loadingMessage(step: number, source: LoadingSource): string {
+  const messages = MESSAGES[source];
+  return messages[Math.min(Math.max(step, 0), messages.length - 1)] ?? TEXT_MESSAGES[0];
 }
