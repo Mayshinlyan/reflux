@@ -1,13 +1,24 @@
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Bookmark, Check, Leaf, ThumbsDown, ThumbsUp } from 'lucide-react-native';
+import {
+  Bookmark,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Leaf,
+  Lightbulb,
+  ThumbsDown,
+  ThumbsUp,
+} from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { Button } from '@/components/Button';
-import { CuisineArt } from '@/components/kitchen/CuisineArt';
+import { RecipeArt } from '@/components/kitchen/RecipeArt';
+import { SnapCards } from '@/components/kitchen/SnapCards';
+import { StepCard } from '@/components/kitchen/StepCard';
 import { Screen } from '@/components/Screen';
 import type { CuisineKey } from '@/constants/cuisines';
 import { useDb } from '@/db/DatabaseProvider';
@@ -24,6 +35,7 @@ import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { recipeMeta } from '@/lib/recipe';
 import { getRecipeDraft } from '@/lib/recipeDraft';
+import { lookFor } from '@/lib/recipeLook';
 import { minTouchTarget, radius, space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
 
@@ -40,6 +52,8 @@ export default function RecipeScreen() {
   const { saved: savedParam } = useLocalSearchParams<{ saved?: string }>();
   const [shown, setShown] = useState<Shown | null>(() => load(db, savedParam));
   const [failed, setFailed] = useState(false);
+  // The ingredients start open, and open again each time the page opens.
+  const [open, setOpen] = useState(true);
 
   if (!shown) {
     return (
@@ -90,7 +104,7 @@ export default function RecipeScreen() {
     <Screen style={styles.screen}>
       <BackHeader />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <CuisineArt cuisine={cuisine} height={200} />
+        <RecipeArt look={lookFor(recipe)} height={200} />
 
         <View style={styles.heading}>
           <AppText variant="displaySmall" accessibilityRole="header">
@@ -107,52 +121,74 @@ export default function RecipeScreen() {
           </View>
         </View>
 
-        <View style={[styles.why, { backgroundColor: colors.sageTint }]}>
+        {/* One white card, dark titles on white: coloured text on a coloured box was hard to read (Figma 29e). */}
+        <View style={[styles.card, styles.whyCard, { backgroundColor: colors.surface }]}>
           <View style={styles.whyBlock}>
-            <AppText variant="label" color="sageInk">
-              Why it&apos;s gentle
-            </AppText>
-            <AppText variant="subtitle">{recipe.why}</AppText>
+            <View style={styles.whyHeader}>
+              <View style={[styles.whyIcon, { backgroundColor: colors.sageTint }]}>
+                <Leaf size={20} color={colors.sageInk} strokeWidth={2} />
+              </View>
+              <AppText variant="section" accessibilityRole="header">
+                Why it&apos;s gentle
+              </AppText>
+            </View>
+            <AppText>{recipe.why}</AppText>
           </View>
           {recipe.tip.length > 0 && (
             <View style={styles.whyBlock}>
-              <AppText variant="label" color="sageInk">
-                Belly tip
-              </AppText>
-              <AppText variant="subtitle">{recipe.tip}</AppText>
+              <View style={styles.whyHeader}>
+                <View style={[styles.whyIcon, { backgroundColor: colors.honeyTint }]}>
+                  <Lightbulb size={20} color={colors.honeyInk} strokeWidth={2} />
+                </View>
+                <AppText variant="section" accessibilityRole="header">
+                  Belly tip
+                </AppText>
+              </View>
+              <AppText>{recipe.tip}</AppText>
             </View>
           )}
         </View>
 
+        {/* Opens and closes from its header (Figma 29e2). It always starts open: you need it before you cook. */}
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <View style={styles.cardHeader}>
-            <AppText variant="section" accessibilityRole="header" style={styles.fill}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Ingredients, ${recipe.ingredients.length} items`}
+            accessibilityHint={open ? 'Closes the list' : 'Opens the list'}
+            accessibilityState={{ expanded: open }}
+            onPress={() => setOpen((value) => !value)}
+            style={styles.cardHeader}>
+            <AppText variant="section" style={styles.fill}>
               Ingredients
             </AppText>
-            <AppText variant="caption" color="inkMuted">{`for ${recipe.serves}`}</AppText>
-          </View>
-          {recipe.ingredients.map((item, index) => (
-            <View key={`${item}-${index}`} style={styles.ingredient}>
-              <View style={[styles.dot, { backgroundColor: colors.surface2 }]} />
-              <AppText style={styles.fill}>{item}</AppText>
-            </View>
-          ))}
+            <AppText variant="caption" color="inkMuted">
+              {open ? `for ${recipe.serves}` : `${recipe.ingredients.length} items · for ${recipe.serves}`}
+            </AppText>
+            {open ? (
+              <ChevronUp size={24} color={colors.inkMuted} strokeWidth={2} />
+            ) : (
+              <ChevronDown size={24} color={colors.inkMuted} strokeWidth={2} />
+            )}
+          </Pressable>
+          {open &&
+            recipe.ingredients.map((item, index) => (
+              <View key={`${item}-${index}`} style={styles.ingredient}>
+                <View style={[styles.dot, { backgroundColor: colors.surface2 }]} />
+                <AppText style={styles.fill}>{item}</AppText>
+              </View>
+            ))}
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+        <View style={styles.steps}>
           <AppText variant="section" accessibilityRole="header">
             Steps
           </AppText>
-          {recipe.steps.map((step, index) => (
-            <View key={`${step}-${index}`} style={styles.step}>
-              <View style={[styles.number, { backgroundColor: colors.surface2 }]}>
-                <AppText variant="label" accessibilityLabel={`Step ${index + 1}`}>
-                  {index + 1}
-                </AppText>
-              </View>
-              <AppText style={styles.fill}>{step}</AppText>
-            </View>
-          ))}
+          <SnapCards
+            items={recipe.steps}
+            keyOf={(step, index) => `${step}-${index}`}
+            labelOf={(step, index) => `Step ${index + 1} of ${recipe.steps.length}: ${step}`}
+            renderItem={(step, index) => <StepCard index={index} total={recipe.steps.length} text={step} />}
+          />
         </View>
 
         <View style={styles.actions}>
@@ -261,10 +297,20 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: radius.pill,
   },
-  why: { borderRadius: radius.md, padding: space.s2, gap: space.s1 + 4 },
-  whyBlock: { gap: 4 },
+  whyCard: { gap: space.s3 },
+  whyBlock: { gap: space.s1 },
+  whyHeader: { flexDirection: 'row', alignItems: 'center', gap: space.s1 + 4 },
+  whyIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   card: { borderRadius: radius.lg, padding: space.s2, gap: space.s1 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center' },
+  // The whole header is the button that opens and closes the list, so it is at least a thumb tall.
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: space.s1, minHeight: minTouchTarget },
+  steps: { gap: space.s1 + 4 },
   ingredient: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -273,14 +319,6 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
   },
   dot: { width: 10, height: 10, borderRadius: radius.pill },
-  step: { flexDirection: 'row', alignItems: 'flex-start', gap: space.s1 + 4 },
-  number: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   actions: { flexDirection: 'row', gap: space.s1 + 4 },
   rate: { flexDirection: 'row', alignItems: 'center', gap: space.s1 + 4 },
   thumb: {

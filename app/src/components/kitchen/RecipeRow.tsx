@@ -3,19 +3,18 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Belly } from '@/components/Belly';
-import { CUISINE_TINT, type CuisineKey } from '@/constants/cuisines';
 import { recipeMeta } from '@/lib/recipe';
+import { LOOKS, lookFor } from '@/lib/recipeLook';
 import { radius, space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
 
 type Props = {
   recipe: Recipe;
-  cuisine: CuisineKey;
   onPress: () => void;
 };
 
-/** One saved recipe on the Kitchen page (Figma row 29a): a small Bellie on the cuisine's colour, the name and the time. */
-export function RecipeRow({ recipe, cuisine, onPress }: Props) {
+/** One saved recipe on the Kitchen page (Figma row 29a): a small Bellie on the colour of its picture, the name and the time. */
+export function RecipeRow({ recipe, onPress }: Props) {
   const colors = useColors();
   return (
     <Pressable
@@ -23,7 +22,7 @@ export function RecipeRow({ recipe, cuisine, onPress }: Props) {
       accessibilityLabel={`${recipe.title}, ${recipeMeta(recipe)}`}
       onPress={onPress}
       style={({ pressed }) => [styles.row, { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 }]}>
-      <View style={[styles.thumb, { backgroundColor: colors[CUISINE_TINT[cuisine]] }]}>
+      <View style={[styles.thumb, { backgroundColor: colors[LOOKS[lookFor(recipe)]!.tint] }]}>
         <Belly mood="happy" size={30} />
       </View>
       <View style={styles.text}>

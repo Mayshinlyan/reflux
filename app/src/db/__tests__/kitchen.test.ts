@@ -100,6 +100,21 @@ describe('saved recipes', () => {
     );
   });
 
+  it('keeps the picture it was shown with, so a saved recipe looks the same on the list', () => {
+    const stored = saveRecipe(db, { ...recipe, look: 3 }, 'korean');
+
+    expect(stored.recipe.look).toBe(3);
+    expect(getSavedRecipe(db, stored.id)?.recipe.look).toBe(3);
+  });
+
+  it('skips a row whose stored look is not one of the five', () => {
+    db.insert(savedRecipes)
+      .values({ title: 'Odd look', cuisine: 'korean', minutes: 5, serves: 1, recipe: { ...recipe, look: 9 } })
+      .run();
+
+    expect(listSavedRecipes(db)).toHaveLength(0);
+  });
+
   it('saving the same dish again (same name and cuisine) returns the one already saved', () => {
     const first = saveRecipe(db, recipe, 'korean');
     const again = saveRecipe(db, recipe, 'korean');

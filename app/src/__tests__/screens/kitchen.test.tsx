@@ -245,7 +245,7 @@ describe('Kitchen: getting ideas', () => {
       favorites: ['Oatmeal with banana'],
       avoid: ['Peanuts'],
     });
-    expect(screen.getByText('Korean ideas')).toBeTruthy();
+    expect(screen.getByText('Korean recipe ideas')).toBeTruthy();
     expect(screen.getByText('Tofu soondubu stew')).toBeTruthy();
     expect(screen.getByText('Miso salmon bowl')).toBeTruthy();
     expect(getSetting(mockDb, 'kitchenRounds')).toEqual({ day: todayKey(), count: 1 });
@@ -262,6 +262,68 @@ describe('Kitchen: getting ideas', () => {
 
     expect(fetchIdeas).not.toHaveBeenCalled();
     expect(screen.queryByText('Bellie is cooking up ideas…')).toBeNull();
+  });
+
+  it('titles the waiting sheet by cuisine, as recipe ideas, and a plain Any as recipe ideas for you', async () => {
+    fetchIdeas.mockReturnValue(new Promise(() => {}));
+    setSetting(mockDb, 'kitchenCuisine', 'korean');
+    await render(<KitchenScreen />);
+    await ask();
+
+    expect(screen.getByRole('header', { name: 'Korean recipe ideas' })).toBeTruthy();
+  });
+
+  it('titles the sheet "Recipe ideas for you" when the cuisine is Any', async () => {
+    fetchIdeas.mockReturnValue(new Promise(() => {}));
+    await render(<KitchenScreen />);
+    await ask();
+
+    expect(screen.getByRole('header', { name: 'Recipe ideas for you' })).toBeTruthy();
+  });
+
+  const artsShown = () =>
+    screen
+      .getAllByTestId(/^recipe-art-/, { includeHiddenElements: true })
+      .map((art) => art.props.testID as string);
+
+  it('gives each of the three ideas its own picture', async () => {
+    fetchIdeas.mockResolvedValue(ideas);
+    await render(<KitchenScreen />);
+    await ask();
+    await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
+
+    const arts = artsShown();
+
+    expect(arts).toHaveLength(3);
+    expect(new Set(arts).size).toBe(3);
+  });
+
+  it('starts the next round on a different picture, and keeps the three different', async () => {
+    fetchIdeas
+      .mockResolvedValueOnce(ideas)
+      .mockResolvedValueOnce([
+        recipe('Chicken congee'),
+        recipe('Steamed fish'),
+        recipe('Ginger noodle soup'),
+      ]);
+    await render(<KitchenScreen />);
+    await ask();
+    await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
+    const first = artsShown();
+
+    await press('Generate more');
+    await waitFor(() => expect(screen.getByText('Chicken congee')).toBeTruthy());
+    const second = artsShown();
+
+    expect(new Set(second).size).toBe(3);
+    expect(second[0]).not.toBe(first[0]);
+  });
+
+  it('carries the picture it was shown with to the saved list', async () => {
+    saveRecipe(mockDb, { ...recipe('Miso salmon bowl'), look: 4 }, 'japanese');
+    await render(<KitchenScreen />);
+
+    expect(screen.getByRole('button', { name: 'Miso salmon bowl, 20 min · serves 2' })).toBeTruthy();
   });
 
   it('shows the wait with the pot loader and a Stop button', async () => {
@@ -314,7 +376,7 @@ describe('Kitchen: getting ideas', () => {
     await waitFor(() => expect(screen.getByText("Couldn't get ideas")).toBeTruthy());
     // A failed round has no ideas to name, so the sheet is titled plainly, not by the cuisine that was asked for.
     expect(screen.getByRole('header', { name: 'Recipe ideas' })).toBeTruthy();
-    expect(screen.queryByText('Korean ideas')).toBeNull();
+    expect(screen.queryByText('Korean recipe ideas')).toBeNull();
     expect(screen.getByText(/Check your connection and try again\./)).toBeTruthy();
     // No small print about the day's count, and no second button: Try again is the one thing to do, and the X closes.
     expect(screen.queryByText(/doesn't count/)).toBeNull();

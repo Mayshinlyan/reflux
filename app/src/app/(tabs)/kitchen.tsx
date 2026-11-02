@@ -18,7 +18,8 @@ import { listAvoidFoods } from '@/db/repositories/avoidFoods';
 import { listSavedRecipes, type StoredRecipe } from '@/db/repositories/savedRecipes';
 import { getSetting } from '@/db/repositories/settings';
 import { AppError, type ErrorCode } from '@/lib/errors';
-import { buildRecipeRequest, countRound, roundsLeft, todayKey } from '@/lib/kitchen';
+import { buildRecipeRequest, countRound, roundsLeft, roundsToday, todayKey } from '@/lib/kitchen';
+import { lookForRound } from '@/lib/recipeLook';
 import { logger } from '@/lib/logger';
 import { parseWanted } from '@/lib/recipe';
 import { setRecipeDraft } from '@/lib/recipeDraft';
@@ -92,10 +93,14 @@ export default function KitchenScreen() {
         conditions: settings.conditions,
         shown: shown.current,
       });
-      const recipes = await fetchRecipeIdeas(request, controller.signal);
+      const fetched = await fetchRecipeIdeas(request, controller.signal);
       if (controller.signal.aborted) return;
+      // The day's round number, read fresh (the closure's copy may be old), picks the pictures: the three ideas get
+      // three different looks, and the next round starts on a different one.
+      const round = roundsToday(getSetting(db, 'kitchenRounds'), todayKey());
+      const recipes = fetched.map((recipe, index) => ({ ...recipe, look: lookForRound(round, index) }));
       shown.current = [...shown.current, ...recipes.map((recipe) => recipe.title)];
-      // A round counts once it worked; a failed one never does. Read fresh, as the closure's copy may be old.
+      // A round counts once it worked; a failed one never does.
       try {
         update('kitchenRounds', countRound(getSetting(db, 'kitchenRounds'), todayKey()));
       } catch (error) {
@@ -205,7 +210,6 @@ export default function KitchenScreen() {
               <RecipeRow
                 key={item.id}
                 recipe={item.recipe}
-                cuisine={item.cuisine}
                 onPress={() => router.push({ pathname: '/recipe', params: { saved: String(item.id) } })}
               />
             ))

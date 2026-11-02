@@ -13,6 +13,11 @@ export type Recipe = {
   tip: string;
   ingredients: string[];
   steps: string[];
+  /**
+   * Which of the five pictures it has (see lib/recipeLook). Chosen on the phone when the ideas arrive, never by the
+   * recipe service, and kept with the recipe so it looks the same on the card, the page and the saved list.
+   */
+  look?: number;
 };
 
 /**
