@@ -24,6 +24,8 @@ export type IdeasChoices = { cuisine: CuisineKey; time: RecipeTime; serves: numb
 type Props = {
   visible: boolean;
   onClose: () => void;
+  /** Called once the sheet has finished closing, so the next sheet can open without clashing with it. */
+  onDismissed?: () => void;
   /** Where the choices start: the last ones used. */
   initial: Omit<IdeasChoices, 'want'>;
   /** The "I don't eat" list, so the sheet can say what is skipped. */
@@ -40,7 +42,7 @@ const OPTION_HEIGHT = 44;
  * how many it serves, and ingredients you would like to use. Get ideas hands the choices over. Give it a new `key`
  * each time it opens so it starts from the last choices with an empty ingredients field.
  */
-export function IdeasSheet({ visible, onClose, initial, skipped, onSubmit }: Props) {
+export function IdeasSheet({ visible, onClose, onDismissed, initial, skipped, onSubmit }: Props) {
   const colors = useColors();
   const [cuisine, setCuisine] = useState(initial.cuisine);
   const [time, setTime] = useState(initial.time);
@@ -50,7 +52,7 @@ export function IdeasSheet({ visible, onClose, initial, skipped, onSubmit }: Pro
   const skips = skipsLine(skipped);
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} tone="bg">
+    <BottomSheet visible={visible} onClose={onClose} onDismissed={onDismissed} tone="bg">
       <View style={styles.header}>
         <AppText variant="displaySmall" accessibilityRole="header" style={styles.title}>
           What are you craving?

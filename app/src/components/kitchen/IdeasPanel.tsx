@@ -62,7 +62,13 @@ export function IdeasPanel({
   onRetry,
 }: Props) {
   const colors = useColors();
-  const title = cuisine === 'any' ? 'Ideas for you' : `${cuisineLabel(cuisine)} ideas`;
+  // The cuisine names the ideas while they are made and shown; a failed round has none, so it is plainly "Recipe ideas".
+  const title =
+    status === 'error'
+      ? 'Recipe ideas'
+      : cuisine === 'any'
+        ? 'Ideas for you'
+        : `${cuisineLabel(cuisine)} ideas`;
   return (
     <View>
       <View style={styles.header}>
@@ -110,14 +116,14 @@ export function IdeasPanel({
             {errorCode === 'RATE_LIMITED' ? 'Kitchen is closed' : "Couldn't get ideas"}
           </AppText>
           <AppText variant="subtitle" color="inkSoft" style={styles.center}>
-            {`${ideasErrorMessage(errorCode ?? 'INTERNAL')}${
-              errorCode === 'RATE_LIMITED' ? '' : " This round doesn't count toward today's 10."
-            }`}
+            {ideasErrorMessage(errorCode ?? 'INTERNAL')}
           </AppText>
-          <View style={styles.errorActions}>
-            {errorCode !== 'RATE_LIMITED' && <Button label="Try again" onPress={onRetry} />}
-            <Button label="Not now" variant="secondary" onPress={onClose} />
-          </View>
+          {/* Closed for the day, there is nothing to try again; the X at the top is the way out. */}
+          {errorCode !== 'RATE_LIMITED' && (
+            <View style={styles.errorActions}>
+              <Button label="Try again" onPress={onRetry} />
+            </View>
+          )}
         </View>
       )}
     </View>

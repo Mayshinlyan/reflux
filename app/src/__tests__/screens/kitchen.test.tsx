@@ -254,6 +254,16 @@ describe('Kitchen: getting ideas', () => {
     expect(getSetting(mockDb, 'kitchenTime')).toBe('20');
   });
 
+  it('asks for nothing when the choices sheet is closed without Get ideas', async () => {
+    await render(<KitchenScreen />);
+    await press('Get ideas');
+
+    await press('Close');
+
+    expect(fetchIdeas).not.toHaveBeenCalled();
+    expect(screen.queryByText('Bellie is cooking up ideas…')).toBeNull();
+  });
+
   it('shows the wait with the pot loader and a Stop button', async () => {
     fetchIdeas.mockReturnValue(new Promise(() => {}));
     await render(<KitchenScreen />);
@@ -296,13 +306,20 @@ describe('Kitchen: getting ideas', () => {
   });
 
   it('says it could not get ideas, never counts the round, and tries again', async () => {
+    setSetting(mockDb, 'kitchenCuisine', 'korean');
     fetchIdeas.mockRejectedValueOnce(new AppError('NETWORK')).mockResolvedValueOnce(ideas);
     await render(<KitchenScreen />);
     await ask();
 
     await waitFor(() => expect(screen.getByText("Couldn't get ideas")).toBeTruthy());
+    // A failed round has no ideas to name, so the sheet is titled plainly, not by the cuisine that was asked for.
+    expect(screen.getByRole('header', { name: 'Recipe ideas' })).toBeTruthy();
+    expect(screen.queryByText('Korean ideas')).toBeNull();
     expect(screen.getByText(/Check your connection and try again\./)).toBeTruthy();
-    expect(screen.getByText(/This round doesn't count toward today's 10\./)).toBeTruthy();
+    // No small print about the day's count, and no second button: Try again is the one thing to do, and the X closes.
+    expect(screen.queryByText(/doesn't count/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Not now' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
     expect(getSetting(mockDb, 'kitchenRounds').count).toBe(0);
 
     await press('Try again');
