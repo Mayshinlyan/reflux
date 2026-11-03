@@ -23,6 +23,7 @@ import { Screen } from '@/components/Screen';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { TimePill } from '@/components/TimePill';
+import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { useToast } from '@/components/Toast';
 import { COMMON_MEDICATIONS, findCommonMedication } from '@/constants/commonMedications';
 import { MEDICATION_TYPES, type MedicationType } from '@/constants/medicationTypes';
@@ -520,7 +521,7 @@ export default function MedicationScreen() {
           {manage ? 'Medications' : 'Which medication?'}
         </AppText>
         {/* Managing the list needs no instruction (Figma row 25); logging a dose does. */}
-        {!manage && (
+        {!manage && meds.length > 0 && (
           <AppText color="inkSoft" style={styles.subtitle}>
             Tap Log for a dose now, or a medicine to change its details.
           </AppText>
@@ -531,22 +532,29 @@ export default function MedicationScreen() {
           </AppText>
         ) : meds.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
-            {manage
-              ? 'No medications yet.'
-              : 'Add the medications you take, then log each one with a single tap.'}
+            {manage ? 'No medications yet.' : 'Add a medication to log it in one tap.'}
           </AppText>
         ) : (
           meds.map((med) => {
             const today = taken.get(med.id);
             const done = justLogged.has(med.id);
-            return (
+            const card = (
               <View
                 key={med.id}
-                style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+                style={[
+                  styles.card,
+                  manage && styles.cardInSwipe,
+                  { backgroundColor: colors.surface, ...cardEdge(colors) },
+                ]}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={doseLabel(med)}
                   accessibilityHint={manage ? 'Shows its details' : 'Opens time, dose and note'}
+                  // A screen reader can't swipe, so managing offers Delete from its actions menu.
+                  accessibilityActions={manage ? [{ name: 'delete', label: 'Delete' }] : undefined}
+                  onAccessibilityAction={(event) => {
+                    if (manage && event.nativeEvent.actionName === 'delete') confirmRemove(med);
+                  }}
                   onPress={() => (manage ? setViewing(med) : openDetail(med))}
                   style={styles.info}>
                   <View style={[styles.icon, { backgroundColor: colors.sageTint }]}>
@@ -583,6 +591,18 @@ export default function MedicationScreen() {
                   </Pressable>
                 )}
               </View>
+            );
+            // Managing the list, a swipe left removes the medication, after the same confirmation as the sheet.
+            return manage ? (
+              <SwipeToDelete
+                key={med.id}
+                label={med.name}
+                style={styles.swipeGap}
+                onDelete={() => confirmRemove(med)}>
+                {card}
+              </SwipeToDelete>
+            ) : (
+              card
             );
           })
         )}
@@ -648,6 +668,9 @@ const styles = StyleSheet.create({
     paddingRight: space.s1,
     marginBottom: space.s1_5,
   },
+  // In the swipe wrapper the gap moves to the wrapper, so the Delete button lines up with the card.
+  cardInSwipe: { marginBottom: 0 },
+  swipeGap: { marginBottom: space.s1_5 },
   info: {
     flex: 1,
     flexDirection: 'row',

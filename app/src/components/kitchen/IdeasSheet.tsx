@@ -35,7 +35,7 @@ type Props = {
   onDismissed?: () => void;
   /** Where the choices start: the last ones used. */
   initial: Omit<IdeasChoices, 'want'>;
-  /** How many things the saved fridge holds. With none, "Use my fridge" is off and dimmed (Figma 29b3). */
+  /** How many things the saved fridge holds. With none, the "Use my fridge" row is left out. */
   fridgeCount: number;
   /** The "I don't eat" list, so the sheet can say what is skipped. */
   skipped: readonly string[];
@@ -161,24 +161,19 @@ export function IdeasSheet({
           </View>
         </View>
 
-        <View
-          style={[
-            styles.row,
-            { backgroundColor: colors.surface, ...cardEdge(colors), opacity: hasFridge ? 1 : 0.55 },
-          ]}>
-          <AppText style={styles.rowLabel}>
-            {hasFridge ? 'Use my fridge' : 'Use my fridge · none yet'}
-          </AppText>
-          <Switch
-            accessibilityLabel="Use my fridge"
-            accessibilityHint={hasFridge ? undefined : 'Add your fridge on the Kitchen page first'}
-            value={useFridge}
-            disabled={!hasFridge}
-            onValueChange={setFridgeOn}
-            trackColor={{ false: colors.surface2, true: colors.cta }}
-            ios_backgroundColor={colors.surface2}
-          />
-        </View>
+        {/* With nothing in the fridge there is nothing to switch on: the row waits until a fridge is saved. */}
+        {hasFridge && (
+          <View style={[styles.row, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+            <AppText style={styles.rowLabel}>Use my fridge</AppText>
+            <Switch
+              accessibilityLabel="Use my fridge"
+              value={useFridge}
+              onValueChange={setFridgeOn}
+              trackColor={{ false: colors.surface2, true: colors.cta }}
+              ios_backgroundColor={colors.surface2}
+            />
+          </View>
+        )}
 
         <TextField
           label="Ingredients to use"

@@ -110,6 +110,6 @@ const styles = StyleSheet.create({
   section: { gap: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.s1_5, paddingVertical: 6 },
   name: { flex: 1 },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.s1_5 },
+  empty: { alignItems: 'center', justifyContent: 'center', gap: space.s1_5, paddingVertical: space.s3 },
   centered: { textAlign: 'center' },
 });

@@ -56,7 +56,7 @@ const pick = async (role: 'checkbox' | 'radio' | 'button', name: string) =>
 const header = (name: string) => screen.getByRole('header', { name });
 const bar = (step: number) => screen.getByRole('progressbar', { name: `Step ${step} of 6` });
 
-const HELLO = "Hi, I'm Bellie! Let's see how your belly feels.";
+const HELLO = "Hi, I'm Bellie! Let's see how your tummy feels.";
 const CONDITION_ACID = 'Burning in my chest, Acid reflux or GERD';
 const CONDITION_LPR = 'Hoarse voice, throat clearing, Silent reflux (LPR)';
 const CONDITION_UNSURE = "I'm not sure yet, We'll learn it together";
@@ -113,7 +113,7 @@ describe('Welcome', () => {
     await render(<WelcomeScreen />);
     await press('Get started');
 
-    expect(header('Log a meal. Spot the patterns.')).toBeTruthy();
+    expect(header('Log meals and symptoms. Spot the patterns.')).toBeTruthy();
     expect(bar(1)).toBeTruthy();
     expect(screen.getByLabelText(/Example: a logged meal/)).toBeTruthy();
     expect(screen.getByLabelText(/Example: Spicy meals/)).toBeTruthy();

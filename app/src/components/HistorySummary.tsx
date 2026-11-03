@@ -225,7 +225,8 @@ function FoodCard({ summary, stats, width, height }: CardProps & { stats: Period
 }
 
 const styles = StyleSheet.create({
-  cards: { gap: CARD_GAP },
+  // Top-aligned, so a short card keeps its own height instead of stretching to match the tallest.
+  cards: { gap: CARD_GAP, alignItems: 'flex-start' },
   week: { alignItems: 'center', gap: space.s2 },
   lines: { gap: space.s1 },
   centered: { textAlign: 'center' },

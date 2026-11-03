@@ -6,6 +6,7 @@ import { AppText } from '@/components/AppText';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
+import { useToast } from '@/components/Toast';
 import { useDb } from '@/db/DatabaseProvider';
 import { createAvoidFood, MAX_AVOID_FOODS, MAX_AVOID_NAME } from '@/db/repositories/avoidFoods';
 import { friendlyMessages } from '@/lib/errors';
@@ -26,6 +27,7 @@ export function AddAvoidSheet({
   onAdded: () => void;
 }) {
   const db = useDb();
+  const toast = useToast();
   const [draft, setDraft] = useState('');
   const [message, setMessage] = useState<string | null>(null);
 
@@ -43,6 +45,7 @@ export function AddAvoidSheet({
       return;
     }
     Haptics.selectionAsync().catch(() => {});
+    toast(`${draft.trim()} added`);
     onAdded();
     onClose();
   };

@@ -5,7 +5,7 @@ import { calmComparison, calmHeadline, type DayStat, type PeriodStats } from '@/
 import { space, useColors } from '@/theme';
 
 import { AppText } from '../AppText';
-import { DAY_TONES, DayAvatar } from './DayAvatar';
+import { DayAvatar } from './DayAvatar';
 import { StatCard, StatHeader } from './StatCard';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -33,7 +33,6 @@ export function DaysCard({ stats, width, height }: { stats: PeriodStats; width: 
         aside={calmComparison(stats.days, stats.previousDays, unit)}
       />
       {unit === 'week' ? <WeekList days={stats.days} /> : <MonthGrid stats={stats} />}
-      <Legend />
     </StatCard>
   );
 }
@@ -118,28 +117,6 @@ function MonthGrid({ stats }: { stats: PeriodStats }) {
   );
 }
 
-/** The key to the three colours, under the week and the month. */
-function Legend() {
-  const colors = useColors();
-  const items = [
-    { tone: DAY_TONES.calm, label: 'No symptoms' },
-    { tone: DAY_TONES.some, label: '1 to 2 symptoms' },
-    { tone: DAY_TONES.lots, label: '3 or more' },
-  ];
-  return (
-    <View style={styles.legend}>
-      {items.map(({ tone, label }) => (
-        <View key={label} style={styles.legendItem}>
-          <View style={[styles.dot, { backgroundColor: colors[tone.dot] }]} />
-          <AppText variant="caption" color="inkSoft">
-            {label}
-          </AppText>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   // 6 above and below each row, and a hairline between rows (Figma row 28a).
   row: { flexDirection: 'row', alignItems: 'center', gap: space.s1_5, paddingVertical: 6 },
@@ -148,7 +125,4 @@ const styles = StyleSheet.create({
   week: { flexDirection: 'row' },
   cell: { flex: 1, alignItems: 'center', gap: 2 },
   spacer: { width: MONTH_AVATAR, height: MONTH_AVATAR },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 4 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
 });

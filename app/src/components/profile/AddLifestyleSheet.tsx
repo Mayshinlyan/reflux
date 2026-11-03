@@ -6,6 +6,7 @@ import { AppText } from '@/components/AppText';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
+import { useToast } from '@/components/Toast';
 import { MAX_CUSTOM_SYMPTOM, customSymptomLabel } from '@/constants/symptomItems';
 import { isCustomTag, tagKeyFromText } from '@/constants/lifestyleTags';
 import { useDb } from '@/db/DatabaseProvider';
@@ -29,6 +30,7 @@ export function AddLifestyleSheet({
   onAdded: () => void;
 }) {
   const db = useDb();
+  const toast = useToast();
   const [draft, setDraft] = useState('');
   const [message, setMessage] = useState<string | null>(null);
 
@@ -47,6 +49,7 @@ export function AddLifestyleSheet({
       return;
     }
     Haptics.selectionAsync().catch(() => {});
+    toast(`${customSymptomLabel(key)} added`);
     onAdded();
     onClose();
   };
