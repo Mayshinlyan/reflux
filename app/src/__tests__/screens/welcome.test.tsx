@@ -61,11 +61,13 @@ const CONDITION_ACID = 'Burning in my chest, Acid reflux or GERD';
 const CONDITION_LPR = 'Hoarse voice, throat clearing, Silent reflux (LPR)';
 const CONDITION_UNSURE = "I'm not sure yet, We'll learn it together";
 
-/** Setup is done: they are marked as onboarded, signed in quietly, and sent to Today with nothing else opened. */
+/** Setup is done: marked as onboarded and signed in quietly, with the first-meal invitation up and Today not yet open. */
 function expectFinished() {
   expect(mockUpdate).toHaveBeenCalledWith('onboardingDone', true);
   expect(mockSignIn).toHaveBeenCalledTimes(1);
-  expect(mockReplace).toHaveBeenCalledWith('/');
+  expect(header("Let's log your first meal")).toBeTruthy();
+  expect(screen.queryByRole('progressbar')).toBeNull();
+  expect(mockReplace).not.toHaveBeenCalled();
   expect(mockPush).not.toHaveBeenCalled();
 }
 
@@ -318,6 +320,41 @@ describe('Welcome', () => {
       expect(mockUpdate).toHaveBeenCalledWith('checkInReminderMinutes', null);
       expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
       expectFinished();
+    });
+  });
+
+  describe('first meal', () => {
+    const toFirstMeal = async () => {
+      await render(<WelcomeScreen />);
+      await toReminders();
+      await pick('radio', 'No reminders');
+      await press('Continue');
+    };
+
+    it('invites a first meal: "Log a meal" opens Food over Today', async () => {
+      await toFirstMeal();
+      expect(screen.getByText('Anything you ate today. Bellie will tell you how it sits.')).toBeTruthy();
+
+      await press('Log a meal');
+
+      expect(mockReplace).toHaveBeenCalledWith('/');
+      expect(mockPush).toHaveBeenCalledWith('/log/food');
+    });
+
+    it('"Skip for now" goes straight to Today', async () => {
+      await toFirstMeal();
+      await press('Skip for now');
+
+      expect(mockReplace).toHaveBeenCalledWith('/');
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it('goes back to the timing question, not the permission screen', async () => {
+      await toFirstMeal();
+      await press('Back');
+
+      expect(header('When should Bellie check in?')).toBeTruthy();
+      expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
     });
   });
 });

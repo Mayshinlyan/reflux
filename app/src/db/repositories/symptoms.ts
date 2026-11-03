@@ -110,6 +110,8 @@ export function updateSymptomLog(db: AppDb, id: number, input: SymptomLogInput):
         notes: input.notes?.trim() || null,
         updatedAt: nowIso(),
         ...(input.loggedAt ? { loggedAt: input.loggedAt, tz: input.tz ?? currentTimeZone() } : {}),
+        // Left out, the link to a meal stays as it is; a meal id or null (unlink) changes it.
+        ...(input.foodLogId !== undefined ? { foodLogId: input.foodLogId } : {}),
       })
       .where(eq(symptomLogs.id, id))
       .returning({ id: symptomLogs.id })

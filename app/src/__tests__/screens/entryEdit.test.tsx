@@ -122,120 +122,104 @@ const editMeal = async (id: number) => {
 const save = async () =>
   act(async () => fireEvent.press(screen.getByRole('button', { name: 'Save changes' })));
 
-const checked = (name: string) => screen.getByRole('checkbox', { name }).props.accessibilityState.checked;
-
-/** The "+" chip: open it, type, and submit, as on the check-in. */
-const addOwn = async (label: string, text: string) => {
-  await fireEvent.press(screen.getByRole('button', { name: label }));
-  const field = screen.getByLabelText(label);
-  await fireEvent.changeText(field, text);
-  await fireEvent(field, 'submitEditing');
-};
-
 describe('Edit entry: a meal', () => {
-  it('opens like the check-in, with the meal as it is: verdict, name, time, tags, symptoms and note', async () => {
+  it('opens laid out like the entry page: name, time, verdict and note, with the heart on top', async () => {
     const id = seedMeal(at(10, 8, 12));
-    saveMealDetails(mockDb, id, { tags: ['stress'], notes: 'Felt full.' });
-    createSymptomLog(mockDb, { items: [{ key: 'heartburn' }], foodLogId: id, loggedAt: at(10, 9) });
+    saveMealDetails(mockDb, id, { notes: 'Felt full.' });
     await editMeal(id);
 
-    expect(screen.getByRole('header', { name: 'Edit entry' })).toBeTruthy();
-    expect(screen.getByLabelText('Caution')).toBeTruthy();
+    // No title in the top bar, like the entry page.
+    expect(screen.queryByRole('header', { name: 'Edit entry' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add to favorite foods' })).toBeTruthy();
     expect(screen.getByDisplayValue('Spicy chicken tacos')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Today, 8:12 AM' })).toBeTruthy();
-    expect(screen.getByText("What's going on?")).toBeTruthy();
-    expect(screen.getByText('Anything bothering you now?')).toBeTruthy();
-    expect(checked('Stress')).toBe(true);
-    expect(checked('Alcohol')).toBe(false);
-    expect(checked('Heartburn')).toBe(true);
-    expect(checked('Burping')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Verdict, Caution' })).toBeTruthy();
+    expect(screen.getByText('Note')).toBeTruthy();
     expect(screen.getByDisplayValue('Felt full.')).toBeTruthy();
     expect(screen.getByPlaceholderText('Add a note (optional)')).toBeTruthy();
-    // The check-in's own lines and the old edit controls are gone.
+    // What the page no longer asks.
+    expect(screen.queryByText("What's going on?")).toBeNull();
+    expect(screen.queryByText('Anything bothering you now?')).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: 'Add to favorite foods' })).toBeNull();
     expect(screen.queryByText(/How's your belly/)).toBeNull();
     expect(screen.queryByRole('button', { name: /^Portion/ })).toBeNull();
-    expect(screen.queryByRole('checkbox', { name: 'Also save to favorite foods' })).toBeNull();
   });
 
-  it('leaves out the verdict badge for a meal that was saved without one', async () => {
+  it('leaves out Bellie and the verdict for a meal that was saved without one', async () => {
     const id = seedMeal();
     mockSqlite.exec('UPDATE food_logs SET overall_verdict = NULL, analysis = NULL, analysis_meta = NULL');
     await editMeal(id);
 
-    expect(screen.queryByLabelText('Caution')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Verdict/ })).toBeNull();
     expect(screen.getByDisplayValue('Spicy chicken tacos')).toBeTruthy();
   });
 
-  it('shows a factor the user typed when logging the meal, and keeps it when saving', async () => {
+  it('keeps the factors and symptoms on the meal as they were, since they are not edited here', async () => {
     const id = seedMeal();
     saveMealDetails(mockDb, id, { tags: ['stress', 'custom:Skipped breakfast'] });
-    await editMeal(id);
-
-    expect(checked('Skipped breakfast')).toBe(true);
-    await save();
-    expect(listMealTags(mockDb, id).sort()).toEqual(['custom:Skipped breakfast', 'stress']);
-  });
-
-  it('lets a factor the user typed be taken off the meal', async () => {
-    const id = seedMeal();
-    saveMealDetails(mockDb, id, { tags: ['stress', 'custom:Skipped breakfast'] });
-    await editMeal(id);
-
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Skipped breakfast' }));
-    await save();
-    expect(listMealTags(mockDb, id)).toEqual(['stress']);
-  });
-
-  it('saves new tags, a note and symptoms, then goes back to the entry', async () => {
-    const id = seedMeal();
-    await editMeal(id);
-
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Alcohol' }));
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Heartburn' }));
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Burping' }));
-    await fireEvent.changeText(
-      screen.getByPlaceholderText('Add a note (optional)'),
-      'Felt fine until later.',
-    );
-    await save();
-
-    expect(listMealTags(mockDb, id)).toEqual(['alcohol']);
-    expect(getFoodLog(mockDb, id)?.notes).toBe('Felt fine until later.');
-    const linked = listSymptomLogsForMeal(mockDb, id);
-    expect(linked).toHaveLength(1);
-    expect(linked[0]?.items.map((item) => item.key).sort()).toEqual(['burping', 'heartburn']);
-    expect(mockToast).toHaveBeenLastCalledWith('Changes saved');
-    expect(router.back).toHaveBeenCalled();
-    expect(mockAnalyze).not.toHaveBeenCalled();
-  });
-
-  it('takes a symptom off the meal when it is unticked, and removes a log left empty', async () => {
-    const id = seedMeal();
     const logId = createSymptomLog(mockDb, {
       items: [{ key: 'heartburn' }],
       foodLogId: id,
       loggedAt: at(10, 9),
     });
     await editMeal(id);
-
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Heartburn' }));
     await save();
 
-    expect(getSymptomLog(mockDb, logId)).toBeUndefined();
-    expect(listSymptomLogsForMeal(mockDb, id)).toEqual([]);
+    expect(listMealTags(mockDb, id).sort()).toEqual(['custom:Skipped breakfast', 'stress']);
+    expect(getSymptomLog(mockDb, logId)).toBeDefined();
+    expect(listSymptomLogsForMeal(mockDb, id)).toHaveLength(1);
+  });
+
+  it('saves a note, then goes back to the entry', async () => {
+    const id = seedMeal();
+    await editMeal(id);
+
+    await fireEvent.changeText(
+      screen.getByPlaceholderText('Add a note (optional)'),
+      'Felt fine until later.',
+    );
+    await save();
+
+    expect(getFoodLog(mockDb, id)?.notes).toBe('Felt fine until later.');
+    expect(mockToast).toHaveBeenLastCalledWith('Changes saved');
+    expect(router.back).toHaveBeenCalled();
+    expect(mockAnalyze).not.toHaveBeenCalled();
+  });
+
+  it('changes the verdict from the dropdown, over the one it had', async () => {
+    const id = seedMeal();
+    await editMeal(id);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Verdict, Caution' }));
+    expect(screen.getAllByRole('radio').map((radio) => radio.props.accessibilityLabel)).toEqual([
+      'Good',
+      'Okay',
+      'Caution',
+      'Avoid',
+    ]);
+    await fireEvent.press(screen.getByRole('radio', { name: 'Okay' }));
+    // Closed again, now showing the choice.
+    expect(screen.getByRole('button', { name: 'Verdict, Okay' })).toBeTruthy();
+    await save();
+
+    expect(getFoodLog(mockDb, id)?.overallVerdict).toBe('ok');
+    expect(mockAnalyze).not.toHaveBeenCalled();
   });
 
   it('saves nothing until Save changes, and leaves the meal alone on back', async () => {
     const id = seedMeal();
     await editMeal(id);
 
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Stress' }));
     await fireEvent.changeText(screen.getByPlaceholderText('Add a note (optional)'), 'Changed my mind');
     await fireEvent.changeText(screen.getByLabelText('Meal name'), 'Something else');
+    await fireEvent.press(screen.getByRole('button', { name: 'Add to favorite foods' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Verdict, Caution' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Avoid' }));
 
-    expect(listMealTags(mockDb, id)).toEqual([]);
     expect(getFoodLog(mockDb, id)?.notes).toBeNull();
     expect(getFoodLog(mockDb, id)?.mealName).toBe('Spicy chicken tacos');
+    expect(getFoodLog(mockDb, id)?.overallVerdict).toBe('caution');
+    expect(listSavedFoods(mockDb)).toEqual([]);
   });
 
   describe('the name', () => {
@@ -266,60 +250,86 @@ describe('Edit entry: a meal', () => {
     });
   });
 
-  describe('the "+" chips', () => {
-    it('adds a factor of your own: picked, saved to My additions, tagged on the meal', async () => {
+  describe('the heart', () => {
+    it('adds the meal to favorite foods when Save changes is pressed, not before', async () => {
       const id = seedMeal();
       await editMeal(id);
 
-      await addOwn("Add your own to What's going on?", 'Skipped breakfast');
-      expect(checked('Skipped breakfast')).toBe(true);
-      await save();
-
-      expect(listMealTags(mockDb, id)).toEqual(['custom:Skipped breakfast']);
-    });
-
-    it('adds a symptom of your own, linked to the meal', async () => {
-      const id = seedMeal();
-      await editMeal(id);
-
-      await addOwn('Add your own symptom', 'Hiccups');
-      expect(checked('Hiccups')).toBe(true);
-      await save();
-
-      const linked = listSymptomLogsForMeal(mockDb, id);
-      expect(linked.flatMap((log) => log.items.map((item) => item.key))).toEqual(['custom:Hiccups']);
-    });
-
-    it('shows a symptom typed earlier, and takes it off when unticked', async () => {
-      const id = seedMeal();
-      createSymptomLog(mockDb, { items: [{ key: 'custom:Hiccups' }], foodLogId: id, loggedAt: at(10, 9) });
-      await editMeal(id);
-
-      expect(checked('Hiccups')).toBe(true);
-      await fireEvent.press(screen.getByRole('checkbox', { name: 'Hiccups' }));
-      await save();
-
-      expect(listSymptomLogsForMeal(mockDb, id)).toEqual([]);
-    });
-  });
-
-  describe('the star', () => {
-    it('adds the meal to favorite foods when ticked', async () => {
-      const id = seedMeal();
-      await editMeal(id);
-
-      await fireEvent.press(screen.getByRole('checkbox', { name: 'Add to favorite foods' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Add to favorite foods' }));
+      expect(screen.getByRole('button', { name: 'Remove from favorite foods' })).toBeTruthy();
+      expect(listSavedFoods(mockDb)).toEqual([]);
       await save();
 
       expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Spicy chicken tacos']);
     });
 
-    it('is left out for a meal that is already a favorite', async () => {
+    it('starts filled for a meal that is already a favorite, and takes it off on Save', async () => {
       const id = seedMeal();
       saveFoodFromLog(mockDb, id);
       await editMeal(id);
 
-      expect(screen.queryByRole('checkbox', { name: 'Add to favorite foods' })).toBeNull();
+      await fireEvent.press(screen.getByRole('button', { name: 'Remove from favorite foods' }));
+      expect(listSavedFoods(mockDb)).toHaveLength(1);
+      await save();
+
+      expect(listSavedFoods(mockDb)).toEqual([]);
+    });
+
+    it('takes off the favorite of the old name when the meal is renamed and the heart turned off', async () => {
+      const id = seedMeal();
+      saveFoodFromLog(mockDb, id);
+      await editMeal(id);
+
+      await fireEvent.changeText(screen.getByLabelText('Meal name'), 'Chicken tacos');
+      await fireEvent.press(screen.getByRole('button', { name: 'Remove from favorite foods' }));
+      await save();
+
+      expect(getFoodLog(mockDb, id)?.mealName).toBe('Chicken tacos');
+      expect(listSavedFoods(mockDb)).toEqual([]);
+    });
+
+    it('does not touch another favorite when the meal is renamed to its name and the heart is left alone', async () => {
+      const id = seedMeal();
+      const other = createFoodLog(mockDb, {
+        entryType: 'diary',
+        source: 'text',
+        inputText: 'oatmeal',
+        loggedAt: at(10, 7),
+        analysis: {
+          isFood: true,
+          mealName: 'Oatmeal',
+          items: [],
+          overall: { verdict: 'ok', confidence: 'medium', reasoning: 'Gentle.' },
+        },
+        meta,
+      });
+      saveFoodFromLog(mockDb, other);
+      await editMeal(id);
+
+      await fireEvent.changeText(screen.getByLabelText('Meal name'), 'Oatmeal');
+      await save();
+
+      expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Oatmeal']);
+    });
+
+    it('saves a favorite under the new name when the meal is renamed and the heart turned on', async () => {
+      const id = seedMeal();
+      await editMeal(id);
+
+      await fireEvent.changeText(screen.getByLabelText('Meal name'), 'Chicken tacos');
+      await fireEvent.press(screen.getByRole('button', { name: 'Add to favorite foods' }));
+      await save();
+
+      expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Chicken tacos']);
+    });
+
+    it('leaves a favorite alone when it is not touched', async () => {
+      const id = seedMeal();
+      saveFoodFromLog(mockDb, id);
+      await editMeal(id);
+      await save();
+
+      expect(listSavedFoods(mockDb)).toHaveLength(1);
     });
   });
 
@@ -328,7 +338,7 @@ describe('Edit entry: a meal', () => {
     saveMealDetails(mockDb, id, { portion: 'large' });
     await editMeal(id);
 
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Stress' }));
+    await fireEvent.changeText(screen.getByPlaceholderText('Add a note (optional)'), 'Large bowl');
     await save();
 
     expect(getFoodLog(mockDb, id)).toMatchObject({ portion: 'large', overallVerdict: 'caution' });
