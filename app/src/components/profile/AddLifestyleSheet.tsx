@@ -58,10 +58,10 @@ export function AddLifestyleSheet({
     // On the page `bg`, so the field's `surface` fill shows as a box before it is focused (like the feedback sheet).
     <BottomSheet visible={visible} onClose={onClose} tone="bg">
       <AppText variant="section" accessibilityRole="header" style={styles.title}>
-        Add a lifestyle
+        Add a lifestyle factor
       </AppText>
       <TextField
-        label="Lifestyle"
+        label="Lifestyle factor"
         hideLabel
         value={draft}
         onChangeText={(text) => {

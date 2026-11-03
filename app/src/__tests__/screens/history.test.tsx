@@ -143,6 +143,16 @@ const seedWeek = () => {
 /** Presses the Undo on the most recent toast, as a tap on it would. */
 const pressUndo = () => mockToast.mock.calls.at(-1)?.[1].action.onPress();
 
+/** On the first card Previous is dimmed and Next goes to the second of `total` (each card carries its own arrows). */
+function expectOnFirstCard(total: number) {
+  expect(screen.getAllByRole('button', { name: `Next card, 2 of ${total}` }).length).toBeGreaterThan(0);
+  for (const previous of screen.getAllByRole('button', {
+    name: `Previous card, none, you are on 1 of ${total}`,
+  })) {
+    expect(previous.props.accessibilityState.disabled).toBe(true);
+  }
+}
+
 describe('History: the week', () => {
   it('lists this week by day, newest first, under plain day labels', async () => {
     seedWeek();
@@ -267,10 +277,10 @@ describe('History: the stats cards', () => {
     expect(screen.queryByText('Top tags')).toBeNull();
   });
 
-  it('shows four cards for a week, with the first one marked in the dots', async () => {
+  it('shows four cards for a week, with arrows to go between them', async () => {
     await render(<HistoryScreen />);
 
-    expect(screen.getByLabelText('Card 1 of 4')).toBeTruthy();
+    expectOnFirstCard(4);
   });
 
   it('is not changed by the Entries filter', async () => {
@@ -359,7 +369,7 @@ describe('History: how the week and month went', () => {
 
     await fireEvent.press(screen.getByRole('tab', { name: 'All time' }));
 
-    expect(screen.getByLabelText('Card 1 of 3')).toBeTruthy();
+    expectOnFirstCard(3);
     expect(screen.queryByText(/without symptoms/)).toBeNull();
   });
 });
@@ -472,7 +482,7 @@ describe("History: Bellie's week", () => {
     seedWeek();
     await render(<HistoryScreen />);
 
-    expect(screen.getByLabelText('Card 1 of 5')).toBeTruthy();
+    expectOnFirstCard(5);
     expect(screen.getByText('Tips')).toBeTruthy();
     expect(
       screen.getByRole('header', { name: /^(A good week so far!|A few bumps this week\.)$/ }),
@@ -507,14 +517,14 @@ describe("History: Bellie's week", () => {
 
     await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
 
-    expect(screen.getByLabelText('Card 1 of 4')).toBeTruthy();
+    expectOnFirstCard(4);
     expect(fetchInsight).not.toHaveBeenCalled();
   });
 
   it('has no card of hers for a week with nothing logged', async () => {
     await render(<HistoryScreen />);
 
-    expect(screen.getByLabelText('Card 1 of 4')).toBeTruthy();
+    expectOnFirstCard(4);
     expect(fetchInsight).not.toHaveBeenCalled();
   });
 });

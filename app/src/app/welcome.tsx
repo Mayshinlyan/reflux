@@ -7,6 +7,7 @@ import { Button } from '@/components/Button';
 import { AllowStep } from '@/components/onboarding/AllowStep';
 import { BedtimeStep } from '@/components/onboarding/BedtimeStep';
 import { ConditionStep } from '@/components/onboarding/ConditionStep';
+import { FirstMealStep } from '@/components/onboarding/FirstMealStep';
 import { HowItWorksStep } from '@/components/onboarding/HowItWorksStep';
 import { PrivacyStep } from '@/components/onboarding/PrivacyStep';
 import { RemindersStep } from '@/components/onboarding/RemindersStep';
@@ -23,10 +24,20 @@ import { ensureAnonymousSession } from '@/services/firebase';
 import { space } from '@/theme';
 
 /** Every screen, in order (Figma row 17). */
-const FLOW = ['hello', 'how', 'condition', 'symptoms', 'privacy', 'bedtime', 'reminders', 'allow'] as const;
+const FLOW = [
+  'hello',
+  'how',
+  'condition',
+  'symptoms',
+  'privacy',
+  'bedtime',
+  'reminders',
+  'allow',
+  'firstMeal',
+] as const;
 type Step = (typeof FLOW)[number];
 
-/** How far the progress bar is on each screen; Hello has no bar, and the permission screen shares its step with the timing question. */
+/** How far the progress bar is on each screen; Hello and the first meal have no bar, and the permission screen shares its step with the timing question. */
 const BAR_STEP: Partial<Record<Step, number>> = {
   how: 1,
   condition: 2,
@@ -38,7 +49,7 @@ const BAR_STEP: Partial<Record<Step, number>> = {
 };
 const BAR_TOTAL = 6;
 
-/** First launch: say hello, show how it works, ask the setup questions, then drop them on Today (Figma row 17). */
+/** First launch: say hello, show how it works, ask the setup questions, then invite a first meal (Figma rows 17 and 35). */
 export default function WelcomeScreen() {
   const { update } = useSettings();
   const [index, setIndex] = useState(0);
@@ -48,8 +59,11 @@ export default function WelcomeScreen() {
   const step = FLOW[index];
   const barStep = BAR_STEP[step];
   const next = () => setIndex(index + 1);
-  const back = () => setIndex(index - 1);
+  // Back from the first meal lands on the timing question, not the permission screen (which would ask again).
+  const back = () => setIndex(step === 'firstMeal' ? FLOW.indexOf('reminders') : index - 1);
+  const toFirstMeal = () => setIndex(FLOW.indexOf('firstMeal'));
 
+  // Setup is done once the questions are answered; the first meal that follows is an invitation, not a requirement.
   const finish = () => {
     // Fire and forget: onboarding never waits on the network, and getIdToken() retries lazily.
     ensureAnonymousSession().catch((error) => logger.error('anonymousSignIn', error));
@@ -59,7 +73,6 @@ export default function WelcomeScreen() {
       // Still let them in; Welcome will simply show again next launch.
       logger.error('completeOnboarding', error);
     }
-    router.replace('/');
   };
 
   return (
@@ -93,13 +106,31 @@ export default function WelcomeScreen() {
           initial={reminderMinutes}
           onNext={(minutes) => {
             setReminderMinutes(minutes);
-            if (minutes === null) finish();
-            else next();
+            if (minutes === null) {
+              finish();
+              toFirstMeal();
+            } else next();
           }}
         />
       )}
       {step === 'allow' && reminderMinutes !== null && (
-        <AllowStep minutes={reminderMinutes} onDone={finish} />
+        <AllowStep
+          minutes={reminderMinutes}
+          onDone={() => {
+            finish();
+            toFirstMeal();
+          }}
+        />
+      )}
+      {step === 'firstMeal' && (
+        <FirstMealStep
+          onLog={() => {
+            // Today underneath, so closing Food or logging the meal lands on it.
+            router.replace('/');
+            router.push('/log/food');
+          }}
+          onSkip={() => router.replace('/')}
+        />
       )}
 
       {step === 'hello' && (

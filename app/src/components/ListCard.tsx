@@ -21,7 +21,7 @@ type Props = {
 
 /**
  * One item on a list page (Figma row 25 and 26): a filled `surface` card with an icon tile, the name and an optional
- * caption. A tap opens the item, and a swipe left deletes it. Usual symptoms, Lifestyle and I don't eat
+ * caption. A tap opens the item, and a swipe left deletes it. Usual symptoms, Lifestyle factors and Foods to avoid
  * use it.
  */
 export function ListCard({ label, caption, icon: Icon, tint, ink, onPress, onDelete }: Props) {

@@ -79,10 +79,11 @@ export function symptomsTitle(labels: string[]): string {
 }
 
 /**
- * "How I feel" in two steps (Figma 03k): (1) tap what applies, grouped by body area, each group starting with a
- * "+" chip to add your own; (2) optional details: when, a note, what's going on (lifestyle) and the meal it
- * followed. "Next" waits for a symptom; "No symptoms" skips to step 2 for lifestyle on its own, and "Done" saves
- * from there. With `?id=`, edits that entry.
+ * "How I feel" (Figma 03k, 24c): (1) tap what applies, grouped by body area, each group starting with a "+" chip to
+ * add your own. "Log" waits for a symptom and saves at once (time = now), with a "Symptoms logged · Add details"
+ * toast; (2) the optional details (when, a note, what's going on, the meal it followed) are that toast's page, or
+ * the way in for lifestyle on its own ("No symptoms"), which "Done" saves. With `?id=`, edits that entry; with
+ * `?details=1` as well, it opens on the details page.
  */
 export default function LogSymptomsScreen() {
   const db = useDb();
@@ -90,7 +91,7 @@ export default function LogSymptomsScreen() {
   const usual = useMemo(() => getSetting(db, 'usualSymptoms'), [db]);
   const toast = useToast();
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ id?: string; afterFood?: string; date?: string }>();
+  const params = useLocalSearchParams<{ id?: string; afterFood?: string; date?: string; details?: string }>();
   const editingId = params.id ? Number(params.id) : undefined;
 
   const existing = useMemo(() => {
@@ -104,10 +105,14 @@ export default function LogSymptomsScreen() {
     }
   }, [db, editingId]);
 
-  // Set when opened with ?afterFood=: these symptoms followed that meal.
+  // The details page of an entry just logged ("Add details" on its toast): it can still link a recent meal.
+  const detailsMode = existing !== undefined && params.details === '1';
+
+  // Set when opened with ?afterFood=, or when the entry being detailed already follows a meal: these symptoms
+  // followed that meal.
   const afterMeal = useMemo(() => {
-    const id = params.afterFood ? Number(params.afterFood) : NaN;
-    if (editingId !== undefined || !Number.isInteger(id)) return undefined;
+    const id = existing ? (existing.foodLogId ?? NaN) : params.afterFood ? Number(params.afterFood) : NaN;
+    if ((editingId !== undefined && !detailsMode) || !Number.isInteger(id)) return undefined;
     try {
       return getFoodLog(db, id);
     } catch (error) {
@@ -115,7 +120,7 @@ export default function LogSymptomsScreen() {
       logger.error('getFoodLog', error);
       return undefined;
     }
-  }, [db, params.afterFood, editingId]);
+  }, [db, params.afterFood, editingId, existing, detailsMode]);
 
   const [selected, setSelected] = useState<Set<LoggedSymptomKey>>(
     () => new Set(existing?.items.map((i) => i.key)),
@@ -146,7 +151,7 @@ export default function LogSymptomsScreen() {
   const [timeOpen, setTimeOpen] = useState(false);
   /** The meal the user linked. None by default, so a different meal (after a time change) starts unlinked; a meal that opened this screen stays linked. */
   const [linkedId, setLinkedId] = useState<number | null>(afterMeal?.id ?? null);
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => (existing && params.details === '1' ? 2 : 1));
   const scroll = useRef<ScrollViewInstance>(null);
 
   const goBack = useCallback(() => {
@@ -224,7 +229,7 @@ export default function LogSymptomsScreen() {
   const [openedAt] = useState(() => Date.now());
   const atTime = at?.getTime() ?? null;
   const candidate = useMemo<StoredFoodLog | undefined>(() => {
-    if (editingId !== undefined) return undefined;
+    if (editingId !== undefined && !detailsMode) return undefined;
     if (afterMeal) return afterMeal;
     const end = atTime ?? openedAt;
     try {
@@ -237,7 +242,7 @@ export default function LogSymptomsScreen() {
       logger.error('listDiaryFoodLogs', error);
       return undefined;
     }
-  }, [db, editingId, afterMeal, atTime, openedAt]);
+  }, [db, editingId, detailsMode, afterMeal, atTime, openedAt]);
   const linked = candidate && candidate.id === linkedId ? candidate : undefined;
 
   const toggleSymptom = (key: LoggedSymptomKey) => {
@@ -314,30 +319,54 @@ export default function LogSymptomsScreen() {
   const canSave = selected.size > 0 || tags.size > 0;
   const saveHint = canSave ? undefined : 'Pick a symptom or something going on first';
 
-  const save = () => {
+  /** `quick`: "Log" on the first page, which saves now and leaves the details to the toast. */
+  const save = (quick = false) => {
     // An entry being edited keeps its time (and time zone) unless the time pill was used.
     const timeChanged = at !== null && !(existing && at.getTime() === new Date(existing.loggedAt).getTime());
+    const withSymptoms = picked.length > 0;
+    const mealLink =
+      editingId === undefined
+        ? withSymptoms
+          ? linked?.id
+          : undefined
+        : detailsMode
+          ? withSymptoms
+            ? (linked?.id ?? null)
+            : null
+          : undefined;
     const input = {
       items: picked.map((item) => ({ key: item.key })),
       tags: [...tags],
       notes: note,
-      // The link to a meal is about symptoms that followed it, so a lifestyle-only check-in has none.
-      foodLogId: picked.length > 0 ? linked?.id : undefined,
+      // The link to a meal is about symptoms that followed it, so a lifestyle-only check-in has none. Editing an
+      // entry leaves the link alone, except on its details page, which can set or take it off.
+      foodLogId: mealLink,
       ...(timeChanged && at ? { loggedAt: at.toISOString(), tz: currentTimeZone() } : {}),
     };
+    let createdId: number | undefined;
     try {
       if (editingId !== undefined) updateSymptomLog(db, editingId, input);
-      else createSymptomLog(db, input);
+      else createdId = createSymptomLog(db, input);
     } catch (error) {
       logger.error(editingId !== undefined ? 'updateSymptomLog' : 'createSymptomLog', error);
       Alert.alert("Couldn't save", friendlyMessages.INTERNAL);
       return;
     }
     // Checking in after a meal answers its reminder.
-    if (editingId === undefined && linked) void cancelCheckIn(linked.id);
+    if ((editingId === undefined || detailsMode) && linked) void cancelCheckIn(linked.id);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     if (editingId === undefined) playChing();
-    toast(editingId !== undefined ? 'Entry updated' : 'Logged');
+    if (quick && createdId !== undefined) {
+      const id = createdId;
+      toast('Symptoms logged', {
+        action: {
+          label: 'Add details',
+          onPress: () => router.push({ pathname: '/log/symptoms', params: { id: String(id), details: '1' } }),
+        },
+      });
+    } else {
+      toast(editingId !== undefined ? 'Entry updated' : 'Logged');
+    }
     router.back();
   };
 
@@ -364,7 +393,7 @@ export default function LogSymptomsScreen() {
           {step === 1 ? (
             <>
               <AppText variant="display" accessibilityRole="header">
-                How do you feel?
+                How are you feeling?
               </AppText>
               <AppText color="inkSoft" style={styles.subtitle}>
                 Tap everything that applies.
@@ -505,8 +534,8 @@ export default function LogSymptomsScreen() {
           {step === 1 ? (
             <>
               <Button
-                label="Next"
-                onPress={() => setStep(2)}
+                label={editingId === undefined ? 'Log' : 'Next'}
+                onPress={() => (editingId === undefined ? save(true) : setStep(2))}
                 disabled={editingId === undefined && picked.length === 0}
                 accessibilityHint={
                   editingId === undefined && picked.length === 0 ? 'Pick a symptom first' : undefined
@@ -516,7 +545,7 @@ export default function LogSymptomsScreen() {
                 <Button
                   variant="quiet"
                   label="Save changes"
-                  onPress={save}
+                  onPress={() => save()}
                   disabled={!canSave}
                   accessibilityHint={saveHint}
                 />
@@ -528,7 +557,7 @@ export default function LogSymptomsScreen() {
           ) : (
             <Button
               label={editingId !== undefined ? 'Save changes' : 'Done'}
-              onPress={save}
+              onPress={() => save()}
               disabled={!canSave}
               accessibilityHint={saveHint}
             />

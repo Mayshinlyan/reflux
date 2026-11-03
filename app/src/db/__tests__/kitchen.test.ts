@@ -39,7 +39,7 @@ const recipe: Recipe = {
   steps: ['Chop the kimchi.', 'Stir-fry it.'],
 };
 
-describe('I don’t eat', () => {
+describe('Foods to avoid', () => {
   it('adds a tidied name and lists them A to Z', () => {
     createAvoidFood(db, '  Raw   onion ');
     createAvoidFood(db, 'peanuts');
@@ -156,7 +156,7 @@ describe('saved recipes', () => {
 });
 
 describe('Delete all my data', () => {
-  it('also clears saved recipes and the I don’t eat list', () => {
+  it('also clears saved recipes and the Foods to avoid list', () => {
     saveRecipe(db, recipe, 'korean');
     createAvoidFood(db, 'Pork');
     setSetting(db, 'kitchenServes', 4);

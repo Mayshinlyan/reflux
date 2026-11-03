@@ -19,7 +19,7 @@ import { logger } from '@/lib/logger';
 import { space } from '@/theme';
 
 /**
- * Lifestyle (Profile > Your lists, Figma row 26): the lifestyle factors you added, as cards laid out like Usual
+ * Lifestyle factors (Profile > Your lists, Figma row 26): the lifestyle factors you added, as cards laid out like Usual
  * symptoms, Favorite foods and Medications. A tap opens one to remove it (entries already logged keep it), and the
  * Add button at the bottom adds another. Symptoms you typed yourself are on Usual symptoms.
  */
@@ -71,7 +71,7 @@ export default function LifestyleScreen() {
       <BackHeader />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <AppText variant="display" accessibilityRole="header" style={styles.title}>
-          Lifestyle
+          Lifestyle factors
         </AppText>
         {loadFailed && items.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
@@ -79,7 +79,7 @@ export default function LifestyleScreen() {
           </AppText>
         ) : items.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
-            No lifestyle yet.
+            No lifestyle factors yet.
           </AppText>
         ) : (
           items.map((item) => (
@@ -96,7 +96,7 @@ export default function LifestyleScreen() {
         )}
       </ScrollView>
       <View style={styles.footer}>
-        <Button label="Add a lifestyle" variant="secondary" onPress={add} />
+        <Button label="Add a lifestyle factor" variant="secondary" onPress={add} />
       </View>
 
       <BottomSheet visible={viewing !== null} onClose={() => setViewing(null)}>
