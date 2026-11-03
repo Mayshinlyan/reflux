@@ -10,6 +10,7 @@ import {
   padding,
   resizable,
   shapes,
+  widgetAccentedRenderingMode,
   widgetURL,
 } from '@expo/ui/swift-ui/modifiers';
 import { createWidget, type WidgetEnvironment } from 'expo-widgets';
@@ -31,6 +32,10 @@ export type FoodWidgetProps = {
  * the colours and links are spelled out here, and `SNAP_FOOD_LINK` / `quickLogLink` in lib/widgetLinks.ts must
  * match them. The font is the system's rounded one, the nearest to Nunito, which a widget can't load. The bubble's
  * Gaegu lettering is part of the picture for the same reason.
+ *
+ * On a tinted home screen (iOS 18+) the system removes the background and draws everything in one tint colour, so
+ * the picture is drawn desaturated (keeping its shading, not a flat white block) and the pills use a see-through
+ * white fill with white text.
  */
 const FoodWidgetView = (props: FoodWidgetProps, environment: WidgetEnvironment) => {
   'widget';
@@ -41,11 +46,24 @@ const FoodWidgetView = (props: FoodWidgetProps, environment: WidgetEnvironment) 
   const snapLink = 'adayinmybelly://log/food?camera=1';
   // A very large width fills the space that is left, like "maxWidth: .infinity".
   const fill = 10000;
+  const tinted = environment.widgetRenderingMode === 'accented';
+  const white = '#FFFFFF';
 
   const art = props.art ? (
-    <Image uiImage={props.art} modifiers={[resizable(), aspectRatio({ contentMode: 'fit' })]} />
+    <Image
+      uiImage={props.art}
+      modifiers={[
+        resizable(),
+        aspectRatio({ contentMode: 'fit' }),
+        widgetAccentedRenderingMode('desaturated'),
+      ]}
+    />
   ) : (
-    <Text modifiers={[font({ design: 'rounded', weight: 'bold', size: 20 }), foregroundStyle(ink)]}>
+    <Text
+      modifiers={[
+        font({ design: 'rounded', weight: 'bold', size: 20 }),
+        foregroundStyle(tinted ? white : ink),
+      ]}>
       Snap food!
     </Text>
   );
@@ -60,12 +78,12 @@ const FoodWidgetView = (props: FoodWidgetProps, environment: WidgetEnvironment) 
         modifiers={[
           padding({ horizontal: 16 }),
           frame({ maxWidth: fill, minHeight: 40, maxHeight: 40, alignment: 'leading' }),
-          background(tan, shapes.roundedRectangle({ cornerRadius: 16 })),
+          background(tinted ? '#FFFFFF2E' : tan, shapes.roundedRectangle({ cornerRadius: 16 })),
         ]}>
         <Text
           modifiers={[
             font({ design: 'rounded', weight: 'semibold', size: 15 }),
-            foregroundStyle(ink),
+            foregroundStyle(tinted ? white : ink),
             lineLimit(1),
           ]}>
           {food.name}
@@ -82,7 +100,12 @@ const FoodWidgetView = (props: FoodWidgetProps, environment: WidgetEnvironment) 
         {pills.length > 0 ? (
           pills
         ) : (
-          <Text modifiers={[font({ design: 'rounded', size: 14 }), foregroundStyle(inkSoft), lineLimit(3)]}>
+          <Text
+            modifiers={[
+              font({ design: 'rounded', size: 14 }),
+              foregroundStyle(tinted ? white : inkSoft),
+              lineLimit(3),
+            ]}>
             Add favorite foods to log them from here.
           </Text>
         )}
