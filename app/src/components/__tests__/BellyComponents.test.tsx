@@ -45,9 +45,15 @@ describe('filled, outline-free styling', () => {
     const bg = (name: string) => screen.getByRole('checkbox', { name });
     expect(bg('Hoarse voice')).toHaveStyle({ backgroundColor: lightColors.surface, minHeight: 38 });
     expect(bg('Cough')).toHaveStyle({ backgroundColor: lightColors.surface2 });
-    expect(bg('Heartburn')).toHaveStyle({ backgroundColor: lightColors.sageTint });
-    expect(bg('Stress')).toHaveStyle({ backgroundColor: lightColors.surface });
-    expect(bg('Large meal')).toHaveStyle({ backgroundColor: lightColors.clayTint });
+    // Selected = the same fill, plus a 1px olive outline; unselected keeps a transparent 1px so nothing shifts.
+    const selected = {
+      backgroundColor: lightColors.surface,
+      borderWidth: 1,
+      borderColor: lightColors.sageInk,
+    };
+    expect(bg('Heartburn')).toHaveStyle(selected);
+    expect(bg('Stress')).toHaveStyle({ backgroundColor: lightColors.surface, borderColor: 'transparent' });
+    expect(bg('Large meal')).toHaveStyle(selected);
   });
 });
 
@@ -149,7 +155,11 @@ describe('ChoiceCard', () => {
     await view.rerender(<ChoiceCard title="Meal" icon={Utensils} onPress={onPress} selected />);
     const radio = screen.getByRole('radio', { name: 'Meal' });
     expect(radio.props.accessibilityState).toMatchObject({ checked: true });
-    expect(radio).toHaveStyle({ backgroundColor: lightColors.clayTint });
+    expect(radio).toHaveStyle({
+      backgroundColor: lightColors.surface,
+      borderWidth: 1,
+      borderColor: lightColors.sageInk,
+    });
   });
 });
 

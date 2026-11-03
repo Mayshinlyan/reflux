@@ -1,7 +1,7 @@
 import { Minus } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { radius, typography, useColors } from '@/theme';
+import { radius, selectedEdge, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -20,9 +20,10 @@ type Props = {
 /** A symptom you either have or don't: tap to toggle. There is no severity rating. */
 export function SymptomChip({ label, selected, onToggle, readOnly, onRemove, onCard }: Props) {
   const colors = useColors();
-  // Filled, never outlined: selected = sage tint, otherwise surface (surface2 on a card).
+  // Same fill selected or not (surface, surface2 on a card); selected only adds a 1px olive outline.
   const colorStyle = {
-    backgroundColor: selected ? colors.sageTint : onCard ? colors.surface2 : colors.surface,
+    backgroundColor: onCard ? colors.surface2 : colors.surface,
+    ...selectedEdge(colors, selected),
   };
 
   // The label and the minus are separate accessibility elements, so a screen reader can reach

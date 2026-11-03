@@ -17,7 +17,7 @@ import {
   type RecipeTime,
 } from '@/constants/cuisines';
 import { skipsLine } from '@/lib/kitchenCopy';
-import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
+import { cardEdge, minTouchTarget, radius, selectedEdge, space, useColors } from '@/theme';
 
 export type IdeasChoices = {
   cuisine: CuisineKey;
@@ -120,7 +120,7 @@ export function IdeasSheet({
                       setCuisine(option.key);
                       setMenuOpen(false);
                     }}
-                    style={[styles.option, selected && { backgroundColor: colors.sageTint }]}>
+                    style={[styles.option, selectedEdge(colors, selected)]}>
                     <AppText
                       variant={selected ? 'bodyEm' : 'body'}
                       color={selected ? 'sageInk' : 'ink'}
@@ -251,6 +251,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space.s1,
     paddingHorizontal: space.s2,
+    borderRadius: radius.md,
   },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 4, borderRadius: radius.pill },
   step: {
