@@ -12,6 +12,7 @@
       "icon": "./assets/belly.icon",
       "supportsTablet": false,
       "infoPlist": {
+        "CFBundleDisplayName": "Bellie",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -31,6 +32,7 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/withAndroidLabel",
       [
         "expo-splash-screen",
         {
@@ -43,8 +45,8 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "a day in my belly uses the camera to photograph your meals.",
-          "photosPermission": "a day in my belly reads a meal photo you choose.",
+          "cameraPermission": "Bellie uses the camera to photograph your meals.",
+          "photosPermission": "Bellie reads a meal photo you choose.",
           "microphonePermission": false
         }
       ],
