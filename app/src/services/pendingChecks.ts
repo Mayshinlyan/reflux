@@ -11,6 +11,7 @@ import { notifyEntriesChanged } from '@/lib/entriesChanged';
 import { AppError, type ErrorCode } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
+import { photoUri } from './photoStore';
 import { analyzeFood } from './relayClient';
 
 /** Reasons a later try can still work (no signal, a slow relay). Anything else won't change by asking again. */
@@ -31,7 +32,7 @@ const inputFor = (meal: StoredFoodLog) =>
   meal.inputText
     ? { text: meal.inputText }
     : meal.photoUri
-      ? { photo: { uri: meal.photoUri, mimeType: 'image/jpeg' } }
+      ? { photo: { uri: photoUri(meal.photoUri), mimeType: 'image/jpeg' } }
       : null;
 
 /**

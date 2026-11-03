@@ -850,22 +850,8 @@ describe('Log food screen (photo)', () => {
     expect(mockBack).not.toHaveBeenCalled();
   });
 
-  it('checks a photo the tab bar already took at once, without opening a camera', async () => {
+  it('ignores a photoUri link, so a link cannot make it send some local file', async () => {
     mockParams = { photoUri: photo.uri };
-    analyze.mockResolvedValue(result);
-    await render(<LogFoodScreen />);
-
-    expect(pick).not.toHaveBeenCalled();
-
-    expect(await screen.findByRole('header', { name: 'Your belly might not love this.' })).toBeTruthy();
-    expect(analyze).toHaveBeenCalledWith(
-      { photo: { uri: photo.uri, mimeType: 'image/jpeg' } },
-      expect.any(AbortSignal),
-    );
-  });
-
-  it('ignores a photo address that is not a local file', async () => {
-    mockParams = { photoUri: 'https://example.com/meal.jpg' };
     await render(<LogFoodScreen />);
 
     expect(screen.getByRole('button', { name: 'Take a photo' })).toBeEnabled();

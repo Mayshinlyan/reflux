@@ -125,6 +125,18 @@ describe('My fridge: with nothing saved', () => {
     expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
   });
 
+  it('says it found nothing new when every item is already in the fridge', async () => {
+    replaceFridge(mockDb, ['milk', 'eggs']);
+    scan.mockResolvedValue(['Milk', 'eggs']);
+    await render(<FridgeScreen />);
+    await press('Add more photos');
+    await addLibraryPhoto('file:///one.jpg');
+    await press('Find ingredients');
+
+    await waitFor(() => expect(screen.getByText("Couldn't read the photos")).toBeTruthy());
+    expect(listFridgeItems(mockDb).map((item) => item.name)).toEqual(['eggs', 'milk']);
+  });
+
   it('keeps the old list when a scan fails, and says why', async () => {
     replaceFridge(mockDb, ['milk']);
     scan.mockRejectedValue(new AppError('RATE_LIMITED'));

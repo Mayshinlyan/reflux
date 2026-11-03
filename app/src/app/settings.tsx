@@ -28,6 +28,7 @@ import { useToast } from '@/components/Toast';
 import { TopBarButton } from '@/components/TopBar';
 import { useTour } from '@/components/tour/TourContext';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
+import { deleteBackupDatabases } from '@/db/client';
 import { deleteAllData } from '@/db/repositories/data';
 import { formatClock, formatWindow, LATE_MEAL_WINDOW_OPTIONS } from '@/lib/clock';
 import { friendlyMessages } from '@/lib/errors';
@@ -122,6 +123,8 @@ export default function SettingsScreen() {
               // Rows are already gone; a leftover file is the lesser problem, so still report success.
               logger.error('deleteAllPhotos', error);
             }
+            // The pre-update backups are full copies of the diary, so they go too.
+            deleteBackupDatabases();
             void cancelAllCheckIns();
             reload();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});

@@ -1,4 +1,4 @@
-import { deleteAllPhotos, deletePhoto, savePhoto } from '../photoStore';
+import { deleteAllPhotos, deletePhoto, photoUri, savePhoto } from '../photoStore';
 
 const mockCreate = jest.fn();
 const mockCopy = jest.fn();
@@ -8,6 +8,7 @@ let mockExists = true;
 jest.mock('expo-file-system', () => ({
   Paths: { document: 'file:///doc' },
   Directory: class {
+    uri = 'file:///doc/photos';
     create(options: unknown) {
       mockCreate(options);
     }
@@ -21,7 +22,8 @@ jest.mock('expo-file-system', () => ({
   File: class {
     uri: string;
     constructor(base: unknown, name?: string) {
-      this.uri = name ? `file:///doc/photos/${name}` : (base as string);
+      const root = typeof base === 'string' ? base : (base as { uri: string }).uri;
+      this.uri = name ? `${root}/${name}` : root;
     }
     copy(destination: unknown) {
       mockCopy(this.uri, destination);
@@ -43,12 +45,25 @@ beforeEach(() => {
 });
 
 describe('photoStore', () => {
-  it('copies into the photos folder and returns the stored uri', () => {
+  it('copies into the photos folder and returns a path relative to the documents folder', () => {
     const stored = savePhoto('file:///cache/out.jpg');
 
     expect(mockCreate).toHaveBeenCalledWith({ idempotent: true, intermediates: true });
-    expect(stored).toMatch(/^file:\/\/\/doc\/photos\/.+\.jpg$/);
-    expect(mockCopy).toHaveBeenCalledWith('file:///cache/out.jpg', expect.objectContaining({ uri: stored }));
+    expect(stored).toMatch(/^photos\/.+\.jpg$/);
+    expect(mockCopy).toHaveBeenCalledWith(
+      'file:///cache/out.jpg',
+      expect.objectContaining({ uri: `file:///doc/${stored}` }),
+    );
+  });
+
+  it('resolves a stored path against the documents folder', () => {
+    expect(photoUri('photos/x.jpg')).toBe('file:///doc/photos/x.jpg');
+  });
+
+  it('moves an older absolute address, with a container id that has since changed, to the current folder', () => {
+    expect(photoUri('file:///var/mobile/Containers/Data/Application/OLD-ID/Documents/photos/x.jpg')).toBe(
+      'file:///doc/photos/x.jpg',
+    );
   });
 
   it('gives every photo its own name', () => {
@@ -56,12 +71,12 @@ describe('photoStore', () => {
   });
 
   it('deletes an existing photo and ignores a missing one', () => {
-    deletePhoto('file:///doc/photos/x.jpg');
+    deletePhoto('photos/x.jpg');
     expect(mockDelete).toHaveBeenCalledWith('file:///doc/photos/x.jpg');
 
     mockDelete.mockClear();
     mockExists = false;
-    deletePhoto('file:///doc/photos/gone.jpg');
+    deletePhoto('photos/gone.jpg');
     expect(mockDelete).not.toHaveBeenCalled();
   });
 

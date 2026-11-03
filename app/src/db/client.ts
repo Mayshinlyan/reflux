@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { migrate } from 'drizzle-orm/expo-sqlite/migrator';
-import { backupDatabaseAsync, openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
+import { backupDatabaseAsync, deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
 
 import migrations from '../../drizzle/migrations';
 import {
@@ -15,6 +15,17 @@ import * as schema from './schema';
 export const DATABASE_NAME = 'reflux.db';
 /** Two rotating backup slots: slot 1 is the newest. */
 const BACKUP_NAMES = ['reflux.backup-1.db', 'reflux.backup-2.db'] as const;
+
+/** Removes the pre-migration backup copies (full copies of the diary): part of "Delete all my data". */
+export function deleteBackupDatabases(): void {
+  for (const name of BACKUP_NAMES) {
+    try {
+      deleteDatabaseSync(name);
+    } catch {
+      // No backup yet is the usual case.
+    }
+  }
+}
 
 let expoDb: SQLiteDatabase | null = null;
 

@@ -10,6 +10,8 @@ import { analyzeFood } from '../relayClient';
 
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('../relayClient', () => ({ analyzeFood: jest.fn() }));
+// A stored photo is a path inside the app's documents folder; the real resolver needs the native file system.
+jest.mock('../photoStore', () => ({ photoUri: (stored: string) => `file:///docs/${stored}` }));
 
 const analyze = analyzeFood as jest.Mock;
 
@@ -63,13 +65,13 @@ describe('checkPendingMeals', () => {
 
   it('sends the stored photo for a photo meal and the conditions from settings', async () => {
     setSetting(db, 'conditions', ['acid_reflux']);
-    const id = createUncheckedMeal(db, { source: 'photo', photoUri: 'file:///photos/a.jpg' });
+    const id = createUncheckedMeal(db, { source: 'photo', photoUri: 'photos/a.jpg' });
     analyze.mockResolvedValue(verdict);
 
     await checkPendingMeals(db);
 
     expect(analyze).toHaveBeenCalledWith({
-      photo: { uri: 'file:///photos/a.jpg', mimeType: 'image/jpeg' },
+      photo: { uri: 'file:///docs/photos/a.jpg', mimeType: 'image/jpeg' },
       conditions: ['acid_reflux'],
     });
     expect(getFoodLog(db, id)?.mealName).toBe('Mint tea');

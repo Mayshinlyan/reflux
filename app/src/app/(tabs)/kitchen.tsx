@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -56,6 +56,8 @@ export default function KitchenScreen() {
   // What the ideas sheet shows. Not cleared on close, so the sheet keeps its content while it slides away.
   const [results, setResults] = useState<Results>({ status: 'loading', cuisine: 'any', recipes: [] });
   const running = useRef<AbortController | null>(null);
+  // Leaving the tab (or wiping all data) must not let a late answer write back into the settings.
+  useEffect(() => () => running.current?.abort(), []);
   const lastChoices = useRef<IdeasChoices | null>(null);
   // Dishes already shown since the sheet's choices were made, so "Generate more" gives new ones.
   const shown = useRef<string[]>([]);

@@ -21,6 +21,10 @@ jest.mock('expo-file-system', () => ({
     constructor(uri: string) {
       this.uri = uri;
     }
+    // A photo whose address says "gone" stands for a file iOS cleared or a container that moved.
+    get exists() {
+      return !this.uri.includes('gone');
+    }
     async bytes() {
       return new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
     }
@@ -344,6 +348,13 @@ describe('scanFridge', () => {
     const text = Buffer.from(body).toString('latin1');
     expect(text.match(/name="photos"/g)).toHaveLength(2);
     expect(text).not.toContain('name="photo"');
+  });
+
+  it('reports a photo that is gone as INPUT_REJECTED, without calling the relay', async () => {
+    await expect(scanFridge(['file:///a.jpg', 'file:///gone.jpg'])).rejects.toMatchObject({
+      code: 'INPUT_REJECTED',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('maps a relay error to its code', async () => {

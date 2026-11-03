@@ -28,6 +28,16 @@ export type AnalyzeInput = ({ text: string } | { photo: { uri: string; mimeType?
 // Longer than the relay's 30 s Claude timeout, so the relay's own AI_TIMEOUT wins when it can.
 const REQUEST_TIMEOUT_MS = 45_000;
 
+/**
+ * A stored or picked photo as a multipart part. A file that is gone (iOS clears cached photos, or a container
+ * moved) is an input problem, not a network one: it can't work on a later try, so it must not read as NETWORK.
+ */
+function photoPart(uri: string, id: string): Blob {
+  const file = new File(uri);
+  if (!file.exists) throw new AppError('INPUT_REJECTED', id);
+  return file as unknown as Blob;
+}
+
 function requestId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -96,7 +106,7 @@ export async function analyzeFood(input: AnalyzeInput, signal?: AbortSignal): Pr
     // bytes (an expo-file-system File). The old React Native { uri, name, type } object throws
     // "Unsupported FormDataPart implementation" and would surface as a network error.
     const form = new FormData();
-    form.append('photo', new File(input.photo.uri) as unknown as Blob);
+    form.append('photo', photoPart(input.photo.uri, id));
     if (input.details) form.append('details', input.details);
     if (input.portion) form.append('portion', input.portion);
     if (input.conditions?.length) form.append('conditions', input.conditions.join(','));
@@ -116,7 +126,7 @@ export async function analyzeFood(input: AnalyzeInput, signal?: AbortSignal): Pr
       });
       break;
     } catch (error) {
-      if (signal?.aborted) throw error;
+      if (signal?.aborted || error instanceof AppError) throw error;
       if (!timeout.aborted && (await isOffline())) throw new AppError('OFFLINE', id);
       // The app was closed mid-request: that is the phone pausing, not a slow relay, so ask again once.
       if (attempt === 1 && background.happened()) continue;
@@ -225,7 +235,7 @@ export async function scanFridge(photoUris: readonly string[], signal?: AbortSig
   try {
     const form = new FormData();
     // Same Blob-like File as a meal photo (see analyzeFood), one `photos` part each.
-    for (const uri of photoUris) form.append('photos', new File(uri) as unknown as Blob);
+    for (const uri of photoUris) form.append('photos', photoPart(uri, id));
     response = await fetch(`${relayBaseUrl()}/v1/fridge-scan`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'X-Request-Id': id },
@@ -233,7 +243,7 @@ export async function scanFridge(photoUris: readonly string[], signal?: AbortSig
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });
   } catch (error) {
-    if (signal?.aborted) throw error;
+    if (signal?.aborted || error instanceof AppError) throw error;
     if (!timeout.aborted && (await isOffline())) throw new AppError('OFFLINE', id);
     throw new AppError(timeout.aborted ? 'AI_TIMEOUT' : 'NETWORK', id);
   }

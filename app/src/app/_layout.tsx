@@ -100,7 +100,8 @@ function RootLayout() {
 
 function HideSplash() {
   useEffect(() => {
-    SplashScreen.hideAsync();
+    // A second call (after a Retry) has no splash left to hide and rejects: nothing to do about that.
+    SplashScreen.hideAsync().catch(() => {});
     preloadChing();
   }, []);
   return null;

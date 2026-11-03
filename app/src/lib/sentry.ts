@@ -4,7 +4,10 @@ import { scrubBreadcrumb, scrubEvent } from './sentryScrubber';
 
 const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
-/** JS-error reporting only in the MVP (Expo Go). Native crashes arrive with EAS in M2. */
+/**
+ * Error reporting for JS and native crashes. Source maps are not uploaded yet (SENTRY_DISABLE_AUTO_UPLOAD in
+ * eas.json): set a SENTRY_AUTH_TOKEN EAS secret and remove that line to get readable stack traces.
+ */
 export function initSentry() {
   if (!dsn) return;
   Sentry.init({
