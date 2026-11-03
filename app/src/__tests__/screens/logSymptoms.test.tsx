@@ -166,7 +166,7 @@ describe('Log symptoms screen: pick, then details', () => {
     await render(<LogSymptomsScreen />);
 
     // Pick: nothing is chosen yet, so Log waits and the only way on is "No symptoms".
-    expect(screen.getByText('How do you feel?')).toBeTruthy();
+    expect(screen.getByText('How are you feeling?')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Log' }).props.accessibilityState).toMatchObject({
       disabled: true,
     });
@@ -251,7 +251,7 @@ describe('Log symptoms screen: pick, then details', () => {
     await fireEvent.changeText(screen.getByLabelText('Note'), 'kept');
 
     await press('button', 'Back'); // details -> pick
-    expect(screen.getByText('How do you feel?')).toBeTruthy();
+    expect(screen.getByText('How are you feeling?')).toBeTruthy();
     expect(mockBack).not.toHaveBeenCalled();
 
     await press('button', 'Next');
