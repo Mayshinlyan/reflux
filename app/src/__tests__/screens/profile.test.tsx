@@ -96,7 +96,7 @@ describe('Profile', () => {
     expect(mockPush).toHaveBeenCalledWith('/settings');
   });
 
-  it("lists Condition, Usual symptoms, Favorite foods, I don't eat, Medications and Lifestyle under Your lists", async () => {
+  it('lists Condition, Usual symptoms, Favorite foods, Foods to avoid, Medications and Lifestyle factors under Your lists', async () => {
     await render(<ProfileScreen />);
 
     expect(screen.getByRole('header', { name: 'Your lists' })).toBeTruthy();
@@ -104,22 +104,24 @@ describe('Profile', () => {
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
       .filter((label) =>
-        /^(Condition|Usual symptoms|Favorite foods|I don't eat|Medications|Lifestyle)$/.test(label ?? ''),
+        /^(Condition|Usual symptoms|Favorite foods|Foods to avoid|Medications|Lifestyle factors)$/.test(
+          label ?? '',
+        ),
       );
     expect(rows).toEqual([
       'Condition',
       'Usual symptoms',
       'Favorite foods',
-      "I don't eat",
+      'Foods to avoid',
       'Medications',
-      'Lifestyle',
+      'Lifestyle factors',
     ]);
   });
 
-  it("opens I don't eat", async () => {
+  it('opens Foods to avoid', async () => {
     await render(<ProfileScreen />);
 
-    await press('button', "I don't eat");
+    await press('button', 'Foods to avoid');
 
     expect(mockPush).toHaveBeenCalledWith('/avoid-foods');
   });
@@ -140,10 +142,10 @@ describe('Profile', () => {
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/medication', params: { manage: '1' } });
   });
 
-  it('opens Lifestyle', async () => {
+  it('opens Lifestyle factors', async () => {
     await render(<ProfileScreen />);
 
-    await press('button', 'Lifestyle');
+    await press('button', 'Lifestyle factors');
 
     expect(mockPush).toHaveBeenCalledWith('/lifestyle');
   });

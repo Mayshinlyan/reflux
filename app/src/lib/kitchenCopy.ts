@@ -1,7 +1,7 @@
 import type { ErrorCode } from '@/lib/errors';
 
 /**
- * The line under the ideas sheet's choices, so you can see your "I don't eat" list is being respected (Figma 29b).
+ * The line under the ideas sheet's choices, so you can see your "Foods to avoid" list is being respected (Figma 29b).
  * Empty when the list is empty. Names come in as saved; the first two are listed, the rest counted.
  */
 export function skipsLine(names: readonly string[]): string {
@@ -10,7 +10,7 @@ export function skipsLine(names: readonly string[]): string {
   if (lower.length === 1) return `Skips ${lower[0]}.`;
   if (lower.length === 2) return `Skips ${lower[0]} and ${lower[1]}.`;
   const more = lower.length - 2;
-  return `Skips ${lower[0]}, ${lower[1]} and ${more} more ${more === 1 ? 'food' : 'foods'} you don't eat.`;
+  return `Skips ${lower[0]}, ${lower[1]} and ${more} more ${more === 1 ? 'food' : 'foods'} to avoid.`;
 }
 
 /**

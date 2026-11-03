@@ -202,7 +202,7 @@ export const savedSymptoms = sqliteTable(
 );
 
 /**
- * "I don't eat" (Profile > Your lists): foods the user never eats, an allergy or a diet. The Kitchen sends them to the
+ * "Foods to avoid" (Profile > Your lists): foods the user never eats, an allergy or a diet. The Kitchen sends them to the
  * recipe service as a hard rule. Names only; the name is unique ignoring capitals.
  */
 export const avoidFoods = sqliteTable(

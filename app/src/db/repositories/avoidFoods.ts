@@ -9,7 +9,7 @@ import type { AppDb } from '../types';
 export const MAX_AVOID_NAME = 40;
 export const MAX_AVOID_FOODS = 30;
 
-/** "I don't eat", A to Z. */
+/** "Foods to avoid", A to Z. */
 export function listAvoidFoods(db: AppDb): AvoidFood[] {
   return db
     .select()

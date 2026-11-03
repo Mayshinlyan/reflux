@@ -205,12 +205,12 @@ describe('Kitchen: the choices sheet', () => {
     expect(screen.getByRole('button', { name: 'Fewer servings' })).toBeDisabled();
   });
 
-  it('says what it skips from the I don’t eat list', async () => {
+  it('says what it skips from the Foods to avoid list', async () => {
     for (const name of ['Peanuts', 'Pork', 'Shellfish', 'Raw onion']) createAvoidFood(mockDb, name);
     await render(<KitchenScreen />);
     await press('Get ideas');
 
-    expect(screen.getByText("Skips peanuts, pork and 2 more foods you don't eat.")).toBeTruthy();
+    expect(screen.getByText('Skips peanuts, pork and 2 more foods to avoid.')).toBeTruthy();
   });
 
   it('says nothing about skipping when the list is empty', async () => {
@@ -353,7 +353,7 @@ describe('Kitchen: getting ideas', () => {
     expect(getSetting(mockDb, 'kitchenRounds').count).toBe(0);
   });
 
-  it('fails closed: if the I don’t eat list cannot be read it asks for nothing, and says it could not get ideas', async () => {
+  it('fails closed: if the Foods to avoid list cannot be read it asks for nothing, and says it could not get ideas', async () => {
     const spy = jest.spyOn(avoidFoodsRepo, 'listAvoidFoods').mockImplementation(() => {
       throw new Error('db down');
     });

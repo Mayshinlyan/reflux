@@ -19,8 +19,8 @@ import { logger } from '@/lib/logger';
 import { space } from '@/theme';
 
 /**
- * I don't eat (Profile > Your lists, Figma row 29h): foods you never eat, an allergy or a diet, as cards laid out
- * like Favorite foods, Usual symptoms and Lifestyle. The Kitchen keeps every one of them out of its recipes. A tap
+ * Foods to avoid (Profile > Your lists, Figma row 29h): foods you never eat, an allergy or a diet, as cards laid out
+ * like Favorite foods, Usual symptoms and Lifestyle factors. The Kitchen keeps every one of them out of its recipes. A tap
  * opens one to remove it, and the Add button at the bottom adds another.
  */
 export default function AvoidFoodsScreen() {
@@ -71,7 +71,7 @@ export default function AvoidFoodsScreen() {
       <BackHeader />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <AppText variant="display" accessibilityRole="header" style={styles.title}>
-          I don&apos;t eat
+          Foods to avoid
         </AppText>
         {loadFailed && items.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
