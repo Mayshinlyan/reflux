@@ -9,7 +9,6 @@
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.mayshinlyan.adayinmybelly",
-      "icon": "./assets/expo.icon",
       "supportsTablet": false,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
