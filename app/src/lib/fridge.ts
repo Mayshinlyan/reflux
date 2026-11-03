@@ -23,9 +23,9 @@ export function fridgeIsStale(iso: string, now: Date = new Date()): boolean {
   return daysSince(iso, now) >= FRIDGE_NUDGE_DAYS;
 }
 
-/** "1 thing" or "14 things". */
-export function thingsLine(count: number): string {
-  return `${count} ${count === 1 ? 'thing' : 'things'}`;
+/** "1 item" or "14 items". */
+export function itemsLine(count: number): string {
+  return `${count} ${count === 1 ? 'item' : 'items'}`;
 }
 
 /** Lowercase, no accents, hyphens as spaces, one space between words. */

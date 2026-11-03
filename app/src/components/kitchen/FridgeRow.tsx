@@ -2,7 +2,7 @@ import { Refrigerator } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
-import { fridgeIsStale, thingsLine, updatedLine } from '@/lib/fridge';
+import { fridgeIsStale, itemsLine, updatedLine } from '@/lib/fridge';
 import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
 
 type Props = {
@@ -24,7 +24,7 @@ export function FridgeRow({ count, updatedAt, onPress, now }: Props) {
   const colors = useColors();
   const has = count > 0 && updatedAt !== null;
   const stale = has && fridgeIsStale(updatedAt, now);
-  const title = has ? thingsLine(count) : 'Add your fridge';
+  const title = has ? itemsLine(count) : 'Add your fridge';
   const line = !has
     ? 'Snap a photo and Bellie lists it.'
     : stale

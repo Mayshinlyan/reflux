@@ -40,6 +40,28 @@ export function replaceFridge(db: AppDb, names: readonly string[]): number {
   return clean.length;
 }
 
+/**
+ * Adds what a new scan found to the fridge (one transaction). Names are cleaned the same way, a name already in
+ * the list (ignoring capitals) is skipped, and the list stops at 40. Returns how many items the fridge holds now.
+ */
+export function addToFridge(db: AppDb, names: readonly string[]): number {
+  const existing = listFridgeItems(db);
+  const seen = new Set(existing.map((item) => item.name.toLowerCase()));
+  let total = existing.length;
+  db.transaction((tx) => {
+    for (const name of names) {
+      if (total >= MAX_FRIDGE_ITEMS) break;
+      const value = cleanFoodName(name, MAX_FRIDGE_NAME);
+      const key = value.toLowerCase();
+      if (!value || seen.has(key)) continue;
+      seen.add(key);
+      tx.insert(fridgeItems).values({ name: value }).run();
+      total += 1;
+    }
+  });
+  return total;
+}
+
 export function removeFridgeItem(db: AppDb, id: number): void {
   db.delete(fridgeItems).where(eq(fridgeItems.id, id)).run();
 }

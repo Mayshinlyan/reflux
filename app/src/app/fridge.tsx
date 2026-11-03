@@ -12,14 +12,14 @@ import { FoodLoading } from '@/components/FoodLoading';
 import { Screen } from '@/components/Screen';
 import { useDb } from '@/db/DatabaseProvider';
 import {
+  addToFridge,
   fridgeUpdatedAt,
   listFridgeItems,
   removeFridgeItem,
-  replaceFridge,
 } from '@/db/repositories/fridgeItems';
 import type { FridgeItem } from '@/db/schema';
 import { AppError, type ErrorCode, friendlyMessages } from '@/lib/errors';
-import { thingsLine, updatedLine } from '@/lib/fridge';
+import { itemsLine, updatedLine } from '@/lib/fridge';
 import { fridgeErrorMessage } from '@/lib/kitchenCopy';
 import { logger } from '@/lib/logger';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
@@ -43,7 +43,8 @@ function load(db: ReturnType<typeof useDb>): { items: FridgeItem[]; updated: str
 
 /**
  * My fridge (Kitchen, Figma row 29f, 29n, 29m, 29o): what Bellie found in your fridge photos, kept on the phone as
- * a list you can trim. With nothing saved it asks for one to three photos; "Retake photos" does the same later.
+ * a list you can trim. With nothing saved it asks for one to three photos; "Add more photos" does the same later,
+ * and what it finds joins the list (a name already there is skipped). "Done" goes back to the Kitchen.
  * The photos are read once and not kept, and a scan that fails leaves the old list as it was. The Kitchen's
  * "Use my fridge" switch and the have/need ticks on a recipe read this list.
  */
@@ -109,7 +110,7 @@ export default function FridgeScreen() {
       );
       if (controller.signal.aborted) return;
       // Nothing edible made out: the old list stays and the screen says so.
-      if (names.length === 0 || replaceFridge(db, names) === 0) {
+      if (names.length === 0 || addToFridge(db, names) === 0) {
         setFailure('EMPTY');
         return;
       }
@@ -140,7 +141,7 @@ export default function FridgeScreen() {
     if (next.items.length === 0) setPicking(true);
   };
 
-  const retake = () => {
+  const addMore = () => {
     setPhotos([]);
     setFailure(null);
     setNotice(null);
@@ -235,7 +236,7 @@ export default function FridgeScreen() {
         ) : (
           <>
             <AppText variant="section" accessibilityRole="header">
-              {`Bellie found ${thingsLine(items.length)}`}
+              {`Bellie found ${itemsLine(items.length)}`}
             </AppText>
             <View style={styles.chips}>
               {items.map((item) => (
@@ -250,19 +251,11 @@ export default function FridgeScreen() {
                 </Pressable>
               ))}
             </View>
-            <AppText variant="caption" color="inkMuted">
-              Not quite right? Tap × to remove.
-            </AppText>
           </>
         )}
       </ScrollView>
 
       <View style={styles.footer}>
-        {!picking && (
-          <AppText variant="caption" color="inkMuted">
-            {PRIVACY}
-          </AppText>
-        )}
         {picking ? (
           <Button
             label={failure ? 'Try again' : scanning ? 'Looking…' : 'Find ingredients'}
@@ -270,7 +263,10 @@ export default function FridgeScreen() {
             onPress={() => void find()}
           />
         ) : (
-          <Button label="Retake photos" onPress={retake} />
+          <>
+            <Button label="Done" onPress={() => router.back()} />
+            <Button label="Add more photos" variant="secondary" onPress={addMore} />
+          </>
         )}
       </View>
     </Screen>

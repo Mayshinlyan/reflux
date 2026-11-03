@@ -570,7 +570,7 @@ describe('Kitchen: My fridge', () => {
     replaceFridge(mockDb, ['eggs', 'rice', 'kimchi']);
     await render(<KitchenScreen />);
 
-    expect(screen.getByText('3 things')).toBeTruthy();
+    expect(screen.getByText('3 items')).toBeTruthy();
     expect(screen.getByText('Updated today')).toBeTruthy();
     expect(screen.queryByText('Update your fridge?')).toBeNull();
   });
