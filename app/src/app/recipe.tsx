@@ -36,7 +36,7 @@ import { logger } from '@/lib/logger';
 import { recipeMeta } from '@/lib/recipe';
 import { getRecipeDraft } from '@/lib/recipeDraft';
 import { lookFor } from '@/lib/recipeLook';
-import { minTouchTarget, radius, space, useColors } from '@/theme';
+import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
 
 type Shown = { recipe: Recipe; cuisine: CuisineKey; saved: StoredRecipe | null };
@@ -122,7 +122,7 @@ export default function RecipeScreen() {
         </View>
 
         {/* One white card, dark titles on white: coloured text on a coloured box was hard to read (Figma 29e). */}
-        <View style={[styles.card, styles.whyCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.card, styles.whyCard, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
           <View style={styles.whyBlock}>
             <View style={styles.whyHeader}>
               <View style={[styles.whyIcon, { backgroundColor: colors.sageTint }]}>
@@ -150,7 +150,7 @@ export default function RecipeScreen() {
         </View>
 
         {/* Opens and closes from its header (Figma 29e2). It always starts open: you need it before you cook. */}
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+        <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Ingredients, ${recipe.ingredients.length} items`}

@@ -164,13 +164,10 @@ describe('History: the week', () => {
     expect(screen.queryByRole('button', { name: 'Profile' })).toBeNull();
   });
 
-  it('has a Feedback button at the lower right that opens the feedback sheet', async () => {
+  it('has no Feedback button, which lives on the Kitchen page now', async () => {
     await render(<HistoryScreen />);
 
-    expect(screen.queryByRole('header', { name: 'Tell us what you think' })).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: 'Feedback' }));
-
-    expect(screen.getByRole('header', { name: 'Tell us what you think' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Feedback' })).toBeNull();
   });
 
   it('says in a warm line under the title which period this is, like the date under Today', async () => {

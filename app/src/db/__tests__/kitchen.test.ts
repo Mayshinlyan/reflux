@@ -160,8 +160,11 @@ describe('Delete all my data', () => {
     saveRecipe(db, recipe, 'korean');
     createAvoidFood(db, 'Pork');
     setSetting(db, 'kitchenServes', 4);
+    setSetting(db, 'kitchenIdeas', { cuisine: 'korean', recipes: [recipe] });
 
     deleteAllData(db);
+
+    expect(getSetting(db, 'kitchenIdeas')).toBeNull();
 
     expect(db.select().from(savedRecipes).all()).toHaveLength(0);
     expect(db.select().from(avoidFoods).all()).toHaveLength(0);
@@ -176,7 +179,21 @@ describe('Kitchen settings', () => {
       kitchenTime: '40',
       kitchenServes: 2,
       kitchenRounds: { day: '', count: 0 },
+      kitchenIdeas: null,
     });
+  });
+
+  it('keep the last round of ideas, and refuse a round that is not recipes', () => {
+    const ideas = { cuisine: 'korean' as const, recipes: [recipe] };
+    setSetting(db, 'kitchenIdeas', ideas);
+    expect(getSetting(db, 'kitchenIdeas')).toEqual(ideas);
+    setSetting(db, 'kitchenIdeas', null);
+    expect(getSetting(db, 'kitchenIdeas')).toBeNull();
+
+    expect(() => setSetting(db, 'kitchenIdeas', { cuisine: 'martian', recipes: [] } as never)).toThrow();
+    expect(() =>
+      setSetting(db, 'kitchenIdeas', { cuisine: 'korean', recipes: [{ title: 'x' }] } as never),
+    ).toThrow();
   });
 
   it('save the last choices and the day’s rounds', () => {

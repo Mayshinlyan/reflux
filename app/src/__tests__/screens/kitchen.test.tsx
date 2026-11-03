@@ -420,10 +420,92 @@ describe('Kitchen: getting ideas', () => {
     await ask();
     await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
 
-    await fireEvent.press(screen.getAllByRole('button', { name: 'Cook this' })[1]!);
+    await fireEvent.press(screen.getAllByRole('button', { name: 'Use this recipe' })[1]!);
 
     expect(getRecipeDraft()?.recipe.title).toBe('Tofu soondubu stew');
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/recipe'));
+  });
+});
+
+describe('Kitchen: Feedback', () => {
+  it('has a Feedback button at the lower right that opens the feedback sheet', async () => {
+    await render(<KitchenScreen />);
+
+    expect(screen.queryByRole('header', { name: 'Tell us what you think' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Feedback' }));
+
+    expect(screen.getByRole('header', { name: 'Tell us what you think' })).toBeTruthy();
+  });
+});
+
+describe('Kitchen: AI Ideas', () => {
+  it('has no AI Ideas button before any ideas were made', async () => {
+    await render(<KitchenScreen />);
+
+    expect(screen.queryByRole('button', { name: /^AI Ideas/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Get ideas' })).toBeTruthy();
+  });
+
+  it('keeps the round after the sheet is closed, and AI Ideas (3) brings the same three back', async () => {
+    fetchIdeas.mockResolvedValue(ideas);
+    await render(<KitchenScreen />);
+    await ask();
+    await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
+
+    await press('Close');
+    expect(screen.getByRole('button', { name: 'New ideas' })).toBeTruthy();
+    await press('AI Ideas, 3');
+
+    expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy();
+    expect(screen.getByText('Tofu soondubu stew')).toBeTruthy();
+    expect(screen.getByText('Miso salmon bowl')).toBeTruthy();
+    // Looking back asks nothing of the AI and does not count as a round.
+    expect(fetchIdeas).toHaveBeenCalledTimes(1);
+    expect(getSetting(mockDb, 'kitchenRounds').count).toBe(1);
+  });
+
+  it('shows the last round after the app was restarted', async () => {
+    setSetting(mockDb, 'kitchenIdeas', { cuisine: 'korean', recipes: ideas });
+    await render(<KitchenScreen />);
+
+    await press('AI Ideas, 3');
+
+    expect(screen.getByText('Korean recipe ideas')).toBeTruthy();
+    expect(screen.getByText('Miso salmon bowl')).toBeTruthy();
+  });
+
+  it('can still ask for more from the ideas it brought back', async () => {
+    setSetting(mockDb, 'kitchenIdeas', { cuisine: 'korean', recipes: ideas });
+    fetchIdeas.mockResolvedValue([recipe('Chicken congee')]);
+    await render(<KitchenScreen />);
+    await press('AI Ideas, 3');
+
+    await press('Generate more');
+
+    await waitFor(() => expect(screen.getByText('Chicken congee')).toBeTruthy());
+    expect(fetchIdeas.mock.calls[0]?.[0]).toMatchObject({
+      cuisine: 'korean',
+      shown: ['Kimchi egg fried rice', 'Tofu soondubu stew', 'Miso salmon bowl'],
+    });
+    expect(getSetting(mockDb, 'kitchenIdeas')?.recipes[0]?.title).toBe('Chicken congee');
+  });
+
+  it('does not keep a failed round', async () => {
+    fetchIdeas.mockRejectedValue(new AppError('NETWORK'));
+    await render(<KitchenScreen />);
+    await ask();
+
+    await waitFor(() => expect(screen.getByText("Couldn't get ideas")).toBeTruthy());
+    expect(getSetting(mockDb, 'kitchenIdeas')).toBeNull();
+  });
+
+  it('is still there when the kitchen is closed for the day', async () => {
+    setSetting(mockDb, 'kitchenRounds', { day: todayKey(), count: 10 });
+    setSetting(mockDb, 'kitchenIdeas', { cuisine: 'korean', recipes: ideas });
+    await render(<KitchenScreen />);
+
+    expect(screen.getByRole('button', { name: 'Back tomorrow' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'AI Ideas, 3' })).toBeEnabled();
   });
 });
 

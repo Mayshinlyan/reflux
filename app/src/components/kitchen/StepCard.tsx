@@ -13,7 +13,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { type StepKind, stepKind, stepTime, stepTone } from '@/lib/recipeSteps';
-import { radius, space, useColors } from '@/theme';
+import { cardEdge, radius, space, useColors } from '@/theme';
 
 const ICONS: Record<StepKind, LucideIcon> = {
   wait: Timer,
@@ -44,7 +44,7 @@ export function StepCard({ index, total, text }: Props) {
   const tone = stepTone(index);
   const time = stepTime(text);
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface }]}>
+    <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
       <View style={styles.top}>
         <View style={[styles.tile, { backgroundColor: colors[tone.tint] }]}>
           <Icon size={28} color={colors[tone.ink]} strokeWidth={2} />
