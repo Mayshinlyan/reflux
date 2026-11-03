@@ -281,6 +281,19 @@ describe('symptom logs', () => {
     });
   });
 
+  it('sets or takes off the meal link on update, and leaves it when none is given', () => {
+    const { db } = createTestDb();
+    const mealId = createUncheckedMeal(db, { source: 'text', inputText: 'rice' });
+    const id = createSymptomLog(db, { items: [{ key: 'burping' }] });
+    expect(getSymptomLog(db, id)?.foodLogId).toBeNull();
+
+    updateSymptomLog(db, id, { items: [{ key: 'burping' }], foodLogId: mealId });
+    expect(getSymptomLog(db, id)?.foodLogId).toBe(mealId);
+
+    updateSymptomLog(db, id, { items: [{ key: 'burping' }], foodLogId: null });
+    expect(getSymptomLog(db, id)?.foodLogId).toBeNull();
+  });
+
   it('deletes items and tags with the log (cascade)', () => {
     const { db } = createTestDb();
     const id = createSymptomLog(db, { items: [{ key: 'heartburn' }], tags: ['stress'] });

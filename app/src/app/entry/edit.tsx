@@ -1,26 +1,20 @@
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { type ReactNode, useMemo, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  type ScrollViewInstance,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
+import { Belly } from '@/components/Belly';
 import { Button } from '@/components/Button';
 import { DoseFields, isOtherDose } from '@/components/DoseFields';
-import { FoodDetails, MEAL_SYMPTOM_KEYS, type MealDetailsState } from '@/components/food/FoodDetails';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
+import { NameField } from '@/components/NameField';
 import { Screen } from '@/components/Screen';
+import { TextField } from '@/components/TextField';
 import { TimePill } from '@/components/TimePill';
 import { useToast } from '@/components/Toast';
-import { isCustomTag, type LoggedTagKey } from '@/constants/lifestyleTags';
-import { isCustomSymptom, type LoggedSymptomKey } from '@/constants/symptomItems';
+import { VerdictPicker } from '@/components/VerdictPicker';
 import { useDb } from '@/db/DatabaseProvider';
 import {
   type FoodLogEdit,
@@ -31,27 +25,24 @@ import {
   updateFoodLog,
 } from '@/db/repositories/food';
 import { updateMedicationLog } from '@/db/repositories/medications';
-import { isFoodSaved, saveFoodFromLog } from '@/db/repositories/savedFoods';
-import { listSymptomLogsForMeal, setMealSymptoms } from '@/db/repositories/symptoms';
 import type { MedicationLog } from '@/db/schema';
-import { useSavedAdditions } from '@/hooks/useSavedAdditions';
+import { bellyMoodFor } from '@/lib/belly';
 import { loadEntry } from '@/lib/entry';
 import { logger } from '@/lib/logger';
 import { earliestMealTime, formatMealTime } from '@/lib/mealTime';
 import { medicationTypeLabel } from '@/lib/timeline';
 import { effectiveVerdict } from '@/lib/verdict';
 import { radius, space, typography, useColors } from '@/theme';
+import type { AppVerdict } from '@/types/analysis';
 
 const MAX_NOTE = 500;
 const SAVE_FAILED = "We couldn't save that. Please try again.";
 
-const unique = <T,>(items: T[]) => [...new Set(items)];
-
 /**
- * Edit entry (Figma 15a meal, 15b dose): the same pages as logging, for something already in History. A meal
- * is the check-in layout (name editable, "+" chips, star); a dose is the dose details (Dose and Note). Changed
- * with Save changes and left alone with the back arrow. Symptom entries have their own editor and never come
- * here.
+ * Edit entry (Figma 15a meal, 15b dose), for something already in History. A meal is laid out like its entry
+ * page: the editable name, time, Bellie, a verdict dropdown and a note. The favorite heart is not here: it lives on
+ * the entry page and acts at once. A dose is the dose details (Dose and Note). Changed with Save changes and left alone with the back arrow. Symptom entries
+ * have their own editor and never come here.
  */
 export default function EditEntryScreen() {
   const db = useDb();
@@ -119,47 +110,13 @@ function Footer({ children }: { children: ReactNode }) {
 function MealEdit({ log }: { log: StoredFoodLog }) {
   const db = useDb();
   const toast = useToast();
-  const additions = useSavedAdditions();
-  const alreadySaved = useMemo(() => isFoodSaved(db, log.mealName), [db, log.mealName]);
-  // What is on the meal now, read once: the typed ones among it are offered as chips next to the saved ones.
-  const [initial] = useState(() => ({
-    tags: listMealTags(db, log.id),
-    symptoms: listSymptomLogsForMeal(db, log.id)
-      .flatMap((after) => after.items.map((item) => item.key))
-      .filter(
-        (key): key is LoggedSymptomKey =>
-          MEAL_SYMPTOM_KEYS.some((meal) => meal === key) || isCustomSymptom(key),
-      ),
-  }));
-
+  const initialVerdict = log.analysis ? effectiveVerdict(log.analysis) : null;
   const time = useTimePick(new Date(log.loggedAt));
   const [name, setName] = useState(log.mealName);
-  const [details, setDetails] = useState<MealDetailsState>({
-    tags: new Set<LoggedTagKey>(initial.tags),
-    symptoms: new Set<LoggedSymptomKey>(initial.symptoms),
-    note: log.notes ?? '',
-    keep: false,
-  });
-  const scroll = useRef<ScrollViewInstance>(null);
+  const [verdict, setVerdict] = useState<AppVerdict | null>(initialVerdict);
+  const [note, setNote] = useState(log.notes ?? '');
   // A ref, not state, so a quick second tap can't start a second save before the re-render.
   const saving = useRef(false);
-  const verdict = log.analysis ? effectiveVerdict(log.analysis) : null;
-
-  const ownTags = unique([...additions.ownTagKeys, ...initial.tags.filter(isCustomTag)]);
-  const ownSymptoms = unique([...additions.ownSymptomKeys, ...initial.symptoms.filter(isCustomSymptom)]);
-  /** Typed in a "+" chip: saved to My additions and picked on this meal. */
-  const addTag = (text: string) => {
-    const key = additions.addTag(text);
-    if (!key) return;
-    Haptics.selectionAsync().catch(() => {});
-    setDetails((current) => ({ ...current, tags: new Set(current.tags).add(key) }));
-  };
-  const addSymptom = (text: string) => {
-    const key = additions.addSymptom(text);
-    if (!key) return;
-    Haptics.selectionAsync().catch(() => {});
-    setDetails((current) => ({ ...current, symptoms: new Set(current.symptoms).add(key) }));
-  };
 
   const trimmedName = name.trim();
   const save = () => {
@@ -167,21 +124,11 @@ function MealEdit({ log }: { log: StoredFoodLog }) {
     saving.current = true;
     const edit: FoodLogEdit = { name: trimmedName };
     if (time.at.getTime() !== new Date(log.loggedAt).getTime()) edit.loggedAt = time.at.toISOString();
+    if (verdict && verdict !== initialVerdict) edit.verdict = verdict;
     try {
       updateFoodLog(db, log.id, edit);
-      saveMealDetails(db, log.id, {
-        loggedAt: edit.loggedAt,
-        tags: [...details.tags],
-        notes: details.note,
-      });
-      // Typed symptoms can be taken off too, not only the ones offered after a meal.
-      const managed = unique([
-        ...MEAL_SYMPTOM_KEYS,
-        ...ownSymptoms,
-        ...[...details.symptoms].filter(isCustomSymptom),
-      ]);
-      setMealSymptoms(db, log.id, [...details.symptoms], managed, time.at.toISOString());
-      if (details.keep) saveFoodFromLog(db, log.id);
+      // The factors on the meal are no longer edited here, so they are written back as they are.
+      saveMealDetails(db, log.id, { loggedAt: edit.loggedAt, tags: listMealTags(db, log.id), notes: note });
     } catch (error) {
       logger.error('saveEntry', error);
       toast(SAVE_FAILED);
@@ -196,27 +143,42 @@ function MealEdit({ log }: { log: StoredFoodLog }) {
   return (
     <Screen>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <BackHeader title="Edit entry" />
+        {/* Like the entry page, without its heart: no title, just the back circle. The favorite heart lives on the entry page. */}
+        <BackHeader />
         <ScrollView
-          ref={scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.content}>
-          <FoodDetails
-            edit={{ verdict, onRename: setName, maxName: MAX_MEAL_NAME }}
-            mealName={name}
-            canFavorite={!alreadySaved}
-            whenLabel={time.label}
-            onPickTime={time.open}
-            state={details}
-            onChange={setDetails}
-            maxNote={MAX_NOTE}
-            ownTags={ownTags}
-            ownSymptoms={ownSymptoms}
-            onAddTag={addTag}
-            onAddSymptom={addSymptom}
-            onReveal={(y) => scroll.current?.scrollTo({ y: Math.max(0, y - space.s2), animated: true })}
-          />
+          contentContainerStyle={styles.mealContent}>
+          <View style={styles.stretch}>
+            <NameField
+              centered
+              label="Meal name"
+              value={name}
+              onChangeText={setName}
+              maxLength={MAX_MEAL_NAME}
+              placeholder="Name this meal"
+            />
+          </View>
+          <TimePill label={time.label} onPress={time.open} />
+          {verdict && (
+            <>
+              <Belly mood={bellyMoodFor(verdict)} size={120} />
+              <VerdictPicker value={verdict} onChange={setVerdict} />
+            </>
+          )}
+          <View style={[styles.stretch, styles.noteBlock]}>
+            <AppText variant="section">Note</AppText>
+            <TextField
+              label="Note"
+              hideLabel
+              multiline
+              minHeight={96}
+              value={note}
+              onChangeText={setNote}
+              placeholder="Add a note (optional)"
+              maxLength={MAX_NOTE}
+            />
+          </View>
         </ScrollView>
         <Footer>
           <Button label="Save changes" onPress={save} disabled={!trimmedName} />
@@ -294,6 +256,10 @@ function DoseEdit({ log }: { log: MedicationLog }) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { gap: space.s4, paddingBottom: space.s3 },
+  // The meal page is one centred column, like the entry page it came from.
+  mealContent: { gap: space.s3, alignItems: 'center', paddingBottom: space.s3 },
+  stretch: { alignSelf: 'stretch' },
+  noteBlock: { gap: space.s1_5 },
   footer: { paddingTop: space.s2 },
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   typeBadge: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill },
