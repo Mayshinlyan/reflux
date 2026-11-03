@@ -12,6 +12,7 @@
       "icon": "./assets/belly.icon",
       "supportsTablet": false,
       "infoPlist": {
+        "CFBundleDisplayName": "Bellie",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
