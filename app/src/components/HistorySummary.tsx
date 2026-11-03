@@ -15,32 +15,26 @@ import type { Insight } from '@/types/insight';
 
 import { AppText } from './AppText';
 import { Belly } from './Belly';
-import { CarouselDots, DOTS_ROW } from './CarouselDots';
-import { tabBarHeight } from './FloatingTabBar';
+import { tabBarClearance } from './FloatingTabBar';
 import { DaysCard } from './stats/DaysCard';
 import { MealsCard } from './stats/MealsCard';
-import { StatCard, StatHeader } from './stats/StatCard';
+import { CardNavContext, StatCard, StatHeader } from './stats/StatCard';
 import { WhenCard } from './stats/WhenCard';
 import { TipsCard } from './TipsCard';
 import { VERDICT_LABELS } from './VerdictBadge';
 
 const CARD_GAP = 12;
-/** The gap between the dots and the tab bar (Figma 12b). */
-const TAB_BAR_GAP = 8;
-/** The least a card is tall, so the Food donut and the bars have room on a short phone (it then scrolls under the bar). */
-export const CARD_MIN_HEIGHT = 470;
+/** The least a card is tall, so it is still a card on a very short phone; what it holds then scrolls inside it. */
+export const CARD_MIN_HEIGHT = 320;
 
 /**
- * The card fills the list's visible height from where it starts down to just above the floating tab bar (less the
- * row of dots under it), so the stats are what History opens on and never sit under the bar. A card with more to
- * say than that, like Bellie's week in long words, grows to fit it rather than being cut off, and the other cards
- * grow with it. `listHeight` is the list's own height and `above` the height of what sits over the card.
+ * Every card is this one height (Figma row 36): from where the carousel starts down to a gap above the floating tab
+ * bar and the Log button that rises over it, so a card never sits under the bar and never changes size. The stats
+ * are what History opens on. `listHeight` is the list's own height and `above` the height of what sits over the
+ * card.
  */
 export const statsCardHeight = (listHeight: number, above: number, bottomInset: number) =>
-  Math.max(
-    CARD_MIN_HEIGHT,
-    Math.round(listHeight - above - (tabBarHeight(bottomInset) + TAB_BAR_GAP + DOTS_ROW)),
-  );
+  Math.max(CARD_MIN_HEIGHT, Math.round(listHeight - above - tabBarClearance(bottomInset)));
 
 /** The donut at its largest; it shrinks to fit a narrow or short card. */
 const DONUT_MAX = 256;
@@ -51,10 +45,10 @@ const FOOD_FIXED = 264;
 const FOOD_EXTRA_LINE = 32;
 
 /**
- * Figma "04a" and row 28: the stats carousel, full-width swipeable cards for the shown period with round page
- * dots under them (tap one to jump to that card). In order: how the week or month went (not for all time or
- * picked dates), what sat well, when symptoms show up, and Food. With Bellie's summary of the week (`insight`),
- * her card comes first (Figma "04a.4", "12b").
+ * Figma "04a" and rows 28 and 36: the stats carousel, full-width swipeable cards of one fixed height for the shown
+ * period, each with two small arrows at its top right to go to the previous or next card. In order: how the week or
+ * month went (not for all time or picked dates), what sat well, when symptoms show up, and Food. With Bellie's
+ * summary of the week (`insight`), her card comes first (Figma "04a.4", "12b").
  */
 export function HistorySummary({
   summary,
@@ -75,8 +69,13 @@ export function HistorySummary({
   const reduceMotion = useReducedMotion();
   // Food, what sat well and when it shows up are always there; the days only for a week or a month.
   const count = 3 + (stats.unit ? 1 : 0) + (insight ? 1 : 0);
+  const nav = {
+    page: Math.min(page, count),
+    total: count,
+    goTo: (next: number) => scroll.current?.scrollTo({ x: (next - 1) * step, animated: !reduceMotion }),
+  };
   return (
-    <View>
+    <CardNavContext.Provider value={nav}>
       <ScrollView
         ref={scroll}
         horizontal
@@ -96,12 +95,7 @@ export function HistorySummary({
         <WhenCard stats={stats} summary={summary} width={cardWidth} height={height} />
         <FoodCard summary={summary} stats={stats} width={cardWidth} height={height} />
       </ScrollView>
-      <CarouselDots
-        page={Math.min(page, count)}
-        total={count}
-        onSelect={(next) => scroll.current?.scrollTo({ x: (next - 1) * step, animated: !reduceMotion })}
-      />
-    </View>
+    </CardNavContext.Provider>
   );
 }
 
