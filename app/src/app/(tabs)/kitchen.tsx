@@ -7,6 +7,7 @@ import { AppText } from '@/components/AppText';
 import { Belly } from '@/components/Belly';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
+import { FeedbackButton, feedbackButtonClearance } from '@/components/FeedbackButton';
 import { tabBarClearance } from '@/components/FloatingTabBar';
 import { AiIdeasButton } from '@/components/kitchen/AiIdeasButton';
 import { IdeasPanel, type IdeasStatus } from '@/components/kitchen/IdeasPanel';
@@ -194,7 +195,11 @@ export default function KitchenScreen() {
   return (
     <Screen edges={['top', 'left', 'right']}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance(insets.bottom) }]}
+        // The Feedback pill floats over the lower right, so the last saved recipe scrolls up past it.
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: Math.max(tabBarClearance(insets.bottom), feedbackButtonClearance(insets.bottom)) },
+        ]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.heading}>
           <AppText variant="display" accessibilityRole="header">
@@ -252,6 +257,8 @@ export default function KitchenScreen() {
           )}
         </View>
       </ScrollView>
+
+      <FeedbackButton />
 
       <IdeasSheet
         key={`ask-${opened}`}

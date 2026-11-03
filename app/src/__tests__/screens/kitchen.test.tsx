@@ -427,6 +427,17 @@ describe('Kitchen: getting ideas', () => {
   });
 });
 
+describe('Kitchen: Feedback', () => {
+  it('has a Feedback button at the lower right that opens the feedback sheet', async () => {
+    await render(<KitchenScreen />);
+
+    expect(screen.queryByRole('header', { name: 'Tell us what you think' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Feedback' }));
+
+    expect(screen.getByRole('header', { name: 'Tell us what you think' })).toBeTruthy();
+  });
+});
+
 describe('Kitchen: AI Ideas', () => {
   it('has no AI Ideas button before any ideas were made', async () => {
     await render(<KitchenScreen />);
