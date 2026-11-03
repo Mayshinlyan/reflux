@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import RecipeScreen from '@/app/recipe';
 import { createTestDb } from '@/db/__tests__/testDb';
+import { replaceFridge } from '@/db/repositories/fridgeItems';
 import { getSavedRecipe, listSavedRecipes, saveRecipe } from '@/db/repositories/savedRecipes';
 import type { AppDb } from '@/db/types';
 import { setRecipeDraft } from '@/lib/recipeDraft';
@@ -247,5 +248,33 @@ describe('Recipe: how was it', () => {
 
     await press('Not for me');
     expect(getSavedRecipe(mockDb, saved.id)?.rating).toBeNull();
+  });
+});
+
+describe('Recipe: with a fridge', () => {
+  it('ticks what you have, marks the rest "to buy", and says how many it uses', async () => {
+    replaceFridge(mockDb, ['rice', 'eggs']);
+    await render(<RecipeScreen />);
+
+    expect(screen.getByText('Uses 2 from your fridge')).toBeTruthy();
+    expect(screen.getAllByLabelText('In your fridge')).toHaveLength(2);
+    expect(screen.getAllByText('to buy')).toHaveLength(1);
+    expect(screen.getByText('1 tbsp sesame oil')).toBeTruthy();
+  });
+
+  it('shows plain ingredients, with no ticks or "to buy", when the fridge is empty', async () => {
+    await render(<RecipeScreen />);
+
+    expect(screen.queryByText(/from your fridge/)).toBeNull();
+    expect(screen.queryByLabelText('In your fridge')).toBeNull();
+    expect(screen.queryByText('to buy')).toBeNull();
+  });
+
+  it('says nothing about the fridge when none of it is in the recipe', async () => {
+    replaceFridge(mockDb, ['milk']);
+    await render(<RecipeScreen />);
+
+    expect(screen.queryByText(/from your fridge/)).toBeNull();
+    expect(screen.getAllByText('to buy')).toHaveLength(3);
   });
 });

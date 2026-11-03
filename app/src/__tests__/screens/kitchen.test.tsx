@@ -5,8 +5,10 @@ import { createTestDb } from '@/db/__tests__/testDb';
 import * as avoidFoodsRepo from '@/db/repositories/avoidFoods';
 import { createAvoidFood } from '@/db/repositories/avoidFoods';
 import { createSavedFood } from '@/db/repositories/savedFoods';
+import { replaceFridge } from '@/db/repositories/fridgeItems';
 import { saveRecipe } from '@/db/repositories/savedRecipes';
 import { getSetting, setSetting } from '@/db/repositories/settings';
+import { fridgeItems } from '@/db/schema';
 import type { AppDb } from '@/db/types';
 import { AppError } from '@/lib/errors';
 import { todayKey } from '@/lib/kitchen';
@@ -548,5 +550,88 @@ describe('Kitchen: the daily limit', () => {
 
     await waitFor(() => expect(screen.getByText('Kitchen is closed')).toBeTruthy());
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  });
+});
+
+describe('Kitchen: My fridge', () => {
+  const daysAgoIso = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  it('invites you to add a fridge when there is none, and opens My fridge', async () => {
+    await render(<KitchenScreen />);
+
+    expect(screen.getByRole('header', { name: 'My fridge' })).toBeTruthy();
+    expect(screen.getByText('Add your fridge')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: /^My fridge, Add your fridge/ }));
+
+    expect(mockPush).toHaveBeenCalledWith('/fridge');
+  });
+
+  it('shows how many things and when it was updated', async () => {
+    replaceFridge(mockDb, ['eggs', 'rice', 'kimchi']);
+    await render(<KitchenScreen />);
+
+    expect(screen.getByText('3 things')).toBeTruthy();
+    expect(screen.getByText('Updated today')).toBeTruthy();
+    expect(screen.queryByText('Update your fridge?')).toBeNull();
+  });
+
+  it('asks "Update your fridge?" once it is a week old', async () => {
+    replaceFridge(mockDb, ['eggs', 'rice']);
+    mockDb
+      .update(fridgeItems)
+      .set({ createdAt: daysAgoIso(9) })
+      .run();
+    await render(<KitchenScreen />);
+
+    expect(screen.getByText('Update your fridge?')).toBeTruthy();
+    expect(screen.queryByText(/^Updated /)).toBeNull();
+  });
+
+  it('turns "Use my fridge" off and dimmed in the sheet when the fridge is empty', async () => {
+    await render(<KitchenScreen />);
+    await press('Get ideas');
+
+    const toggle = screen.getByRole('switch', { name: 'Use my fridge' });
+    expect(toggle.props.value).toBe(false);
+    expect(toggle.props.disabled).toBe(true);
+    expect(screen.getByText('Use my fridge · none yet')).toBeTruthy();
+  });
+
+  it('sends the fridge with the request when the switch is on', async () => {
+    replaceFridge(mockDb, ['eggs', 'rice']);
+    fetchIdeas.mockResolvedValue(ideas);
+    await render(<KitchenScreen />);
+    await press('Get ideas');
+
+    expect(screen.getByRole('switch', { name: 'Use my fridge' }).props.value).toBe(true);
+    await fireEvent.press(sheetGetIdeas());
+
+    await waitFor(() => expect(fetchIdeas).toHaveBeenCalled());
+    expect(fetchIdeas.mock.calls[0]?.[0]).toMatchObject({ fridge: ['eggs', 'rice'] });
+    await act(async () => {});
+  });
+
+  it('leaves the fridge out when the switch is off, and remembers that next time', async () => {
+    replaceFridge(mockDb, ['eggs', 'rice']);
+    fetchIdeas.mockResolvedValue(ideas);
+    await render(<KitchenScreen />);
+    await press('Get ideas');
+    await fireEvent(screen.getByRole('switch', { name: 'Use my fridge' }), 'valueChange', false);
+    await fireEvent.press(sheetGetIdeas());
+
+    await waitFor(() => expect(fetchIdeas).toHaveBeenCalled());
+    expect(fetchIdeas.mock.calls[0]?.[0]).not.toHaveProperty('fridge');
+    expect(getSetting(mockDb, 'kitchenUseFridge')).toBe(false);
+    await act(async () => {});
+  });
+
+  it('does not forget a "yes" because the fridge was empty for a while', async () => {
+    fetchIdeas.mockResolvedValue(ideas);
+    await render(<KitchenScreen />);
+    await ask();
+
+    await waitFor(() => expect(fetchIdeas).toHaveBeenCalled());
+    expect(getSetting(mockDb, 'kitchenUseFridge')).toBe(true);
+    await act(async () => {});
   });
 });

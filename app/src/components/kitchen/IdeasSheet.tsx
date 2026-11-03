@@ -1,6 +1,6 @@
 import { Check, ChevronDown, ChevronUp, Minus, Plus, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { BottomSheet } from '@/components/BottomSheet';
@@ -19,7 +19,14 @@ import {
 import { skipsLine } from '@/lib/kitchenCopy';
 import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
 
-export type IdeasChoices = { cuisine: CuisineKey; time: RecipeTime; serves: number; want: string };
+export type IdeasChoices = {
+  cuisine: CuisineKey;
+  time: RecipeTime;
+  serves: number;
+  want: string;
+  /** Build the ideas from what is in the saved fridge. Always false when the fridge is empty. */
+  useFridge: boolean;
+};
 
 type Props = {
   visible: boolean;
@@ -28,6 +35,8 @@ type Props = {
   onDismissed?: () => void;
   /** Where the choices start: the last ones used. */
   initial: Omit<IdeasChoices, 'want'>;
+  /** How many things the saved fridge holds. With none, "Use my fridge" is off and dimmed (Figma 29b3). */
+  fridgeCount: number;
   /** The "I don't eat" list, so the sheet can say what is skipped. */
   skipped: readonly string[];
   onSubmit: (choices: IdeasChoices) => void;
@@ -42,12 +51,23 @@ const OPTION_HEIGHT = 44;
  * how many it serves, and ingredients you would like to use. Get ideas hands the choices over. Give it a new `key`
  * each time it opens so it starts from the last choices with an empty ingredients field.
  */
-export function IdeasSheet({ visible, onClose, onDismissed, initial, skipped, onSubmit }: Props) {
+export function IdeasSheet({
+  visible,
+  onClose,
+  onDismissed,
+  initial,
+  fridgeCount,
+  skipped,
+  onSubmit,
+}: Props) {
   const colors = useColors();
   const [cuisine, setCuisine] = useState(initial.cuisine);
   const [time, setTime] = useState(initial.time);
   const [serves, setServes] = useState(initial.serves);
+  const [fridgeOn, setFridgeOn] = useState(initial.useFridge);
   const [want, setWant] = useState('');
+  const hasFridge = fridgeCount > 0;
+  const useFridge = hasFridge && fridgeOn;
   const [menuOpen, setMenuOpen] = useState(false);
   const skips = skipsLine(skipped);
 
@@ -141,6 +161,25 @@ export function IdeasSheet({ visible, onClose, onDismissed, initial, skipped, on
           </View>
         </View>
 
+        <View
+          style={[
+            styles.row,
+            { backgroundColor: colors.surface, ...cardEdge(colors), opacity: hasFridge ? 1 : 0.55 },
+          ]}>
+          <AppText style={styles.rowLabel}>
+            {hasFridge ? 'Use my fridge' : 'Use my fridge · none yet'}
+          </AppText>
+          <Switch
+            accessibilityLabel="Use my fridge"
+            accessibilityHint={hasFridge ? undefined : 'Add your fridge on the Kitchen page first'}
+            value={useFridge}
+            disabled={!hasFridge}
+            onValueChange={setFridgeOn}
+            trackColor={{ false: colors.surface2, true: colors.cta }}
+            ios_backgroundColor={colors.surface2}
+          />
+        </View>
+
         <TextField
           label="Ingredients to use"
           hideLabel
@@ -157,7 +196,7 @@ export function IdeasSheet({ visible, onClose, onDismissed, initial, skipped, on
           {skips}
         </AppText>
       ) : null}
-      <Button label="Get ideas" onPress={() => onSubmit({ cuisine, time, serves, want })} />
+      <Button label="Get ideas" onPress={() => onSubmit({ cuisine, time, serves, want, useFridge })} />
     </BottomSheet>
   );
 }

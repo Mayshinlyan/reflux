@@ -10,6 +10,7 @@ import { Button } from '@/components/Button';
 import { FeedbackButton, feedbackButtonClearance } from '@/components/FeedbackButton';
 import { tabBarClearance } from '@/components/FloatingTabBar';
 import { AiIdeasButton } from '@/components/kitchen/AiIdeasButton';
+import { FridgeRow } from '@/components/kitchen/FridgeRow';
 import { IdeasPanel, type IdeasStatus } from '@/components/kitchen/IdeasPanel';
 import { type IdeasChoices, IdeasSheet } from '@/components/kitchen/IdeasSheet';
 import { RecipeRow } from '@/components/kitchen/RecipeRow';
@@ -17,6 +18,7 @@ import { Screen } from '@/components/Screen';
 import { type CuisineKey, isCuisineKey, isRecipeTime } from '@/constants/cuisines';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { listAvoidFoods } from '@/db/repositories/avoidFoods';
+import { fridgeUpdatedAt, listFridgeItems } from '@/db/repositories/fridgeItems';
 import { listSavedRecipes, type StoredRecipe } from '@/db/repositories/savedRecipes';
 import { getSetting } from '@/db/repositories/settings';
 import { AppError, type ErrorCode } from '@/lib/errors';
@@ -43,6 +45,10 @@ export default function KitchenScreen() {
   const insets = useSafeAreaInsets();
   const [saved, setSaved] = useState<StoredRecipe[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]);
+  const [fridge, setFridge] = useState<{ count: number; updatedAt: string | null }>({
+    count: 0,
+    updatedAt: null,
+  });
   const [asking, setAsking] = useState(false);
   // Bumped on every open, so the sheet starts from the last choices with an empty ingredients field.
   const [opened, setOpened] = useState(0);
@@ -62,6 +68,7 @@ export default function KitchenScreen() {
     try {
       setSaved(listSavedRecipes(db));
       setSkipped(listAvoidFoods(db).map((food) => food.name));
+      setFridge({ count: listFridgeItems(db).length, updatedAt: fridgeUpdatedAt(db) });
     } catch (error) {
       logger.error('loadKitchen', error);
     }
@@ -72,6 +79,7 @@ export default function KitchenScreen() {
     cuisine: isCuisineKey(settings.kitchenCuisine) ? settings.kitchenCuisine : 'any',
     time: isRecipeTime(settings.kitchenTime) ? settings.kitchenTime : '40',
     serves: settings.kitchenServes,
+    useFridge: settings.kitchenUseFridge,
   } as const;
   const ideasCount = settings.kitchenIdeas?.recipes.length ?? 0;
 
@@ -100,6 +108,7 @@ export default function KitchenScreen() {
         serves: choices.serves,
         want: parseWanted(choices.want),
         conditions: settings.conditions,
+        useFridge: choices.useFridge,
         shown: shown.current,
       });
       const fetched = await fetchRecipeIdeas(request, controller.signal);
@@ -140,6 +149,8 @@ export default function KitchenScreen() {
       update('kitchenCuisine', choices.cuisine);
       update('kitchenTime', choices.time);
       update('kitchenServes', choices.serves);
+      // With no fridge the sheet can only say "off", which says nothing about what they prefer.
+      if (fridge.count > 0) update('kitchenUseFridge', choices.useFridge);
     } catch (error) {
       logger.error('saveKitchenChoices', error);
     }
@@ -180,6 +191,7 @@ export default function KitchenScreen() {
       time: initial.time,
       serves: initial.serves,
       want: '',
+      useFridge: initial.useFridge && fridge.count > 0,
     };
     if (shown.current.length === 0) shown.current = last.recipes.map((recipe) => recipe.title);
     setResults({ status: 'ready', cuisine: last.cuisine, recipes: last.recipes });
@@ -217,7 +229,7 @@ export default function KitchenScreen() {
               <AppText variant="subtitle" color="inkSoft">
                 {closed
                   ? 'Bellie is back with fresh ideas tomorrow.'
-                  : 'Ideas that go easy on your belly, from what you like.'}
+                  : 'Ideas that go easy on your belly, from what you have.'}
               </AppText>
             </View>
             <Belly mood={closed ? 'okay' : 'happy'} size={72} />
@@ -236,6 +248,17 @@ export default function KitchenScreen() {
               </View>
             )}
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <AppText variant="section" accessibilityRole="header">
+            My fridge
+          </AppText>
+          <FridgeRow
+            count={fridge.count}
+            updatedAt={fridge.updatedAt}
+            onPress={() => router.push('/fridge')}
+          />
         </View>
 
         <View style={styles.section}>
@@ -266,6 +289,7 @@ export default function KitchenScreen() {
         onClose={() => setAsking(false)}
         onDismissed={afterAsk}
         initial={initial}
+        fridgeCount={fridge.count}
         skipped={skipped}
         onSubmit={submit}
       />

@@ -31,13 +31,22 @@ const RECIPE_MESSAGES = [
   'Almost there…',
 ] as const;
 
-export type LoadingSource = 'text' | 'photo' | 'correction' | 'recipes';
+/** Shown on My fridge while the photos are read (Figma 29m). */
+const FRIDGE_MESSAGES = [
+  'Bellie is looking through your fridge…',
+  'Reading the shelves…',
+  'Making your list…',
+  'Almost there…',
+] as const;
+
+export type LoadingSource = 'text' | 'photo' | 'correction' | 'recipes' | 'fridge';
 
 const MESSAGES: Record<LoadingSource, readonly string[]> = {
   text: TEXT_MESSAGES,
   photo: PHOTO_MESSAGES,
   correction: CORRECTION_MESSAGES,
   recipes: RECIPE_MESSAGES,
+  fridge: FRIDGE_MESSAGES,
 };
 
 /** Reassuring progress lines, so a wait feels like work is happening. Stays on the last one. */

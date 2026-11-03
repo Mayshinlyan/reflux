@@ -30,8 +30,10 @@ import {
   setRecipeRating,
   type StoredRecipe,
 } from '@/db/repositories/savedRecipes';
+import { listFridgeItems } from '@/db/repositories/fridgeItems';
 import type { AppDb } from '@/db/types';
 import { friendlyMessages } from '@/lib/errors';
+import { countInFridge, inFridge } from '@/lib/fridge';
 import { logger } from '@/lib/logger';
 import { recipeMeta } from '@/lib/recipe';
 import { getRecipeDraft } from '@/lib/recipeDraft';
@@ -54,6 +56,8 @@ export default function RecipeScreen() {
   const [failed, setFailed] = useState(false);
   // The ingredients start open, and open again each time the page opens.
   const [open, setOpen] = useState(true);
+  // What the saved fridge holds, read once. With nothing in it the page shows no ticks (Figma 29e).
+  const [fridge] = useState(() => fridgeNames(db));
 
   if (!shown) {
     return (
@@ -68,6 +72,7 @@ export default function RecipeScreen() {
   }
 
   const { recipe, cuisine, saved } = shown;
+  const haveCount = fridge.length > 0 ? countInFridge(recipe.ingredients, fridge) : 0;
 
   const toggleSaved = () => {
     try {
@@ -113,11 +118,20 @@ export default function RecipeScreen() {
           <AppText variant="subtitle" color="inkSoft">
             {recipeMeta(recipe)}
           </AppText>
-          <View style={[styles.tag, { backgroundColor: colors.sageTint }]}>
-            <Leaf size={14} color={colors.sageInk} strokeWidth={2} />
-            <AppText variant="label" color="sageInk">
-              Gentle
-            </AppText>
+          <View style={styles.tags}>
+            <View style={[styles.tag, { backgroundColor: colors.sageTint }]}>
+              <Leaf size={14} color={colors.sageInk} strokeWidth={2} />
+              <AppText variant="label" color="sageInk">
+                Gentle
+              </AppText>
+            </View>
+            {haveCount > 0 && (
+              <View style={[styles.tag, { backgroundColor: colors.honeyTint }]}>
+                <AppText variant="label" color="honeyInk">
+                  {`Uses ${haveCount} from your fridge`}
+                </AppText>
+              </View>
+            )}
           </View>
         </View>
 
@@ -171,12 +185,26 @@ export default function RecipeScreen() {
             )}
           </Pressable>
           {open &&
-            recipe.ingredients.map((item, index) => (
-              <View key={`${item}-${index}`} style={styles.ingredient}>
-                <View style={[styles.dot, { backgroundColor: colors.surface2 }]} />
-                <AppText style={styles.fill}>{item}</AppText>
-              </View>
-            ))}
+            recipe.ingredients.map((item, index) => {
+              // With a fridge, each line is ticked (have it) or left open with "to buy" (need it).
+              const have = fridge.length > 0 && inFridge(item, fridge);
+              const need = fridge.length > 0 && !have;
+              return (
+                <View key={`${item}-${index}`} style={styles.ingredient}>
+                  <View
+                    accessibilityLabel={have ? 'In your fridge' : undefined}
+                    style={[styles.dot, { backgroundColor: have ? colors.sageTint : colors.surface2 }]}>
+                    {have && <Check size={14} color={colors.sageInk} strokeWidth={3} />}
+                  </View>
+                  <AppText style={styles.fill}>{item}</AppText>
+                  {need && (
+                    <AppText variant="caption" color="inkMuted">
+                      to buy
+                    </AppText>
+                  )}
+                </View>
+              );
+            })}
         </View>
 
         <View style={styles.steps}>
@@ -238,6 +266,16 @@ export default function RecipeScreen() {
   );
 }
 
+/** The saved fridge's food names; none when it is empty or cannot be read (the page then shows no ticks). */
+function fridgeNames(db: AppDb): string[] {
+  try {
+    return listFridgeItems(db).map((item) => item.name);
+  } catch (error) {
+    logger.error('loadFridgeForRecipe', error);
+    return [];
+  }
+}
+
 /** The recipe to show: a saved one by id, or the one just picked from the ideas. Null when neither is there. */
 function load(db: AppDb, savedParam: string | undefined): Shown | null {
   try {
@@ -288,8 +326,8 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   missing: { flex: 1, justifyContent: 'center', gap: space.s1 },
   heading: { gap: space.s1 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
   tag: {
-    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -318,7 +356,7 @@ const styles = StyleSheet.create({
     minHeight: 36,
     paddingLeft: 4,
   },
-  dot: { width: 10, height: 10, borderRadius: radius.pill },
+  dot: { width: 22, height: 22, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   actions: { flexDirection: 'row', gap: space.s1 + 4 },
   rate: { flexDirection: 'row', alignItems: 'center', gap: space.s1 + 4 },
   thumb: {

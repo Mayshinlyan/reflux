@@ -32,3 +32,24 @@ export function ideasErrorMessage(code: ErrorCode): string {
       return 'Something went wrong. Try again in a moment.';
   }
 }
+
+/** Why a fridge scan did not give a list, in Bellie's plain words (Figma 29o). The old list stays as it was. */
+export function fridgeErrorMessage(code: ErrorCode | 'EMPTY'): string {
+  switch (code) {
+    case 'OFFLINE':
+    case 'NETWORK':
+      return 'Check your connection and try again.';
+    case 'AI_TIMEOUT':
+      return 'That took longer than expected. Try again in a moment.';
+    case 'RATE_LIMITED':
+      return "That's enough fridge scans for today. Try again tomorrow.";
+    case 'SERVICE_BUSY':
+      return 'Bellie is taking a short break. Please try again later.';
+    case 'EMPTY':
+    case 'INPUT_REJECTED':
+    case 'UPLOAD_TOO_LARGE':
+      return 'Try again, with the fridge door open and good light.';
+    default:
+      return 'Something went wrong. Try again in a moment.';
+  }
+}

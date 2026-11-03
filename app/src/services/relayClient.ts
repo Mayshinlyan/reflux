@@ -209,6 +209,49 @@ export async function fetchRecipeIdeas(request: RecipeRequest, signal?: AbortSig
   return body.recipes.map(pickRecipe);
 }
 
+// Up to three photos go up and the relay waits up to 45 s for the AI, so the phone waits a little longer.
+const FRIDGE_TIMEOUT_MS = 60_000;
+
+/**
+ * Sends one to three fridge photos (already shrunk to JPEG) and gets back the food names Bellie can see. Only the
+ * photos go; the relay strips their metadata and never keeps them. Throws an AppError like `analyzeFood`. An empty
+ * list means nothing edible could be made out.
+ */
+export async function scanFridge(photoUris: readonly string[], signal?: AbortSignal): Promise<string[]> {
+  const id = requestId();
+  const token = await tokenFor(id);
+  const timeout = AbortSignal.timeout(FRIDGE_TIMEOUT_MS);
+  let response: Response;
+  try {
+    const form = new FormData();
+    // Same Blob-like File as a meal photo (see analyzeFood), one `photos` part each.
+    for (const uri of photoUris) form.append('photos', new File(uri) as unknown as Blob);
+    response = await fetch(`${relayBaseUrl()}/v1/fridge-scan`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'X-Request-Id': id },
+      body: form,
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (!timeout.aborted && (await isOffline())) throw new AppError('OFFLINE', id);
+    throw new AppError(timeout.aborted ? 'AI_TIMEOUT' : 'NETWORK', id);
+  }
+
+  if (!response.ok) throw await toAppError(response, id);
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new AppError('AI_INVALID_OUTPUT', id);
+  }
+  const items = (body as { items?: unknown } | null)?.items;
+  if (!Array.isArray(items) || !items.every((item) => typeof item === 'string')) {
+    throw new AppError('AI_INVALID_OUTPUT', id);
+  }
+  return items as string[];
+}
+
 /** A feedback message is tiny, so it gives up sooner than a meal check. */
 const FEEDBACK_TIMEOUT_MS = 20_000;
 

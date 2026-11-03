@@ -38,7 +38,7 @@ describe('POST /v1/recipe-ideas', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.recipes).toEqual(goodRecipes.recipes);
-    expect(res.body.meta).toEqual({ model: 'claude-test-model', promptVersion: 'recipes-v1' });
+    expect(res.body.meta).toEqual({ model: 'claude-test-model', promptVersion: 'recipes-v2' });
     expect(claude.recipeCalls).toEqual([ask]);
   });
 
