@@ -25,16 +25,29 @@ type Props = Pick<
   accessory?: ReactNode;
   /** Height of a `multiline` input when empty (default 88); the feedback sheet uses 112 (Figma 19). */
   minHeight?: number;
+  /** Sits in a list of rows (Kitchen sheet): the row's soft edge, its 16pt inset, and no margin below. */
+  card?: boolean;
 };
 
 /** A labelled single-line text input in the app's style (the mockup's `.field-label` + input). */
-export function TextField({ label, hint, hideLabel = false, accessory, minHeight, ...input }: Props) {
+export function TextField({
+  label,
+  hint,
+  hideLabel = false,
+  accessory,
+  minHeight,
+  card = false,
+  ...input
+}: Props) {
   const colors = useColors();
   const [focused, setFocused] = useState(false);
   // Filled, no outline; the focused ring is the one functional stroke.
-  const box = { backgroundColor: colors.surface, borderColor: focused ? colors.clay : 'transparent' };
+  const box = {
+    backgroundColor: colors.surface,
+    borderColor: focused ? colors.clay : card ? colors.edge : 'transparent',
+  };
   return (
-    <View style={styles.wrap}>
+    <View style={card ? styles.wrapCard : styles.wrap}>
       {!hideLabel && (
         <AppText variant="label" color="inkSoft" style={styles.label}>
           {hint ? `${label} ${hint}` : label}
@@ -49,6 +62,7 @@ export function TextField({ label, hint, hideLabel = false, accessory, minHeight
           placeholderTextColor={colors.inkSoft}
           style={[
             styles.input,
+            card && styles.inputCard,
             input.multiline && styles.multiline,
             input.multiline && minHeight ? { minHeight } : null,
             { color: colors.ink },
@@ -62,6 +76,7 @@ export function TextField({ label, hint, hideLabel = false, accessory, minHeight
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: space.s2 },
+  wrapCard: { marginBottom: 0 },
   label: { marginBottom: 6 },
   box: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: radius.md },
   input: {
@@ -71,6 +86,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12.5,
     paddingVertical: 11.5,
   },
+  inputCard: { minHeight: 52, paddingHorizontal: space.s2 - 1.5 },
   multiline: { minHeight: 88, textAlignVertical: 'top' },
   accessory: { flexDirection: 'row', alignItems: 'center', paddingRight: 4 },
 });

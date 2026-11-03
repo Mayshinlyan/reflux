@@ -1,23 +1,18 @@
-import { Check, ChevronDown, ChevronUp, Minus, Plus, X } from 'lucide-react-native';
+import { Minus, Plus, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { TextField } from '@/components/TextField';
-import {
-  type CuisineKey,
-  CUISINES,
-  cuisineLabel,
-  MAX_SERVES,
-  MIN_SERVES,
-  RECIPE_TIMES,
-  type RecipeTime,
-} from '@/constants/cuisines';
+import { Toggle } from '@/components/Toggle';
+import { type CuisineKey, MAX_SERVES, MIN_SERVES, RECIPE_TIMES, type RecipeTime } from '@/constants/cuisines';
 import { skipsLine } from '@/lib/kitchenCopy';
-import { cardEdge, minTouchTarget, radius, selectedEdge, space, useColors } from '@/theme';
+import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
+
+import { CuisineStrip } from './CuisineStrip';
 
 export type IdeasChoices = {
   cuisine: CuisineKey;
@@ -42,12 +37,8 @@ type Props = {
   onSubmit: (choices: IdeasChoices) => void;
 };
 
-/** The cuisine menu shows about six and a half rows, so it is clear that it scrolls. */
-const MENU_MAX_HEIGHT = 296;
-const OPTION_HEIGHT = 44;
-
 /**
- * "What are you craving?" (Figma row 29b, 29b2): the cuisine as a dropdown that opens in place, how long you have,
+ * "What are you craving?" (Figma row 37): the cuisine as a strip of illustrated tiles that scrolls sideways, how long you have,
  * how many it serves, and ingredients you would like to use. Get ideas hands the choices over. Give it a new `key`
  * each time it opens so it starts from the last choices with an empty ingredients field.
  */
@@ -68,7 +59,6 @@ export function IdeasSheet({
   const [want, setWant] = useState('');
   const hasFridge = fridgeCount > 0;
   const useFridge = hasFridge && fridgeOn;
-  const [menuOpen, setMenuOpen] = useState(false);
   const skips = skipsLine(skipped);
 
   return (
@@ -88,52 +78,7 @@ export function IdeasSheet({
       </View>
 
       <View style={styles.rows}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Cuisine, ${cuisineLabel(cuisine)}`}
-          accessibilityState={{ expanded: menuOpen }}
-          onPress={() => setMenuOpen((open) => !open)}
-          style={[styles.row, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
-          <AppText style={styles.rowLabel}>Cuisine</AppText>
-          <AppText variant="bodyEm">{cuisineLabel(cuisine)}</AppText>
-          {menuOpen ? (
-            <ChevronUp size={20} color={colors.inkMuted} strokeWidth={2} />
-          ) : (
-            <ChevronDown size={20} color={colors.inkMuted} strokeWidth={2} />
-          )}
-        </Pressable>
-        {menuOpen && (
-          <View
-            accessibilityRole="radiogroup"
-            accessibilityLabel="Cuisine"
-            style={[styles.menu, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
-            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
-              {CUISINES.map((option) => {
-                const selected = option.key === cuisine;
-                return (
-                  <Pressable
-                    key={option.key}
-                    accessibilityRole="radio"
-                    accessibilityLabel={option.label}
-                    accessibilityState={{ checked: selected }}
-                    onPress={() => {
-                      setCuisine(option.key);
-                      setMenuOpen(false);
-                    }}
-                    style={[styles.option, selectedEdge(colors, selected)]}>
-                    <AppText
-                      variant={selected ? 'bodyEm' : 'body'}
-                      color={selected ? 'sageInk' : 'ink'}
-                      style={styles.rowLabel}>
-                      {option.label}
-                    </AppText>
-                    {selected && <Check size={18} color={colors.sageInk} strokeWidth={2} />}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
+        <CuisineStrip value={cuisine} onChange={setCuisine} />
 
         <View style={[styles.row, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
           <AppText style={styles.rowLabel}>Ready in</AppText>
@@ -165,13 +110,7 @@ export function IdeasSheet({
         {hasFridge && (
           <View style={[styles.row, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
             <AppText style={styles.rowLabel}>Use my fridge</AppText>
-            <Switch
-              accessibilityLabel="Use my fridge"
-              value={useFridge}
-              onValueChange={setFridgeOn}
-              trackColor={{ false: colors.surface2, true: colors.cta }}
-              ios_backgroundColor={colors.surface2}
-            />
+            <Toggle accessibilityLabel="Use my fridge" value={useFridge} onValueChange={setFridgeOn} />
           </View>
         )}
 
@@ -183,11 +122,12 @@ export function IdeasSheet({
           placeholder="Ingredients to use (optional)"
           maxLength={200}
           returnKeyType="done"
+          card
         />
       </View>
 
       {skips ? (
-        <AppText variant="caption" color="inkMuted">
+        <AppText variant="caption" color="inkMuted" style={styles.skips}>
           {skips}
         </AppText>
       ) : null}
@@ -239,15 +179,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   rowLabel: { flex: 1 },
-  menu: { maxHeight: MENU_MAX_HEIGHT, borderRadius: radius.md, overflow: 'hidden', paddingVertical: 4 },
-  option: {
-    height: OPTION_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.s1,
-    paddingHorizontal: space.s2,
-    borderRadius: radius.md,
-  },
+  skips: { marginBottom: space.s1 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 4, borderRadius: radius.pill },
   step: {
     width: STEP,
