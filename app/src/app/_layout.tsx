@@ -34,6 +34,11 @@ import { lightColors, space } from '@/theme';
 initSentry();
 setupReminders();
 SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ fade: true, duration: 300 });
+
+/** The splash shows at least this long (ms), so a fast start does not flash it away. */
+const SPLASH_MIN_MS = 1200;
+const splashShownAt = Date.now();
 
 function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -100,8 +105,10 @@ function RootLayout() {
 
 function HideSplash() {
   useEffect(() => {
+    // Not cleared on unmount: the splash must still go away if this view is swapped (error screen, Retry).
     // A second call (after a Retry) has no splash left to hide and rejects: nothing to do about that.
-    SplashScreen.hideAsync().catch(() => {});
+    const wait = Math.max(0, SPLASH_MIN_MS - (Date.now() - splashShownAt));
+    setTimeout(() => SplashScreen.hideAsync().catch(() => {}), wait);
     preloadChing();
   }, []);
   return null;
