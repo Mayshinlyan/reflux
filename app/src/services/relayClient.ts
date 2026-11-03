@@ -25,7 +25,8 @@ export type AnalyzeInput = ({ text: string } | { photo: { uri: string; mimeType?
   conditions?: readonly ConditionKey[];
 };
 
-// Longer than the relay's 30 s Claude timeout, so the relay's own AI_TIMEOUT wins when it can.
+// Longer than one 30 s Claude call. The relay retries once (about 61 s in all), so a slow upstream can still end here
+// first. Cloud Run's own limit (180 s) is above one full attempt (call plus its retry) on every route.
 const REQUEST_TIMEOUT_MS = 45_000;
 
 function requestId(): string {
