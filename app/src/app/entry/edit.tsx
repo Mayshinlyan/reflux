@@ -1,6 +1,5 @@
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Heart } from 'lucide-react-native';
 import { type ReactNode, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -15,7 +14,6 @@ import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
 import { TimePill } from '@/components/TimePill';
 import { useToast } from '@/components/Toast';
-import { TopBarButton } from '@/components/TopBar';
 import { VerdictPicker } from '@/components/VerdictPicker';
 import { useDb } from '@/db/DatabaseProvider';
 import {
@@ -27,12 +25,6 @@ import {
   updateFoodLog,
 } from '@/db/repositories/food';
 import { updateMedicationLog } from '@/db/repositories/medications';
-import {
-  isFoodSaved,
-  removeSavedFood,
-  saveFoodFromLog,
-  savedFoodIdByName,
-} from '@/db/repositories/savedFoods';
 import type { MedicationLog } from '@/db/schema';
 import { bellyMoodFor } from '@/lib/belly';
 import { loadEntry } from '@/lib/entry';
@@ -48,8 +40,8 @@ const SAVE_FAILED = "We couldn't save that. Please try again.";
 
 /**
  * Edit entry (Figma 15a meal, 15b dose), for something already in History. A meal is laid out like its entry
- * page: the editable name, time, Bellie, a verdict dropdown and a note, with the heart top right. A dose is the
- * dose details (Dose and Note). Changed with Save changes and left alone with the back arrow. Symptom entries
+ * page: the editable name, time, Bellie, a verdict dropdown and a note. The favorite heart is not here: it lives on
+ * the entry page and acts at once. A dose is the dose details (Dose and Note). Changed with Save changes and left alone with the back arrow. Symptom entries
  * have their own editor and never come here.
  */
 export default function EditEntryScreen() {
@@ -123,10 +115,6 @@ function MealEdit({ log }: { log: StoredFoodLog }) {
   const [name, setName] = useState(log.mealName);
   const [verdict, setVerdict] = useState<AppVerdict | null>(initialVerdict);
   const [note, setNote] = useState(log.notes ?? '');
-  // The heart is held here and applied with Save changes. A favorite is matched by name and the name can change, so
-  // it is only acted on when the heart was touched, and turning it off removes the favorite of the name the meal had.
-  const [initialFavorite] = useState(() => isFoodSaved(db, log.mealName));
-  const [favorite, setFavorite] = useState(initialFavorite);
   // A ref, not state, so a quick second tap can't start a second save before the re-render.
   const saving = useRef(false);
 
@@ -141,15 +129,6 @@ function MealEdit({ log }: { log: StoredFoodLog }) {
       updateFoodLog(db, log.id, edit);
       // The factors on the meal are no longer edited here, so they are written back as they are.
       saveMealDetails(db, log.id, { loggedAt: edit.loggedAt, tags: listMealTags(db, log.id), notes: note });
-      if (favorite !== initialFavorite) {
-        if (favorite) {
-          // Under its new name, unless that name is already a favorite.
-          if (savedFoodIdByName(db, trimmedName) === null) saveFoodFromLog(db, log.id);
-        } else {
-          const savedId = savedFoodIdByName(db, log.mealName);
-          if (savedId !== null) removeSavedFood(db, savedId);
-        }
-      }
     } catch (error) {
       logger.error('saveEntry', error);
       toast(SAVE_FAILED);
@@ -164,17 +143,8 @@ function MealEdit({ log }: { log: StoredFoodLog }) {
   return (
     <Screen>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {/* Like the entry page: no title, the heart top right. */}
-        <BackHeader
-          right={
-            <TopBarButton
-              icon={Heart}
-              active={favorite}
-              label={favorite ? 'Remove from favorite foods' : 'Add to favorite foods'}
-              onPress={() => setFavorite((current) => !current)}
-            />
-          }
-        />
+        {/* Like the entry page, without its heart: no title, just the back circle. The favorite heart lives on the entry page. */}
+        <BackHeader />
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}

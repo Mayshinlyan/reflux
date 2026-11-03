@@ -6,7 +6,6 @@ import EditEntryScreen from '@/app/entry/edit';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createFoodLog, getFoodLog, listMealTags, saveMealDetails } from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
-import { listSavedFoods, saveFoodFromLog } from '@/db/repositories/savedFoods';
 import { createSymptomLog, getSymptomLog, listSymptomLogsForMeal } from '@/db/repositories/symptoms';
 import { medicationLogs } from '@/db/schema';
 import type { AppDb } from '@/db/types';
@@ -123,14 +122,13 @@ const save = async () =>
   act(async () => fireEvent.press(screen.getByRole('button', { name: 'Save changes' })));
 
 describe('Edit entry: a meal', () => {
-  it('opens laid out like the entry page: name, time, verdict and note, with the heart on top', async () => {
+  it('opens laid out like the entry page: name, time, verdict and note, without its heart', async () => {
     const id = seedMeal(at(10, 8, 12));
     saveMealDetails(mockDb, id, { notes: 'Felt full.' });
     await editMeal(id);
 
     // No title in the top bar, like the entry page.
     expect(screen.queryByRole('header', { name: 'Edit entry' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Add to favorite foods' })).toBeTruthy();
     expect(screen.getByDisplayValue('Spicy chicken tacos')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Today, 8:12 AM' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Verdict, Caution' })).toBeTruthy();
@@ -140,6 +138,8 @@ describe('Edit entry: a meal', () => {
     // What the page no longer asks.
     expect(screen.queryByText("What's going on?")).toBeNull();
     expect(screen.queryByText('Anything bothering you now?')).toBeNull();
+    // The favorite heart lives on the entry page, not here.
+    expect(screen.queryByRole('button', { name: /favorite foods/ })).toBeNull();
     expect(screen.queryByRole('checkbox', { name: 'Add to favorite foods' })).toBeNull();
     expect(screen.queryByText(/How's your belly/)).toBeNull();
     expect(screen.queryByRole('button', { name: /^Portion/ })).toBeNull();
@@ -212,14 +212,12 @@ describe('Edit entry: a meal', () => {
 
     await fireEvent.changeText(screen.getByPlaceholderText('Add a note (optional)'), 'Changed my mind');
     await fireEvent.changeText(screen.getByLabelText('Meal name'), 'Something else');
-    await fireEvent.press(screen.getByRole('button', { name: 'Add to favorite foods' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Verdict, Caution' }));
     await fireEvent.press(screen.getByRole('radio', { name: 'Avoid' }));
 
     expect(getFoodLog(mockDb, id)?.notes).toBeNull();
     expect(getFoodLog(mockDb, id)?.mealName).toBe('Spicy chicken tacos');
     expect(getFoodLog(mockDb, id)?.overallVerdict).toBe('caution');
-    expect(listSavedFoods(mockDb)).toEqual([]);
   });
 
   describe('the name', () => {
@@ -247,89 +245,6 @@ describe('Edit entry: a meal', () => {
 
       expect(getFoodLog(mockDb, id)?.mealName).toBe('Spicy chicken tacos');
       expect(router.back).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('the heart', () => {
-    it('adds the meal to favorite foods when Save changes is pressed, not before', async () => {
-      const id = seedMeal();
-      await editMeal(id);
-
-      await fireEvent.press(screen.getByRole('button', { name: 'Add to favorite foods' }));
-      expect(screen.getByRole('button', { name: 'Remove from favorite foods' })).toBeTruthy();
-      expect(listSavedFoods(mockDb)).toEqual([]);
-      await save();
-
-      expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Spicy chicken tacos']);
-    });
-
-    it('starts filled for a meal that is already a favorite, and takes it off on Save', async () => {
-      const id = seedMeal();
-      saveFoodFromLog(mockDb, id);
-      await editMeal(id);
-
-      await fireEvent.press(screen.getByRole('button', { name: 'Remove from favorite foods' }));
-      expect(listSavedFoods(mockDb)).toHaveLength(1);
-      await save();
-
-      expect(listSavedFoods(mockDb)).toEqual([]);
-    });
-
-    it('takes off the favorite of the old name when the meal is renamed and the heart turned off', async () => {
-      const id = seedMeal();
-      saveFoodFromLog(mockDb, id);
-      await editMeal(id);
-
-      await fireEvent.changeText(screen.getByLabelText('Meal name'), 'Chicken tacos');
-      await fireEvent.press(screen.getByRole('button', { name: 'Remove from favorite foods' }));
-      await save();
-
-      expect(getFoodLog(mockDb, id)?.mealName).toBe('Chicken tacos');
-      expect(listSavedFoods(mockDb)).toEqual([]);
-    });
-
-    it('does not touch another favorite when the meal is renamed to its name and the heart is left alone', async () => {
-      const id = seedMeal();
-      const other = createFoodLog(mockDb, {
-        entryType: 'diary',
-        source: 'text',
-        inputText: 'oatmeal',
-        loggedAt: at(10, 7),
-        analysis: {
-          isFood: true,
-          mealName: 'Oatmeal',
-          items: [],
-          overall: { verdict: 'ok', confidence: 'medium', reasoning: 'Gentle.' },
-        },
-        meta,
-      });
-      saveFoodFromLog(mockDb, other);
-      await editMeal(id);
-
-      await fireEvent.changeText(screen.getByLabelText('Meal name'), 'Oatmeal');
-      await save();
-
-      expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Oatmeal']);
-    });
-
-    it('saves a favorite under the new name when the meal is renamed and the heart turned on', async () => {
-      const id = seedMeal();
-      await editMeal(id);
-
-      await fireEvent.changeText(screen.getByLabelText('Meal name'), 'Chicken tacos');
-      await fireEvent.press(screen.getByRole('button', { name: 'Add to favorite foods' }));
-      await save();
-
-      expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Chicken tacos']);
-    });
-
-    it('leaves a favorite alone when it is not touched', async () => {
-      const id = seedMeal();
-      saveFoodFromLog(mockDb, id);
-      await editMeal(id);
-      await save();
-
-      expect(listSavedFoods(mockDb)).toHaveLength(1);
     });
   });
 
