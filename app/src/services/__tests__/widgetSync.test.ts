@@ -10,8 +10,11 @@ import { ensureWidgetToken, syncWidget } from '../widgetSync';
 
 const mockUpdateSnapshot = jest.fn();
 let mockDirectory: string | null = 'file:///widgets/';
+// Null is Expo Go, which has no widget module.
+let mockNativeModule: object | null = {};
 
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
+jest.mock('expo', () => ({ requireOptionalNativeModule: () => mockNativeModule }));
 jest.mock('expo-widgets', () => ({
   get widgetsDirectory() {
     return mockDirectory;
@@ -49,6 +52,7 @@ beforeEach(() => {
   close = () => test.sqlite.close();
   mockUpdateSnapshot.mockClear();
   mockDirectory = 'file:///widgets/';
+  mockNativeModule = {};
 });
 afterEach(() => close());
 
@@ -76,6 +80,16 @@ describe('syncWidget', () => {
       'Smoothie',
     ]);
     expect(snapshot.token).toBe(getSetting(db, 'widgetToken'));
+  });
+
+  it('does nothing in Expo Go, where there is no widget module', async () => {
+    mockNativeModule = null;
+    createSavedFood(db, 'Oatmeal');
+
+    await syncWidget(db);
+
+    expect(mockUpdateSnapshot).not.toHaveBeenCalled();
+    expect(getSetting(db, 'widgetToken')).toBeFalsy();
   });
 
   it('shows no foods when none are saved', async () => {
