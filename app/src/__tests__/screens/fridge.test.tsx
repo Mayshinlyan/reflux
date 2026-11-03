@@ -105,7 +105,7 @@ describe('My fridge: with nothing saved', () => {
     await addLibraryPhoto('file:///two.jpg');
     await press('Find ingredients');
 
-    await waitFor(() => expect(screen.getByText('Bellie found 3 things')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Bellie found 3 items')).toBeTruthy());
     expect(scan.mock.calls[0]?.[0]).toEqual(['file:///one.jpg', 'file:///two.jpg']);
     expect(listFridgeItems(mockDb).map((item) => item.name)).toEqual(['eggs', 'Kimchi', 'rice']);
     expect(screen.getByText('Updated today')).toBeTruthy();
@@ -146,10 +146,11 @@ describe('My fridge: with a saved list', () => {
   it('opens on the list, with no manual add', async () => {
     await render(<FridgeScreen />);
 
-    expect(screen.getByText('Bellie found 2 things')).toBeTruthy();
+    expect(screen.getByText('Bellie found 2 items')).toBeTruthy();
     expect(screen.getByText('Updated today')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Remove eggs' })).toBeTruthy();
-    expect(screen.getByText('Not quite right? Tap × to remove.')).toBeTruthy();
+    expect(screen.queryByText(/not quite right/i)).toBeNull();
+    expect(screen.queryByText(/photos are only used/i)).toBeNull();
     expect(screen.queryByText(/add your own/i)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Add a photo' })).toBeNull();
   });
@@ -159,7 +160,7 @@ describe('My fridge: with a saved list', () => {
     await press('Remove eggs');
 
     expect(screen.queryByRole('button', { name: 'Remove eggs' })).toBeNull();
-    expect(screen.getByText('Bellie found 1 thing')).toBeTruthy();
+    expect(screen.getByText('Bellie found 1 item')).toBeTruthy();
     expect(listFridgeItems(mockDb).map((item) => item.name)).toEqual(['rice']);
   });
 
@@ -185,7 +186,7 @@ describe('My fridge: with a saved list', () => {
     await addLibraryPhoto('file:///shelf.jpg');
     await press('Find ingredients');
 
-    await waitFor(() => expect(screen.getByText('Bellie found 3 things')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Bellie found 3 items')).toBeTruthy());
     expect(listFridgeItems(mockDb).map((item) => item.name)).toEqual(['corn', 'eggs', 'rice']);
   });
 
@@ -195,7 +196,7 @@ describe('My fridge: with a saved list', () => {
     expect(screen.getByText('Snap a photo or two of your shelves.')).toBeTruthy();
 
     await press('Back');
-    expect(screen.getByText('Bellie found 2 things')).toBeTruthy();
+    expect(screen.getByText('Bellie found 2 items')).toBeTruthy();
     expect(mockBack).not.toHaveBeenCalled();
 
     await press('Back');

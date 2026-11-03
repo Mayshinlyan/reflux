@@ -4,7 +4,7 @@ import {
   FRIDGE_NUDGE_DAYS,
   fridgeIsStale,
   inFridge,
-  thingsLine,
+  itemsLine,
   updatedLine,
 } from '../fridge';
 
@@ -33,8 +33,8 @@ describe('how old the fridge is', () => {
   });
 
   it('counts things', () => {
-    expect(thingsLine(1)).toBe('1 thing');
-    expect(thingsLine(14)).toBe('14 things');
+    expect(itemsLine(1)).toBe('1 item');
+    expect(itemsLine(14)).toBe('14 items');
   });
 });
 

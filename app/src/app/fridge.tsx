@@ -19,7 +19,7 @@ import {
 } from '@/db/repositories/fridgeItems';
 import type { FridgeItem } from '@/db/schema';
 import { AppError, type ErrorCode, friendlyMessages } from '@/lib/errors';
-import { thingsLine, updatedLine } from '@/lib/fridge';
+import { itemsLine, updatedLine } from '@/lib/fridge';
 import { fridgeErrorMessage } from '@/lib/kitchenCopy';
 import { logger } from '@/lib/logger';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
@@ -236,7 +236,7 @@ export default function FridgeScreen() {
         ) : (
           <>
             <AppText variant="section" accessibilityRole="header">
-              {`Bellie found ${thingsLine(items.length)}`}
+              {`Bellie found ${itemsLine(items.length)}`}
             </AppText>
             <View style={styles.chips}>
               {items.map((item) => (
@@ -251,19 +251,11 @@ export default function FridgeScreen() {
                 </Pressable>
               ))}
             </View>
-            <AppText variant="caption" color="inkMuted">
-              Not quite right? Tap × to remove.
-            </AppText>
           </>
         )}
       </ScrollView>
 
       <View style={styles.footer}>
-        {!picking && (
-          <AppText variant="caption" color="inkMuted">
-            {PRIVACY}
-          </AppText>
-        )}
         {picking ? (
           <Button
             label={failure ? 'Try again' : scanning ? 'Looking…' : 'Find ingredients'}
