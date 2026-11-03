@@ -73,7 +73,7 @@ export default function WelcomeScreen() {
         )}
       </View>
 
-      {step === 'hello' && <BellieSays text="Hi, I'm Bellie! Let's see how your belly feels." />}
+      {step === 'hello' && <BellieSays text="Hi, I'm Bellie! Let's see how your tummy feels." />}
 
       {step === 'how' && <HowItWorksStep onNext={next} />}
       {step === 'condition' && (

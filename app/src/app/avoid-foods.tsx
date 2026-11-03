@@ -90,6 +90,7 @@ export default function AvoidFoodsScreen() {
               tint="honeyTint"
               ink="honeyInk"
               onPress={() => open(item)}
+              onDelete={() => remove(item)}
             />
           ))
         )}

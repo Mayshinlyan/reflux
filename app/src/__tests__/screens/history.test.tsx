@@ -318,9 +318,9 @@ describe('History: how the week and month went', () => {
     expect(screen.getByLabelText('Yesterday, No symptoms logged')).toBeTruthy();
     expect(screen.getByLabelText('Thursday, Oct 8, Heartburn, Burping')).toBeTruthy();
     expect(screen.getByLabelText('Sunday, Oct 4, Nothing logged')).toBeTruthy();
-    // The key to the colours.
-    expect(screen.getByText('1 to 2 symptoms')).toBeTruthy();
-    expect(screen.getByText('3 or more')).toBeTruthy();
+    // The discs speak for themselves: there is no colour key under the list.
+    expect(screen.queryByText('1 to 2 symptoms')).toBeNull();
+    expect(screen.queryByText('3 or more')).toBeNull();
   });
 
   it('counts a day with only a caution meal as a day without symptoms: the verdict is not an outcome', async () => {

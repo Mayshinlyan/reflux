@@ -90,6 +90,7 @@ export default function LifestyleScreen() {
               tint="clayTint"
               ink="clayInk"
               onPress={() => open(item)}
+              onDelete={() => remove(item)}
             />
           ))
         )}

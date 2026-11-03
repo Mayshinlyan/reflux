@@ -12,6 +12,7 @@ import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
 import { BackHeader } from '@/components/BackHeader';
 import { VerdictHero, VerdictMore } from '@/components/food/FoodVerdict';
+import { useToast } from '@/components/Toast';
 import { TopBarButton } from '@/components/TopBar';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
@@ -56,18 +57,34 @@ export default function EntryScreen() {
 
   const deleteEntry = useDeleteEntry(() => router.back());
 
-  // A meal can be a favorite food: the heart saves it, and a second tap takes it out again.
-  const [, refreshSaved] = useState(0);
-  const savedId = entry?.kind === 'food' ? savedFoodIdByName(db, entry.log.mealName) : null;
+  // A meal can be a favorite food: the heart saves it, and a second tap takes it out again. The heart is kept in
+  // state rather than read from the database while drawing, so it flips the moment it is tapped.
+  const toast = useToast();
+  const [savedId, setSavedId] = useState<number | null>(() =>
+    entry?.kind === 'food' ? savedFoodIdByName(db, entry.log.mealName) : null,
+  );
+  // Back from the editor the name may have changed, or the food was removed from Favorite foods elsewhere.
+  useFocusEffect(
+    useCallback(() => {
+      const loaded = load();
+      setSavedId(loaded?.kind === 'food' ? savedFoodIdByName(db, loaded.log.mealName) : null);
+    }, [db, load]),
+  );
   const toggleSaved = () => {
     if (entry?.kind !== 'food') return;
     try {
-      if (savedId !== null) removeSavedFood(db, savedId);
-      else saveFoodFromLog(db, entry.log.id);
+      if (savedId !== null) {
+        removeSavedFood(db, savedId);
+        setSavedId(null);
+        toast('Removed from favorite foods');
+      } else {
+        setSavedId(saveFoodFromLog(db, entry.log.id).id);
+        toast('Added to favorite foods');
+      }
     } catch (error) {
       logger.error('toggleSavedFood', error);
+      toast("We couldn't save that. Please try again.");
     }
-    refreshSaved((count) => count + 1);
   };
 
   const edit = () => {

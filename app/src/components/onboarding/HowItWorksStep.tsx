@@ -12,17 +12,19 @@ import { StepLayout } from './StepLayout';
 const noop = () => {};
 
 /**
- * Shows what the app does in one screen (Figma 17b): a logged meal with a verdict, and the pattern that builds up as
- * you log more. Both are pictures marked "Example", not controls, and carry no made-up numbers.
+ * Shows what the app does in one screen (Figma 17b): a logged meal with a verdict, a logged symptom, and the pattern that
+ * builds up as you log more. Both are pictures marked "Example", not controls, and carry no made-up numbers.
  */
 export function HowItWorksStep({ onNext }: { onNext: () => void }) {
   const colors = useColors();
   return (
-    <StepLayout title="Log a meal. Spot the patterns." footer={<Button label="Continue" onPress={onNext} />}>
+    <StepLayout
+      title="Log meals and symptoms. Spot the patterns."
+      footer={<Button label="Continue" onPress={onNext} />}>
       <View style={styles.stack}>
         <View
           accessible
-          accessibilityLabel="Example: a logged meal with a result, here Spicy chicken tacos with a Caution verdict"
+          accessibilityLabel="Example: a logged meal with a result, here Spicy chicken tacos with a Caution verdict, then a logged symptom, Heartburn"
           pointerEvents="none"
           style={styles.demo}>
           <AppText variant="label" color="inkSoft">
@@ -35,6 +37,7 @@ export function HowItWorksStep({ onNext }: { onNext: () => void }) {
             onPress={noop}
             side={<VerdictBadge verdict="caution" />}
           />
+          <TimelineItem kind="symptom" title="Heartburn" time="9:15 PM" onPress={noop} />
         </View>
 
         <View
