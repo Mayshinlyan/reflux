@@ -1,4 +1,5 @@
 import { Asset } from 'expo-asset';
+import { requireOptionalNativeModule } from 'expo';
 import { File } from 'expo-file-system';
 import { Platform } from 'react-native';
 
@@ -49,6 +50,9 @@ function copyArt(directory: string): Promise<string | null> {
  */
 export async function syncWidget(db: AppDb): Promise<void> {
   if (Platform.OS !== 'ios') return;
+  // Expo Go has no widget module. Asking first matters: requiring the package there throws, and a bundler in
+  // development reports a failed require outside start-up as a fatal error before the catch below can see it.
+  if (!requireOptionalNativeModule('ExpoWidgets')) return;
   let widgets: WidgetsModule;
   let FoodWidget: FoodWidgetModule['default'];
   try {
