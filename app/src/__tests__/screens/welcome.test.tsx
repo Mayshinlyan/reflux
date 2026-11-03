@@ -54,13 +54,20 @@ const press = async (name: string | RegExp) => fireEvent.press(screen.getByRole(
 const pick = async (role: 'checkbox' | 'radio' | 'button', name: string) =>
   fireEvent.press(screen.getByRole(role, { name }));
 const header = (name: string) => screen.getByRole('header', { name });
-const bar = (step: number) => screen.getByRole('progressbar', { name: `Step ${step} of 5` });
+const bar = (step: number) => screen.getByRole('progressbar', { name: `Step ${step} of 6` });
 
 const HELLO = "Hi, I'm Bellie! Let's see how your belly feels.";
-const READY = 'Ready when you are!';
 const CONDITION_ACID = 'Burning in my chest, Acid reflux or GERD';
 const CONDITION_LPR = 'Hoarse voice, throat clearing, Silent reflux (LPR)';
 const CONDITION_UNSURE = "I'm not sure yet, We'll learn it together";
+
+/** Setup is done: they are marked as onboarded, signed in quietly, and sent to Today with nothing else opened. */
+function expectFinished() {
+  expect(mockUpdate).toHaveBeenCalledWith('onboardingDone', true);
+  expect(mockSignIn).toHaveBeenCalledTimes(1);
+  expect(mockReplace).toHaveBeenCalledWith('/');
+  expect(mockPush).not.toHaveBeenCalled();
+}
 
 /** Walks from the greeting to the first setup question. */
 async function toCondition() {
@@ -74,12 +81,19 @@ async function toPrivacy() {
   await pick('checkbox', CONDITION_ACID);
   await press('Continue');
   await press('Skip for now'); // symptoms
-  expect(header('Your diary stays with you.')).toBeTruthy();
+  expect(header('Your data stays anonymous.')).toBeTruthy();
 }
 
-/** Continues from Privacy to the reminder timing question. */
-async function toReminders() {
+/** Continues from Privacy to the bedtime question. */
+async function toBedtime() {
   await toPrivacy();
+  await press('Continue');
+  expect(header('When do you go to bed?')).toBeTruthy();
+}
+
+/** Continues from Bedtime to the reminder timing question. */
+async function toReminders() {
+  await toBedtime();
   await press('Continue');
   expect(header('When should Bellie check in?')).toBeTruthy();
 }
@@ -99,7 +113,7 @@ describe('Welcome', () => {
 
     expect(header('Log a meal. Spot the patterns.')).toBeTruthy();
     expect(bar(1)).toBeTruthy();
-    expect(screen.getByLabelText(/Example: a photo of your meal/)).toBeTruthy();
+    expect(screen.getByLabelText(/Example: a logged meal/)).toBeTruthy();
     expect(screen.getByLabelText(/Example: Spicy meals/)).toBeTruthy();
 
     await press('Back');
@@ -176,7 +190,7 @@ describe('Welcome', () => {
 
       // Saved in catalog order, not tap order.
       expect(mockUpdate).toHaveBeenCalledWith('usualSymptoms', ['hoarseness', 'heartburn']);
-      expect(header('Your diary stays with you.')).toBeTruthy();
+      expect(header('Your data stays anonymous.')).toBeTruthy();
     });
 
     it('saves nothing when they skip', async () => {
@@ -187,25 +201,57 @@ describe('Welcome', () => {
       await press('Skip for now');
 
       expect(mockUpdate).not.toHaveBeenCalledWith('usualSymptoms', expect.anything());
-      expect(header('Your diary stays with you.')).toBeTruthy();
+      expect(header('Your data stays anonymous.')).toBeTruthy();
     });
   });
 
-  it('no longer asks for a bedtime or medications', async () => {
-    await render(<WelcomeScreen />);
-    await toPrivacy();
-
-    expect(screen.queryByText('When do you usually go to bed?')).toBeNull();
-    expect(screen.queryByText('Do you take any medication?')).toBeNull();
-    expect(mockUpdate).not.toHaveBeenCalledWith('bedtime', expect.anything());
-  });
-
-  it('words privacy as a benefit', async () => {
+  it('words privacy around anonymity, in one line per point', async () => {
     await render(<WelcomeScreen />);
     await toPrivacy();
 
     expect(bar(4)).toBeTruthy();
-    expect(screen.getByText('Private by default')).toBeTruthy();
+    expect(screen.getByText('No sign-in')).toBeTruthy();
+    expect(screen.getByText('Meal checks use AI')).toBeTruthy();
+    expect(screen.queryByText('Private by default')).toBeNull();
+  });
+
+  describe('bedtime', () => {
+    it('asks when, with the saved bedtime chosen to start, and no medications question', async () => {
+      await render(<WelcomeScreen />);
+      await toBedtime();
+
+      expect(bar(5)).toBeTruthy();
+      expect(screen.getByRole('radio', { name: '10:30 PM' }).props.accessibilityState).toMatchObject({
+        checked: true,
+      });
+      expect(screen.queryByText('Do you take any medication?')).toBeNull();
+    });
+
+    it('saves a different time when they pick one', async () => {
+      await render(<WelcomeScreen />);
+      await toBedtime();
+      await pick('radio', '11:30 PM');
+      await press('Continue');
+
+      expect(mockUpdate).toHaveBeenCalledWith('bedtime', '23:30');
+      expect(header('When should Bellie check in?')).toBeTruthy();
+    });
+
+    it('writes nothing when they keep the default', async () => {
+      await render(<WelcomeScreen />);
+      await toBedtime();
+      await press('Continue');
+
+      expect(mockUpdate).not.toHaveBeenCalledWith('bedtime', expect.anything());
+    });
+
+    it('Back from reminders returns here', async () => {
+      await render(<WelcomeScreen />);
+      await toReminders();
+      await press('Back');
+
+      expect(header('When do you go to bed?')).toBeTruthy();
+    });
   });
 
   describe('reminders', () => {
@@ -213,7 +259,7 @@ describe('Welcome', () => {
       await render(<WelcomeScreen />);
       await toReminders();
 
-      expect(bar(5)).toBeTruthy();
+      expect(bar(6)).toBeTruthy();
       expect(
         screen.getByRole('radio', { name: '2 hours after I eat' }).props.accessibilityState,
       ).toMatchObject({
@@ -239,14 +285,14 @@ describe('Welcome', () => {
       await press('Continue');
 
       expect(header('Let Bellie check in after meals')).toBeTruthy();
-      expect(bar(5)).toBeTruthy();
+      expect(bar(6)).toBeTruthy();
       expect(mockUpdate).not.toHaveBeenCalledWith('reminderAsked', expect.anything());
       await act(async () => answer({ granted: true }));
 
       expect(Notifications.getPermissionsAsync).toHaveBeenCalled();
       expect(mockUpdate).toHaveBeenCalledWith('reminderAsked', true);
       expect(mockUpdate).toHaveBeenCalledWith('checkInReminderMinutes', 180);
-      expect(screen.getByText(READY)).toBeTruthy();
+      expectFinished();
     });
 
     it('marks it asked but leaves it off when the phone says no', async () => {
@@ -259,29 +305,10 @@ describe('Welcome', () => {
 
       expect(mockUpdate).toHaveBeenCalledWith('reminderAsked', true);
       expect(mockUpdate).not.toHaveBeenCalledWith('checkInReminderMinutes', expect.anything());
-      expect(screen.getByText(READY)).toBeTruthy();
+      expectFinished();
     });
 
-    it('Back from Ready returns to the timing question after a time was chosen, not to the phone prompt', async () => {
-      await render(<WelcomeScreen />);
-      await toReminders();
-      await pick('radio', '3 hours after I eat');
-      await press('Continue');
-      await act(async () => {});
-      expect(screen.getByText(READY)).toBeTruthy();
-
-      await press('Back');
-      expect(header('When should Bellie check in?')).toBeTruthy();
-      expect(
-        screen.getByRole('radio', { name: '3 hours after I eat' }).props.accessibilityState,
-      ).toMatchObject({
-        checked: true,
-      });
-      // Asked once on the way in, not again on the way back.
-      expect(Notifications.getPermissionsAsync).toHaveBeenCalledTimes(1);
-    });
-
-    it('"No reminders" skips the phone prompt, and Back from Ready returns to the question', async () => {
+    it('"No reminders" skips the phone prompt and finishes setup', async () => {
       await render(<WelcomeScreen />);
       await toReminders();
       await pick('radio', 'No reminders');
@@ -290,57 +317,7 @@ describe('Welcome', () => {
       expect(mockUpdate).toHaveBeenCalledWith('reminderAsked', true);
       expect(mockUpdate).toHaveBeenCalledWith('checkInReminderMinutes', null);
       expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
-      expect(screen.getByText(READY)).toBeTruthy();
-
-      await press('Back');
-      expect(header('When should Bellie check in?')).toBeTruthy();
-      expect(screen.getByRole('radio', { name: 'No reminders' }).props.accessibilityState).toMatchObject({
-        checked: true,
-      });
-    });
-  });
-
-  describe('ready', () => {
-    async function toReady() {
-      await render(<WelcomeScreen />);
-      await toReminders();
-      await pick('radio', 'No reminders');
-      await press('Continue');
-    }
-
-    it('celebrates with no bar, and says where bedtime and medications are set', async () => {
-      mockSettings = { bedtime: '21:00' };
-      await toReady();
-
-      expect(screen.getByText(READY)).toBeTruthy();
-      expect(screen.queryByRole('progressbar')).toBeNull();
-      expect(
-        screen.getByText(
-          'Bedtime is set to 9:00 PM for now. Change it in Settings, and add medications in Profile.',
-        ),
-      ).toBeTruthy();
-      expect(mockUpdate).not.toHaveBeenCalledWith('onboardingDone', true);
-    });
-
-    it('"Log my first meal" finishes setup and opens the food page', async () => {
-      await toReady();
-      await press('Log my first meal');
-      await act(async () => {});
-
-      expect(mockUpdate).toHaveBeenCalledWith('onboardingDone', true);
-      expect(mockSignIn).toHaveBeenCalledTimes(1);
-      expect(mockReplace).toHaveBeenCalledWith('/');
-      expect(mockPush).toHaveBeenCalledWith('/log/food');
-    });
-
-    it('"Look around" finishes setup and stays on Today', async () => {
-      await toReady();
-      await press('Look around');
-      await act(async () => {});
-
-      expect(mockUpdate).toHaveBeenCalledWith('onboardingDone', true);
-      expect(mockReplace).toHaveBeenCalledWith('/');
-      expect(mockPush).not.toHaveBeenCalled();
+      expectFinished();
     });
   });
 });

@@ -1,12 +1,12 @@
-import { Camera, Check, type LucideIcon, Shield } from 'lucide-react-native';
+import { Camera, Check, Shield } from 'lucide-react-native';
 
-import { PointList } from './PointList';
+import { type Point, PointList } from './PointList';
 
 /** The longer wording for Settings; onboarding keeps the short one so the first screen stays light. */
 const AI_DETAIL =
   "To check meals and write Bellie's summaries, we send your meal photos or descriptions, symptoms, lifestyle tags and conditions to an AI service, along with anything you type when checking a meal. For recipe ideas in the Kitchen, we send what you pick on the sheet, your condition, and food names only: your favorite foods, foods that bothered you and foods you don't eat, plus the food names in your fridge if you use it. If you scan your fridge, those photos go to the same service only to find the ingredients, with their location and other details removed, and they are not kept; the list stays on your phone. The notes on your entries, your medications and your name stay on your phone. If you send feedback, the message is kept without your name.";
 
-const POINTS: readonly { icon: LucideIcon; title: string; body: string }[] = [
+const POINTS: readonly Point[] = [
   { icon: Shield, title: 'Stored on your phone', body: 'Your diary stays on your phone.' },
   {
     icon: Camera,
@@ -20,10 +20,22 @@ const POINTS: readonly { icon: LucideIcon; title: string; body: string }[] = [
   },
 ];
 
-/** What happens to their data, and that this isn't medical advice (onboarding and Settings). `welcome` words the first point as a benefit (Figma 01g) and keeps the AI point short; Settings spells it out (photos, lifestyle tags, feedback). */
+/** The short onboarding wording (Figma 17e): one line per point, the AI one at most two. Settings spells it out. */
+const WELCOME_POINTS: readonly Point[] = [
+  { icon: Shield, title: 'No sign-in', body: 'What you send is linked to a random ID, not to your name.' },
+  {
+    icon: Camera,
+    title: 'Meal checks use AI',
+    body: 'Only the photo or text you add is sent, never your name or notes.',
+  },
+  { icon: Check, title: 'Not medical advice', body: 'General guidance only. Ask your doctor.' },
+];
+
+/** What happens to their data, and that this isn't medical advice (onboarding and Settings). `welcome` uses the short wording; Settings spells it out (photos, lifestyle tags, feedback). */
 export function PrivacyPoints({ welcome = false }: { welcome?: boolean }) {
-  const points = welcome
-    ? [{ ...POINTS[0], title: 'Private by default' }, ...POINTS.slice(1)]
-    : [POINTS[0], { ...POINTS[1], body: AI_DETAIL }, POINTS[2]];
-  return <PointList points={points} />;
+  return (
+    <PointList
+      points={welcome ? WELCOME_POINTS : [POINTS[0], { ...POINTS[1], body: AI_DETAIL }, POINTS[2]]}
+    />
+  );
 }

@@ -1,9 +1,9 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet } from 'react-native';
 
 import { useTourAutoStart } from '@/hooks/useTourAutoStart';
 
-import { TourProvider, useTour, useTourTarget } from '../TourContext';
+import { TourProvider, useTour } from '../TourContext';
 
 let mockTourDone = false;
 const mockUpdate = jest.fn();
@@ -30,20 +30,14 @@ jest.mock('expo-router', () => ({
 }));
 
 /** Starts the tour from a button, as Today does once it is on screen. */
-function Screen({ withBellie = false }: { withBellie?: boolean }) {
+function Screen() {
   const { begin, replay } = useTour();
   return (
     <>
       <Pressable accessibilityRole="button" accessibilityLabel="Start tour" onPress={() => begin()} />
       <Pressable accessibilityRole="button" accessibilityLabel="Replay tour" onPress={() => replay()} />
-      {withBellie && <Bellie />}
     </>
   );
-}
-
-function Bellie() {
-  const ref = useTourTarget('bellie');
-  return <View ref={ref} />;
 }
 
 /** What Today does: start the tour once it is on screen. */
@@ -59,10 +53,10 @@ async function layOut() {
   });
 }
 
-async function start(props?: { withBellie?: boolean }) {
+async function start() {
   await render(
     <TourProvider>
-      <Screen {...props} />
+      <Screen />
     </TourProvider>,
   );
   await fireEvent.press(screen.getByLabelText('Start tour'));
@@ -88,21 +82,10 @@ describe('App tour', () => {
     await start();
 
     expect(screen.getByText('A quick look around')).toBeTruthy();
-    expect(screen.getByLabelText('Step 1 of 5')).toBeTruthy();
-    // Sentence case, not capitals.
-    expect(screen.getByText('1 of 5')).toBeTruthy();
-    expect(screen.queryByLabelText('Back')).toBeNull();
-  });
-
-  it('leaves out a step whose spotlight is not on Today, so the count matches what is shown', async () => {
-    await start();
-    // No Bellie or insight cards are registered here: Log, History, Kitchen and Profile remain.
-    expect(screen.getByLabelText('Step 1 of 5')).toBeTruthy();
-  });
-
-  it('keeps the Bellie step when she is on screen', async () => {
-    await start({ withBellie: true });
     expect(screen.getByLabelText('Step 1 of 6')).toBeTruthy();
+    // Sentence case, not capitals.
+    expect(screen.getByText('1 of 6')).toBeTruthy();
+    expect(screen.queryByLabelText('Back')).toBeNull();
   });
 
   it('walks through the tabs with Next and Back, and ends on Done', async () => {
@@ -111,9 +94,11 @@ describe('App tour', () => {
     await fireEvent.press(screen.getByLabelText('Next'));
     expect(screen.getByText('Log anything')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Next'));
+    expect(screen.getByText('Today: Bellie and your day')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Next'));
     expect(screen.getByText('History')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Back'));
-    expect(screen.getByText('Log anything')).toBeTruthy();
+    expect(screen.getByText('Today: Bellie and your day')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Next'));
     await fireEvent.press(screen.getByLabelText('Next'));
     await fireEvent.press(screen.getByLabelText('Next'));
