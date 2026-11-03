@@ -53,6 +53,13 @@ export type Palette = Record<ColorToken, string>;
 /** The 1px soft edge on cards and rows; spread it next to the card's `backgroundColor`. */
 export const cardEdge = (colors: Palette) => ({ borderWidth: 1, borderColor: colors.edge }) as const;
 
+/**
+ * The selected state (Figma "Selected" variants): the same fill as unselected plus a 1px olive outline.
+ * Unselected keeps a transparent 1px so nothing shifts when it toggles.
+ */
+export const selectedEdge = (colors: Palette, selected: boolean) =>
+  ({ borderWidth: 1, borderColor: selected ? colors.sageInk : 'transparent' }) as const;
+
 export const darkColors: Palette = {
   bg: '#1F1B18',
   surface: '#2A2521',
