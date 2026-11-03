@@ -1,5 +1,6 @@
 import { deleteAllData } from '../repositories/data';
 import {
+  addToFridge,
   fridgeUpdatedAt,
   listFridgeItems,
   MAX_FRIDGE_ITEMS,
@@ -38,6 +39,17 @@ describe('My fridge', () => {
     replaceFridge(db, ['tofu']);
 
     expect(listFridgeItems(db).map((item) => item.name)).toEqual(['tofu']);
+  });
+
+  it('adds new names to the list, skipping ones already there, and stops at 40', () => {
+    replaceFridge(db, ['eggs', 'rice']);
+
+    expect(addToFridge(db, ['Rice', ' corn ', '   ', 'corn'])).toBe(3);
+    expect(listFridgeItems(db).map((item) => item.name)).toEqual(['corn', 'eggs', 'rice']);
+
+    const many = Array.from({ length: 60 }, (_, index) => `food ${index}`);
+    expect(addToFridge(db, many)).toBe(MAX_FRIDGE_ITEMS);
+    expect(listFridgeItems(db)).toHaveLength(MAX_FRIDGE_ITEMS);
   });
 
   it('keeps at most 40 names and cuts a long one to 40 characters', () => {

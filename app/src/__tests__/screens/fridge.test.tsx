@@ -109,7 +109,8 @@ describe('My fridge: with nothing saved', () => {
     expect(scan.mock.calls[0]?.[0]).toEqual(['file:///one.jpg', 'file:///two.jpg']);
     expect(listFridgeItems(mockDb).map((item) => item.name)).toEqual(['eggs', 'Kimchi', 'rice']);
     expect(screen.getByText('Updated today')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Retake photos' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add more photos' })).toBeTruthy();
   });
 
   it('says it could not read the photos when none of them held food, and saves nothing', async () => {
@@ -128,7 +129,7 @@ describe('My fridge: with nothing saved', () => {
     replaceFridge(mockDb, ['milk']);
     scan.mockRejectedValue(new AppError('RATE_LIMITED'));
     await render(<FridgeScreen />);
-    await press('Retake photos');
+    await press('Add more photos');
     await addLibraryPhoto('file:///one.jpg');
     await press('Find ingredients');
 
@@ -150,7 +151,7 @@ describe('My fridge: with a saved list', () => {
     expect(screen.getByRole('button', { name: 'Remove eggs' })).toBeTruthy();
     expect(screen.getByText('Not quite right? Tap × to remove.')).toBeTruthy();
     expect(screen.queryByText(/add your own/i)).toBeNull();
-    expect(screen.queryByRole('button', { name: /^Add/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add a photo' })).toBeNull();
   });
 
   it('removes an item with its ×', async () => {
@@ -170,9 +171,27 @@ describe('My fridge: with a saved list', () => {
     expect(screen.getByText('Snap a photo or two of your shelves.')).toBeTruthy();
   });
 
-  it('Retake photos opens the photo step, and Back from there returns to the list', async () => {
+  it('Done goes back to the Kitchen', async () => {
     await render(<FridgeScreen />);
-    await press('Retake photos');
+    await press('Done');
+
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('Add more photos adds what it finds to the list and skips a name already there', async () => {
+    scan.mockResolvedValue(['Rice', 'corn']);
+    await render(<FridgeScreen />);
+    await press('Add more photos');
+    await addLibraryPhoto('file:///shelf.jpg');
+    await press('Find ingredients');
+
+    await waitFor(() => expect(screen.getByText('Bellie found 3 things')).toBeTruthy());
+    expect(listFridgeItems(mockDb).map((item) => item.name)).toEqual(['corn', 'eggs', 'rice']);
+  });
+
+  it('Add more photos opens the photo step, and Back from there returns to the list', async () => {
+    await render(<FridgeScreen />);
+    await press('Add more photos');
     expect(screen.getByText('Snap a photo or two of your shelves.')).toBeTruthy();
 
     await press('Back');
