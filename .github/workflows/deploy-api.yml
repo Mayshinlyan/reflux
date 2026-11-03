@@ -86,7 +86,7 @@ jobs:
             --allow-unauthenticated \
             --max-instances 3 \
             --concurrency 20 \
-            --timeout 60 \
+            --timeout 180 \
             --update-env-vars "PER_USER_DAILY_LIMIT=30,GLOBAL_DAILY_LIMIT=300,ANTHROPIC_FEDERATION_RULE_ID=$ANTHROPIC_FEDERATION_RULE_ID,ANTHROPIC_ORGANIZATION_ID=$ANTHROPIC_ORGANIZATION_ID,ANTHROPIC_SERVICE_ACCOUNT_ID=$ANTHROPIC_SERVICE_ACCOUNT_ID,ANTHROPIC_WORKSPACE_ID=$ANTHROPIC_WORKSPACE_ID" \
             --no-traffic \
             --tag candidate
