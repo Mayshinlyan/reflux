@@ -393,7 +393,7 @@ export default function LogSymptomsScreen() {
           {step === 1 ? (
             <>
               <AppText variant="display" accessibilityRole="header">
-                How do you feel?
+                How are you feeling?
               </AppText>
               <AppText color="inkSoft" style={styles.subtitle}>
                 Tap everything that applies.
