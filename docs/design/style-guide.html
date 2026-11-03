@@ -233,10 +233,11 @@
   .chip{
     display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14.5px;
     padding:8px 14px;border-radius:var(--r-pill);
-    background:var(--surface);color:var(--ink);min-height:38px;
+    background:var(--surface);color:var(--ink);min-height:38px;border:1px solid transparent;
   }
   .chip.on-card{background:var(--surface-2)}
-  .chip.selected{background:var(--sage-tint);color:var(--sage-ink)}
+  /* Selected (all selectable things): the same fill as unselected, plus a 1px olive outline and olive text. */
+  .chip.selected{border-color:var(--sage-ink);color:var(--sage-ink)}
   .chip .dots{display:flex;gap:4px;margin-left:2px}
   .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--hairline)}
   .chip .dot.on{background:var(--sage-ink)}
@@ -244,10 +245,10 @@
   .tag{
     display:inline-flex;align-items:center;font-weight:600;font-size:13.5px;
     padding:8px 14px;border-radius:var(--r-pill);min-height:38px;
-    background:var(--surface);color:var(--ink);
+    background:var(--surface);color:var(--ink);border:1px solid transparent;
   }
   .tag.on-card{background:var(--surface-2)}
-  .tag.selected{background:var(--clay-tint);color:var(--clay-ink)}
+  .tag.selected{border-color:var(--sage-ink);color:var(--sage-ink)}
 
   .meal-card{
     background:var(--surface);border-radius:var(--r-lg);

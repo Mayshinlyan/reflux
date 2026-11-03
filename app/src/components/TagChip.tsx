@@ -1,7 +1,7 @@
 import { Minus } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { radius, typography, useColors } from '@/theme';
+import { radius, selectedEdge, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -21,12 +21,13 @@ type Props = {
   onCard?: boolean;
 };
 
-/** Small pill for lifestyle tags and filter rows. Selected = clay tint, per the style guide. */
+/** Small pill for lifestyle tags and filter rows. Selected = cream fill, 1px olive outline, per the style guide. */
 export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, onRemove, onCard }: Props) {
   const colors = useColors();
-  // Filled, never outlined: selected = clay tint, otherwise surface (surface2 on a card).
+  // Same fill selected or not (surface, surface2 on a card); selected only adds a 1px olive outline.
   const colorStyle = {
-    backgroundColor: selected ? colors.clayTint : onCard ? colors.surface2 : colors.surface,
+    backgroundColor: onCard ? colors.surface2 : colors.surface,
+    ...selectedEdge(colors, selected),
   };
 
   // The label and the minus are separate accessibility elements, so a screen reader can reach
@@ -34,7 +35,7 @@ export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, o
   if (onRemove) {
     return (
       <View style={[styles.tag, styles.removable, colorStyle]}>
-        <AppText accessible accessibilityRole="text" style={[styles.label, { color: colors.clayInk }]}>
+        <AppText accessible accessibilityRole="text" style={[styles.label, { color: colors.sageInk }]}>
           {label}
         </AppText>
         <Pressable
@@ -46,7 +47,7 @@ export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, o
             styles.minus,
             { backgroundColor: colors.surface, opacity: pressed ? 0.6 : 1 },
           ]}>
-          <Minus size={16} color={colors.clayInk} strokeWidth={2} />
+          <Minus size={16} color={colors.sageInk} strokeWidth={2} />
         </Pressable>
       </View>
     );
@@ -64,7 +65,7 @@ export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, o
       }
       hitSlop={4}
       style={({ pressed }) => [styles.tag, colorStyle, { opacity: pressed ? 0.85 : 1 }]}>
-      <AppText numberOfLines={1} style={[styles.label, { color: selected ? colors.clayInk : colors.ink }]}>
+      <AppText numberOfLines={1} style={[styles.label, { color: selected ? colors.sageInk : colors.ink }]}>
         {label}
       </AppText>
     </Pressable>

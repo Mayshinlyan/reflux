@@ -1,7 +1,7 @@
 import { Check, ChevronRight, type LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { radius, useColors } from '@/theme';
+import { radius, selectedEdge, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -12,7 +12,7 @@ type Props = {
   onPress: () => void;
   /**
    * Omit for a plain navigation card (chevron). Pass true/false for a pick-one card (radio):
-   * selected = clay tint fill, never a border. Set `multiple` for pick-any cards (checkbox).
+   * selected = cream fill with a 1px olive outline. Set `multiple` for pick-any cards (checkbox).
    */
   selected?: boolean;
   multiple?: boolean;
@@ -30,7 +30,11 @@ export function ChoiceCard({ title, subtitle, icon: Icon, onPress, selected, mul
       accessibilityState={isChoice ? { checked: selected } : undefined}
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: selected ? colors.clayTint : colors.surface, opacity: pressed ? 0.85 : 1 },
+        {
+          backgroundColor: colors.surface,
+          ...selectedEdge(colors, !!selected),
+          opacity: pressed ? 0.85 : 1,
+        },
       ]}>
       <View style={[styles.icon, { backgroundColor: selected ? colors.surface : colors.surface2 }]}>
         <Icon size={24} color={colors.ink} strokeWidth={2} />
@@ -44,11 +48,13 @@ export function ChoiceCard({ title, subtitle, icon: Icon, onPress, selected, mul
         ) : null}
       </View>
       {isChoice ? (
-        // The radio ring is a functional stroke; selected it fills with clay.
+        // The radio ring is a functional stroke; selected it fills with olive.
         <View
           style={[
             styles.radio,
-            selected ? { backgroundColor: colors.clay } : { borderWidth: 1.5, borderColor: colors.inkSoft },
+            selected
+              ? { backgroundColor: colors.sageInk }
+              : { borderWidth: 1.5, borderColor: colors.inkSoft },
           ]}>
           {selected && <Check size={16} color={colors.surface} strokeWidth={2} />}
         </View>

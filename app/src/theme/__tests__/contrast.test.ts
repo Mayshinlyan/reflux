@@ -23,6 +23,7 @@ const PAIRS: [text: keyof Palette, background: keyof Palette][] = [
   ['clayInk', 'bg'],
   ['clayInk', 'clayTint'],
   ['sageInk', 'bg'],
+  ['sageInk', 'surface2'], // selected chips, tags, cards and rows
   ['sageInk', 'sageTint'],
   ['honeyInk', 'honeyTint'],
   ['redInk', 'redTint'],
