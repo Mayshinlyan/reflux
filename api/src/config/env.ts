@@ -21,6 +21,8 @@ const envSchema = z
      * "Try again" after a failure without the relay refusing first. Its own counter, so it never uses up meal checks.
      */
     PER_USER_DAILY_RECIPE_LIMIT: z.coerce.number().int().positive().default(15),
+    /** Fridge scans (one to three photos each) per person per day. Its own counter; each scan is an image call. */
+    PER_USER_DAILY_FRIDGE_LIMIT: z.coerce.number().int().positive().default(5),
     /** Feedback messages per person per day; no AI cost, so it never counts toward the AI breaker above. */
     PER_USER_DAILY_FEEDBACK_LIMIT: z.coerce.number().int().positive().default(5),
     /** A daily ceiling on feedback from everyone, because anonymous sign-in makes a per-person cap easy to dodge. */

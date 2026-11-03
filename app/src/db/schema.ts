@@ -216,6 +216,20 @@ export const avoidFoods = sqliteTable(
 );
 
 /**
+ * "My fridge" (Kitchen): the food names a fridge scan found, kept on the phone. A scan replaces the whole list, so
+ * `createdAt` of the newest row says when the fridge was last updated. Names only: the photos are never kept.
+ */
+export const fridgeItems = sqliteTable(
+  'fridge_items',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('fridge_items_name_uq').on(sql`lower(${t.name})`)],
+);
+
+/**
  * Recipes saved from the Kitchen. `recipe` is the whole recipe as the relay sent it (why it is gentle, a tip, the
  * ingredients and the steps), so a saved recipe works with no connection. `rating` is the thumbs after cooking.
  */
@@ -251,5 +265,6 @@ export type Medication = typeof medications.$inferSelect;
 export type SavedFood = typeof savedFoods.$inferSelect;
 export type SavedSymptom = typeof savedSymptoms.$inferSelect;
 export type AvoidFood = typeof avoidFoods.$inferSelect;
+export type FridgeItem = typeof fridgeItems.$inferSelect;
 export type SavedRecipe = typeof savedRecipes.$inferSelect;
 export type MedicationLog = typeof medicationLogs.$inferSelect;

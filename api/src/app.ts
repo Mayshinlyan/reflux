@@ -8,6 +8,7 @@ import { requestContext } from './middleware/requestContext.js';
 import type { FeedbackStore } from './lib/feedbackStore.js';
 import { type AnalyzeDeps, analyzeRoutes } from './routes/analyze.routes.js';
 import { feedbackRoutes } from './routes/feedback.routes.js';
+import { fridgeRoutes } from './routes/fridge.routes.js';
 import { healthRoutes } from './routes/health.routes.js';
 import { insightRoutes } from './routes/insight.routes.js';
 import { recipeRoutes } from './routes/recipes.routes.js';
@@ -29,6 +30,7 @@ export function createApp({ env, logger, verifier, rateLimitStore, claude, feedb
   app.use(analyzeRoutes({ env, verifier, rateLimitStore, claude }));
   app.use(insightRoutes({ env, verifier, rateLimitStore, claude }));
   app.use(recipeRoutes({ env, verifier, rateLimitStore, claude }));
+  app.use(fridgeRoutes({ env, verifier, rateLimitStore, claude }));
   app.use(feedbackRoutes({ env, verifier, rateLimitStore, feedbackStore }));
 
   app.use(notFoundHandler);

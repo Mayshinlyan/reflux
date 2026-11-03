@@ -145,6 +145,8 @@ export const recipeIdeasBodySchema = z.strictObject({
   conditions: conditionsSchema.optional(),
   /** Ingredients the person typed to use. */
   want: z.array(label(40)).max(10).optional(),
+  /** What the person's saved fridge holds (food names), when "Use my fridge" is on. */
+  fridge: z.array(label(40)).max(40).optional(),
   favorites: z.array(label(60)).max(15).optional(),
   /** Foods that bothered them before: kept out, or at least gone easy on. */
   triggers: z.array(label(60)).max(20).optional(),
@@ -179,6 +181,17 @@ export type Recipe = z.infer<typeof recipeSchema>;
 /** JSON Schema handed to Claude as the recipe tool's input schema. */
 export function recipeIdeasJsonSchema() {
   const { $schema: _ignored, ...schema } = z.toJSONSchema(recipeIdeasSchema) as Record<string, unknown>;
+  return schema as { type: 'object'; [key: string]: unknown };
+}
+
+/** The food names Claude finds in one to three fridge photos. Empty when nothing edible could be made out. */
+export const fridgeScanSchema = z.strictObject({ items: z.array(label(40)).max(40) });
+
+export type FridgeScan = z.infer<typeof fridgeScanSchema>;
+
+/** JSON Schema handed to Claude as the fridge tool's input schema. */
+export function fridgeScanJsonSchema() {
+  const { $schema: _ignored, ...schema } = z.toJSONSchema(fridgeScanSchema) as Record<string, unknown>;
   return schema as { type: 'object'; [key: string]: unknown };
 }
 

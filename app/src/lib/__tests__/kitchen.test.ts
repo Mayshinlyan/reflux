@@ -1,5 +1,6 @@
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createAvoidFood } from '@/db/repositories/avoidFoods';
+import { replaceFridge } from '@/db/repositories/fridgeItems';
 import { createSavedFood } from '@/db/repositories/savedFoods';
 import { foodLogs, savedFoods } from '@/db/schema';
 import type { AppDb } from '@/db/types';
@@ -56,6 +57,22 @@ describe('buildRecipeRequest', () => {
       serves: 2,
       conditions: ['acid_reflux'],
     });
+  });
+
+  it('sends the fridge as food names only when "Use my fridge" is on', () => {
+    replaceFridge(db, ['eggs', 'Rice', 'kimchi']);
+
+    expect(buildRecipeRequest(db, { ...choices, useFridge: true }).fridge).toEqual([
+      'eggs',
+      'kimchi',
+      'Rice',
+    ]);
+    expect(buildRecipeRequest(db, { ...choices, useFridge: false })).not.toHaveProperty('fridge');
+    expect(buildRecipeRequest(db, choices)).not.toHaveProperty('fridge');
+  });
+
+  it('sends no fridge when it is empty, even with the switch on', () => {
+    expect(buildRecipeRequest(db, { ...choices, useFridge: true })).not.toHaveProperty('fridge');
   });
 
   it('leaves out "unsure", which is the app’s and never sent', () => {

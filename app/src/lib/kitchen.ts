@@ -3,6 +3,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { ConditionKey } from '@/constants/conditions';
 import type { CuisineKey, RecipeTime } from '@/constants/cuisines';
 import { listAvoidFoods } from '@/db/repositories/avoidFoods';
+import { listFridgeItems, MAX_FRIDGE_ITEMS } from '@/db/repositories/fridgeItems';
 import { listSavedFoods } from '@/db/repositories/savedFoods';
 import { foodLogs } from '@/db/schema';
 import type { AppDb } from '@/db/types';
@@ -79,6 +80,8 @@ type Choices = {
   /** Ingredients typed on the sheet. */
   want: readonly string[];
   conditions: readonly ConditionKey[];
+  /** The sheet's "Use my fridge" switch. Without anything in the fridge it sends nothing either way. */
+  useFridge?: boolean;
   /** Dishes already shown this round, so more ideas are new ones. */
   shown?: readonly string[];
 };
@@ -97,6 +100,12 @@ export function buildRecipeRequest(db: AppDb, choices: Choices): RecipeRequest {
 
   const lists = {
     want: uniqueNames(choices.want, 10),
+    fridge: choices.useFridge
+      ? uniqueNames(
+          listFridgeItems(db).map((item) => item.name),
+          MAX_FRIDGE_ITEMS,
+        )
+      : [],
     favorites: uniqueNames(
       listSavedFoods(db).map((food) => food.mealName),
       MAX_FAVORITES,

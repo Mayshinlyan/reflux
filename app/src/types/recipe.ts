@@ -31,6 +31,8 @@ export type RecipeRequest = {
   conditions?: Exclude<ConditionKey, 'unsure'>[];
   /** Ingredients the person typed to use. */
   want?: string[];
+  /** What the saved fridge holds, when "Use my fridge" is on. */
+  fridge?: string[];
   favorites?: string[];
   /** Foods that bothered them before. */
   triggers?: string[];

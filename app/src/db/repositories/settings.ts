@@ -57,6 +57,8 @@ export type Settings = {
   kitchenCuisine: CuisineKey;
   kitchenTime: RecipeTime;
   kitchenServes: number;
+  /** The sheet's "Use my fridge" switch as it was left. It only counts while the fridge holds something. */
+  kitchenUseFridge: boolean;
   /** How many Kitchen rounds (three ideas each) were made on `day` (a local "YYYY-MM-DD"); a new day starts at none. */
   kitchenRounds: { day: string; count: number };
   /** The last round of ideas, kept so "AI Ideas" can bring them back after the sheet is closed or the app restarted. */
@@ -82,6 +84,7 @@ export const DEFAULT_SETTINGS: Settings = {
   kitchenCuisine: 'any',
   kitchenTime: '40',
   kitchenServes: 2,
+  kitchenUseFridge: true,
   kitchenRounds: { day: '', count: 0 },
   kitchenIdeas: null,
 };
@@ -148,6 +151,9 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
     if (!Number.isInteger(serves) || serves < MIN_SERVES || serves > MAX_SERVES) {
       throw new Error(`kitchenServes must be ${MIN_SERVES}–${MAX_SERVES}`);
     }
+  }
+  if (key === 'kitchenUseFridge' && typeof value !== 'boolean') {
+    throw new Error('kitchenUseFridge must be true or false');
   }
   if (key === 'kitchenRounds') {
     const rounds = value as Settings['kitchenRounds'];

@@ -55,6 +55,8 @@ export const goodInsight = {
   tips: ['Have spicy food earlier in the day.', 'Try a milder salsa.'],
 };
 
+export const goodFridge = { items: ['Eggs', 'rice', 'Kimchi  ', 'eggs', 'spinach'] };
+
 export const goodRecipes = {
   recipes: [
     {
@@ -102,10 +104,12 @@ export function fakeClaude(
   respond: (input: ClaudeInput) => unknown | Promise<unknown> = () => goodAnalysis,
   respondInsight: (input: InsightInput) => unknown | Promise<unknown> = () => goodInsight,
   respondRecipes: (input: RecipeIdeasInput) => unknown | Promise<unknown> = () => goodRecipes,
+  respondFridge: (input: { jpegs: Buffer[] }) => unknown | Promise<unknown> = () => goodFridge,
 ) {
   const calls: ClaudeInput[] = [];
   const insightCalls: InsightInput[] = [];
   const recipeCalls: RecipeIdeasInput[] = [];
+  const fridgeCalls: { jpegs: Buffer[] }[] = [];
   const service: ClaudeService = {
     model: 'claude-test-model',
     async analyze(input): Promise<ClaudeResult> {
@@ -120,8 +124,12 @@ export function fakeClaude(
       recipeCalls.push(input);
       return { raw: await respondRecipes(input), telemetry };
     },
+    async fridge(input): Promise<ClaudeResult> {
+      fridgeCalls.push(input);
+      return { raw: await respondFridge(input), telemetry };
+    },
   };
-  return { service, calls, insightCalls, recipeCalls };
+  return { service, calls, insightCalls, recipeCalls, fridgeCalls };
 }
 
 export function testApp(

@@ -71,6 +71,13 @@
       "when": 1793587183129,
       "tag": "0009_kitchen",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793672696996,
+      "tag": "0010_fridge",
+      "breakpoints": true
     }
   ]
 }

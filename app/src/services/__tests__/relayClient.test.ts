@@ -9,7 +9,7 @@ import { getNetworkStateAsync } from 'expo-network';
 
 import type { RecipeRequest } from '@/types/recipe';
 
-import { analyzeFood, fetchInsight, fetchRecipeIdeas, sendFeedback } from '../relayClient';
+import { analyzeFood, fetchInsight, fetchRecipeIdeas, scanFridge, sendFeedback } from '../relayClient';
 import { getIdToken } from '../firebase';
 
 // A stand-in with the parts of an expo-file-system File that Expo's multipart encoder uses.
@@ -323,6 +323,55 @@ describe('fetchInsight', () => {
     fetchMock.mockRejectedValue(new DOMException('aborted', 'AbortError'));
 
     await expect(fetchInsight(request, controller.signal)).rejects.toThrow('aborted');
+  });
+});
+
+describe('scanFridge', () => {
+  it('posts every photo as its own `photos` part with the bearer token, and returns the names', async () => {
+    fetchMock.mockReturnValue(
+      json(200, { items: ['eggs', 'rice'], meta: { model: 'm', promptVersion: 'p' } }),
+    );
+
+    await expect(scanFridge(['file:///a.jpg', 'file:///b.jpg'])).resolves.toEqual(['eggs', 'rice']);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://relay.test/v1/fridge-scan');
+    expect(init.method).toBe('POST');
+    expect(init.headers.Authorization).toBe('Bearer test-token');
+    // The multipart boundary header is left to fetch.
+    expect(init.headers['Content-Type']).toBeUndefined();
+    const { body } = await convertFormDataAsync(init.body);
+    const text = Buffer.from(body).toString('latin1');
+    expect(text.match(/name="photos"/g)).toHaveLength(2);
+    expect(text).not.toContain('name="photo"');
+  });
+
+  it('maps a relay error to its code', async () => {
+    fetchMock.mockReturnValue(json(429, { error: { code: 'RATE_LIMITED', requestId: 'r1' } }));
+
+    await expect(scanFridge(['file:///a.jpg'])).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+  });
+
+  it.each([
+    ['no items field', { foods: ['eggs'] }],
+    ['a name that is not text', { items: ['eggs', 3] }],
+  ])('reports AI_INVALID_OUTPUT for %s', async (_name, body) => {
+    fetchMock.mockReturnValue(json(200, body));
+
+    await expect(scanFridge(['file:///a.jpg'])).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
+  });
+
+  it('accepts an empty list, for photos with no food in them', async () => {
+    fetchMock.mockReturnValue(json(200, { items: [] }));
+
+    await expect(scanFridge(['file:///a.jpg'])).resolves.toEqual([]);
+  });
+
+  it('reports OFFLINE when the request fails and the phone has no connection', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Network request failed'));
+    (getNetworkStateAsync as jest.Mock).mockResolvedValueOnce({ isConnected: false });
+
+    await expect(scanFridge(['file:///a.jpg'])).rejects.toMatchObject({ code: 'OFFLINE' });
   });
 });
 
