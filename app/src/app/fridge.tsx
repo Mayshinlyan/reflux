@@ -110,7 +110,9 @@ export default function FridgeScreen() {
       );
       if (controller.signal.aborted) return;
       // Nothing edible made out: the old list stays and the screen says so.
-      if (names.length === 0 || addToFridge(db, names) === 0) {
+      const before = listFridgeItems(db).length;
+      // `addToFridge` returns the fridge's total, so "nothing new" is a total that did not grow.
+      if (names.length === 0 || addToFridge(db, names) <= before) {
         setFailure('EMPTY');
         return;
       }

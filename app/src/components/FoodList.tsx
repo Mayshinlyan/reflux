@@ -33,7 +33,7 @@ import { logger } from '@/lib/logger';
 import { formatIngredients, parseIngredients, withIngredients } from '@/lib/ingredients';
 import { effectiveVerdict, withUserVerdict } from '@/lib/verdict';
 import { type PhotoSource, pickFoodPhoto } from '@/services/photoPicker';
-import { deletePhoto, savePhoto } from '@/services/photoStore';
+import { deletePhoto, photoUri as storedPhotoUri, savePhoto } from '@/services/photoStore';
 import { type AnalysisResult, analyzeFood } from '@/services/relayClient';
 import type { AppVerdict } from '@/types/analysis';
 import { cardEdge, minTouchTarget, radius, space, typography, useColors } from '@/theme';
@@ -174,7 +174,7 @@ export function FoodList() {
   const checkAgain = async () => {
     if (!editing || checking) return;
     const id = editing.id;
-    const photoUri = photo ?? editing.photoUri;
+    const photoUri = photo ?? (editing.photoUri ? storedPhotoUri(editing.photoUri) : null);
     // The ingredients are sent only when edited, so a new photo isn't overruled by the old list.
     const details = ingredientsChanged
       ? `The ingredients are: ${ingredientNames.join(', ')}`.slice(0, MAX_DETAILS)
@@ -293,7 +293,11 @@ export function FoodList() {
                     onPress={() => openEdit(food)}
                     style={styles.info}>
                     {food.photoUri ? (
-                      <Image source={{ uri: food.photoUri }} style={styles.icon} contentFit="cover" />
+                      <Image
+                        source={{ uri: storedPhotoUri(food.photoUri) }}
+                        style={styles.icon}
+                        contentFit="cover"
+                      />
                     ) : (
                       <View style={[styles.icon, { backgroundColor: colors.honeyTint }]}>
                         <Utensils size={20} color={colors.honeyInk} strokeWidth={2} />
@@ -337,7 +341,9 @@ export function FoodList() {
         <View style={styles.sheetPhoto}>
           {(photo ?? sheetFood?.photoUri) ? (
             <Image
-              source={{ uri: photo ?? sheetFood?.photoUri ?? undefined }}
+              source={{
+                uri: photo ?? (sheetFood?.photoUri ? storedPhotoUri(sheetFood.photoUri) : undefined),
+              }}
               style={StyleSheet.absoluteFill}
               contentFit="cover"
               accessibilityLabel="Your food photo"

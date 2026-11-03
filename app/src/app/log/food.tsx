@@ -14,7 +14,6 @@ import { isQuickLogAllowed } from '@/lib/widgetLinks';
  * The Food screen: straight to "What did you eat?" (a photo or a typed description), with the saved foods as a
  * Quick log row on top. `?manage=1` (Profile > Favorite foods, and "See all") lists the saved foods to edit or log
  * instead. `?check=1` ("Add a food" there) is the same check, which can also save the result to favorite foods.
- * `?photoUri=` (a photo already taken and prepared) starts on that photo's review step.
  * `?camera=1` opens the camera straight away (the home-screen widget's "Snap food" bubble; a denied camera
  * keeps this screen and says why). The tab bar's "+" and Bellie on Today both open this screen plain.
  * `?myFood=1&food=<id>` re-checks a saved food ("Get a verdict" / "Check again"),
@@ -26,20 +25,18 @@ import { isQuickLogAllowed } from '@/lib/widgetLinks';
  */
 export default function LogFoodScreen() {
   const db = useDb();
-  const { photoUri, camera, check, myFood, food, manage, date, quickLog, t, details, prefill } =
-    useLocalSearchParams<{
-      photoUri?: string;
-      camera?: string;
-      check?: string;
-      myFood?: string;
-      food?: string;
-      manage?: string;
-      date?: string;
-      quickLog?: string;
-      t?: string;
-      details?: string;
-      prefill?: string;
-    }>();
+  const { camera, check, myFood, food, manage, date, quickLog, t, details, prefill } = useLocalSearchParams<{
+    camera?: string;
+    check?: string;
+    myFood?: string;
+    food?: string;
+    manage?: string;
+    date?: string;
+    quickLog?: string;
+    t?: string;
+    details?: string;
+    prefill?: string;
+  }>();
   const detailsFor = Number.isInteger(Number(details)) && details ? Number(details) : undefined;
   // A link can open the app from anywhere, so only the widget's own (token-carrying) link may log a meal.
   const quickFood = useMemo<StoredSavedFood | undefined>(() => {
@@ -52,8 +49,6 @@ export default function LogFoodScreen() {
       return undefined;
     }
   }, [db, quickLog, t]);
-  // Only the tab bar's own, local photo starts the flow: a link can't point it at some other address.
-  const localPhoto = photoUri?.startsWith('file://') ? photoUri : undefined;
   const [target] = useState<MyFoodTarget | undefined>(() => {
     if (myFood !== '1') return undefined;
     let saved = null;
@@ -74,7 +69,6 @@ export default function LogFoodScreen() {
     <FoodFlow
       // A widget tap while this screen is already open starts a fresh flow, so the new food is logged.
       key={quickFood ? `${quickFood.id}:${t}` : 'flow'}
-      photoUri={localPhoto}
       openCamera={camera === '1'}
       myFood={target}
       fromList={check === '1'}
