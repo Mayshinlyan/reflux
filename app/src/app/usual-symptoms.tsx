@@ -109,6 +109,7 @@ export default function UsualSymptomsScreen() {
                 tint="clayTint"
                 ink="clayInk"
                 onPress={() => open({ own: false, key })}
+                onDelete={() => remove({ own: false, key })}
               />
             ))}
             {own.map((row) => (
@@ -120,6 +121,7 @@ export default function UsualSymptomsScreen() {
                 tint="clayTint"
                 ink="clayInk"
                 onPress={() => open({ own: true, row })}
+                onDelete={() => remove({ own: true, row })}
               />
             ))}
           </>

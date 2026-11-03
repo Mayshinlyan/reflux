@@ -587,14 +587,12 @@ describe('Kitchen: My fridge', () => {
     expect(screen.queryByText(/^Updated /)).toBeNull();
   });
 
-  it('turns "Use my fridge" off and dimmed in the sheet when the fridge is empty', async () => {
+  it('leaves "Use my fridge" out of the sheet when the fridge is empty', async () => {
     await render(<KitchenScreen />);
     await press('Get ideas');
 
-    const toggle = screen.getByRole('switch', { name: 'Use my fridge' });
-    expect(toggle.props.value).toBe(false);
-    expect(toggle.props.disabled).toBe(true);
-    expect(screen.getByText('Use my fridge · none yet')).toBeTruthy();
+    expect(screen.queryByRole('switch', { name: 'Use my fridge' })).toBeNull();
+    expect(screen.queryByText(/none yet/)).toBeNull();
   });
 
   it('sends the fridge with the request when the switch is on', async () => {

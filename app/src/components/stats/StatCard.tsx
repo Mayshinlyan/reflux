@@ -9,7 +9,10 @@ import { AppText } from '../AppText';
 /** The card's padding on every side (Figma 04a). The dots are under the card, not in it. */
 export const CARD_PAD = 20;
 
-/** Food spreads its parts down the card; the others stack theirs from the top with `gap` between. */
+/**
+ * Food spreads its parts down the full `height`; the others stack theirs from the top with `gap` between and are only
+ * as tall as their content, so a card with little to say does not run down into the tab bar.
+ */
 export function StatCard({
   width,
   height,
@@ -26,8 +29,9 @@ export function StatCard({
     <View
       style={[
         styles.card,
-        { width, minHeight: height, backgroundColor: colors.surface, ...cardEdge(colors) },
-        gap ? { gap } : { justifyContent: 'space-between' },
+        { width, backgroundColor: colors.surface, ...cardEdge(colors) },
+        // A card with a `gap` is as tall as what it holds. Food spreads its parts down the full height instead.
+        gap ? { gap } : { justifyContent: 'space-between', minHeight: height },
       ]}>
       {children}
     </View>

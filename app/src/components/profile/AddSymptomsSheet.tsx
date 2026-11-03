@@ -6,6 +6,7 @@ import { AppText } from '@/components/AppText';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { SymptomZones } from '@/components/SymptomZones';
+import { useToast } from '@/components/Toast';
 import { BODY_ZONES } from '@/constants/bodyZones';
 import { SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
 import { useSettings } from '@/db/DatabaseProvider';
@@ -19,6 +20,7 @@ import { space } from '@/theme';
  */
 export function AddSymptomsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { settings, update } = useSettings();
+  const toast = useToast();
   const [selected, setSelected] = useState<ReadonlySet<SymptomKey>>(new Set());
   const [saveFailed, setSaveFailed] = useState(false);
   const usual = new Set(settings.usualSymptoms);
@@ -45,6 +47,7 @@ export function AddSymptomsSheet({ visible, onClose }: { visible: boolean; onClo
       return;
     }
     Haptics.selectionAsync().catch(() => {});
+    if (selected.size > 0) toast(selected.size === 1 ? 'Symptom added' : `${selected.size} symptoms added`);
     onClose();
   };
 
