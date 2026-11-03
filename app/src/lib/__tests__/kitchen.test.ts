@@ -83,7 +83,7 @@ describe('buildRecipeRequest', () => {
     ]);
   });
 
-  it('sends the typed ingredients, favorites, the I don’t eat list and the dishes already shown', () => {
+  it('sends the typed ingredients, favorites, the Foods to avoid list and the dishes already shown', () => {
     createSavedFood(db, 'Oatmeal with banana');
     createAvoidFood(db, 'Peanuts');
     createAvoidFood(db, 'Pork');
@@ -162,11 +162,9 @@ describe('skipsLine', () => {
   it('names one, two, or two and a count of the rest', () => {
     expect(skipsLine(['Peanuts'])).toBe('Skips peanuts.');
     expect(skipsLine(['Peanuts', 'Pork'])).toBe('Skips peanuts and pork.');
-    expect(skipsLine(['Peanuts', 'Pork', 'Shellfish'])).toBe(
-      "Skips peanuts, pork and 1 more food you don't eat.",
-    );
+    expect(skipsLine(['Peanuts', 'Pork', 'Shellfish'])).toBe('Skips peanuts, pork and 1 more food to avoid.');
     expect(skipsLine(['Peanuts', 'Pork', 'Shellfish', 'Raw onion'])).toBe(
-      "Skips peanuts, pork and 2 more foods you don't eat.",
+      'Skips peanuts, pork and 2 more foods to avoid.',
     );
   });
 });

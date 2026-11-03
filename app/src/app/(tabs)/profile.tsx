@@ -21,7 +21,7 @@ type Sheet = 'avatar' | 'name' | 'condition' | null;
 
 /**
  * You: who you are and your lists (Figma row 24). A tab on the bottom bar, with a gear at the top right that opens
- * Settings (Figma row 29g). Condition is a sheet; Usual symptoms, Favorite foods, Medications and Lifestyle are pages.
+ * Settings (Figma row 29g). Condition is a sheet; Usual symptoms, Favorite foods, Foods to avoid, Medications and Lifestyle factors are pages.
  */
 export default function ProfileScreen() {
   const colors = useColors();
@@ -86,13 +86,13 @@ export default function ProfileScreen() {
           label="Favorite foods"
           onPress={() => router.push({ pathname: '/log/food', params: { manage: '1' } })}
         />
-        <SettingsRow icon={Ban} label="I don't eat" onPress={() => router.push('/avoid-foods')} />
+        <SettingsRow icon={Ban} label="Foods to avoid" onPress={() => router.push('/avoid-foods')} />
         <SettingsRow
           icon={Pill}
           label="Medications"
           onPress={() => router.push({ pathname: '/log/medication', params: { manage: '1' } })}
         />
-        <SettingsRow icon={Leaf} label="Lifestyle" onPress={() => router.push('/lifestyle')} />
+        <SettingsRow icon={Leaf} label="Lifestyle factors" onPress={() => router.push('/lifestyle')} />
       </ScrollView>
 
       <AvatarSheet key={`avatar-${opened}`} visible={sheet === 'avatar'} onClose={close} />

@@ -48,14 +48,14 @@ afterEach(() => {
   closeDb();
 });
 
-describe('Lifestyle', () => {
+describe('Lifestyle factors', () => {
   it('lists only the lifestyle factors you added, A to Z, with no instruction line', async () => {
     createSavedSymptom(mockDb, 'Late night snack', 'lifestyle');
     createSavedSymptom(mockDb, 'Coffee after dinner', 'lifestyle');
     createSavedSymptom(mockDb, 'Jaw tightness'); // a symptom: it lives on Usual symptoms
     await render(<LifestyleScreen />);
 
-    expect(screen.getByRole('header', { name: 'Lifestyle' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Lifestyle factors' })).toBeTruthy();
     expect(
       screen
         .getAllByRole('button')
@@ -63,14 +63,14 @@ describe('Lifestyle', () => {
         .filter((label) => ['Late night snack', 'Coffee after dinner', 'Jaw tightness'].includes(label)),
     ).toEqual(['Coffee after dinner', 'Late night snack']);
     expect(screen.queryByText('Swipe left to remove one.')).toBeNull();
-    expect(screen.queryByText('Lifestyle', { exact: true })).toBeTruthy(); // only the title
+    expect(screen.queryByText('Lifestyle factors', { exact: true })).toBeTruthy(); // only the title
   });
 
-  it('says so in a few words when empty, with Add a lifestyle at the bottom', async () => {
+  it('says so in a few words when empty, with Add a lifestyle factor at the bottom', async () => {
     await render(<LifestyleScreen />);
 
-    expect(screen.getByText('No lifestyle yet.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Add a lifestyle' })).toBeTruthy();
+    expect(screen.getByText('No lifestyle factors yet.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add a lifestyle factor' })).toBeTruthy();
   });
 
   it('opens one to remove it, and entries already logged keep it', async () => {
@@ -92,25 +92,25 @@ describe('Lifestyle', () => {
   });
 });
 
-describe('Lifestyle: Add a lifestyle', () => {
+describe('Lifestyle factors: Add a lifestyle factor', () => {
   it('waits for something typed, then adds it to the list and closes', async () => {
     await render(<LifestyleScreen />);
-    await press('Add a lifestyle');
+    await press('Add a lifestyle factor');
     expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
 
-    await fireEvent.changeText(screen.getByLabelText('Lifestyle'), '  Skipped   breakfast ');
+    await fireEvent.changeText(screen.getByLabelText('Lifestyle factor'), '  Skipped   breakfast ');
     await press('Add');
 
     expect(lifestyleNames()).toEqual(['Skipped breakfast']);
     expect(screen.getByRole('button', { name: 'Skipped breakfast' })).toBeTruthy();
-    expect(screen.queryByLabelText('Lifestyle')).toBeNull();
+    expect(screen.queryByLabelText('Lifestyle factor')).toBeNull();
   });
 
   it('does not save a built-in chip twice, and says so', async () => {
     await render(<LifestyleScreen />);
-    await press('Add a lifestyle');
+    await press('Add a lifestyle factor');
 
-    await fireEvent.changeText(screen.getByLabelText('Lifestyle'), 'stress');
+    await fireEvent.changeText(screen.getByLabelText('Lifestyle factor'), 'stress');
     await press('Add');
 
     expect(screen.getByText('That one is already a chip.')).toBeTruthy();
@@ -120,9 +120,9 @@ describe('Lifestyle: Add a lifestyle', () => {
   it('keeps one entry when the same name is added again', async () => {
     createSavedSymptom(mockDb, 'Skipped breakfast', 'lifestyle');
     await render(<LifestyleScreen />);
-    await press('Add a lifestyle');
+    await press('Add a lifestyle factor');
 
-    await fireEvent.changeText(screen.getByLabelText('Lifestyle'), 'skipped breakfast');
+    await fireEvent.changeText(screen.getByLabelText('Lifestyle factor'), 'skipped breakfast');
     await press('Add');
 
     expect(lifestyleNames()).toEqual(['Skipped breakfast']);

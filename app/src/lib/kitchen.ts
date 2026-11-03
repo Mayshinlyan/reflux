@@ -88,7 +88,7 @@ type Choices = {
 
 /**
  * What to send for a round of ideas: the sheet's choices, the condition, and food names only. The favorites,
- * the foods that were logged as a trigger and the "I don't eat" list come from the phone's own lists. Never
+ * the foods that were logged as a trigger and the "Foods to avoid" list come from the phone's own lists. Never
  * symptoms, notes, photos or the person's name. Empty lists are left out.
  */
 export function buildRecipeRequest(db: AppDb, choices: Choices): RecipeRequest {

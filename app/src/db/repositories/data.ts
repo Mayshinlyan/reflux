@@ -22,7 +22,7 @@ import { notifySavedFoodsChanged } from './savedFoods';
 
 /**
  * Deletes everything on the phone (symptoms, meals and checks, medications and their history, favorite
- * foods, the user's own symptoms and tags, saved recipes, the "I don't eat" list and the fridge) and every setting, including the name, conditions, bedtime,
+ * foods, the user's own symptoms and tags, saved recipes, the "Foods to avoid" list and the fridge) and every setting, including the name, conditions, bedtime,
  * reminders, Bellie's cached summaries and `onboardingDone`, in one transaction. The user sets Bellie up
  * again afterwards, as the delete-all alert says. Meal photos live outside the database; the caller removes
  * them with `deleteAllPhotos()`.

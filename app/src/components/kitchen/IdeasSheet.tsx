@@ -37,7 +37,7 @@ type Props = {
   initial: Omit<IdeasChoices, 'want'>;
   /** How many things the saved fridge holds. With none, the "Use my fridge" row is left out. */
   fridgeCount: number;
-  /** The "I don't eat" list, so the sheet can say what is skipped. */
+  /** The "Foods to avoid" list, so the sheet can say what is skipped. */
   skipped: readonly string[];
   onSubmit: (choices: IdeasChoices) => void;
 };

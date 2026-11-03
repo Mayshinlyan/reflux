@@ -47,14 +47,14 @@ afterEach(() => {
   closeDb();
 });
 
-describe("I don't eat", () => {
+describe('Foods to avoid', () => {
   it('lists the foods A to Z, laid out like the other lists', async () => {
     createAvoidFood(mockDb, 'Raw onion');
     createAvoidFood(mockDb, 'Peanuts');
     createAvoidFood(mockDb, 'Pork');
     await render(<AvoidFoodsScreen />);
 
-    expect(screen.getByRole('header', { name: "I don't eat" })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Foods to avoid' })).toBeTruthy();
     expect(
       screen
         .getAllByRole('button')
@@ -83,7 +83,7 @@ describe("I don't eat", () => {
   });
 });
 
-describe("I don't eat: Add a food", () => {
+describe('Foods to avoid: Add a food', () => {
   it('waits for something typed, then adds it to the list and closes', async () => {
     await render(<AvoidFoodsScreen />);
     await press('Add a food');
