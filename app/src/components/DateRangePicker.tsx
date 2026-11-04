@@ -213,7 +213,7 @@ function Day({
       )}
       {endpoint && <View style={[styles.circle, { backgroundColor: colors.cta }]} />}
       <AppText
-        style={[styles.date, endpoint && { color: colors.ctaInk, fontFamily: fontFamily.bold }]}
+        style={endpoint ? { color: colors.ctaInk, fontFamily: fontFamily.bold } : undefined}
         color="ink">
         {date}
       </AppText>
@@ -234,7 +234,6 @@ const styles = StyleSheet.create({
   future: { opacity: 0.35 },
   band: { position: 'absolute', top: 4, bottom: 4, left: 0, right: 0 },
   circle: { position: 'absolute', width: 40, height: 40, borderRadius: radius.pill },
-  date: { lineHeight: 24 },
   dot: { position: 'absolute', bottom: 7, width: 5, height: 5, borderRadius: 3 },
   footer: { flexDirection: 'row', justifyContent: 'space-between', gap: space.s1_5, paddingTop: space.s2 },
   reset: { width: 112 },
