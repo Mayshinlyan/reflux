@@ -31,8 +31,8 @@ type Props = Pick<
 export function TextField({ label, hint, hideLabel = false, accessory, minHeight, ...input }: Props) {
   const colors = useColors();
   const [focused, setFocused] = useState(false);
-  // Filled, no outline; the focused ring is the one functional stroke.
-  const box = { backgroundColor: colors.surface, borderColor: focused ? colors.clay : 'transparent' };
+  // Filled with the soft edge every card and row has (1.5pt here, so the focus ring is the same width); focusing swaps it for the clay ring.
+  const box = { backgroundColor: colors.surface, borderColor: focused ? colors.clay : colors.edge };
   return (
     <View style={styles.wrap}>
       {!hideLabel && (
