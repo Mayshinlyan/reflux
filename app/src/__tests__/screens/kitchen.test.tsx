@@ -152,7 +152,7 @@ describe('Kitchen', () => {
 });
 
 describe('Kitchen: the choices sheet', () => {
-  it('opens on the last choices, with the cuisine as a dropdown', async () => {
+  it('opens on the last choices, with the cuisine as a strip of tiles', async () => {
     setSetting(mockDb, 'kitchenCuisine', 'thai');
     setSetting(mockDb, 'kitchenTime', '20');
     setSetting(mockDb, 'kitchenServes', 4);
@@ -160,20 +160,24 @@ describe('Kitchen: the choices sheet', () => {
     await press('Get ideas');
 
     expect(screen.getByText('What are you craving?')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Cuisine, Thai' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Thai' }).props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    expect(screen.getByRole('radio', { name: 'Any' }).props.accessibilityState).toMatchObject({
+      checked: false,
+    });
     expect(screen.getByRole('tab', { name: '20 min' }).props.accessibilityState).toMatchObject({
       selected: true,
     });
     expect(screen.getByLabelText('4 servings')).toBeTruthy();
   });
 
-  it('lists the cuisines A to Z with Any first, and picking one closes the list', async () => {
+  it('lists the cuisines A to Z with Any first, and tapping a tile picks it', async () => {
     await render(<KitchenScreen />);
     await press('Get ideas');
-    await press('Cuisine, Any');
 
-    const menu = within(screen.getByLabelText('Cuisine'));
-    expect(menu.getAllByRole('radio').map((radio) => radio.props.accessibilityLabel)).toEqual([
+    const strip = within(screen.getByLabelText('Cuisine'));
+    expect(strip.getAllByRole('radio').map((radio) => radio.props.accessibilityLabel)).toEqual([
       'Any',
       'Chinese',
       'Indian',
@@ -186,10 +190,34 @@ describe('Kitchen: the choices sheet', () => {
       'Vietnamese',
     ]);
 
-    await fireEvent.press(menu.getByRole('radio', { name: 'Korean' }));
+    await fireEvent.press(strip.getByRole('radio', { name: 'Korean' }));
 
-    expect(screen.queryByLabelText('Cuisine')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Cuisine, Korean' })).toBeTruthy();
+    expect(strip.getByRole('radio', { name: 'Korean' }).props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    expect(strip.getByRole('radio', { name: 'Any' }).props.accessibilityState).toMatchObject({
+      checked: false,
+    });
+  });
+
+  it('puts every choice back to its default with Clear all', async () => {
+    setSetting(mockDb, 'kitchenCuisine', 'thai');
+    setSetting(mockDb, 'kitchenTime', '20');
+    setSetting(mockDb, 'kitchenServes', 4);
+    await render(<KitchenScreen />);
+    await press('Get ideas');
+    await fireEvent.changeText(screen.getByLabelText('Ingredients to use'), 'rice');
+
+    await press('Clear all');
+
+    expect(screen.getByRole('radio', { name: 'Any' }).props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    expect(screen.getByRole('tab', { name: '40 min' }).props.accessibilityState).toMatchObject({
+      selected: true,
+    });
+    expect(screen.getByLabelText('2 servings')).toBeTruthy();
+    expect(screen.getByLabelText('Ingredients to use').props.value).toBe('');
   });
 
   it('steps the servings between 1 and 6', async () => {
@@ -229,7 +257,6 @@ describe('Kitchen: getting ideas', () => {
     fetchIdeas.mockResolvedValue(ideas);
     await render(<KitchenScreen />);
     await press('Get ideas');
-    await press('Cuisine, Any');
     await fireEvent.press(screen.getByRole('radio', { name: 'Korean' }));
     await fireEvent.press(screen.getByRole('tab', { name: '20 min' }));
     await fireEvent.changeText(screen.getByLabelText('Ingredients to use'), 'rice, spinach');
@@ -601,7 +628,9 @@ describe('Kitchen: My fridge', () => {
     await render(<KitchenScreen />);
     await press('Get ideas');
 
-    expect(screen.getByRole('switch', { name: 'Use my fridge' }).props.value).toBe(true);
+    expect(screen.getByRole('switch', { name: 'Use my fridge' }).props.accessibilityState).toMatchObject({
+      checked: true,
+    });
     await fireEvent.press(sheetGetIdeas());
 
     await waitFor(() => expect(fetchIdeas).toHaveBeenCalled());
@@ -614,7 +643,7 @@ describe('Kitchen: My fridge', () => {
     fetchIdeas.mockResolvedValue(ideas);
     await render(<KitchenScreen />);
     await press('Get ideas');
-    await fireEvent(screen.getByRole('switch', { name: 'Use my fridge' }), 'valueChange', false);
+    await fireEvent.press(screen.getByRole('switch', { name: 'Use my fridge' }));
     await fireEvent.press(sheetGetIdeas());
 
     await waitFor(() => expect(fetchIdeas).toHaveBeenCalled());
