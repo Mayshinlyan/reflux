@@ -1,4 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
+import { Bookmark } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +14,8 @@ import { AiIdeasButton } from '@/components/kitchen/AiIdeasButton';
 import { FridgeRow } from '@/components/kitchen/FridgeRow';
 import { IdeasPanel, type IdeasStatus } from '@/components/kitchen/IdeasPanel';
 import { type IdeasChoices, IdeasSheet } from '@/components/kitchen/IdeasSheet';
-import { RecipeRow } from '@/components/kitchen/RecipeRow';
+import { PillButton } from '@/components/kitchen/PillButton';
+import { SavedCarousel } from '@/components/kitchen/SavedCarousel';
 import { Screen } from '@/components/Screen';
 import { type CuisineKey, isCuisineKey, isRecipeTime } from '@/constants/cuisines';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
@@ -34,9 +36,11 @@ import type { Recipe } from '@/types/recipe';
 type Results = { status: IdeasStatus; cuisine: CuisineKey; recipes: Recipe[]; errorCode?: ErrorCode };
 
 /**
- * Kitchen: recipe ideas that go easy on your belly (Figma row 29a, 29j, 29k). A "Cook something" card opens the
- * choices sheet; the ideas come back three at a time to swipe through, and one opens as a full recipe page. Saved
- * recipes are listed under it. After 10 rounds in a day the card says the kitchen is closed until tomorrow.
+ * Kitchen: recipe ideas that go easy on your belly (Figma rows 29 and 38). With saved recipes, they are the cards
+ * to swipe, with "Saved" (the full list) and "AI Ideas" under them; with none, a "Cook something" card opens the
+ * choices sheet. The ideas come back three at a time to swipe through, and one opens as a full recipe page. "AI
+ * Ideas" counts the ideas not looked at yet, and starts a fresh round once they were. After 10 rounds in a day the
+ * kitchen is closed until tomorrow.
  */
 export default function KitchenScreen() {
   const colors = useColors();
@@ -65,6 +69,8 @@ export default function KitchenScreen() {
   const openAfterClose = useRef(false);
   // Likewise, "Get ideas" waits for the choices sheet to close before asking and opening the ideas sheet.
   const pendingAsk = useRef<IdeasChoices | null>(null);
+  // True while the ideas sheet shows a round brought back with "AI Ideas"; closing that one clears the count.
+  const lookedBack = useRef(false);
 
   const reload = useCallback(() => {
     try {
@@ -84,9 +90,13 @@ export default function KitchenScreen() {
     useFridge: settings.kitchenUseFridge,
   } as const;
   const ideasCount = settings.kitchenIdeas?.recipes.length ?? 0;
+  // Ideas made but not opened yet; once the sheet was opened and closed, "AI Ideas" starts fresh with no count.
+  const waiting = settings.kitchenIdeas && !settings.kitchenIdeas.seen ? ideasCount : 0;
 
   const left = roundsLeft(settings.kitchenRounds, todayKey());
   const closed = left === 0;
+  // Closed for the day with no ideas waiting: "AI Ideas" has nothing to offer until tomorrow.
+  const backTomorrow = closed && waiting === 0;
 
   const openAsk = () => {
     // Starting over drops an ask still waiting for the old sheet to close, so a cancelled one never runs later.
@@ -97,6 +107,7 @@ export default function KitchenScreen() {
 
   const run = async (choices: IdeasChoices, more: boolean) => {
     lastChoices.current = choices;
+    lookedBack.current = false;
     if (!more) shown.current = [];
     const controller = new AbortController();
     running.current = controller;
@@ -129,7 +140,7 @@ export default function KitchenScreen() {
       setResults({ status: 'ready', cuisine: choices.cuisine, recipes });
       // Kept, so "AI Ideas" can bring this round back after the sheet is closed or the app restarted.
       try {
-        update('kitchenIdeas', { cuisine: choices.cuisine, recipes });
+        update('kitchenIdeas', { cuisine: choices.cuisine, recipes, seen: false });
       } catch (error) {
         logger.error('saveKitchenIdeas', error);
       }
@@ -172,8 +183,26 @@ export default function KitchenScreen() {
     running.current?.abort();
     setPanelOpen(false);
   };
-  const closePanel = () => (results.status === 'loading' ? stop() : setPanelOpen(false));
+  /**
+   * The ideas shown when they were made leave the count on "AI Ideas"; once they were brought back and closed (or one
+   * was opened), the count goes and the next tap asks for a fresh round.
+   */
+  const markSeen = () => {
+    const last = settings.kitchenIdeas;
+    if (!lookedBack.current || !last || last.seen || results.status !== 'ready') return;
+    try {
+      update('kitchenIdeas', { ...last, seen: true });
+    } catch (error) {
+      logger.error('markKitchenIdeasSeen', error);
+    }
+  };
+  const closePanel = () => {
+    if (results.status === 'loading') return stop();
+    markSeen();
+    setPanelOpen(false);
+  };
   const cook = (recipe: Recipe) => {
+    markSeen();
     setRecipeDraft({ recipe, cuisine: results.cuisine });
     openAfterClose.current = true;
     setPanelOpen(false);
@@ -196,6 +225,7 @@ export default function KitchenScreen() {
       useFridge: initial.useFridge && fridge.count > 0,
     };
     if (shown.current.length === 0) shown.current = last.recipes.map((recipe) => recipe.title);
+    lookedBack.current = true;
     setResults({ status: 'ready', cuisine: last.cuisine, recipes: last.recipes });
     setPanelOpen(true);
   };
@@ -224,33 +254,68 @@ export default function KitchenScreen() {
           </AppText>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
-          <View style={styles.cardTop}>
-            <View style={styles.cardText}>
-              <AppText variant="displaySmall">{closed ? 'Kitchen is closed' : 'Cook something'}</AppText>
-              <AppText variant="subtitle" color="inkSoft">
-                {closed
-                  ? 'Bellie is back with fresh ideas tomorrow.'
-                  : 'Ideas that go easy on your belly, from what you have.'}
-              </AppText>
-            </View>
-            <Belly mood={closed ? 'okay' : 'happy'} size={72} />
-          </View>
-          <View style={styles.buttons}>
-            <View style={styles.fill}>
-              <Button
-                label={closed ? 'Back tomorrow' : ideasCount > 0 ? 'New ideas' : 'Get ideas'}
-                disabled={closed}
-                onPress={openAsk}
-              />
-            </View>
-            {ideasCount > 0 && (
+        {saved.length > 0 ? (
+          <View style={styles.savedBlock}>
+            <SavedCarousel
+              items={saved}
+              onOpen={(id) => router.push({ pathname: '/recipe', params: { saved: String(id) } })}
+            />
+            <View style={styles.pills}>
               <View style={styles.fill}>
-                <AiIdeasButton count={ideasCount} onPress={lookBack} />
+                <PillButton
+                  icon={<Bookmark size={24} color={colors.ink} strokeWidth={2} />}
+                  label="Saved"
+                  accessibilityLabel="Saved recipes"
+                  accessibilityHint="Opens the list of your saved recipes"
+                  onPress={() => router.push('/saved-recipes')}
+                />
               </View>
-            )}
+              <View style={styles.fill}>
+                <PillButton
+                  icon={<Belly mood="happy" size={28} />}
+                  label={backTomorrow ? 'Back tomorrow' : 'AI Ideas'}
+                  count={waiting}
+                  disabled={backTomorrow}
+                  accessibilityLabel={
+                    backTomorrow ? 'Back tomorrow' : waiting > 0 ? `AI Ideas, ${waiting}` : 'AI Ideas'
+                  }
+                  accessibilityHint={
+                    waiting > 0 ? 'Shows the ideas Bellie made last time' : 'Asks Bellie for new recipe ideas'
+                  }
+                  onPress={waiting > 0 ? lookBack : openAsk}
+                />
+              </View>
+            </View>
           </View>
-        </View>
+        ) : (
+          <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+            <View style={styles.cardTop}>
+              <View style={styles.cardText}>
+                <AppText variant="displaySmall">{closed ? 'Kitchen is closed' : 'Cook something'}</AppText>
+                <AppText variant="subtitle" color="inkSoft">
+                  {closed
+                    ? 'Bellie is back with fresh ideas tomorrow.'
+                    : 'Ideas that go easy on your belly, from what you have.'}
+                </AppText>
+              </View>
+              <Belly mood={closed ? 'okay' : 'happy'} size={72} />
+            </View>
+            <View style={styles.buttons}>
+              <View style={styles.fill}>
+                <Button
+                  label={closed ? 'Back tomorrow' : ideasCount > 0 ? 'New ideas' : 'Get ideas'}
+                  disabled={closed}
+                  onPress={openAsk}
+                />
+              </View>
+              {ideasCount > 0 && (
+                <View style={styles.fill}>
+                  <AiIdeasButton count={ideasCount} onPress={lookBack} />
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
         <View style={styles.section}>
           <AppText variant="section" accessibilityRole="header">
@@ -261,25 +326,6 @@ export default function KitchenScreen() {
             updatedAt={fridge.updatedAt}
             onPress={() => router.push('/fridge')}
           />
-        </View>
-
-        <View style={styles.section}>
-          <AppText variant="section" accessibilityRole="header">
-            Saved recipes
-          </AppText>
-          {saved.length === 0 ? (
-            <AppText variant="subtitle" color="inkMuted">
-              Recipes you save will show up here.
-            </AppText>
-          ) : (
-            saved.map((item) => (
-              <RecipeRow
-                key={item.id}
-                recipe={item.recipe}
-                onPress={() => router.push({ pathname: '/recipe', params: { saved: String(item.id) } })}
-              />
-            ))
-          )}
         </View>
       </ScrollView>
 
@@ -319,6 +365,8 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, padding: space.s3 - 4, gap: space.s2 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: space.s1 + 4 },
   cardText: { flex: 1, gap: 4 },
+  savedBlock: { gap: space.s1 },
+  pills: { flexDirection: 'row', gap: space.s2 },
   buttons: { flexDirection: 'row', gap: space.s1 + 2 },
   fill: { flex: 1 },
   section: { gap: space.s1 + 4 },

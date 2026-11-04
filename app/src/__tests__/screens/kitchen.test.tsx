@@ -131,23 +131,35 @@ beforeEach(() => {
 afterEach(() => closeDb());
 
 describe('Kitchen', () => {
-  it('has its title, a Cook something card and an empty saved list', async () => {
+  it('has its title and a Cook something card, with no saved list, when nothing is saved', async () => {
     await render(<KitchenScreen />);
 
     expect(screen.getByRole('header', { name: 'Kitchen' })).toBeTruthy();
     expect(screen.getByText('What shall we cook?')).toBeTruthy();
     expect(screen.getByText('Cook something')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Get ideas' })).toBeTruthy();
-    expect(screen.getByText('Recipes you save will show up here.')).toBeTruthy();
+    expect(screen.queryByText('Saved recipes')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Saved recipes' })).toBeNull();
   });
 
-  it('lists saved recipes, and opens one by its id', async () => {
+  it('shows saved recipes as cards in place of Cook something, and opens one by its id', async () => {
     const saved = saveRecipe(mockDb, recipe('Miso salmon bowl'), 'japanese');
     await render(<KitchenScreen />);
 
+    expect(screen.queryByText('Cook something')).toBeNull();
+    expect(screen.queryByRole('header', { name: 'Saved recipes' })).toBeNull();
     await press('Miso salmon bowl, 20 min · serves 2');
 
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/recipe', params: { saved: String(saved.id) } });
+  });
+
+  it('opens the full saved list from the Saved button', async () => {
+    saveRecipe(mockDb, recipe('Miso salmon bowl'), 'japanese');
+    await render(<KitchenScreen />);
+
+    await press('Saved recipes');
+
+    expect(mockPush).toHaveBeenCalledWith('/saved-recipes');
   });
 });
 
@@ -508,6 +520,62 @@ describe('Kitchen: AI Ideas', () => {
 
     expect(screen.getByRole('button', { name: 'Back tomorrow' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'AI Ideas, 3' })).toBeEnabled();
+  });
+});
+
+describe('Kitchen: AI Ideas next to the saved recipes', () => {
+  beforeEach(() => void saveRecipe(mockDb, recipe('Miso salmon bowl'), 'japanese'));
+
+  it('starts fresh with no count, and a tap opens the choices sheet', async () => {
+    await render(<KitchenScreen />);
+
+    expect(screen.getByRole('button', { name: 'AI Ideas' })).toBeEnabled();
+    await press('AI Ideas');
+
+    expect(screen.getByText('What are you craving?')).toBeTruthy();
+  });
+
+  it('shows the count once ideas are made, and starts fresh again after they were looked at', async () => {
+    fetchIdeas.mockResolvedValue(ideas);
+    await render(<KitchenScreen />);
+    await press('AI Ideas');
+    await fireEvent.press(screen.getByRole('button', { name: 'Get ideas' }));
+    await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
+
+    await press('Close');
+    expect(screen.getByRole('button', { name: 'AI Ideas, 3' })).toBeTruthy();
+    // The first look brings the same three back for free.
+    await press('AI Ideas, 3');
+    expect(fetchIdeas).toHaveBeenCalledTimes(1);
+    await press('Close');
+
+    expect(screen.getByRole('button', { name: 'AI Ideas' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'AI Ideas, 3' })).toBeNull();
+    expect(getSetting(mockDb, 'kitchenIdeas')?.seen).toBe(true);
+    // Next tap asks for a fresh round instead.
+    await press('AI Ideas');
+    expect(screen.getByText('What are you craving?')).toBeTruthy();
+  });
+
+  it('counts again when a new round is made', async () => {
+    setSetting(mockDb, 'kitchenIdeas', { cuisine: 'korean', recipes: ideas, seen: true });
+    fetchIdeas.mockResolvedValue([recipe('Chicken congee'), recipe('Ginger soup')]);
+    await render(<KitchenScreen />);
+    expect(screen.getByRole('button', { name: 'AI Ideas' })).toBeTruthy();
+    await press('AI Ideas');
+    await fireEvent.press(screen.getByRole('button', { name: 'Get ideas' }));
+    await waitFor(() => expect(screen.getByText('Chicken congee')).toBeTruthy());
+
+    await press('Close');
+
+    expect(screen.getByRole('button', { name: 'AI Ideas, 2' })).toBeTruthy();
+  });
+
+  it('says Back tomorrow, disabled, when the kitchen is closed and nothing is waiting', async () => {
+    setSetting(mockDb, 'kitchenRounds', { day: todayKey(), count: 10 });
+    await render(<KitchenScreen />);
+
+    expect(screen.getByRole('button', { name: 'Back tomorrow' })).toBeDisabled();
   });
 });
 
