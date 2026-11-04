@@ -8,6 +8,7 @@ import { InMemoryRateLimitStore, type RateLimitStore } from '../src/lib/rateLimi
 import type { InsightInput, RecipeIdeasInput } from '../src/schemas.js';
 import type { ClaudeInput, ClaudeResult, ClaudeService } from '../src/services/claudeService.js';
 import type { TokenVerifier } from '../src/services/tokenVerifier.js';
+import type { VideoService } from '../src/services/videoService.js';
 
 /** A logger that writes JSON lines into memory so tests can assert on log output. */
 export function memoryLogger() {
@@ -139,6 +140,7 @@ export function testApp(
     rateLimitStore?: RateLimitStore;
     verifier?: TokenVerifier;
     feedbackStore?: FeedbackStore;
+    video?: VideoService;
   } = {},
 ) {
   const env = loadEnv({ NODE_ENV: 'test', ...overrides });
@@ -152,6 +154,7 @@ export function testApp(
     rateLimitStore: deps.rateLimitStore ?? new InMemoryRateLimitStore(),
     claude: deps.claude ?? claude.service,
     feedbackStore: deps.feedbackStore ?? feedbackStore,
+    video: deps.video ?? { find: async () => 'dQw4w9WgXcQ' },
   });
   return { app, logs, claudeCalls: claude.calls, feedback: feedbackStore.entries };
 }

@@ -23,6 +23,12 @@ const envSchema = z
     PER_USER_DAILY_RECIPE_LIMIT: z.coerce.number().int().positive().default(15),
     /** Fridge scans (one to three photos each) per person per day. Its own counter; each scan is an image call. */
     PER_USER_DAILY_FRIDGE_LIMIT: z.coerce.number().int().positive().default(5),
+    /** Recipe video look-ups per person per day. No AI cost, but each is a YouTube search against a shared daily quota. */
+    PER_USER_DAILY_VIDEO_LIMIT: z.coerce.number().int().positive().default(30),
+    /** A daily ceiling on video look-ups from everyone, to stay under the YouTube Data API quota (about 100 searches a day). */
+    GLOBAL_DAILY_VIDEO_LIMIT: z.coerce.number().int().positive().default(90),
+    /** YouTube Data API v3 key, from Secret Manager in the cloud. Never logged. Without it no video is ever found. */
+    YOUTUBE_API_KEY: z.string().min(1).optional(),
     /** Feedback messages per person per day; no AI cost, so it never counts toward the AI breaker above. */
     PER_USER_DAILY_FEEDBACK_LIMIT: z.coerce.number().int().positive().default(5),
     /** A daily ceiling on feedback from everyone, because anonymous sign-in makes a per-person cap easy to dodge. */
