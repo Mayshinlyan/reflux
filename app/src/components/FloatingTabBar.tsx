@@ -3,7 +3,7 @@ import type { ComponentType } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import { useTabBarPress } from '@/hooks/useTabBarPress';
+import { usePressScale } from '@/hooks/usePressScale';
 import { shadow, space, useColors } from '@/theme';
 
 import { ChefHatSolid, ClockSolid, HouseSolid, PersonSolid, type TabIconProps } from './TabIcons';
@@ -91,36 +91,47 @@ type Props = {
  * Figma "Tab bar floating (Kitchen)": a compact `surface` pill centred above the bottom edge. Today, History, Kitchen and
  * Profile are icon-only tabs of solid shapes (two either side of the Log slot): the current one is `ink` on a small tan `surface2` circle, the other a muted
  * `inkMuted` silhouette; it just changes tab, it never slides. The olive Log button, ringed in the page colour, rises
- * over the pill's top edge. A pressed tab's icon shrinks a little and eases back on release (see `useTabBarPress`),
- * as does the Log button. Icon-only, so every button carries a label.
+ * over the pill's top edge. Pressing a tab makes the whole bar grow about 3% and ease back on release (see `usePressScale`),
+ * and the Log button grows the same way on its own. Icon-only, so every button carries a label.
  */
 export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect }: Props) {
   const colors = useColors();
-  const logPress = useTabBarPress();
+  const barPress = usePressScale();
+  const logPress = usePressScale();
   const LogIcon = logOpen ? X : Plus;
   const renderTab = ({ key, label, icon: Icon }: (typeof TABS)[number]) => (
-    <TabButton key={key} label={label} icon={Icon} active={key === active} onPress={() => onSelect(key)} />
+    <TabButton
+      key={key}
+      label={label}
+      icon={Icon}
+      active={key === active}
+      onPress={() => onSelect(key)}
+      onPressIn={barPress.pressIn}
+      onPressOut={barPress.pressOut}
+    />
   );
   return (
     <View pointerEvents="box-none" style={[styles.root, { paddingBottom: tabBarGap(bottomInset) }]}>
-      <View
-        accessibilityRole="tablist"
-        style={[styles.pill, { backgroundColor: colors.surface, boxShadow: shadow.tabBar }]}>
+      <Animated.View style={barPress.style}>
         <View
-          testID="tab-highlight"
-          pointerEvents="none"
-          style={[
-            styles.highlight,
-            {
-              backgroundColor: colors.surface2,
-              left: highlightLeft(TABS.findIndex((tab) => tab.key === active)),
-            },
-          ]}
-        />
-        {TABS.slice(0, 2).map(renderTab)}
-        <View accessible={false} importantForAccessibility="no-hide-descendants" style={styles.slot} />
-        {TABS.slice(2).map(renderTab)}
-      </View>
+          accessibilityRole="tablist"
+          style={[styles.pill, { backgroundColor: colors.surface, boxShadow: shadow.tabBar }]}>
+          <View
+            testID="tab-highlight"
+            pointerEvents="none"
+            style={[
+              styles.highlight,
+              {
+                backgroundColor: colors.surface2,
+                left: highlightLeft(TABS.findIndex((tab) => tab.key === active)),
+              },
+            ]}
+          />
+          {TABS.slice(0, 2).map(renderTab)}
+          <View accessible={false} importantForAccessibility="no-hide-descendants" style={styles.slot} />
+          {TABS.slice(2).map(renderTab)}
+        </View>
+      </Animated.View>
       <Animated.View style={[styles.logWrap, logPress.style]}>
         <Pressable
           accessibilityRole="button"
@@ -145,28 +156,27 @@ type TabButtonProps = {
   icon: ComponentType<TabIconProps>;
   active: boolean;
   onPress: () => void;
+  onPressIn: () => void;
+  onPressOut: () => void;
 };
 
-/** One tab: its icon shrinks under a finger, so the press is felt on the thing you touched, not the whole bar. */
-function TabButton({ label, icon: Icon, active, onPress }: TabButtonProps) {
+/** One tab. A press is felt on the whole bar, so the handlers come from the bar. */
+function TabButton({ label, icon: Icon, active, onPress, onPressIn, onPressOut }: TabButtonProps) {
   const colors = useColors();
-  const press = useTabBarPress();
   return (
     <Pressable
       accessibilityRole="tab"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      onPressIn={press.pressIn}
-      onPressOut={press.pressOut}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       style={styles.tab}>
-      <Animated.View style={press.style}>
-        <Icon
-          size={24}
-          color={active ? colors.ink : colors.inkMuted}
-          cutout={active ? colors.surface2 : colors.surface}
-        />
-      </Animated.View>
+      <Icon
+        size={24}
+        color={active ? colors.ink : colors.inkMuted}
+        cutout={active ? colors.surface2 : colors.surface}
+      />
     </Pressable>
   );
 }
