@@ -62,7 +62,7 @@ export function PillButton({
 
 const styles = StyleSheet.create({
   pill: {
-    minHeight: minTouchTarget + 8,
+    minHeight: minTouchTarget,
     borderRadius: radius.pill,
     paddingHorizontal: space.s1_5,
     flexDirection: 'row',

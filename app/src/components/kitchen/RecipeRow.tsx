@@ -11,15 +11,21 @@ import type { Recipe } from '@/types/recipe';
 type Props = {
   recipe: Recipe;
   onPress: () => void;
+  /** When given, a screen reader gets a Delete action (a swipe isn't possible for it). */
+  onDelete?: () => void;
 };
 
 /** One saved recipe on the Kitchen page (Figma row 29a): a small Bellie on the colour of its picture, the name and the time. */
-export function RecipeRow({ recipe, onPress }: Props) {
+export function RecipeRow({ recipe, onPress, onDelete }: Props) {
   const colors = useColors();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${recipe.title}, ${recipeMeta(recipe)}`}
+      accessibilityActions={onDelete ? [{ name: 'delete', label: 'Delete' }] : undefined}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'delete') onDelete?.();
+      }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,

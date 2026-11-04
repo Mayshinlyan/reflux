@@ -31,7 +31,7 @@ export function SavedCarousel({ items, onOpen }: { items: readonly Item[]; onOpe
             styles.card,
             { backgroundColor: colors.surface, ...cardEdge(colors), opacity: pressed ? 0.9 : 1 },
           ]}>
-          <RecipeArt look={lookFor(item.recipe)} height={190} />
+          <RecipeArt look={lookFor(item.recipe)} height={140} />
           <AppText variant="displaySmall" numberOfLines={2} style={styles.title}>
             {item.recipe.title}
           </AppText>

@@ -34,7 +34,8 @@ export function SnapCards<T>({ items, renderItem, labelOf, keyOf }: Props<T>) {
   const { width } = useWindowDimensions();
   const [page, setPage] = useState(1);
   const scroll = useRef<ScrollViewInstance>(null);
-  const cardWidth = Math.min(width - space.s3 * 2, 480) - PEEK;
+  // A lone card has nothing to peek at, so it takes the full width and sits centred.
+  const cardWidth = Math.min(width - space.s3 * 2, 480) - (items.length > 1 ? PEEK : 0);
   const step = cardWidth + GAP;
   const onEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) =>
     setPage(Math.min(items.length, Math.max(1, Math.round(event.nativeEvent.contentOffset.x / step) + 1)));

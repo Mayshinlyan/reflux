@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 
 import SavedRecipesScreen from '@/app/saved-recipes';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { saveRecipe } from '@/db/repositories/savedRecipes';
+import { listSavedRecipes, saveRecipe } from '@/db/repositories/savedRecipes';
 import type { AppDb } from '@/db/types';
 import type { Recipe } from '@/types/recipe';
 
@@ -31,6 +32,8 @@ jest.mock('expo-router', () => ({
   },
 }));
 
+jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn(() => Promise.resolve()) }));
+
 const recipe = (title: string): Recipe => ({
   title,
   minutes: 20,
@@ -47,7 +50,10 @@ beforeEach(() => {
   closeDb = () => sqlite.close();
   mockPush.mockClear();
 });
-afterEach(() => closeDb());
+afterEach(() => {
+  jest.restoreAllMocks();
+  closeDb();
+});
 
 describe('Saved recipes', () => {
   it('says there is nothing yet', async () => {
@@ -67,6 +73,32 @@ describe('Saved recipes', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Miso salmon bowl, 20 min · serves 2' }));
 
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/recipe', params: { saved: String(second.id) } });
+  });
+
+  it('asks before removing a recipe, and keeps it on Cancel', async () => {
+    saveRecipe(mockDb, recipe('Miso salmon bowl'), 'japanese');
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await render(<SavedRecipesScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete Miso salmon bowl' }));
+
+    expect(alert.mock.calls[0]?.[0]).toBe('Remove Miso salmon bowl?');
+    expect(listSavedRecipes(mockDb)).toHaveLength(1);
+  });
+
+  it('removes the recipe once it is confirmed, and the list updates', async () => {
+    saveRecipe(mockDb, recipe('Kimchi egg fried rice'), 'korean');
+    saveRecipe(mockDb, recipe('Miso salmon bowl'), 'japanese');
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await render(<SavedRecipesScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete Miso salmon bowl' }));
+    const remove = alert.mock.calls[0]?.[2]?.find((button) => button.text === 'Remove');
+    await act(async () => remove?.onPress?.());
+
+    expect(listSavedRecipes(mockDb).map((item) => item.recipe.title)).toEqual(['Kimchi egg fried rice']);
+    expect(screen.getByText('1 recipe')).toBeTruthy();
+    expect(screen.queryByText('Miso salmon bowl')).toBeNull();
   });
 
   it('says "1 recipe" for a single one', async () => {
