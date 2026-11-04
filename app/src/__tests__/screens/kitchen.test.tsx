@@ -200,6 +200,26 @@ describe('Kitchen: the choices sheet', () => {
     });
   });
 
+  it('puts every choice back to its default with Clear all', async () => {
+    setSetting(mockDb, 'kitchenCuisine', 'thai');
+    setSetting(mockDb, 'kitchenTime', '20');
+    setSetting(mockDb, 'kitchenServes', 4);
+    await render(<KitchenScreen />);
+    await press('Get ideas');
+    await fireEvent.changeText(screen.getByLabelText('Ingredients to use'), 'rice');
+
+    await press('Clear all');
+
+    expect(screen.getByRole('radio', { name: 'Any' }).props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    expect(screen.getByRole('tab', { name: '40 min' }).props.accessibilityState).toMatchObject({
+      selected: true,
+    });
+    expect(screen.getByLabelText('2 servings')).toBeTruthy();
+    expect(screen.getByLabelText('Ingredients to use').props.value).toBe('');
+  });
+
   it('steps the servings between 1 and 6', async () => {
     setSetting(mockDb, 'kitchenServes', 5);
     await render(<KitchenScreen />);

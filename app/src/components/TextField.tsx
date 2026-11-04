@@ -53,7 +53,7 @@ export function TextField({
           {hint ? `${label} ${hint}` : label}
         </AppText>
       )}
-      <View style={[styles.box, box]}>
+      <View style={[styles.box, card && styles.boxCard, box]}>
         <TextInput
           {...input}
           onFocus={() => setFocused(true)}
@@ -79,6 +79,7 @@ const styles = StyleSheet.create({
   wrapCard: { marginBottom: 0 },
   label: { marginBottom: 6 },
   box: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: radius.md },
+  boxCard: { borderRadius: radius.lg },
   input: {
     ...typography.small,
     flex: 1,
@@ -86,7 +87,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12.5,
     paddingVertical: 11.5,
   },
-  inputCard: { minHeight: 52, paddingHorizontal: space.s2 - 1.5 },
+  inputCard: { minHeight: 56, paddingHorizontal: space.s2 + 4 - 1.5 },
   multiline: { minHeight: 88, textAlignVertical: 'top' },
   accessory: { flexDirection: 'row', alignItems: 'center', paddingRight: 4 },
 });
