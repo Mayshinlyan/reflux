@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { minTouchTarget, radius, selectedEdge, space, useColors } from '@/theme';
+import { minTouchTarget, radius, cardEdge, selectedEdge, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -20,7 +20,7 @@ export function OptionRow({ label, selected, onPress }: Props) {
         styles.row,
         {
           backgroundColor: colors.surface,
-          ...selectedEdge(colors, selected),
+          ...(selected ? selectedEdge(colors, true) : cardEdge(colors)),
           opacity: pressed ? 0.85 : 1,
         },
       ]}>

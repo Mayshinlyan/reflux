@@ -8,10 +8,10 @@ import { TextField } from '../TextField';
 const box = () => screen.getByLabelText('Notes').parent!;
 
 describe('TextField', () => {
-  it('has no outline by default', async () => {
+  it('wears the soft edge by default', async () => {
     await render(<TextField label="Notes" value="" onChangeText={() => undefined} />);
 
-    expect(StyleSheet.flatten(box().props.style).borderColor).toBe('transparent');
+    expect(StyleSheet.flatten(box().props.style).borderColor).toBe(lightColors.edge);
   });
 
   it('in a list of rows (card) wears the soft row edge, and the focus ring replaces it', async () => {

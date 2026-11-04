@@ -4,7 +4,7 @@ import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import type { FoodSuggestion } from '@/lib/foodSuggestions';
-import { fontFamily, minTouchTarget, radius, space, useColors } from '@/theme';
+import { cardEdge, fontFamily, minTouchTarget, radius, space, useColors } from '@/theme';
 
 type Props = {
   suggestions: FoodSuggestion[];
@@ -31,7 +31,7 @@ export function FoodSuggestions({ suggestions, onPick, favoritesLogNow = true }:
 
   if (count === 0) return null;
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface }]}>
+    <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
       {suggestions.map((item, index) => {
         const end = item.matchStart + item.matchLength;
         const favorite = item.source === 'favorite';

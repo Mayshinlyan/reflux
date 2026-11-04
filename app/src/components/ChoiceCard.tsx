@@ -1,7 +1,7 @@
 import { Check, ChevronRight, type LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { radius, selectedEdge, useColors } from '@/theme';
+import { radius, cardEdge, selectedEdge, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -32,7 +32,7 @@ export function ChoiceCard({ title, subtitle, icon: Icon, onPress, selected, mul
         styles.card,
         {
           backgroundColor: colors.surface,
-          ...selectedEdge(colors, !!selected),
+          ...(selected ? selectedEdge(colors, true) : cardEdge(colors)),
           opacity: pressed ? 0.85 : 1,
         },
       ]}>
