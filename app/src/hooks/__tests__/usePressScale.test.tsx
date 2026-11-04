@@ -5,8 +5,8 @@ import { Button } from '@/components/Button';
 import { PRESSED_SCALE, usePressScale } from '../usePressScale';
 
 describe('usePressScale', () => {
-  it('is set to grow 10%, and a button using it still presses normally', async () => {
-    expect(PRESSED_SCALE).toBeCloseTo(1.1, 5);
+  it('is set to grow 5%, and a button using it still presses normally', async () => {
+    expect(PRESSED_SCALE).toBeCloseTo(1.05, 5);
 
     const onPress = jest.fn();
     await render(<Button label="Get ideas" onPress={onPress} />);
