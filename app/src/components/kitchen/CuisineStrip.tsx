@@ -22,12 +22,13 @@ type Props = {
 
 const CIRCLE = 64;
 const TILE_W = 72;
-const ICON = 50;
+const ICON = 43;
 const GAP = space.s1;
 /** The tap motion (Figma 37c), copied from the food app: about 120ms, ease out. */
 const TAP_MS = 120;
 const POP = 0.1;
-const TILT_DEG = -8;
+/** Clockwise, so the drawing leans to the right. */
+const TILT_DEG = 12;
 
 /**
  * The cuisine picker (Figma row 37): round illustrated tiles that scroll sideways, straight on the sheet. It runs to
