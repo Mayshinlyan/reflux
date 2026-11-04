@@ -3,7 +3,7 @@ import type { ComponentType } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import { useTabBarPress } from '@/hooks/useTabBarPress';
+import { usePressScale } from '@/hooks/usePressScale';
 import { shadow, space, useColors } from '@/theme';
 
 import { ChefHatSolid, ClockSolid, HouseSolid, PersonSolid, type TabIconProps } from './TabIcons';
@@ -91,12 +91,12 @@ type Props = {
  * Figma "Tab bar floating (Kitchen)": a compact `surface` pill centred above the bottom edge. Today, History, Kitchen and
  * Profile are icon-only tabs of solid shapes (two either side of the Log slot): the current one is `ink` on a small tan `surface2` circle, the other a muted
  * `inkMuted` silhouette; it just changes tab, it never slides. The olive Log button, ringed in the page colour, rises
- * over the pill's top edge. A pressed tab's icon shrinks a little and eases back on release (see `useTabBarPress`),
+ * over the pill's top edge. A pressed tab's icon grows about 10% and eases back on release (see `usePressScale`),
  * as does the Log button. Icon-only, so every button carries a label.
  */
 export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect }: Props) {
   const colors = useColors();
-  const logPress = useTabBarPress();
+  const logPress = usePressScale();
   const LogIcon = logOpen ? X : Plus;
   const renderTab = ({ key, label, icon: Icon }: (typeof TABS)[number]) => (
     <TabButton key={key} label={label} icon={Icon} active={key === active} onPress={() => onSelect(key)} />
@@ -147,10 +147,10 @@ type TabButtonProps = {
   onPress: () => void;
 };
 
-/** One tab: its icon shrinks under a finger, so the press is felt on the thing you touched, not the whole bar. */
+/** One tab: its icon grows under a finger, so the press is felt on the thing you touched, not the whole bar. */
 function TabButton({ label, icon: Icon, active, onPress }: TabButtonProps) {
   const colors = useColors();
-  const press = useTabBarPress();
+  const press = usePressScale();
   return (
     <Pressable
       accessibilityRole="tab"
