@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { AppText } from '@/components/AppText';
+import { PRESS_SHRINK, usePressScale } from '@/hooks/usePressScale';
 import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
 
 type Props = {
@@ -17,7 +19,8 @@ type Props = {
 
 /**
  * One of the two white pills under the Kitchen's saved recipes ("Saved" and "AI Ideas", Figma 38a): a bare icon, the
- * label and, for AI Ideas, the number of ideas waiting in a filled oval. Both share the card's soft edge.
+ * label and, for AI Ideas, the number of ideas waiting in a filled oval. Both share the card's soft edge and shrink a
+ * little under a finger like the app's other buttons.
  */
 export function PillButton({
   icon,
@@ -29,34 +32,35 @@ export function PillButton({
   onPress,
 }: Props) {
   const colors = useColors();
+  const press = usePressScale(PRESS_SHRINK);
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityHint={accessibilityHint}
-      accessibilityState={{ disabled: !!disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.pill,
-        {
-          backgroundColor: colors.surface,
-          ...cardEdge(colors),
-          opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
-        },
-      ]}>
-      {icon}
-      <AppText variant="bodyEm" numberOfLines={1}>
-        {label}
-      </AppText>
-      {!!count && (
-        <View style={[styles.count, { backgroundColor: colors.cta }]}>
-          <AppText variant="label" color="ctaInk">
-            {count}
-          </AppText>
-        </View>
-      )}
-    </Pressable>
+    <Animated.View style={press.style}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{ disabled: !!disabled }}
+        disabled={disabled}
+        onPress={onPress}
+        onPressIn={press.pressIn}
+        onPressOut={press.pressOut}
+        style={[
+          styles.pill,
+          { backgroundColor: colors.surface, ...cardEdge(colors), opacity: disabled ? 0.5 : 1 },
+        ]}>
+        {icon}
+        <AppText variant="bodyEm" numberOfLines={1}>
+          {label}
+        </AppText>
+        {!!count && (
+          <View style={[styles.count, { backgroundColor: colors.cta }]}>
+            <AppText variant="label" color="ctaInk">
+              {count}
+            </AppText>
+          </View>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 
