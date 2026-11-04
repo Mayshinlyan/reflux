@@ -61,8 +61,11 @@ export type Settings = {
   kitchenUseFridge: boolean;
   /** How many Kitchen rounds (three ideas each) were made on `day` (a local "YYYY-MM-DD"); a new day starts at none. */
   kitchenRounds: { day: string; count: number };
-  /** The last round of ideas, kept so "AI Ideas" can bring them back after the sheet is closed or the app restarted. */
-  kitchenIdeas: { cuisine: CuisineKey; recipes: Recipe[] } | null;
+  /**
+   * The last round of ideas, kept so "AI Ideas" can bring them back after the sheet is closed or the app restarted.
+   * `seen` is set once the ideas sheet was opened and closed again, so the count on "AI Ideas" starts over (Figma 38).
+   */
+  kitchenIdeas: { cuisine: CuisineKey; recipes: Recipe[]; seen?: boolean } | null;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -165,7 +168,10 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
     const ideas = value as Settings['kitchenIdeas'];
     const valid =
       ideas === null ||
-      (isCuisineKey(ideas?.cuisine) && Array.isArray(ideas.recipes) && ideas.recipes.every(isRecipe));
+      (isCuisineKey(ideas?.cuisine) &&
+        Array.isArray(ideas.recipes) &&
+        ideas.recipes.every(isRecipe) &&
+        (ideas.seen === undefined || typeof ideas.seen === 'boolean'));
     if (!valid) throw new Error('kitchenIdeas must be null or a cuisine with recipes');
   }
 }
