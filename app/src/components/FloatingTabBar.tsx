@@ -1,13 +1,7 @@
 import { Plus, X } from 'lucide-react-native';
-import { type ComponentType, useEffect, useRef } from 'react';
+import type { ComponentType } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { usePressScale } from '@/hooks/usePressScale';
 import { shadow, space, useColors } from '@/theme';
@@ -31,10 +25,6 @@ const TAB_WIDTH = 64;
 const TAB_HEIGHT = 48;
 const SLOT_WIDTH = 72;
 const HIGHLIGHT = 44;
-/** Switching tab (same motion as the cuisine tiles): about 120ms, ease out. */
-const SWITCH_MS = 120;
-const SWITCH_POP = 0.1;
-const SWITCH_TILT_DEG = 12;
 /** Two tabs, the Log slot, two tabs. The highlight is centred on the current tab, so it sits one Log slot further right on the last two. */
 const highlightLeft = (index: number) =>
   PILL_PAD + index * TAB_WIDTH + (index >= 2 ? SLOT_WIDTH : 0) + (TAB_WIDTH - HIGHLIGHT) / 2;
@@ -101,53 +91,47 @@ type Props = {
  * Figma "Tab bar floating (Kitchen)": a compact `surface` pill centred above the bottom edge. Today, History, Kitchen and
  * Profile are icon-only tabs of solid shapes (two either side of the Log slot): the current one is `ink` on a small tan `surface2` circle, the other a muted
  * `inkMuted` silhouette; it just changes tab, it never slides. The olive Log button, ringed in the page colour, rises
- * over the pill's top edge. A pressed tab's icon grows about 5% and eases back on release; the new current tab's icon pops about 10% and tilts 12° to the right while its tan circle fades in (see `usePressScale`),
- * as does the Log button. Icon-only, so every button carries a label.
+ * over the pill's top edge. Pressing a tab makes the whole bar grow about 5% and ease back on release (see `usePressScale`),
+ * and the Log button grows the same way on its own. Icon-only, so every button carries a label.
  */
 export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect }: Props) {
   const colors = useColors();
+  const barPress = usePressScale();
   const logPress = usePressScale();
-  const reduceMotion = useReducedMotion();
-  // The tan circle never slides: it appears at the new tab with a quick fade.
-  const highlightFade = useSharedValue(1);
-  const firstRender = useRef(true);
-  useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
-    highlightFade.value = 0;
-    highlightFade.value = withTiming(1, {
-      duration: reduceMotion ? 0 : SWITCH_MS,
-      easing: Easing.out(Easing.quad),
-    });
-  }, [active, reduceMotion, highlightFade]);
-  const highlightFadeStyle = useAnimatedStyle(() => ({ opacity: highlightFade.value }));
   const LogIcon = logOpen ? X : Plus;
   const renderTab = ({ key, label, icon: Icon }: (typeof TABS)[number]) => (
-    <TabButton key={key} label={label} icon={Icon} active={key === active} onPress={() => onSelect(key)} />
+    <TabButton
+      key={key}
+      label={label}
+      icon={Icon}
+      active={key === active}
+      onPress={() => onSelect(key)}
+      onPressIn={barPress.pressIn}
+      onPressOut={barPress.pressOut}
+    />
   );
   return (
     <View pointerEvents="box-none" style={[styles.root, { paddingBottom: tabBarGap(bottomInset) }]}>
-      <View
-        accessibilityRole="tablist"
-        style={[styles.pill, { backgroundColor: colors.surface, boxShadow: shadow.tabBar }]}>
-        <Animated.View
-          testID="tab-highlight"
-          pointerEvents="none"
-          style={[
-            styles.highlight,
-            {
-              backgroundColor: colors.surface2,
-              left: highlightLeft(TABS.findIndex((tab) => tab.key === active)),
-            },
-            highlightFadeStyle,
-          ]}
-        />
-        {TABS.slice(0, 2).map(renderTab)}
-        <View accessible={false} importantForAccessibility="no-hide-descendants" style={styles.slot} />
-        {TABS.slice(2).map(renderTab)}
-      </View>
+      <Animated.View style={barPress.style}>
+        <View
+          accessibilityRole="tablist"
+          style={[styles.pill, { backgroundColor: colors.surface, boxShadow: shadow.tabBar }]}>
+          <View
+            testID="tab-highlight"
+            pointerEvents="none"
+            style={[
+              styles.highlight,
+              {
+                backgroundColor: colors.surface2,
+                left: highlightLeft(TABS.findIndex((tab) => tab.key === active)),
+              },
+            ]}
+          />
+          {TABS.slice(0, 2).map(renderTab)}
+          <View accessible={false} importantForAccessibility="no-hide-descendants" style={styles.slot} />
+          {TABS.slice(2).map(renderTab)}
+        </View>
+      </Animated.View>
       <Animated.View style={[styles.logWrap, logPress.style]}>
         <Pressable
           accessibilityRole="button"
@@ -172,44 +156,27 @@ type TabButtonProps = {
   icon: ComponentType<TabIconProps>;
   active: boolean;
   onPress: () => void;
+  onPressIn: () => void;
+  onPressOut: () => void;
 };
 
-/** One tab: its icon grows under a finger, so the press is felt on the thing you touched, not the whole bar. */
-function TabButton({ label, icon: Icon, active, onPress }: TabButtonProps) {
+/** One tab. A press is felt on the whole bar, so the handlers come from the bar. */
+function TabButton({ label, icon: Icon, active, onPress, onPressIn, onPressOut }: TabButtonProps) {
   const colors = useColors();
-  const press = usePressScale();
-  const reduceMotion = useReducedMotion();
-  const chosen = useSharedValue(active ? 1 : 0);
-  useEffect(() => {
-    chosen.value = withTiming(active ? 1 : 0, {
-      duration: reduceMotion ? 0 : SWITCH_MS,
-      easing: Easing.out(Easing.quad),
-    });
-  }, [active, reduceMotion, chosen]);
-  const chosenStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: 1 + (reduceMotion ? 0 : SWITCH_POP) * chosen.value },
-      { rotate: `${(reduceMotion ? 0 : SWITCH_TILT_DEG) * chosen.value}deg` },
-    ],
-  }));
   return (
     <Pressable
       accessibilityRole="tab"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      onPressIn={press.pressIn}
-      onPressOut={press.pressOut}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       style={styles.tab}>
-      <Animated.View style={press.style}>
-        <Animated.View style={chosenStyle}>
-          <Icon
-            size={24}
-            color={active ? colors.ink : colors.inkMuted}
-            cutout={active ? colors.surface2 : colors.surface}
-          />
-        </Animated.View>
-      </Animated.View>
+      <Icon
+        size={24}
+        color={active ? colors.ink : colors.inkMuted}
+        cutout={active ? colors.surface2 : colors.surface}
+      />
     </Pressable>
   );
 }
