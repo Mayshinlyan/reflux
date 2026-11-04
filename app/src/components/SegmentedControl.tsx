@@ -20,10 +20,12 @@ type Props<T extends string> = {
   /** Null when none of them applies, e.g. a range picked by hand. */
   value: T | null;
   onChange: (value: T) => void;
+  /** Sits inside a row (Kitchen sheet): options 36pt tall, so the track is 44pt, instead of full touch-target height. */
+  compact?: boolean;
 };
 
 /** Figma "Segmented control" (W / M / infinity): a `surface2` track with the current option on `surface`. */
-export function SegmentedControl<T extends string>({ options, value, onChange }: Props<T>) {
+export function SegmentedControl<T extends string>({ options, value, onChange, compact = false }: Props<T>) {
   const colors = useColors();
   return (
     <View accessibilityRole="tablist" style={[styles.track, { backgroundColor: colors.surface2 }]}>
@@ -37,8 +39,10 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
             accessibilityLabel={option.accessibilityLabel ?? option.label}
             accessibilityState={{ selected }}
             onPress={() => onChange(option.value)}
+            hitSlop={compact ? { top: 4, bottom: 4 } : undefined}
             style={({ pressed }) => [
               styles.option,
+              compact && styles.compactOption,
               Icon && styles.iconOption,
               selected && { backgroundColor: colors.surface },
               { opacity: pressed ? 0.85 : 1 },
@@ -67,5 +71,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  compactOption: { minHeight: 36, paddingVertical: 4 },
   iconOption: { paddingHorizontal: 14 },
 });

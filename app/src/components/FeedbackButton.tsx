@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useTabBarPress } from '@/hooks/useTabBarPress';
+import { PRESS_SHRINK, usePressScale } from '@/hooks/usePressScale';
 import { radius, shadow, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
@@ -33,7 +33,7 @@ export function FeedbackButton() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const press = useTabBarPress();
+  const press = usePressScale(PRESS_SHRINK);
   const [open, setOpen] = useState(false);
 
   return (

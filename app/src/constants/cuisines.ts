@@ -35,5 +35,11 @@ export type RecipeTime = (typeof RECIPE_TIMES)[number]['value'];
 export const isRecipeTime = (value: unknown): value is RecipeTime =>
   typeof value === 'string' && RECIPE_TIMES.some((time) => time.value === value);
 
+/** What Clear all puts the sheet back to. */
+export const DEFAULT_CUISINE: CuisineKey = 'any';
+export const DEFAULT_TIME: RecipeTime = '40';
+export const DEFAULT_SERVES = 2;
+export const DEFAULT_USE_FRIDGE = true;
+
 export const MIN_SERVES = 1;
 export const MAX_SERVES = 6;
