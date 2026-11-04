@@ -2,11 +2,12 @@ import { act, fireEvent, render, renderHook, screen } from '@testing-library/rea
 
 import { Button } from '@/components/Button';
 
-import { PRESSED_SCALE, usePressScale } from '../usePressScale';
+import { PRESS_GROW, PRESS_SHRINK, usePressScale } from '../usePressScale';
 
 describe('usePressScale', () => {
-  it('is set to grow 5%, and a button using it still presses normally', async () => {
-    expect(PRESSED_SCALE).toBeCloseTo(1.05, 5);
+  it('the tab bar grows 3%, buttons shrink 3%, and a button using it still presses normally', async () => {
+    expect(PRESS_GROW).toBeCloseTo(1.03, 5);
+    expect(PRESS_SHRINK).toBeCloseTo(0.97, 5);
 
     const onPress = jest.fn();
     await render(<Button label="Get ideas" onPress={onPress} />);

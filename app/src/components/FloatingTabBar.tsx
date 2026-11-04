@@ -91,7 +91,7 @@ type Props = {
  * Figma "Tab bar floating (Kitchen)": a compact `surface` pill centred above the bottom edge. Today, History, Kitchen and
  * Profile are icon-only tabs of solid shapes (two either side of the Log slot): the current one is `ink` on a small tan `surface2` circle, the other a muted
  * `inkMuted` silhouette; it just changes tab, it never slides. The olive Log button, ringed in the page colour, rises
- * over the pill's top edge. Pressing a tab makes the whole bar grow about 5% and ease back on release (see `usePressScale`),
+ * over the pill's top edge. Pressing a tab makes the whole bar grow about 3% and ease back on release (see `usePressScale`),
  * and the Log button grows the same way on its own. Icon-only, so every button carries a label.
  */
 export function FloatingTabBar({ active, logOpen = false, bottomInset, onSelect }: Props) {

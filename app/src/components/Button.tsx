@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import { usePressScale } from '@/hooks/usePressScale';
+import { PRESS_SHRINK, usePressScale } from '@/hooks/usePressScale';
 import { type ColorToken, minTouchTarget, radius, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
@@ -41,7 +41,7 @@ export function Button({
   accessibilityHint,
 }: Props) {
   const colors = useColors();
-  const press = usePressScale();
+  const press = usePressScale(PRESS_SHRINK);
   // Disabled buttons use the mockup's muted fill rather than fading, so the label stays readable.
   const style = disabled
     ? ({ bg: variant === 'quiet' ? 'transparent' : 'surface2', text: 'inkSoft' } as const)
