@@ -1,11 +1,12 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { Ellipsis, Heart, Pencil, Trash2 } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Ellipsis, Heart, Pencil, Trash2 } from 'lucide-react-native';
 import { type ReactNode, useCallback, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActionMenu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
+import { Belly } from '@/components/Belly';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { SymptomChip } from '@/components/SymptomChip';
@@ -22,12 +23,12 @@ import { listSymptomLogsForMeal } from '@/db/repositories/symptoms';
 import { useDeleteEntry } from '@/hooks/useDeleteEntry';
 import { type LoadedEntry, loadEntry } from '@/lib/entry';
 import { logger } from '@/lib/logger';
-import { formatTime, formatWhen } from '@/lib/localDay';
+import { formatWhen } from '@/lib/localDay';
 import { isLateMeal } from '@/lib/mealTiming';
 import { possibleCauses } from '@/lib/possibleCauses';
 import { medicationTypeLabel, symptomLabel, tagLabel } from '@/lib/timeline';
 import { matchedTriggerLabels } from '@/lib/verdictReasons';
-import { cardEdge, radius, space, useColors } from '@/theme';
+import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
 
 /**
  * One diary entry in full (Figma 04b meal, 04f dose, 04h symptoms): a back arrow and a `…` menu on top, then the
@@ -186,20 +187,6 @@ function EntryMenu({
   );
 }
 
-function Card({ title, children }: { title?: string; children: ReactNode }) {
-  const colors = useColors();
-  return (
-    <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
-      {title ? (
-        <AppText variant="section" accessibilityRole="header">
-          {title}
-        </AppText>
-      ) : null}
-      {children}
-    </View>
-  );
-}
-
 /** A titled block with no card of its own, for sections that sit together on one sheet. */
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -212,51 +199,80 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** "Label ... value" inside a Details card. */
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.detailRow}>
-      <AppText variant="small">{label}</AppText>
-      <AppText variant="small" color="inkSoft">
-        {value}
-      </AppText>
-    </View>
-  );
+/** The one sheet that holds what was logged (symptoms, note). Nothing else sits on a card of its own. */
+function Sheet({ children }: { children: ReactNode }) {
+  const colors = useColors();
+  return <View style={[styles.sheet, { backgroundColor: colors.surface }]}>{children}</View>;
 }
 
-function Heading({ children, badge }: { children: string; badge?: ReactNode }) {
-  return (
-    <View style={styles.heading}>
-      {badge}
-      <AppText variant="hero" accessibilityRole="header">
-        {children}
-      </AppText>
-    </View>
-  );
-}
-
-function Tags({ labels }: { labels: string[] }) {
-  if (labels.length === 0) return null;
-  return (
-    <View style={styles.chips}>
-      {labels.map((label) => (
-        <TagChip key={label} label={label} selected={false} readOnly onCard />
-      ))}
-    </View>
-  );
-}
-
-function NoteCard({ notes }: { notes: string | null }) {
+function NoteSheet({ notes }: { notes: string | null }) {
   return notes ? (
-    <Card title="Note">
-      <AppText variant="small">{notes}</AppText>
-    </Card>
+    <Sheet>
+      <Section title="Note">
+        <AppText variant="small">{notes}</AppText>
+      </Section>
+    </Sheet>
   ) : null;
+}
+
+/** Figma row 40: every entry opens the same way, with the name, when it happened and any tags, all centred. */
+function EntryHeader({ title, when, tags = [] }: { title: string; when: string; tags?: string[] }) {
+  return (
+    <View style={styles.meal}>
+      <AppText variant="display" accessibilityRole="header" style={styles.centered}>
+        {title}
+      </AppText>
+      <AppText variant="small" color="inkSoft" style={styles.centered}>
+        {when}
+      </AppText>
+      {tags.length > 0 && (
+        <View style={[styles.chips, styles.centeredChips]}>
+          {tags.map((label) => (
+            <TagChip key={label} label={label} selected={false} readOnly />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+/** A closed one-line card that opens to show more, the same as "Why?" on a meal. */
+function Disclosure({ label, children }: { label: string; children: ReactNode }) {
+  const colors = useColors();
+  const [open, setOpen] = useState(false);
+  const Chevron = open ? ChevronUp : ChevronDown;
+  return (
+    <View style={[styles.disclosure, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((value) => !value)}
+        style={styles.disclosureRow}>
+        <AppText variant="sectionSm" style={styles.disclosureLabel}>
+          {label}
+        </AppText>
+        <Chevron size={20} color={colors.inkSoft} strokeWidth={2} />
+      </Pressable>
+      {open ? <View style={styles.disclosureBody}>{children}</View> : null}
+    </View>
+  );
+}
+
+function SymptomsSection({ keys }: { keys: string[] }) {
+  return (
+    <Section title="Symptoms">
+      <View style={styles.chips}>
+        {keys.map((key) => (
+          <SymptomChip key={key} label={symptomLabel(key)} selected readOnly />
+        ))}
+      </View>
+    </Section>
+  );
 }
 
 function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] }) {
   const db = useDb();
-  const colors = useColors();
   const { settings } = useSettings();
   const late = isLateMeal(log.loggedAt, log.tz, settings.bedtime, settings.lateMealWindowMinutes);
   const lifestyle = listMealTags(db, log.id).map(tagLabel);
@@ -264,82 +280,47 @@ function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] 
   const tags = [...new Set([...lifestyle, ...triggers])];
   const after = listSymptomLogsForMeal(db, log.id);
   const keys = [...new Set(after.flatMap((symptoms) => symptoms.items.map((item) => item.key)))];
-  const first = after[0];
   const { analysis } = log;
-  // A meal with a stored verdict (Figma row 24, 24a): the name and when first, then Bellie with the badge and the
-  // one-line reason, what happened after the meal, and a closed "Why?" holding the tip and the reasons.
+  const when = formatWhen(log.loggedAt, log.tz);
+  const hasAfter = keys.length > 0 || Boolean(log.notes);
+  const sheet = hasAfter ? (
+    <Sheet>
+      {keys.length > 0 && <SymptomsSection keys={keys} />}
+      {log.notes ? (
+        <Section title="Note">
+          <AppText variant="small">{log.notes}</AppText>
+        </Section>
+      ) : null}
+    </Sheet>
+  ) : null;
+  // A meal with a stored verdict (Figma row 24, 24a, 40): the header, Bellie with the badge and the one-line
+  // reason, what happened after the meal, and a closed "Why?" holding the tip and the reasons. Only what the user
+  // picked themselves shows as tags; the reasons behind the verdict are under "Why?".
   if (analysis) {
-    const hasAfter = (keys.length > 0 && first !== undefined) || Boolean(log.notes);
     return (
       <>
-        <View style={styles.meal}>
-          <AppText variant="display" accessibilityRole="header" style={styles.centered}>
-            {log.mealName}
-          </AppText>
-          <AppText variant="small" color="inkSoft" style={styles.centered}>
-            {formatWhen(log.loggedAt, log.tz)}
-          </AppText>
-          {/* Only what the user picked themselves; the reasons behind the verdict are under "Why?". */}
-          {lifestyle.length > 0 && (
-            <View style={[styles.chips, styles.centeredChips]}>
-              {lifestyle.map((label) => (
-                <TagChip key={label} label={label} selected={false} readOnly />
-              ))}
-            </View>
-          )}
-        </View>
+        <EntryHeader title={log.mealName} when={when} tags={lifestyle} />
         <VerdictHero analysis={analysis} late={late} showTriggers={false} showBubble={false} />
-        {hasAfter && (
-          <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
-            {keys.length > 0 && first && (
-              <Section title="Symptoms">
-                <View style={styles.chips}>
-                  {keys.map((key) => (
-                    <SymptomChip key={key} label={symptomLabel(key)} selected readOnly />
-                  ))}
-                </View>
-                <AppText variant="caption" color="inkSoft">
-                  {`Logged at ${formatTime(first.loggedAt, first.tz)}`}
-                </AppText>
-              </Section>
-            )}
-            {log.notes ? (
-              <Section title="Note">
-                <AppText variant="small">{log.notes}</AppText>
-              </Section>
-            ) : null}
-          </View>
-        )}
+        {sheet}
         <VerdictMore analysis={analysis} late={late} />
       </>
     );
   }
+  // No stored verdict: the same header, then the same sheet.
   return (
     <>
-      <Heading badge={log.overallVerdict ? <VerdictBadge verdict={log.overallVerdict} /> : undefined}>
-        {log.mealName}
-      </Heading>
-      <Card>
-        <AppText variant="bodyEm">{formatWhen(log.loggedAt, log.tz)}</AppText>
-        <Tags labels={tags} />
-      </Card>
-      {keys.length > 0 && first && (
-        <Card title="Symptoms">
-          <View style={styles.chips}>
-            {keys.map((key) => (
-              <SymptomChip key={key} label={symptomLabel(key)} selected readOnly />
-            ))}
-          </View>
-          <AppText variant="caption" color="inkSoft">
-            {`Logged at ${formatTime(first.loggedAt, first.tz)}`}
-          </AppText>
-        </Card>
-      )}
-      <NoteCard notes={log.notes} />
+      <EntryHeader title={log.mealName} when={when} tags={tags} />
+      {log.overallVerdict ? (
+        <View style={styles.centeredBlock}>
+          <VerdictBadge verdict={log.overallVerdict} />
+        </View>
+      ) : null}
+      {sheet}
     </>
   );
 }
 
+/** Figma 40a: the symptoms are the title, so they are not listed again; Bellie shows the meal they followed. */
 function SymptomView({ log }: { log: Extract<LoadedEntry, { kind: 'symptom' }>['log'] }) {
   const db = useDb();
   const { settings } = useSettings();
@@ -357,55 +338,43 @@ function SymptomView({ log }: { log: Extract<LoadedEntry, { kind: 'symptom' }>['
       });
   return (
     <>
-      <Heading>
-        {lifestyleOnly ? tags.join(', ') : log.items.map((item) => symptomLabel(item.key)).join(', ')}
-      </Heading>
-      <Card>
-        <AppText variant="bodyEm">{formatWhen(log.loggedAt, log.tz)}</AppText>
-        {!lifestyleOnly && <Tags labels={tags} />}
-      </Card>
-      {!lifestyleOnly && (
-        <Card title="Symptoms">
-          <View style={styles.chips}>
-            {log.items.map((item) => (
-              <SymptomChip key={item.key} label={symptomLabel(item.key)} selected readOnly />
-            ))}
-          </View>
-          {meal && (
-            <AppText variant="caption" color="inkSoft">
-              {`After ${meal.mealName}`}
-            </AppText>
-          )}
-        </Card>
-      )}
+      <EntryHeader
+        title={lifestyleOnly ? tags.join(', ') : log.items.map((item) => symptomLabel(item.key)).join(', ')}
+        when={formatWhen(log.loggedAt, log.tz)}
+        tags={lifestyleOnly ? [] : tags}
+      />
+      <View style={styles.centeredBlock}>
+        <Belly mood={lifestyleOnly ? 'happy' : 'caution'} size={120} />
+        {meal && (
+          <AppText variant="small" color="inkSoft" style={styles.centered}>
+            {`After ${meal.mealName}`}
+          </AppText>
+        )}
+      </View>
+      <NoteSheet notes={log.notes} />
       {causes.length > 0 && (
-        <Card title="Possibly related">
+        <Disclosure label="Possibly related">
           {causes.map((cause) => (
             <AppText key={cause} variant="small">
               {cause}
             </AppText>
           ))}
-          <AppText variant="caption" color="inkSoft">
-            Worked out on your phone from what you logged. Not a diagnosis.
-          </AppText>
-        </Card>
+        </Disclosure>
       )}
-      <NoteCard notes={log.notes} />
     </>
   );
 }
 
+/** Figma 40b: the type is one tag under the date, like a meal's tags. */
 function DoseView({ log }: { log: Extract<LoadedEntry, { kind: 'medication' }>['log'] }) {
   return (
     <>
-      <Heading>{log.doseText ? `${log.name} ${log.doseText}` : log.name}</Heading>
-      <Card>
-        <AppText variant="bodyEm">{formatWhen(log.takenAt, log.tz)}</AppText>
-      </Card>
-      <Card title="Details">
-        <DetailRow label="Type" value={medicationTypeLabel(log.type)} />
-      </Card>
-      <NoteCard notes={log.notes} />
+      <EntryHeader
+        title={log.doseText ? `${log.name} ${log.doseText}` : log.name}
+        when={formatWhen(log.takenAt, log.tz)}
+        tags={[medicationTypeLabel(log.type)]}
+      />
+      <NoteSheet notes={log.notes} />
     </>
   );
 }
@@ -413,15 +382,24 @@ function DoseView({ log }: { log: Extract<LoadedEntry, { kind: 'medication' }>['
 const styles = StyleSheet.create({
   content: { gap: space.s3, paddingBottom: space.s4 },
   topRight: { flexDirection: 'row', alignItems: 'center', gap: space.s1 },
-  heading: { gap: space.s2 },
-  card: { borderRadius: radius.lg, padding: space.s2, gap: space.s1_5 },
   // The logged-meal page: the name, when and tags sit open on the page, the rest on one sheet.
   meal: { gap: 8, alignItems: 'center' },
   centered: { textAlign: 'center' },
   centeredChips: { justifyContent: 'center' },
+  centeredBlock: { alignItems: 'center', gap: space.s1 },
   sheet: { borderRadius: 24, padding: space.s2 + 4, gap: space.s3 },
   section: { gap: space.s1_5 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: space.s1 },
+  disclosure: { borderRadius: radius.lg, paddingHorizontal: space.s2 },
+  // The whole row is the tap target, so the vertical padding lives here and not on the card.
+  disclosureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.s1,
+    minHeight: minTouchTarget,
+    paddingVertical: space.s1_5,
+  },
+  disclosureLabel: { flex: 1 },
+  disclosureBody: { gap: space.s1, paddingBottom: space.s2 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(58,47,37,0.45)' },
   menuPos: { position: 'absolute', right: space.s3 },

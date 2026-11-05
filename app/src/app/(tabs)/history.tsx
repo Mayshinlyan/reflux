@@ -64,14 +64,6 @@ const FILTERS: { value: TimelineFilter; label: string }[] = [
 
 const todayKeyNow = () => localDayKey(new Date().toISOString(), currentTimeZone());
 
-/** The warm line under "History" (Figma 04a), like the date under Today's greeting. */
-function subtitleFor(kind: Kind, current: boolean): string {
-  if (kind === 'all') return 'Everything so far';
-  if (kind === 'custom') return 'The dates you picked';
-  const unit = kind === 'month' ? 'month' : 'week';
-  return current ? `Here's how your ${unit} went` : `Here's how that ${unit} went`;
-}
-
 /** Everything logged in the period, by day. Loads a day either side so other zones aren't clipped, then trims. */
 function loadPeriod(db: AppDb, period: Period): TimelineSection[] {
   const range = loadWindow(period);
@@ -243,9 +235,6 @@ export default function HistoryScreen() {
                 <View style={styles.heading}>
                   <AppText variant="display" accessibilityRole="header">
                     History
-                  </AppText>
-                  <AppText variant="voiceSmall" color="inkSoft">
-                    {subtitleFor(kind, isCurrent(period, todayKey))}
                   </AppText>
                 </View>
               </View>
