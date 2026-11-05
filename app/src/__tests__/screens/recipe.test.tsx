@@ -12,6 +12,8 @@ let mockDb: AppDb;
 let closeDb: () => void;
 let mockParams: { saved?: string } = {};
 const mockPush = jest.fn();
+const mockFetchVideo = jest.fn();
+const mockOpenBrowser = jest.fn();
 
 jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
@@ -36,6 +38,10 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn(() => Promise.resolve()) }));
+jest.mock('expo-web-browser', () => ({ openBrowserAsync: (url: string) => mockOpenBrowser(url) }));
+jest.mock('@/services/relayClient', () => ({
+  fetchRecipeVideo: (title: string, signal?: AbortSignal) => mockFetchVideo(title, signal),
+}));
 
 const recipe: Recipe = {
   title: 'Kimchi egg fried rice',
@@ -55,6 +61,8 @@ beforeEach(() => {
   closeDb = () => sqlite.close();
   mockParams = {};
   mockPush.mockClear();
+  mockFetchVideo.mockReset().mockResolvedValue(null);
+  mockOpenBrowser.mockReset().mockResolvedValue({ type: 'opened' });
   setRecipeDraft({ recipe, cuisine: 'korean' });
 });
 afterEach(() => {
@@ -68,7 +76,8 @@ describe('Recipe', () => {
 
     expect(screen.getByRole('header', { name: 'Kimchi egg fried rice' })).toBeTruthy();
     expect(screen.getByText('20 min · serves 2')).toBeTruthy();
-    expect(screen.getByText('Gentle')).toBeTruthy();
+    // The top is only the name and the time; "Why it's gentle" says the rest (Figma 29e4d).
+    expect(screen.queryByText('Gentle')).toBeNull();
     expect(screen.getByText("Why it's gentle")).toBeTruthy();
     expect(screen.getByText('Soft rice and egg are easy on the stomach.')).toBeTruthy();
     expect(screen.getByText('Belly tip')).toBeTruthy();
@@ -252,11 +261,10 @@ describe('Recipe: how was it', () => {
 });
 
 describe('Recipe: with a fridge', () => {
-  it('ticks what you have, marks the rest "to buy", and says how many it uses', async () => {
+  it('ticks what you have and marks the rest "to buy"', async () => {
     replaceFridge(mockDb, ['rice', 'eggs']);
     await render(<RecipeScreen />);
 
-    expect(screen.getByText('Uses 2 from your fridge')).toBeTruthy();
     expect(screen.getAllByLabelText('In your fridge')).toHaveLength(2);
     expect(screen.getAllByText('to buy')).toHaveLength(1);
     expect(screen.getByText('1 tbsp sesame oil')).toBeTruthy();
@@ -265,16 +273,78 @@ describe('Recipe: with a fridge', () => {
   it('shows plain ingredients, with no ticks or "to buy", when the fridge is empty', async () => {
     await render(<RecipeScreen />);
 
-    expect(screen.queryByText(/from your fridge/)).toBeNull();
     expect(screen.queryByLabelText('In your fridge')).toBeNull();
     expect(screen.queryByText('to buy')).toBeNull();
   });
 
-  it('says nothing about the fridge when none of it is in the recipe', async () => {
+  it('ticks nothing when none of the fridge is in the recipe', async () => {
     replaceFridge(mockDb, ['milk']);
     await render(<RecipeScreen />);
 
-    expect(screen.queryByText(/from your fridge/)).toBeNull();
+    expect(screen.queryByLabelText('In your fridge')).toBeNull();
     expect(screen.getAllByText('to buy')).toHaveLength(3);
+  });
+});
+
+describe('Recipe: the video card', () => {
+  const VIDEO = 'dQw4w9WgXcQ';
+  const link = { name: 'Watch similar recipe on YouTube, opens YouTube' };
+
+  it('asks for a video by the dish name alone, and adds it as the first card of the steps', async () => {
+    mockFetchVideo.mockResolvedValue(VIDEO);
+    await render(<RecipeScreen />);
+
+    expect(await screen.findByRole('link', link)).toBeTruthy();
+    expect(mockFetchVideo).toHaveBeenCalledTimes(1);
+    expect(mockFetchVideo.mock.calls[0]?.[0]).toBe('Kimchi egg fried rice');
+    expect(screen.getByText('Video')).toBeTruthy();
+    // One more dot than there are steps, and the steps keep their own numbers.
+    expect(screen.getByLabelText(`Card 1 of ${recipe.steps.length + 1}`)).toBeTruthy();
+    expect(screen.getByText(`Step 1 of ${recipe.steps.length}`)).toBeTruthy();
+  });
+
+  it('opens the video in the in-app browser when tapped', async () => {
+    mockFetchVideo.mockResolvedValue(VIDEO);
+    await render(<RecipeScreen />);
+
+    fireEvent.press(await screen.findByRole('link', link));
+
+    expect(mockOpenBrowser).toHaveBeenCalledWith(`https://www.youtube.com/watch?v=${VIDEO}`);
+  });
+
+  it('has no card, and no extra dot, when no video is found', async () => {
+    await render(<RecipeScreen />);
+
+    expect(mockFetchVideo).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('link', link)).toBeNull();
+    expect(screen.queryByText('Video')).toBeNull();
+    expect(screen.getByLabelText(`Card 1 of ${recipe.steps.length}`)).toBeTruthy();
+  });
+
+  it('shows the page as usual when the look-up fails', async () => {
+    mockFetchVideo.mockRejectedValue(new Error('offline'));
+    await render(<RecipeScreen />);
+
+    expect(screen.queryByRole('link', link)).toBeNull();
+    for (const step of recipe.steps) expect(screen.getByText(step)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+  });
+
+  it('keeps the video with a saved recipe, and does not look it up again when that one opens', async () => {
+    mockFetchVideo.mockResolvedValue(VIDEO);
+    await render(<RecipeScreen />);
+    await screen.findByRole('link', link);
+
+    await press('Save');
+    const [saved] = listSavedRecipes(mockDb);
+    expect(saved?.recipe.videoId).toBe(VIDEO);
+
+    mockFetchVideo.mockClear();
+    setRecipeDraft(null);
+    mockParams = { saved: String(saved?.id) };
+    await render(<RecipeScreen />);
+
+    expect(screen.getAllByRole('link', link).length).toBeGreaterThan(0);
+    expect(mockFetchVideo).not.toHaveBeenCalled();
   });
 });

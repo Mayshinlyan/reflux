@@ -7,6 +7,13 @@ const isStringList = (value: unknown, min: number): value is string[] =>
   value.length >= min &&
   value.every((item) => typeof item === 'string' && item.length > 0);
 
+/** A YouTube video id: eleven letters, digits, dashes and underscores. */
+export const isVideoId = (value: unknown): value is string =>
+  typeof value === 'string' && /^[\w-]{11}$/.test(value);
+
+/** Where a video plays (opened in the in-app browser). */
+export const videoUrl = (videoId: string) => `https://www.youtube.com/watch?v=${videoId}`;
+
 /** True when `value` has the shape of a `Recipe`: the relay's answer and a saved recipe are both checked with this. */
 export function isRecipe(value: unknown): value is Recipe {
   if (typeof value !== 'object' || value === null) return false;
@@ -23,7 +30,8 @@ export function isRecipe(value: unknown): value is Recipe {
     isStringList(recipe.ingredients, 1) &&
     isStringList(recipe.steps, 1) &&
     // The look is the phone's own and optional; one that is not a real look is a bad recipe, not a crash later.
-    (recipe.look === undefined || isLook(recipe.look))
+    (recipe.look === undefined || isLook(recipe.look)) &&
+    (recipe.videoId === undefined || isVideoId(recipe.videoId))
   );
 }
 
@@ -36,7 +44,7 @@ export function isRecipeIdeas(value: unknown): value is { recipes: Recipe[] } {
 
 /** Only the fields the app shows, so nothing else the relay adds (like `meta`) gets saved. */
 export function pickRecipe(recipe: Recipe): Recipe {
-  const { title, minutes, serves, why, tip, ingredients, steps, look } = recipe;
+  const { title, minutes, serves, why, tip, ingredients, steps, look, videoId } = recipe;
   return {
     title,
     minutes,
@@ -46,6 +54,7 @@ export function pickRecipe(recipe: Recipe): Recipe {
     ingredients: [...ingredients],
     steps: [...steps],
     ...(isLook(look) ? { look } : {}),
+    ...(isVideoId(videoId) ? { videoId } : {}),
   };
 }
 

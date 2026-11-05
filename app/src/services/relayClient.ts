@@ -7,7 +7,7 @@ import type { ConditionKey } from '@/constants/conditions';
 import { relayBaseUrl } from '@/lib/config';
 import { AppError, isRelayErrorCode } from '@/lib/errors';
 import { isInsight } from '@/lib/insight';
-import { isRecipeIdeas, pickRecipe } from '@/lib/recipe';
+import { isRecipeIdeas, isVideoId, pickRecipe } from '@/lib/recipe';
 import type { AnalysisMeta, MealAnalysis, Portion } from '@/types/analysis';
 import type { Insight, InsightRequest } from '@/types/insight';
 import type { Recipe, RecipeRequest } from '@/types/recipe';
@@ -218,6 +218,45 @@ export async function fetchRecipeIdeas(request: RecipeRequest, signal?: AbortSig
   if (!isRecipeIdeas(body)) throw new AppError('AI_INVALID_OUTPUT', id);
   // Only the fields we show, so nothing else the relay adds (like `meta`) is kept.
   return body.recipes.map(pickRecipe);
+}
+
+// A video look-up is one quick search; the relay gives up on YouTube after 5 s, so the phone waits a little longer.
+const VIDEO_TIMEOUT_MS = 8_000;
+
+/**
+ * Asks the relay for a YouTube video of a similar recipe. Only the dish name goes. Resolves to the video id, or null
+ * when there is none; throws an AppError like `analyzeFood` otherwise, and the recipe page then simply shows no video.
+ */
+export async function fetchRecipeVideo(title: string, signal?: AbortSignal): Promise<string | null> {
+  const id = requestId();
+  const token = await tokenFor(id);
+  const timeout = AbortSignal.timeout(VIDEO_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${relayBaseUrl()}/v1/recipe-video`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'X-Request-Id': id, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (!timeout.aborted && (await isOffline())) throw new AppError('OFFLINE', id);
+    throw new AppError(timeout.aborted ? 'AI_TIMEOUT' : 'NETWORK', id);
+  }
+
+  if (!response.ok) throw await toAppError(response, id);
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new AppError('AI_INVALID_OUTPUT', id);
+  }
+  const videoId =
+    typeof body === 'object' && body !== null ? (body as { videoId?: unknown }).videoId : undefined;
+  if (videoId === null) return null;
+  if (!isVideoId(videoId)) throw new AppError('AI_INVALID_OUTPUT', id);
+  return videoId;
 }
 
 // Up to three photos go up and the relay waits up to 45 s for the AI, so the phone waits a little longer.

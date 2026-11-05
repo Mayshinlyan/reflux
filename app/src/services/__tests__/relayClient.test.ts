@@ -9,7 +9,14 @@ import { getNetworkStateAsync } from 'expo-network';
 
 import type { RecipeRequest } from '@/types/recipe';
 
-import { analyzeFood, fetchInsight, fetchRecipeIdeas, scanFridge, sendFeedback } from '../relayClient';
+import {
+  analyzeFood,
+  fetchInsight,
+  fetchRecipeIdeas,
+  fetchRecipeVideo,
+  scanFridge,
+  sendFeedback,
+} from '../relayClient';
 import { getIdToken } from '../firebase';
 
 // A stand-in with the parts of an expo-file-system File that Expo's multipart encoder uses.
@@ -512,5 +519,51 @@ describe('sendFeedback', () => {
     fetchMock.mockRejectedValue(new DOMException('aborted', 'AbortError'));
 
     await expect(sendFeedback('hi', controller.signal)).rejects.toThrow('aborted');
+  });
+});
+
+describe('fetchRecipeVideo', () => {
+  it('posts only the dish name with the bearer token, and returns the video id', async () => {
+    fetchMock.mockReturnValue(json(200, { videoId: 'dQw4w9WgXcQ' }));
+
+    await expect(fetchRecipeVideo('Kimchi egg fried rice')).resolves.toBe('dQw4w9WgXcQ');
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://relay.test/v1/recipe-video');
+    expect(init.method).toBe('POST');
+    expect(init.headers.Authorization).toBe('Bearer test-token');
+    expect(JSON.parse(init.body)).toEqual({ title: 'Kimchi egg fried rice' });
+  });
+
+  it('resolves to null when there is no video', async () => {
+    fetchMock.mockReturnValue(json(200, { videoId: null }));
+
+    await expect(fetchRecipeVideo('Kimchi egg fried rice')).resolves.toBeNull();
+  });
+
+  it.each([
+    ['an id that is not one', { videoId: 'nope' }],
+    ['no videoId field', {}],
+    ['a body that is not an object', 'text'],
+  ])('reports AI_INVALID_OUTPUT for %s', async (_name, body) => {
+    fetchMock.mockReturnValue(json(200, body));
+
+    await expect(fetchRecipeVideo('Soup')).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
+  });
+
+  it('maps a relay error to its code', async () => {
+    fetchMock.mockReturnValue(json(429, { error: { code: 'RATE_LIMITED', requestId: 'r1' } }));
+
+    await expect(fetchRecipeVideo('Soup')).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+  });
+
+  it('reports NETWORK when the request cannot be made but the phone is online', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Network request failed'));
+    (getNetworkStateAsync as jest.Mock).mockResolvedValueOnce({
+      isConnected: true,
+      isInternetReachable: true,
+    });
+
+    await expect(fetchRecipeVideo('Soup')).rejects.toMatchObject({ code: 'NETWORK' });
   });
 });
