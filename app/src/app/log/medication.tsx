@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
   subtitle: { ...typography.subtitle, marginTop: space.s2, marginBottom: space.s4 },
   // No subtitle when managing, so the title leaves the gap before the first card.
   manageTitle: { marginBottom: space.s4 },
-  empty: { marginBottom: space.s2, lineHeight: 24 },
+  empty: { marginBottom: space.s2 },
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   typeBadge: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill },
   typeBadgeText: typography.label,
