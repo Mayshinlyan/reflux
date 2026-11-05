@@ -144,7 +144,8 @@ describe('Entry: a meal', () => {
     expect(screen.getByText('Symptoms')).toBeTruthy();
     expect(screen.getByText('Heartburn')).toBeTruthy();
     expect(screen.getByText('Burping')).toBeTruthy();
-    expect(screen.getByText('Logged at 9:40 PM')).toBeTruthy();
+    // The time is already under the title, so it is not repeated under the symptoms.
+    expect(screen.queryByText(/Logged at/)).toBeNull();
     expect(screen.getByText('Felt fine until later.')).toBeTruthy();
     expect(screen.queryByText('Details')).toBeNull();
   });
@@ -270,7 +271,7 @@ describe('Entry: a symptom entry', () => {
     expect(screen.getByText('Rushed morning.')).toBeTruthy();
   });
 
-  it('shows what is possibly related, worked out from the meal it followed', async () => {
+  it('keeps what is possibly related behind a closed row, worked out from the meal it followed', async () => {
     const mealId = seedTacos();
     const id = createSymptomLog(mockDb, {
       items: [{ key: 'heartburn' }],
@@ -281,9 +282,18 @@ describe('Entry: a symptom entry', () => {
     await render(<EntryScreen />);
 
     expect(screen.getByText('Possibly related')).toBeTruthy();
+    expect(screen.queryByText('Spicy chicken tacos, 2 hours before')).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Possibly related' }));
     expect(screen.getByText('Spicy chicken tacos, 2 hours before')).toBeTruthy();
     expect(screen.getByText('A late meal, 3 hours before bed')).toBeTruthy();
-    expect(screen.getByText(/Not a diagnosis/)).toBeTruthy();
+    expect(screen.queryByText(/Not a diagnosis/)).toBeNull();
+    // A second press closes it again.
+    await fireEvent.press(screen.getByRole('button', { name: 'Possibly related' }));
+    expect(screen.queryByText('Spicy chicken tacos, 2 hours before')).toBeNull();
+    // The symptom is the title and Bellie shows the meal it followed; it is not listed again as a chip card.
+    expect(screen.queryByText('Symptoms')).toBeNull();
+    expect(screen.getByLabelText('Belly feels cautious')).toBeTruthy();
   });
 
   it('has no possibly related card when no meal was linked, and shows a typed tag as its own text', async () => {
@@ -310,8 +320,10 @@ describe('Entry: a dose', () => {
 
     expect(screen.getByRole('header', { name: 'Omeprazole 20mg' })).toBeTruthy();
     expect(screen.getByText('Sat, Oct 10 · 8:30 AM')).toBeTruthy();
-    expect(screen.getByText('Type')).toBeTruthy();
+    // The type is one tag under the date, like a meal's tags, not a Details card.
     expect(screen.getByText('PPI')).toBeTruthy();
+    expect(screen.queryByText('Details')).toBeNull();
+    expect(screen.queryByText('Type')).toBeNull();
   });
 });
 

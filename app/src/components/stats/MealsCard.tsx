@@ -25,7 +25,7 @@ export function MealsCard({ patterns, width, height }: Props) {
   if (empty) {
     return (
       <StatCard width={width} height={height} gap={space.s2}>
-        <StatHeader title="What sat well" aside="Nothing to compare yet" />
+        <StatHeader title="What sat well" />
         <View style={styles.empty}>
           <Belly mood="happy" size={96} />
           <AppText variant="voiceSmall" style={styles.centered}>
@@ -37,10 +37,10 @@ export function MealsCard({ patterns, width, height }: Props) {
   }
   return (
     <StatCard width={width} height={height} gap={space.s2}>
-      <StatHeader title="What sat well" aside="From symptoms you logged after meals" />
+      <StatHeader title="What sat well" />
       {patterns.sat.length > 0 && (
         <Section
-          label="Sat well, no symptoms after"
+          label="Sat well"
           state="calm"
           rows={patterns.sat}
           count={(meal) => `${meal.times} times`}
@@ -49,16 +49,13 @@ export function MealsCard({ patterns, width, height }: Props) {
       )}
       {patterns.watch.length > 0 && (
         <Section
-          label="Worth watching, symptoms came after"
+          label="Worth watching"
           state="some"
           rows={patterns.watch}
           count={(meal) => `${meal.withSymptoms} of ${meal.times}`}
           spoken={(meal) => `${meal.name}, symptoms after ${meal.withSymptoms} of ${meal.times} times`}
         />
       )}
-      <AppText variant="voiceSmall" color="inkSoft">
-        Just what Bellie noticed, not what caused it.
-      </AppText>
     </StatCard>
   );
 }

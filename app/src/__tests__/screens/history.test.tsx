@@ -180,20 +180,14 @@ describe('History: the week', () => {
     expect(screen.queryByRole('button', { name: 'Feedback' })).toBeNull();
   });
 
-  it('says in a warm line under the title which period this is, like the date under Today', async () => {
+  it('has no line under the title: the range stepper already says which period this is', async () => {
     seedWeek();
     await render(<HistoryScreen />);
 
-    expect(screen.getByText("Here's how your week went")).toBeTruthy();
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Previous week' }));
-    expect(screen.getByText("Here's how that week went")).toBeTruthy();
-
-    await fireEvent.press(screen.getByRole('tab', { name: 'Month' }));
-    expect(screen.getByText("Here's how your month went")).toBeTruthy();
+    expect(screen.queryByText(/Here's how/)).toBeNull();
 
     await fireEvent.press(screen.getByRole('tab', { name: 'All time' }));
-    expect(screen.getByText('Everything so far')).toBeTruthy();
+    expect(screen.queryByText('Everything so far')).toBeNull();
   });
 
   it('starts on Week with the range pill showing the week', async () => {
@@ -391,14 +385,18 @@ describe('History: what sat well and when it shows up', () => {
 
     expect(screen.getByLabelText('Oatmeal, eaten 2 times, no symptoms after')).toBeTruthy();
     expect(screen.getByLabelText('Spicy tacos, symptoms after 2 of 2 times')).toBeTruthy();
-    expect(screen.getByText('Just what Bellie noticed, not what caused it.')).toBeTruthy();
+    // Only the two labels and the rows: no aside under the title and no footnote.
+    expect(screen.getByText('Sat well')).toBeTruthy();
+    expect(screen.getByText('Worth watching')).toBeTruthy();
+    expect(screen.queryByText(/From symptoms you logged/)).toBeNull();
+    expect(screen.queryByText(/Just what Bellie noticed/)).toBeNull();
   });
 
   it('asks for symptoms after meals when no meal has been eaten twice', async () => {
     seedWeek();
     await render(<HistoryScreen />);
 
-    expect(screen.getByText('Nothing to compare yet')).toBeTruthy();
+    expect(screen.queryByText('Nothing to compare yet')).toBeNull();
     expect(
       screen.getByText('Log symptoms after meals and Bellie will start spotting patterns.'),
     ).toBeTruthy();
