@@ -432,7 +432,7 @@ export function FoodList() {
 const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
   content: { paddingBottom: space.s3 },
-  empty: { marginBottom: space.s2, lineHeight: 24 },
+  empty: { marginBottom: space.s2 },
   // No instruction line under the title, so the title itself leaves the gap before the first card.
   title: { marginBottom: space.s4 },
   footer: { paddingTop: space.s2 },
