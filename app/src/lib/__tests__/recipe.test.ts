@@ -6,6 +6,7 @@ import {
   parseWanted,
   pickRecipe,
   recipeMeta,
+  videoSearchUrl,
 } from '../recipe';
 
 const recipe = {
@@ -110,5 +111,16 @@ describe('time words', () => {
 
   it('puts the time and servings on one line', () => {
     expect(recipeMeta(recipe)).toBe('20 min · serves 2');
+  });
+});
+
+describe('videoSearchUrl', () => {
+  it('searches YouTube for the dish and the word recipe, safely encoded', () => {
+    expect(videoSearchUrl('Kimchi egg fried rice')).toBe(
+      'https://www.youtube.com/results?search_query=Kimchi%20egg%20fried%20rice%20recipe',
+    );
+    expect(videoSearchUrl('Mac & cheese #2')).toBe(
+      'https://www.youtube.com/results?search_query=Mac%20%26%20cheese%20%232%20recipe',
+    );
   });
 });

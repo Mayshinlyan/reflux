@@ -7,6 +7,10 @@ const isStringList = (value: unknown, min: number): value is string[] =>
   value.length >= min &&
   value.every((item) => typeof item === 'string' && item.length > 0);
 
+/** Where "Watch similar recipe on YouTube" goes: a YouTube search for the dish (opened in the in-app browser). */
+export const videoSearchUrl = (title: string) =>
+  `https://www.youtube.com/results?search_query=${encodeURIComponent(`${title} recipe`)}`;
+
 /** True when `value` has the shape of a `Recipe`: the relay's answer and a saved recipe are both checked with this. */
 export function isRecipe(value: unknown): value is Recipe {
   if (typeof value !== 'object' || value === null) return false;

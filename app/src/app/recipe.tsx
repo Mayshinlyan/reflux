@@ -19,6 +19,7 @@ import { Button } from '@/components/Button';
 import { RecipeArt } from '@/components/kitchen/RecipeArt';
 import { SnapCards } from '@/components/kitchen/SnapCards';
 import { StepCard } from '@/components/kitchen/StepCard';
+import { VideoCard } from '@/components/kitchen/VideoCard';
 import { Screen } from '@/components/Screen';
 import type { CuisineKey } from '@/constants/cuisines';
 import { useDb } from '@/db/DatabaseProvider';
@@ -33,7 +34,7 @@ import {
 import { listFridgeItems } from '@/db/repositories/fridgeItems';
 import type { AppDb } from '@/db/types';
 import { friendlyMessages } from '@/lib/errors';
-import { countInFridge, inFridge } from '@/lib/fridge';
+import { inFridge } from '@/lib/fridge';
 import { logger } from '@/lib/logger';
 import { recipeMeta } from '@/lib/recipe';
 import { getRecipeDraft } from '@/lib/recipeDraft';
@@ -42,6 +43,9 @@ import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
 
 type Shown = { recipe: Recipe; cuisine: CuisineKey; saved: StoredRecipe | null };
+
+/** One card in the steps row: the video link (always first), then each step. */
+type StepItem = { kind: 'video' } | { kind: 'step'; text: string; index: number };
 
 /**
  * A recipe, opened from a Kitchen idea (`/recipe`) or from the saved list (`/recipe?saved=<id>`), Figma row 29e: the
@@ -72,7 +76,10 @@ export default function RecipeScreen() {
   }
 
   const { recipe, cuisine, saved } = shown;
-  const haveCount = fridge.length > 0 ? countInFridge(recipe.ingredients, fridge) : 0;
+  const stepItems: StepItem[] = [
+    { kind: 'video' as const },
+    ...recipe.steps.map((text, index) => ({ kind: 'step' as const, text, index })),
+  ];
 
   const toggleSaved = () => {
     try {
@@ -112,27 +119,12 @@ export default function RecipeScreen() {
         <RecipeArt look={lookFor(recipe)} height={200} />
 
         <View style={styles.heading}>
-          <AppText variant="displaySmall" accessibilityRole="header">
+          <AppText variant="displaySmall" accessibilityRole="header" style={styles.centered}>
             {recipe.title}
           </AppText>
-          <AppText variant="subtitle" color="inkSoft">
+          <AppText variant="subtitle" color="inkSoft" style={styles.centered}>
             {recipeMeta(recipe)}
           </AppText>
-          <View style={styles.tags}>
-            <View style={[styles.tag, { backgroundColor: colors.sageTint }]}>
-              <Leaf size={14} color={colors.sageInk} strokeWidth={2} />
-              <AppText variant="label" color="sageInk">
-                Gentle
-              </AppText>
-            </View>
-            {haveCount > 0 && (
-              <View style={[styles.tag, { backgroundColor: colors.honeyTint }]}>
-                <AppText variant="label" color="honeyInk">
-                  {`Uses ${haveCount} from your fridge`}
-                </AppText>
-              </View>
-            )}
-          </View>
         </View>
 
         {/* One white card, dark titles on white: coloured text on a coloured box was hard to read (Figma 29e). */}
@@ -212,10 +204,20 @@ export default function RecipeScreen() {
             Steps
           </AppText>
           <SnapCards
-            items={recipe.steps}
-            keyOf={(step, index) => `${step}-${index}`}
-            labelOf={(step, index) => `Step ${index + 1} of ${recipe.steps.length}: ${step}`}
-            renderItem={(step, index) => <StepCard index={index} total={recipe.steps.length} text={step} />}
+            items={stepItems}
+            keyOf={(item, position) => (item.kind === 'video' ? 'video' : `${item.text}-${position}`)}
+            labelOf={(item) =>
+              item.kind === 'video'
+                ? 'Video: watch similar recipe on YouTube'
+                : `Step ${item.index + 1} of ${recipe.steps.length}: ${item.text}`
+            }
+            renderItem={(item) =>
+              item.kind === 'video' ? (
+                <VideoCard title={recipe.title} />
+              ) : (
+                <StepCard index={item.index} total={recipe.steps.length} text={item.text} />
+              )
+            }
           />
         </View>
 
@@ -326,15 +328,7 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   missing: { flex: 1, justifyContent: 'center', gap: space.s1 },
   heading: { gap: space.s1 },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
-  tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-  },
+  centered: { textAlign: 'center' },
   whyCard: { gap: space.s3 },
   whyBlock: { gap: space.s1 },
   whyHeader: { flexDirection: 'row', alignItems: 'center', gap: space.s1 + 4 },
