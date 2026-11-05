@@ -18,11 +18,6 @@ export type Recipe = {
    * recipe service, and kept with the recipe so it looks the same on the card, the page and the saved list.
    */
   look?: number;
-  /**
-   * A YouTube video of a similar recipe, found by the relay when the recipe page opens and kept with a saved recipe so
-   * it is not looked up again. Absent when none was found: the page then has no video card.
-   */
-  videoId?: string;
 };
 
 /**

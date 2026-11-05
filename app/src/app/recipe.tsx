@@ -10,7 +10,7 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
@@ -39,14 +39,13 @@ import { logger } from '@/lib/logger';
 import { recipeMeta } from '@/lib/recipe';
 import { getRecipeDraft } from '@/lib/recipeDraft';
 import { lookFor } from '@/lib/recipeLook';
-import { fetchRecipeVideo } from '@/services/relayClient';
 import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
 
 type Shown = { recipe: Recipe; cuisine: CuisineKey; saved: StoredRecipe | null };
 
-/** One card in the steps row: the video when one was found (always first), then each step. */
-type StepItem = { kind: 'video'; videoId: string } | { kind: 'step'; text: string; index: number };
+/** One card in the steps row: the video link (always first), then each step. */
+type StepItem = { kind: 'video' } | { kind: 'step'; text: string; index: number };
 
 /**
  * A recipe, opened from a Kitchen idea (`/recipe`) or from the saved list (`/recipe?saved=<id>`), Figma row 29e: the
@@ -63,20 +62,6 @@ export default function RecipeScreen() {
   const [open, setOpen] = useState(true);
   // What the saved fridge holds, read once. With nothing in it the page shows no ticks (Figma 29e).
   const [fridge] = useState(() => fridgeNames(db));
-  // A video of a similar recipe: kept with a saved recipe, otherwise looked up once when the page opens. No video, or
-  // a look-up that fails, simply means no video card; nothing else on the page waits for it (Figma 29e4d).
-  const [videoId, setVideoId] = useState<string | null>(() => shown?.recipe.videoId ?? null);
-  const title = shown?.recipe.title;
-  useEffect(() => {
-    if (!title || videoId) return;
-    const controller = new AbortController();
-    fetchRecipeVideo(title, controller.signal)
-      .then((found) => {
-        if (found) setVideoId(found);
-      })
-      .catch(() => logger.debug('fetchRecipeVideo'));
-    return () => controller.abort();
-  }, [title, videoId]);
 
   if (!shown) {
     return (
@@ -92,7 +77,7 @@ export default function RecipeScreen() {
 
   const { recipe, cuisine, saved } = shown;
   const stepItems: StepItem[] = [
-    ...(videoId ? [{ kind: 'video' as const, videoId }] : []),
+    { kind: 'video' as const },
     ...recipe.steps.map((text, index) => ({ kind: 'step' as const, text, index })),
   ];
 
@@ -102,8 +87,7 @@ export default function RecipeScreen() {
         removeSavedRecipe(db, saved.id);
         setShown({ ...shown, saved: null });
       } else {
-        // The video found for it is kept too, so the saved copy never looks it up again.
-        setShown({ ...shown, saved: saveRecipe(db, videoId ? { ...recipe, videoId } : recipe, cuisine) });
+        setShown({ ...shown, saved: saveRecipe(db, recipe, cuisine) });
       }
       setFailed(false);
     } catch (error) {
@@ -229,7 +213,7 @@ export default function RecipeScreen() {
             }
             renderItem={(item) =>
               item.kind === 'video' ? (
-                <VideoCard videoId={item.videoId} />
+                <VideoCard title={recipe.title} />
               ) : (
                 <StepCard index={item.index} total={recipe.steps.length} text={item.text} />
               )

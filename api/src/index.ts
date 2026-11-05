@@ -12,7 +12,6 @@ import {
   createUnavailableClaudeService,
 } from './services/claudeService.js';
 import { createFirebaseTokenVerifier } from './services/tokenVerifier.js';
-import { createUnavailableVideoService, createYoutubeVideoService } from './services/videoService.js';
 
 const env = loadEnv();
 const logger = createLogger({
@@ -36,15 +35,7 @@ const claude = anthropic
   ? createClaudeService({ client: anthropic.client, model: env.ANTHROPIC_MODEL })
   : createUnavailableClaudeService(env.ANTHROPIC_MODEL);
 
-const video = env.YOUTUBE_API_KEY
-  ? createYoutubeVideoService({
-      apiKey: env.YOUTUBE_API_KEY,
-      onFailure: (reason) => logger.warn({ reason }, 'video look-up failed'),
-    })
-  : createUnavailableVideoService();
-if (!env.YOUTUBE_API_KEY) logger.warn('No YOUTUBE_API_KEY is set; recipes will have no video');
-
-const server = createApp({ env, logger, verifier, rateLimitStore, claude, feedbackStore, video }).listen(
+const server = createApp({ env, logger, verifier, rateLimitStore, claude, feedbackStore }).listen(
   env.PORT,
   () => {
     logger.info(

@@ -158,9 +158,6 @@ export const recipeIdeasBodySchema = z.strictObject({
 
 export type RecipeIdeasInput = z.infer<typeof recipeIdeasBodySchema>;
 
-/** The dish name a video is looked up for (POST /v1/recipe-video). Nothing else about the person or the recipe. */
-export const recipeVideoBodySchema = z.strictObject({ title: z.string().trim().min(1).max(120) });
-
 /** One recipe. Lengths leave a margin over what the prompt asks for, so a slightly long answer doesn't fail. */
 const recipeSchema = z.strictObject({
   title: z.string().min(1).max(60),

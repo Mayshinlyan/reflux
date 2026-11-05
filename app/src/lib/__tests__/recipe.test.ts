@@ -3,11 +3,10 @@ import {
   formatMinutes,
   isRecipe,
   isRecipeIdeas,
-  isVideoId,
   parseWanted,
   pickRecipe,
   recipeMeta,
-  videoUrl,
+  videoSearchUrl,
 } from '../recipe';
 
 const recipe = {
@@ -115,37 +114,13 @@ describe('time words', () => {
   });
 });
 
-describe('the video of a recipe', () => {
-  it('knows a YouTube video id: eleven letters, digits, dashes and underscores', () => {
-    expect(isVideoId('dQw4w9WgXcQ')).toBe(true);
-    expect(isVideoId('a-b_c-d_e-f')).toBe(true);
-    for (const bad of [
-      '',
-      'short',
-      'twelve chars',
-      'has space!!',
-      'x'.repeat(12),
-      12345678901,
-      null,
-      undefined,
-    ]) {
-      expect(isVideoId(bad)).toBe(false);
-    }
-  });
-
-  it('builds the watch address from the id', () => {
-    expect(videoUrl('dQw4w9WgXcQ')).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
-  });
-
-  it('keeps a real video id with the recipe, and leaves the field out otherwise', () => {
-    expect(pickRecipe({ ...recipe, videoId: 'dQw4w9WgXcQ' }).videoId).toBe('dQw4w9WgXcQ');
-    expect('videoId' in pickRecipe(recipe)).toBe(false);
-    expect('videoId' in pickRecipe({ ...recipe, videoId: 'nope' })).toBe(false);
-  });
-
-  it('accepts a recipe with or without a video id, and refuses one that is not an id', () => {
-    expect(isRecipe({ ...recipe, videoId: 'dQw4w9WgXcQ' })).toBe(true);
-    expect(isRecipe(recipe)).toBe(true);
-    expect(isRecipe({ ...recipe, videoId: 'nope' })).toBe(false);
+describe('videoSearchUrl', () => {
+  it('searches YouTube for the dish and the word recipe, safely encoded', () => {
+    expect(videoSearchUrl('Kimchi egg fried rice')).toBe(
+      'https://www.youtube.com/results?search_query=Kimchi%20egg%20fried%20rice%20recipe',
+    );
+    expect(videoSearchUrl('Mac & cheese #2')).toBe(
+      'https://www.youtube.com/results?search_query=Mac%20%26%20cheese%20%232%20recipe',
+    );
   });
 });

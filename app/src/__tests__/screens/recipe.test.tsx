@@ -12,7 +12,6 @@ let mockDb: AppDb;
 let closeDb: () => void;
 let mockParams: { saved?: string } = {};
 const mockPush = jest.fn();
-const mockFetchVideo = jest.fn();
 const mockOpenBrowser = jest.fn();
 
 jest.mock('@/db/DatabaseProvider', () => ({ useDb: () => mockDb }));
@@ -39,9 +38,6 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn(() => Promise.resolve()) }));
 jest.mock('expo-web-browser', () => ({ openBrowserAsync: (url: string) => mockOpenBrowser(url) }));
-jest.mock('@/services/relayClient', () => ({
-  fetchRecipeVideo: (title: string, signal?: AbortSignal) => mockFetchVideo(title, signal),
-}));
 
 const recipe: Recipe = {
   title: 'Kimchi egg fried rice',
@@ -61,7 +57,6 @@ beforeEach(() => {
   closeDb = () => sqlite.close();
   mockParams = {};
   mockPush.mockClear();
-  mockFetchVideo.mockReset().mockResolvedValue(null);
   mockOpenBrowser.mockReset().mockResolvedValue({ type: 'opened' });
   setRecipeDraft({ recipe, cuisine: 'korean' });
 });
@@ -192,10 +187,10 @@ describe('Recipe: the steps as cards', () => {
     expect(screen.queryAllByText(/min$/)).toHaveLength(2);
   });
 
-  it('have dots to go to a step, one per step', async () => {
+  it('have dots to go to a card, one for the video and one per step', async () => {
     await render(<RecipeScreen />);
 
-    expect(screen.getByLabelText(`Card 1 of ${recipe.steps.length}`)).toBeTruthy();
+    expect(screen.getByLabelText(`Card 1 of ${recipe.steps.length + 1}`)).toBeTruthy();
   });
 });
 
@@ -287,64 +282,38 @@ describe('Recipe: with a fridge', () => {
 });
 
 describe('Recipe: the video card', () => {
-  const VIDEO = 'dQw4w9WgXcQ';
   const link = { name: 'Watch similar recipe on YouTube, opens YouTube' };
 
-  it('asks for a video by the dish name alone, and adds it as the first card of the steps', async () => {
-    mockFetchVideo.mockResolvedValue(VIDEO);
+  it('is the first card of the steps, with one more dot than there are steps', async () => {
     await render(<RecipeScreen />);
 
-    expect(await screen.findByRole('link', link)).toBeTruthy();
-    expect(mockFetchVideo).toHaveBeenCalledTimes(1);
-    expect(mockFetchVideo.mock.calls[0]?.[0]).toBe('Kimchi egg fried rice');
+    expect(screen.getByRole('link', link)).toBeTruthy();
     expect(screen.getByText('Video')).toBeTruthy();
-    // One more dot than there are steps, and the steps keep their own numbers.
     expect(screen.getByLabelText(`Card 1 of ${recipe.steps.length + 1}`)).toBeTruthy();
+    // The steps keep their own numbers.
     expect(screen.getByText(`Step 1 of ${recipe.steps.length}`)).toBeTruthy();
   });
 
-  it('opens the video in the in-app browser when tapped', async () => {
-    mockFetchVideo.mockResolvedValue(VIDEO);
+  it('opens a YouTube search for the dish in the in-app browser when tapped', async () => {
     await render(<RecipeScreen />);
 
-    fireEvent.press(await screen.findByRole('link', link));
+    fireEvent.press(screen.getByRole('link', link));
 
-    expect(mockOpenBrowser).toHaveBeenCalledWith(`https://www.youtube.com/watch?v=${VIDEO}`);
+    expect(mockOpenBrowser).toHaveBeenCalledWith(
+      'https://www.youtube.com/results?search_query=Kimchi%20egg%20fried%20rice%20recipe',
+    );
   });
 
-  it('has no card, and no extra dot, when no video is found', async () => {
-    await render(<RecipeScreen />);
-
-    expect(mockFetchVideo).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('link', link)).toBeNull();
-    expect(screen.queryByText('Video')).toBeNull();
-    expect(screen.getByLabelText(`Card 1 of ${recipe.steps.length}`)).toBeTruthy();
-  });
-
-  it('shows the page as usual when the look-up fails', async () => {
-    mockFetchVideo.mockRejectedValue(new Error('offline'));
-    await render(<RecipeScreen />);
-
-    expect(screen.queryByRole('link', link)).toBeNull();
-    for (const step of recipe.steps) expect(screen.getByText(step)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
-  });
-
-  it('keeps the video with a saved recipe, and does not look it up again when that one opens', async () => {
-    mockFetchVideo.mockResolvedValue(VIDEO);
-    await render(<RecipeScreen />);
-    await screen.findByRole('link', link);
-
-    await press('Save');
-    const [saved] = listSavedRecipes(mockDb);
-    expect(saved?.recipe.videoId).toBe(VIDEO);
-
-    mockFetchVideo.mockClear();
+  it('is there on a saved recipe too, searching for its own name', async () => {
     setRecipeDraft(null);
-    mockParams = { saved: String(saved?.id) };
+    const saved = saveRecipe(mockDb, { ...recipe, title: 'Miso salmon bowl' }, 'japanese');
+    mockParams = { saved: String(saved.id) };
     await render(<RecipeScreen />);
 
-    expect(screen.getAllByRole('link', link).length).toBeGreaterThan(0);
-    expect(mockFetchVideo).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByRole('link', link));
+
+    expect(mockOpenBrowser).toHaveBeenCalledWith(
+      'https://www.youtube.com/results?search_query=Miso%20salmon%20bowl%20recipe',
+    );
   });
 });
