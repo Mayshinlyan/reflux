@@ -20,5 +20,10 @@
       "environment": "production",
       "env": { "SENTRY_DISABLE_AUTO_UPLOAD": "true" }
     }
+  },
+  "submit": {
+    "production": {
+      "ios": { "ascAppId": "6830043217" }
+    }
   }
 }
