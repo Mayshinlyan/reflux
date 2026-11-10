@@ -277,6 +277,17 @@ describe('History: the stats cards', () => {
     expectOnFirstCard(4);
   });
 
+  it("ends the week's days card with a link to that week's report", async () => {
+    await render(<HistoryScreen />);
+
+    await fireEvent.press(screen.getByRole('link', { name: 'Your week with Bellie' }));
+
+    expect(router.push).toHaveBeenLastCalledWith({
+      pathname: '/weekly-report',
+      params: { week: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) },
+    });
+  });
+
   it('is not changed by the Entries filter', async () => {
     seedWeek();
     await render(<HistoryScreen />);

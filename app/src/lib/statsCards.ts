@@ -1,3 +1,6 @@
+import { TRIGGER_GROUP_NAMES } from '@/constants/triggerLabels';
+import type { TriggerCategory } from '@/types/analysis';
+
 import { type HistorySummary, ratedMeals, summarize } from './historySummary';
 import { addDays, localDayKey } from './localDay';
 import { isLateMeal, minutesOfDay } from './mealTiming';
@@ -17,6 +20,8 @@ export const AFTER_MEAL_HOURS = 4;
 export const MIN_MEAL_TIMES = 2;
 /** The most meals either list shows. */
 export const MAX_MEAL_ROWS = 3;
+/** A kind of food (spicy, fatty...) needs this many meals before it is called out, with symptoms after half of them. */
+export const MIN_TRIGGER_MEALS = 3;
 
 export type Unit = 'week' | 'month';
 
@@ -135,6 +140,45 @@ export function mealPatterns(entries: readonly TimelineEntry[], now: Date) {
     .sort((a, b) => b.withSymptoms / b.times - a.withSymptoms / a.times || b.times - a.times)
     .slice(0, MAX_MEAL_ROWS);
   return { sat, watch };
+}
+
+/**
+ * The same idea by what the check found in the meals instead of the dish: "Spicy meals, symptoms after 3 of 4". It
+ * works when no dish is eaten twice. A kind of food needs at least three meals, and symptoms after at least two of
+ * them and after half or more, so a single rough evening never decides anything.
+ */
+export function triggerPatterns(entries: readonly TimelineEntry[], now: Date): MealPattern[] {
+  const groups = new Map<TriggerCategory, MealPattern>();
+  for (const entry of entries) {
+    if (entry.kind !== 'food') continue;
+    const categories = new Set(
+      (entry.log.analysis?.items ?? []).flatMap((item) =>
+        item.matchedTriggers.map((trigger) => trigger.category),
+      ),
+    );
+    if (categories.size === 0) continue;
+    const followed = symptomsFollow(entry, entries);
+    if (!followed && Date.parse(entry.at) + AFTER_MEAL_HOURS * HOUR_MS > now.getTime()) continue;
+    for (const category of categories) {
+      const group = groups.get(category) ?? {
+        name: TRIGGER_GROUP_NAMES[category],
+        times: 0,
+        withSymptoms: 0,
+      };
+      group.times += 1;
+      if (followed) group.withSymptoms += 1;
+      groups.set(category, group);
+    }
+  }
+  return [...groups.values()]
+    .filter(
+      (group) =>
+        group.times >= MIN_TRIGGER_MEALS &&
+        group.withSymptoms >= MIN_MEAL_TIMES &&
+        group.withSymptoms * 2 >= group.times,
+    )
+    .sort((a, b) => b.withSymptoms / b.times - a.withSymptoms / a.times || b.times - a.times)
+    .slice(0, MAX_MEAL_ROWS);
 }
 
 // ---------- time of day

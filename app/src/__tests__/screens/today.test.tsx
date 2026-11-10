@@ -6,8 +6,12 @@ import TodayScreen from '@/app/(tabs)/index';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createFoodLog, listDiaryFoodLogs } from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
+import { createSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
+import { addDays, localDayKey } from '@/lib/localDay';
 import { closeLogArch, getLogArch } from '@/lib/logArch';
+import { currentTimeZone } from '@/lib/time';
+import { lastFullWeek } from '@/lib/weeklyReport';
 import { fetchInsight } from '@/services/relayClient';
 import type { AppVerdict } from '@/types/analysis';
 import type { Insight } from '@/types/insight';
@@ -19,6 +23,7 @@ let mockUserName = '';
 let mockReduceMotion = true;
 let mockReminderAsked = true;
 let mockReminderMinutes: number | null = null;
+let mockReportSeen = '';
 const mockUpdate = jest.fn();
 const mockToast = jest.fn();
 const mockPush = jest.fn();
@@ -35,6 +40,7 @@ jest.mock('@/db/DatabaseProvider', () => ({
       reminderAsked: mockReminderAsked,
       checkInReminderMinutes: mockReminderMinutes,
       summariesEnabled: true,
+      reportSeenWeek: mockReportSeen,
     },
     update: mockUpdate,
   }),
@@ -80,6 +86,7 @@ beforeEach(() => {
   mockReduceMotion = true;
   mockReminderAsked = true;
   mockReminderMinutes = null;
+  mockReportSeen = '';
   closeLogArch();
   // Bellie's summary is still on its way unless a test says otherwise.
   jest
@@ -110,6 +117,15 @@ const seedMeal = (mealName: string, verdict: AppVerdict, loggedAt: string) =>
   });
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+const daysAgo = (days: number) => minutesAgo(days * 24 * 60);
+
+/**
+ * Enough meals from a month back that the first report has what it needs, so Bellie's own words show. They are
+ * older than the eight days Today lists, so they never appear on the screen.
+ */
+const seedHistory = (count = 5) => {
+  for (let i = 0; i < count; i += 1) seedMeal(`Earlier meal ${i}`, 'good', daysAgo(30 + i));
+};
 
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 
@@ -118,6 +134,7 @@ const pressUndo = () => mockToast.mock.calls.at(-1)?.[1].action.onPress();
 
 describe('Today: an empty day', () => {
   it('greets, shows the week with today marked, and invites a first meal', async () => {
+    seedHistory();
     await render(<TodayScreen />);
 
     expect(screen.getByRole('header', { name: /^Good (morning|afternoon|evening)$/ })).toBeTruthy();
@@ -227,6 +244,7 @@ describe("Today: Bellie's words", () => {
     Promise.resolve(request.range === 'day' ? dayInsight : weekInsight);
 
   it('asks for nothing and says "Tap me to log" on a day with nothing logged', async () => {
+    seedHistory();
     await render(<TodayScreen />);
 
     expect(screen.getByText('Tap me to log')).toBeTruthy();
@@ -234,6 +252,7 @@ describe("Today: Bellie's words", () => {
   });
 
   it("shows the words made on the phone at once, in Bellie's bubble", async () => {
+    seedHistory();
     seedMeal('Spicy ramen', 'caution', minutesAgo(5));
     await render(<TodayScreen />);
 
@@ -242,6 +261,7 @@ describe("Today: Bellie's words", () => {
 
   it("puts Bellie's own line in the bubble once it arrives, and shows no insight cards", async () => {
     jest.mocked(fetchInsight).mockImplementation(answer);
+    seedHistory();
     seedMeal('Spicy ramen', 'caution', minutesAgo(5));
     await render(<TodayScreen />);
 
@@ -266,6 +286,7 @@ describe("Today: Bellie's words", () => {
 
   it('tells Bellie from the rest of the screen: tapping her opens the arch', async () => {
     jest.mocked(fetchInsight).mockImplementation(answer);
+    seedHistory();
     seedMeal('Spicy ramen', 'caution', minutesAgo(5));
     await render(<TodayScreen />);
     await screen.findByText('Easy on the spice tonight?');
@@ -276,8 +297,67 @@ describe("Today: Bellie's words", () => {
   });
 });
 
+describe('Today: the weekly report', () => {
+  const lastWeek = () => lastFullWeek(localDayKey(new Date().toISOString(), currentTimeZone()));
+  /** A symptom on the Wednesday of the week before, so that week's report has something to say. */
+  const seedLastWeekSymptom = () =>
+    createSymptomLog(mockDb, {
+      items: [{ key: 'heartburn' }],
+      loggedAt: new Date(`${addDays(lastWeek().startKey, 3)}T19:30:00`).toISOString(),
+    });
+
+  it('has Bellie say how many more meals the first report needs, until there are enough', async () => {
+    await render(<TodayScreen />);
+    expect(screen.getByText('5 more meals and I can start spotting patterns.')).toBeTruthy();
+    expect(screen.queryByText('Tap me to log')).toBeNull();
+  });
+
+  it('counts down as meals are logged, and says "1 more meal" for the last one', async () => {
+    seedHistory(4);
+    await render(<TodayScreen />);
+    expect(screen.getByText('1 more meal and I can start spotting patterns.')).toBeTruthy();
+  });
+
+  it('goes back to her own words once there are enough meals', async () => {
+    seedHistory(5);
+    await render(<TodayScreen />);
+    expect(screen.queryByText(/more meals? and I can start/)).toBeNull();
+    expect(screen.getByText('Tap me to log')).toBeTruthy();
+  });
+
+  it('offers "Your week with Bellie" when a finished week has something to show', async () => {
+    seedHistory();
+    seedLastWeekSymptom();
+    await render(<TodayScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Your week with Bellie/ }));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/weekly-report',
+      params: { week: lastWeek().startKey },
+    });
+  });
+
+  it('leaves the row out once that week has been opened', async () => {
+    seedHistory();
+    seedLastWeekSymptom();
+    mockReportSeen = lastWeek().startKey;
+    await render(<TodayScreen />);
+
+    expect(screen.queryByRole('button', { name: /^Your week with Bellie/ })).toBeNull();
+  });
+
+  it('leaves the row out when the last week had nothing to say', async () => {
+    seedHistory();
+    await render(<TodayScreen />);
+
+    expect(screen.queryByRole('button', { name: /^Your week with Bellie/ })).toBeNull();
+  });
+});
+
 describe('Today: after logging', () => {
   it('lists every entry for today, newest first, with Bellie saying something instead of a count', async () => {
+    seedHistory();
     seedMeal('Oatmeal with banana', 'good', minutesAgo(3));
     seedMeal('Grilled salmon', 'ok', minutesAgo(2));
     const medication = createMedication(mockDb, { name: 'Omeprazole', type: 'ppi' });

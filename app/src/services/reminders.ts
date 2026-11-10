@@ -4,7 +4,14 @@ import { Platform } from 'react-native';
 
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { CHECK_IN_TITLE, checkInBody, checkInTime, isQuietTime } from '@/lib/reminderTiming';
+import {
+  CHECK_IN_TITLE,
+  checkInBody,
+  checkInTime,
+  isQuietTime,
+  REPORT_BODY,
+  REPORT_TITLE,
+} from '@/lib/reminderTiming';
 
 /**
  * The check-in reminder: a local notification a while after a meal asking how they feel. It is scheduled on the
@@ -109,6 +116,54 @@ export async function cancelAllCheckIns(): Promise<void> {
   } catch (error) {
     logger.error('cancelAllCheckIns', error);
   }
+}
+
+const REPORT_ID = 'weekly-report';
+/** Sunday (1 is Sunday in an expo-notifications weekly trigger) at 6 pm, as the week has just ended. */
+const REPORT_WEEKDAY = 1;
+const REPORT_HOUR = 18;
+
+/**
+ * Schedules the weekly "Your week with Bellie" notification (Figma 42f): every Sunday evening, on the phone like the
+ * check-in. The same identifier replaces any earlier one, so calling this again is safe. It never asks for permission.
+ */
+export async function scheduleWeeklyReport(): Promise<'scheduled' | 'denied' | 'failed'> {
+  try {
+    if (!(await remindersAllowed())) return 'denied';
+    await ensureChannel();
+    await Notifications.scheduleNotificationAsync({
+      identifier: REPORT_ID,
+      content: { title: REPORT_TITLE, body: REPORT_BODY, data: { report: true } },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+        weekday: REPORT_WEEKDAY,
+        hour: REPORT_HOUR,
+        minute: 0,
+        channelId: CHANNEL,
+      },
+    });
+    return 'scheduled';
+  } catch (error) {
+    logger.error('scheduleWeeklyReport', error);
+    return 'failed';
+  }
+}
+
+/** Drops the weekly notification: check-in reminders were turned off. Safe if none is scheduled. */
+export async function cancelWeeklyReport(): Promise<void> {
+  try {
+    await Notifications.cancelScheduledNotificationAsync(REPORT_ID);
+  } catch (error) {
+    logger.error('cancelWeeklyReport', error);
+  }
+}
+
+/** True for a tap on the weekly notification itself (not another action on it). */
+export function isReportResponse(response: Notifications.NotificationResponse): boolean {
+  return (
+    response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER &&
+    response.notification.request.content.data?.report === true
+  );
 }
 
 /** The meal a tapped reminder is about, or null for anything else (another action, an unknown notification). */

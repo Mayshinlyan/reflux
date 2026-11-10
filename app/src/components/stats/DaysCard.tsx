@@ -1,4 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { ChevronRight } from 'lucide-react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { addDays, longDayLabel } from '@/lib/localDay';
 import { calmComparison, calmHeadline, type DayStat, type PeriodStats } from '@/lib/statsCards';
@@ -24,7 +25,19 @@ export function dayText(day: DayStat): string {
  * coloured disc with what was logged; a month is a calendar of the same discs. The header counts the days
  * without symptoms and says how that compares with the last week or month.
  */
-export function DaysCard({ stats, width, height }: { stats: PeriodStats; width: number; height: number }) {
+export function DaysCard({
+  stats,
+  width,
+  height,
+  onOpenReport,
+}: {
+  stats: PeriodStats;
+  width: number;
+  height: number;
+  /** A week's card ends with a link to that week's report (Figma 42g). */
+  onOpenReport?: () => void;
+}) {
+  const colors = useColors();
   const unit = stats.unit ?? 'week';
   return (
     <StatCard width={width} height={height} gap={space.s1_5}>
@@ -33,6 +46,19 @@ export function DaysCard({ stats, width, height }: { stats: PeriodStats; width: 
         aside={calmComparison(stats.days, stats.previousDays, unit)}
       />
       {unit === 'week' ? <WeekList days={stats.days} /> : <MonthGrid stats={stats} />}
+      {unit === 'week' && onOpenReport && (
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel="Your week with Bellie"
+          onPress={onOpenReport}
+          hitSlop={8}
+          style={styles.link}>
+          <AppText variant="bodyEm" color="sageInk">
+            Your week with Bellie
+          </AppText>
+          <ChevronRight size={20} color={colors.sageInk} strokeWidth={2} />
+        </Pressable>
+      )}
     </StatCard>
   );
 }
@@ -121,6 +147,7 @@ const styles = StyleSheet.create({
   // 6 above and below each row, and a hairline between rows (Figma row 28a).
   row: { flexDirection: 'row', alignItems: 'center', gap: space.s1_5, paddingVertical: 6 },
   rowText: { flex: 1 },
+  link: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44 },
   grid: { gap: 6 },
   week: { flexDirection: 'row' },
   cell: { flex: 1, alignItems: 'center', gap: 2 },

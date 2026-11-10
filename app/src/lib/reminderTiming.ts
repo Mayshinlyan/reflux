@@ -38,6 +38,10 @@ export function isQuietTime(at: Date, bedtime: string): boolean {
 
 export const CHECK_IN_TITLE = 'How are you feeling?';
 
+/** The Sunday evening notification that a week's report is ready (Figma 42f). */
+export const REPORT_TITLE = 'Your week with Bellie';
+export const REPORT_BODY = 'See what sat well and what to watch.';
+
 /** "You had Spicy chicken tacos about 2 hours ago. Tap to check in." */
 export function checkInBody(mealName: string, minutes: number): string {
   return `You had ${mealName} about ${formatWindow(minutes)} ago. Tap to check in.`;

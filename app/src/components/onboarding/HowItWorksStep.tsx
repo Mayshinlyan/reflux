@@ -1,56 +1,51 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
-import { Belly } from '@/components/Belly';
 import { Button } from '@/components/Button';
-import { TimelineItem } from '@/components/TimelineItem';
-import { VerdictBadge } from '@/components/VerdictBadge';
+import { MealSection } from '@/components/stats/MealSection';
 import { cardEdge, radius, space, useColors } from '@/theme';
 
 import { StepLayout } from './StepLayout';
 
-const noop = () => {};
+/** The made-up list in the picture: a food symptoms followed, and a food that sat well. */
+const WATCH = [{ name: 'Spicy chicken tacos', times: 2, withSymptoms: 2 }];
+const SAT = [{ name: 'Oatmeal with banana', times: 3, withSymptoms: 0 }];
 
 /**
- * Shows what the app does in one screen (Figma 17b): a logged meal with a verdict, a logged symptom, and the pattern that
- * builds up as you log more. Both are pictures marked "Example", not controls, and carry no made-up numbers.
+ * What you get for logging, in one screen (Figma 42a, was 17b): a picture of the weekly list, foods to watch and foods
+ * that sat well. It is marked "Example", is not a control, and is the same list "Your week with Bellie" shows once
+ * there is a week of meals behind it.
  */
 export function HowItWorksStep({ onNext }: { onNext: () => void }) {
   const colors = useColors();
   return (
     <StepLayout
-      title="Log meals and symptoms. Spot the patterns."
+      title="Find what upsets your body."
+      subtitle="Log for a week and Bellie makes your own list."
       footer={<Button label="Continue" onPress={onNext} />}>
       <View style={styles.stack}>
+        <AppText variant="caption" color="inkSoft">
+          Example
+        </AppText>
         <View
           accessible
-          accessibilityLabel="Example: a logged meal with a result, here Spicy chicken tacos with a Caution verdict, then a logged symptom, Heartburn"
+          accessibilityLabel="Example: Worth watching, Spicy chicken tacos, symptoms after 2 of 2 times. Sat well, Oatmeal with banana, 3 times, no symptoms after."
           pointerEvents="none"
-          style={styles.demo}>
-          <AppText variant="label" color="inkSoft">
-            Example
-          </AppText>
-          <TimelineItem
-            kind="food"
-            title="Spicy chicken tacos"
-            time="7:40 PM"
-            onPress={noop}
-            side={<VerdictBadge verdict="caution" />}
-          />
-          <TimelineItem kind="symptom" title="Heartburn" time="9:15 PM" onPress={noop} />
-        </View>
-
-        <View
-          accessible
-          accessibilityLabel="Example: Spicy meals. Heartburn often showed up within 2 hours."
           style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
-          <View style={styles.head}>
-            <AppText variant="displaySmall" style={styles.headText}>
-              Spicy meals
-            </AppText>
-            <Belly mood="caution" size={72} />
-          </View>
-          <AppText color="inkSoft">Heartburn often showed up within 2 hours.</AppText>
+          <MealSection
+            label="Worth watching"
+            state="some"
+            rows={WATCH}
+            count={(meal) => `${meal.withSymptoms} of ${meal.times}`}
+            spoken={(meal) => meal.name}
+          />
+          <MealSection
+            label="Sat well"
+            state="calm"
+            rows={SAT}
+            count={(meal) => `${meal.times} times`}
+            spoken={(meal) => meal.name}
+          />
         </View>
       </View>
     </StepLayout>
@@ -58,9 +53,6 @@ export function HowItWorksStep({ onNext }: { onNext: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: space.s3 },
-  demo: { gap: space.s2 },
-  card: { padding: space.s3 - 4, borderRadius: radius.lg, gap: space.s1 + 4 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: space.s2 - 4 },
-  headText: { flex: 1 },
+  stack: { gap: space.s1_5 },
+  card: { padding: space.s2 + 4, borderRadius: radius.lg, gap: space.s2 },
 });

@@ -55,11 +55,14 @@ export function HistorySummary({
   stats,
   height,
   insight,
+  onOpenReport,
 }: {
   summary: Summary;
   stats: PeriodStats;
   height: number;
   insight?: Insight | null;
+  /** Opens this week's report from the end of the week's days card. */
+  onOpenReport?: () => void;
 }) {
   const { width } = useWindowDimensions();
   const cardWidth = width - 2 * space.s3;
@@ -90,7 +93,9 @@ export function HistorySummary({
           setPage((current) => (current === next ? current : next));
         }}>
         {insight ? <WeekCard insight={insight} width={cardWidth} height={height} /> : null}
-        {stats.unit ? <DaysCard stats={stats} width={cardWidth} height={height} /> : null}
+        {stats.unit ? (
+          <DaysCard stats={stats} width={cardWidth} height={height} onOpenReport={onOpenReport} />
+        ) : null}
         <MealsCard patterns={stats.patterns} width={cardWidth} height={height} />
         <WhenCard stats={stats} summary={summary} width={cardWidth} height={height} />
         <FoodCard summary={summary} stats={stats} width={cardWidth} height={height} />

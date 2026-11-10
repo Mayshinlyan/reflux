@@ -109,14 +109,15 @@ describe('Welcome', () => {
     expect(screen.queryByRole('progressbar')).toBeNull();
   });
 
-  it('shows how logging works and an example pattern on one screen, both marked as examples', async () => {
+  it('says what you get for logging, with an example of the weekly list marked as an example', async () => {
     await render(<WelcomeScreen />);
     await press('Get started');
 
-    expect(header('Log meals and symptoms. Spot the patterns.')).toBeTruthy();
+    expect(header('Find what upsets your body.')).toBeTruthy();
+    expect(screen.getByText('Log for a week and Bellie makes your own list.')).toBeTruthy();
     expect(bar(1)).toBeTruthy();
-    expect(screen.getByLabelText(/Example: a logged meal/)).toBeTruthy();
-    expect(screen.getByLabelText(/Example: Spicy meals/)).toBeTruthy();
+    expect(screen.getByText('Example')).toBeTruthy();
+    expect(screen.getByLabelText(/Example: Worth watching, Spicy chicken tacos/)).toBeTruthy();
 
     await press('Back');
     expect(screen.getByText(HELLO)).toBeTruthy();
