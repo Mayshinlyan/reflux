@@ -14,6 +14,8 @@ const mockJiggle = {
 jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/lib/module/mock'));
 jest.mock('react-native-reanimated', () => jest.requireActual('react-native-reanimated/mock'));
 jest.mock('@/hooks/useBellyJiggle', () => ({ useBellyJiggle: () => mockJiggle }));
+// The tour code behind Bellie's spotlight reaches for the router, which can't load in Jest.
+jest.mock('expo-router', () => ({ router: { navigate: jest.fn() } }));
 jest.mock('../Belly', () => ({ Belly: () => null }));
 jest.mock('../SpeechBubble', () => ({ SpeechBubble: () => null }));
 jest.mock('expo-haptics', () => ({

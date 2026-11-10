@@ -17,6 +17,7 @@ import { type IdeasChoices, IdeasSheet } from '@/components/kitchen/IdeasSheet';
 import { PillButton } from '@/components/kitchen/PillButton';
 import { SavedCarousel } from '@/components/kitchen/SavedCarousel';
 import { Screen } from '@/components/Screen';
+import { useTourTarget } from '@/components/tour/TourContext';
 import { type CuisineKey, isCuisineKey, isRecipeTime } from '@/constants/cuisines';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { listAvoidFoods } from '@/db/repositories/avoidFoods';
@@ -47,6 +48,9 @@ export default function KitchenScreen() {
   const db = useDb();
   const { settings, update } = useSettings();
   const insets = useSafeAreaInsets();
+  // The app tour spotlights the ideas button (the pill, or "Get ideas" before anything is saved) and the fridge row.
+  const ideasTarget = useTourTarget('aiIdeas');
+  const fridgeTarget = useTourTarget('fridge');
   const [saved, setSaved] = useState<StoredRecipe[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]);
   const [fridge, setFridge] = useState<{ count: number; updatedAt: string | null }>({
@@ -282,7 +286,7 @@ export default function KitchenScreen() {
                   onPress={() => router.push('/saved-recipes')}
                 />
               </View>
-              <View style={styles.fill}>
+              <View ref={ideasTarget} style={styles.fill}>
                 <PillButton
                   icon={<Belly mood="happy" size={28} />}
                   label={backTomorrow ? 'Back tomorrow' : 'AI Ideas'}
@@ -313,7 +317,7 @@ export default function KitchenScreen() {
               <Belly mood={closed ? 'okay' : 'happy'} size={72} />
             </View>
             <View style={styles.buttons}>
-              <View style={styles.fill}>
+              <View ref={ideasTarget} style={styles.fill}>
                 <Button
                   label={closed ? 'Back tomorrow' : ideasCount > 0 ? 'New ideas' : 'Get ideas'}
                   disabled={closed}
@@ -333,11 +337,13 @@ export default function KitchenScreen() {
           <AppText variant="section" accessibilityRole="header">
             My fridge
           </AppText>
-          <FridgeRow
-            count={fridge.count}
-            updatedAt={fridge.updatedAt}
-            onPress={() => router.push('/fridge')}
-          />
+          <View ref={fridgeTarget}>
+            <FridgeRow
+              count={fridge.count}
+              updatedAt={fridge.updatedAt}
+              onPress={() => router.push('/fridge')}
+            />
+          </View>
         </View>
       </ScrollView>
 
