@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ChevronDown, ChevronUp, Ellipsis, Heart, Pencil, Trash2 } from 'lucide-react-native';
-import { type ReactNode, useCallback, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,18 +9,20 @@ import { AppText } from '@/components/AppText';
 import { Belly } from '@/components/Belly';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import { Skeleton } from '@/components/Skeleton';
 import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
 import { BackHeader } from '@/components/BackHeader';
 import { VerdictHero, VerdictMore } from '@/components/food/FoodVerdict';
 import { useToast } from '@/components/Toast';
 import { TopBarButton } from '@/components/TopBar';
-import { VerdictBadge } from '@/components/VerdictBadge';
+import { CheckingBadge, VerdictBadge } from '@/components/VerdictBadge';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { getFoodLog, listMealTags } from '@/db/repositories/food';
 import { removeSavedFood, saveFoodFromLog, savedFoodIdByName } from '@/db/repositories/savedFoods';
 import { listSymptomLogsForMeal } from '@/db/repositories/symptoms';
 import { useDeleteEntry } from '@/hooks/useDeleteEntry';
+import { onEntriesChanged } from '@/lib/entriesChanged';
 import { type LoadedEntry, loadEntry } from '@/lib/entry';
 import { logger } from '@/lib/logger';
 import { formatWhen } from '@/lib/localDay';
@@ -28,6 +30,7 @@ import { isLateMeal } from '@/lib/mealTiming';
 import { possibleCauses } from '@/lib/possibleCauses';
 import { medicationTypeLabel, symptomLabel, tagLabel } from '@/lib/timeline';
 import { matchedTriggerLabels } from '@/lib/verdictReasons';
+import { isChecking } from '@/services/pendingChecks';
 import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
 
 /**
@@ -71,6 +74,19 @@ export default function EntryScreen() {
       setSavedId(loaded?.kind === 'food' ? savedFoodIdByName(db, loaded.log.mealName) : null);
     }, [db, load]),
   );
+  // A meal's verdict can land while this page is open (the check runs in the background): fill it in at once.
+  // Keeping what is shown when it can't be loaded stops a delete (which also notifies) flashing "isn't here".
+  // The heart is worked out again too, since a photo meal's name arrives with its verdict.
+  useEffect(
+    () =>
+      onEntriesChanged(() => {
+        const loaded = load();
+        if (!loaded) return;
+        setEntry(loaded);
+        setSavedId(loaded.kind === 'food' ? savedFoodIdByName(db, loaded.log.mealName) : null);
+      }),
+    [db, load],
+  );
   const toggleSaved = () => {
     if (entry?.kind !== 'food') return;
     try {
@@ -102,6 +118,9 @@ export default function EntryScreen() {
     if (entry) deleteEntry({ kind: entry.kind, id: entry.log.id });
   };
 
+  // A photo-only meal is called "Meal" until the check names it, so it can't be saved as a favorite yet.
+  const awaitingName = entry?.kind === 'food' && !entry.log.inputText && isChecking(entry.log);
+
   if (!entry) {
     return (
       <Screen>
@@ -124,7 +143,7 @@ export default function EntryScreen() {
       <BackHeader
         right={
           <View style={styles.topRight}>
-            {entry.kind === 'food' && (
+            {entry.kind === 'food' && !awaitingName && (
               <TopBarButton
                 icon={Heart}
                 active={savedId !== null}
@@ -293,6 +312,34 @@ function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] 
       ) : null}
     </Sheet>
   ) : null;
+  // Logged with "Just log it" and still being checked (Figma row 44): the real header, then skeleton blocks where
+  // Bellie, the verdict, the reason and "Why?" will be. A typed meal already has its name; a photo's is on its way.
+  if (!analysis && isChecking(log)) {
+    return (
+      <>
+        {log.inputText ? (
+          <EntryHeader title={log.mealName} when={when} tags={lifestyle} />
+        ) : (
+          <View style={styles.meal}>
+            <Skeleton width={240} height={44} radius={12} />
+            <AppText variant="small" color="inkSoft" style={styles.centered}>
+              {when}
+            </AppText>
+          </View>
+        )}
+        <View style={styles.checkingBlock}>
+          <Skeleton width={114} height={114} radius={57} />
+          <CheckingBadge />
+          <View style={styles.reasonLines}>
+            <Skeleton width={300} height={16} />
+            <Skeleton width={220} height={16} />
+          </View>
+        </View>
+        {sheet}
+        <WhySkeleton />
+      </>
+    );
+  }
   // A meal with a stored verdict (Figma row 24, 24a, 40): the header, Bellie with the badge and the one-line
   // reason, what happened after the meal, and a closed "Why?" holding the tip and the reasons. Only what the user
   // picked themselves shows as tags; the reasons behind the verdict are under "Why?".
@@ -317,6 +364,23 @@ function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] 
       ) : null}
       {sheet}
     </>
+  );
+}
+
+/** The open "Why?" card with skeleton lines where the tip and the reasons will be (Figma 44a). */
+function WhySkeleton() {
+  const colors = useColors();
+  return (
+    <View style={[styles.whySkeleton, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+      <AppText variant="sectionSm">Why?</AppText>
+      <View style={styles.whyLines}>
+        <Skeleton width={96} height={16} />
+        <Skeleton width="94%" height={16} />
+        <Skeleton width="80%" height={16} />
+        <Skeleton width="88%" height={16} />
+        <Skeleton width="62%" height={16} />
+      </View>
+    </View>
   );
 }
 
@@ -387,6 +451,10 @@ const styles = StyleSheet.create({
   centered: { textAlign: 'center' },
   centeredChips: { justifyContent: 'center' },
   centeredBlock: { alignItems: 'center', gap: space.s1 },
+  checkingBlock: { alignItems: 'center', gap: space.s1_5 },
+  reasonLines: { alignItems: 'center', gap: space.s1_5 },
+  whySkeleton: { borderRadius: radius.lg, padding: space.s2, gap: space.s1_5 },
+  whyLines: { gap: space.s1_5 },
   sheet: { borderRadius: 24, padding: space.s2 + 4, gap: space.s3 },
   section: { gap: space.s1_5 },
   disclosure: { borderRadius: radius.lg, paddingHorizontal: space.s2 },

@@ -7,11 +7,19 @@ import { router } from 'expo-router';
 
 import EntryScreen from '@/app/entry/index';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { createFoodLog, getFoodLog, saveMealDetails, updateFoodLog } from '@/db/repositories/food';
+import {
+  createFoodLog,
+  createUncheckedMeal,
+  getFoodLog,
+  saveMealDetails,
+  setMealAnalysis,
+  updateFoodLog,
+} from '@/db/repositories/food';
 import { createMedication, logMedication } from '@/db/repositories/medications';
 import { createSavedFood, isFoodSaved } from '@/db/repositories/savedFoods';
 import { createSymptomLog, getSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
+import { notifyEntriesChanged } from '@/lib/entriesChanged';
 
 let mockDb: AppDb;
 let closeDb: () => void;
@@ -24,6 +32,13 @@ jest.mock('@/db/DatabaseProvider', () => ({
     settings: { bedtime: '22:30', lateMealWindowMinutes: 180, checkInReminderMinutes: null },
     update: jest.fn(),
   }),
+}));
+jest.mock('@/services/relayClient', () => ({ analyzeFood: jest.fn() }));
+// Reanimated's native runtime can't load in Jest; use its mocks (which lack useReducedMotion).
+jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/lib/module/mock'));
+jest.mock('react-native-reanimated', () => ({
+  ...jest.requireActual('react-native-reanimated/mock'),
+  useReducedMotion: () => false,
 }));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 const mockToast = jest.fn();
@@ -150,7 +165,7 @@ describe('Entry: a meal', () => {
     expect(screen.queryByText('Details')).toBeNull();
   });
 
-  it('shows the AI summary, and keeps the tip and the reasons behind a closed "Why?"', async () => {
+  it('shows the AI summary, and the tip and the reasons in an open "Why?"', async () => {
     const id = seedTacos(at(10, 19, 45), {
       summary: 'Spicy and acidic, and eaten close to bedtime.',
       tip: 'Try a milder salsa, or have it earlier.',
@@ -160,25 +175,23 @@ describe('Entry: a meal', () => {
 
     expect(screen.getByText('Spicy and acidic, and eaten close to bedtime.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Why?' }).props.accessibilityState).toMatchObject({
-      expanded: false,
+      expanded: true,
     });
-    expect(screen.queryByText('Better next time')).toBeNull();
-    expect(screen.queryByText('Chili can irritate.')).toBeNull();
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Why?' }));
-
     expect(screen.getByText('Better next time')).toBeTruthy();
     expect(screen.getByText('Try a milder salsa, or have it earlier.')).toBeTruthy();
     expect(screen.getByText('Chili can irritate.')).toBeTruthy();
     expect(screen.getByText(/Key ingredients:\s*chili/)).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Why?' }));
+
+    expect(screen.queryByText('Better next time')).toBeNull();
+    expect(screen.queryByText('Chili can irritate.')).toBeNull();
   });
 
   it('leaves out the tip when the meal was checked before tips existed', async () => {
     const id = seedTacos();
     mockParams = { kind: 'food', id: String(id) };
     await render(<EntryScreen />);
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Why?' }));
 
     expect(screen.queryByText('Better next time')).toBeNull();
     expect(screen.getByText('Chili can irritate.')).toBeTruthy();
@@ -465,5 +478,73 @@ describe('Entry: one that is not there', () => {
     await render(<EntryScreen />);
 
     expect(screen.getByText("This entry isn't here any more")).toBeTruthy();
+  });
+});
+
+describe('a meal still being checked (Figma row 44)', () => {
+  const verdict = {
+    analysis: {
+      isFood: true as const,
+      mealName: 'Spicy chicken tacos',
+      items: [],
+      overall: {
+        verdict: 'caution' as const,
+        confidence: 'medium' as const,
+        reasoning: 'Chili can irritate.',
+      },
+    },
+    meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
+  };
+
+  it('shows the name, a Checking badge and skeleton blocks instead of a verdict', async () => {
+    const id = createUncheckedMeal(mockDb, {
+      source: 'text',
+      inputText: 'spicy chicken tacos',
+      loggedAt: at(10, 11, 0),
+    });
+    mockParams = { kind: 'food', id: String(id) };
+    await render(<EntryScreen />);
+
+    expect(screen.getByRole('header', { name: 'spicy chicken tacos' })).toBeTruthy();
+    expect(screen.getByLabelText('Checking this meal')).toBeTruthy();
+    expect(screen.getByText('Why?')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Why?' })).toBeNull();
+    expect(screen.getByLabelText('Add to favorite foods')).toBeTruthy();
+  });
+
+  it('has no name or heart yet for a photo meal, which the check names', async () => {
+    const id = createUncheckedMeal(mockDb, {
+      source: 'photo',
+      photoUri: 'meal.jpg',
+      loggedAt: at(10, 11, 0),
+    });
+    mockParams = { kind: 'food', id: String(id) };
+    await render(<EntryScreen />);
+
+    expect(screen.getByLabelText('Checking this meal')).toBeTruthy();
+    expect(screen.queryByRole('header', { name: 'Meal' })).toBeNull();
+    expect(screen.queryByLabelText('Add to favorite foods')).toBeNull();
+  });
+
+  it('fills in the verdict when the check finishes, without leaving the page', async () => {
+    const id = createUncheckedMeal(mockDb, {
+      source: 'text',
+      inputText: 'spicy chicken tacos',
+      loggedAt: at(10, 11, 0),
+    });
+    mockParams = { kind: 'food', id: String(id) };
+    await render(<EntryScreen />);
+    expect(screen.getByLabelText('Checking this meal')).toBeTruthy();
+
+    await act(async () => {
+      setMealAnalysis(mockDb, id, verdict);
+      notifyEntriesChanged();
+    });
+
+    expect(screen.queryByLabelText('Checking this meal')).toBeNull();
+    expect(screen.getByLabelText('Caution')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Why?' }).props.accessibilityState).toMatchObject({
+      expanded: true,
+    });
   });
 });

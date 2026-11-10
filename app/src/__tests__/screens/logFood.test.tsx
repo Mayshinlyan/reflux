@@ -501,9 +501,10 @@ describe('Log food screen (text)', () => {
     await press('Check this meal');
 
     expect(await screen.findByRole('header', { name: 'Your belly might not love this.' })).toBeTruthy();
-    expect(screen.queryByText('Mint is a common trigger.')).toBeNull(); // closed until "Why?" is pressed
-    await press('Why?');
-    expect(screen.getByText('Mint is a common trigger.')).toBeTruthy();
+    expect(screen.getByText('Mint is a common trigger.')).toBeTruthy(); // "Why?" is open
+    expect(screen.getByRole('button', { name: 'Why?' }).props.accessibilityState).toMatchObject({
+      expanded: true,
+    });
     expect(screen.getByLabelText('Mint')).toBeTruthy();
     expect(screen.getByLabelText('Belly feels cautious')).toBeTruthy();
     // The AI's words lead the screen; the food's description no longer does.
@@ -524,8 +525,6 @@ describe('Log food screen (text)', () => {
     await press('Check this meal');
 
     expect(await screen.findByText('Mint can relax the valve that keeps acid down.')).toBeTruthy();
-    expect(screen.queryByText('Better next time')).toBeNull();
-    await press('Why?');
     expect(screen.getByText('Better next time')).toBeTruthy();
     expect(screen.getByText('Try ginger or chamomile tea instead.')).toBeTruthy();
   });
@@ -537,7 +536,6 @@ describe('Log food screen (text)', () => {
     await press('Check this meal');
 
     await screen.findByText('Why?');
-    await press('Why?');
     expect(screen.queryByText('Better next time')).toBeNull();
   });
 
@@ -548,7 +546,6 @@ describe('Log food screen (text)', () => {
     await press('Check this meal');
 
     await screen.findByText('Why?');
-    await press('Why?');
     expect(await screen.findByText(/Key ingredients:\s*Peppermint/)).toBeTruthy();
   });
 

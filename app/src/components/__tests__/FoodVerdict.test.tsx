@@ -38,18 +38,18 @@ describe('FoodVerdict', () => {
     expect(StyleSheet.flatten(badge.props.style).alignSelf).toBe('center');
   });
 
-  it('keeps the tip, the reasons and the disclaimer under one closed "Why?"', async () => {
+  it('keeps the tip, the reasons and the disclaimer under an open "Why?" that a tap closes', async () => {
     await render(<FoodVerdict analysis={analysis} late={false} />);
 
     const why = screen.getByRole('button', { name: 'Why?' });
-    expect(why.props.accessibilityState).toMatchObject({ expanded: false });
-    expect(screen.queryByText(/not medical advice/)).toBeNull();
+    expect(why.props.accessibilityState).toMatchObject({ expanded: true });
+    expect(screen.getByText(/not medical advice/)).toBeTruthy();
 
     await fireEvent.press(why);
 
     expect(screen.getByRole('button', { name: 'Why?' }).props.accessibilityState).toMatchObject({
-      expanded: true,
+      expanded: false,
     });
-    expect(screen.getByText(/not medical advice/)).toBeTruthy();
+    expect(screen.queryByText(/not medical advice/)).toBeNull();
   });
 });
