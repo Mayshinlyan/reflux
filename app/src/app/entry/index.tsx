@@ -329,7 +329,7 @@ function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] 
         )}
         <View style={styles.checkingBlock}>
           <Skeleton width={114} height={114} radius={57} />
-          <CheckingBadge />
+          <CheckingBadge style={styles.checkingBadge} />
           <View style={styles.reasonLines}>
             <Skeleton width={300} height={16} />
             <Skeleton width={220} height={16} />
@@ -452,6 +452,8 @@ const styles = StyleSheet.create({
   centeredChips: { justifyContent: 'center' },
   centeredBlock: { alignItems: 'center', gap: space.s1 },
   checkingBlock: { alignItems: 'center', gap: space.s1_5 },
+  // The badge hugs the left on Today and History; here it sits in the middle, under Bellie.
+  checkingBadge: { alignSelf: 'center' },
   reasonLines: { alignItems: 'center', gap: space.s1_5 },
   whySkeleton: { borderRadius: radius.lg, padding: space.s2, gap: space.s1_5 },
   whyLines: { gap: space.s1_5 },

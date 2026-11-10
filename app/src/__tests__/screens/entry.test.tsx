@@ -2,7 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 
 import EntryScreen from '@/app/entry/index';
@@ -507,6 +507,10 @@ describe('a meal still being checked (Figma row 44)', () => {
 
     expect(screen.getByRole('header', { name: 'spicy chicken tacos' })).toBeTruthy();
     expect(screen.getByLabelText('Checking this meal')).toBeTruthy();
+    // In the middle under Bellie, not hugging the left like on Today.
+    expect(StyleSheet.flatten(screen.getByLabelText('Checking this meal').props.style).alignSelf).toBe(
+      'center',
+    );
     expect(screen.getByText('Why?')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Why?' })).toBeNull();
     expect(screen.getByLabelText('Add to favorite foods')).toBeTruthy();
