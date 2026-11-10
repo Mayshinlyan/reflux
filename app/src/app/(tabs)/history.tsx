@@ -257,7 +257,15 @@ export default function HistoryScreen() {
                 />
               </View>
             </View>
-            <HistorySummary summary={summary} stats={stats} height={cardHeight} insight={weekInsight} />
+            <HistorySummary
+              summary={summary}
+              stats={stats}
+              height={cardHeight}
+              insight={weekInsight}
+              onOpenReport={() =>
+                router.push({ pathname: '/weekly-report', params: { week: period.startKey } })
+              }
+            />
             <View style={styles.entriesHead}>
               <AppText variant="section" accessibilityRole="header">
                 Entries

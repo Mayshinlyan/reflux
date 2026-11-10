@@ -7,6 +7,7 @@ import { AppText } from '@/components/AppText';
 import { HomeBellie } from '@/components/HomeBellie';
 import { LateMealBadge } from '@/components/LateMealBadge';
 import { ReminderPromptSheet } from '@/components/ReminderPromptSheet';
+import { ReportRow } from '@/components/ReportRow';
 import { Screen } from '@/components/Screen';
 import { tabBarClearance } from '@/components/FloatingTabBar';
 import { TimelineItem } from '@/components/TimelineItem';
@@ -17,6 +18,7 @@ import { useDeleteEntry } from '@/hooks/useDeleteEntry';
 import { useInsight } from '@/hooks/useInsight';
 import { useReminderPrompt } from '@/hooks/useReminderPrompt';
 import { useTodayData } from '@/hooks/useTodayData';
+import { useReportStatus } from '@/hooks/useWeeklyReport';
 import { useTourAutoStart } from '@/hooks/useTourAutoStart';
 import { bellyMoodFor } from '@/lib/belly';
 import { notifyEntriesChanged } from '@/lib/entriesChanged';
@@ -48,6 +50,8 @@ export default function TodayScreen() {
   const dayRequest = useMemo(() => buildInsightRequest('day', entries), [entries]);
   const dayInsight = useInsight('day', todayKey, dayRequest);
   const reminder = useReminderPrompt();
+  // Whether a finished week's report is waiting, and how many meals the first one still needs.
+  const report = useReportStatus();
   // Today reloads on this signal, so a delete (and its Undo) shows at once.
   const deleteEntry = useDeleteEntry(notifyEntriesChanged);
   const now = new Date();
@@ -66,6 +70,12 @@ export default function TodayScreen() {
   if (!settings.onboardingDone) return <Redirect href="/welcome" />;
 
   const empty = entries.length === 0;
+  // Until there are enough meals for a first report, Bellie says how many more it takes (Figma 42e), in place of her
+  // line about the day.
+  const bellieLine =
+    report.mealsNeeded > 0
+      ? `${report.mealsNeeded} more ${report.mealsNeeded === 1 ? 'meal' : 'meals'} and I can start spotting patterns.`
+      : (dayInsight?.bellieLine ?? 'Tap me to log');
   // The belly feels the latest meal; with no meal yet it is happy.
   const mood = bellyMoodFor(meals[meals.length - 1]?.verdict);
 
@@ -93,12 +103,14 @@ export default function TodayScreen() {
         <WeekStrip days={week} loggedDays={loggedDays} pickedKey={picked} onPressDay={openLogArch} />
 
         <View style={[styles.bellie, empty && styles.bellieEmpty]}>
-          <HomeBellie
-            line={dayInsight?.bellieLine ?? 'Tap me to log'}
-            mood={mood}
-            onPress={() => openLogArch(todayKey)}
-          />
+          <HomeBellie line={bellieLine} mood={mood} onPress={() => openLogArch(todayKey)} />
         </View>
+
+        {report.readyWeek && (
+          <ReportRow
+            onPress={() => router.push({ pathname: '/weekly-report', params: { week: report.readyWeek } })}
+          />
+        )}
 
         {!empty && (
           <View style={styles.today}>

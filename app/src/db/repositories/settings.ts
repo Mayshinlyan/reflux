@@ -47,6 +47,8 @@ export type Settings = {
   checkInReminderMinutes: number | null;
   /** True once they have been asked about reminders (onboarding, the one-time sheet or Settings), so it's asked once. */
   reminderAsked: boolean;
+  /** The Sunday ("YYYY-MM-DD") of the newest week whose report was opened, so Today stops offering it. */
+  reportSeenWeek: string;
   /** Made on this phone and only ever written to the home-screen widget; a link that logs a meal must carry it. */
   widgetToken: string;
   /** True once the first-run app tour has been finished or closed, so it starts only once ("Replay app tour" is in Settings). */
@@ -81,6 +83,7 @@ export const DEFAULT_SETTINGS: Settings = {
   petSeenStage: 0,
   checkInReminderMinutes: null,
   reminderAsked: false,
+  reportSeenWeek: '',
   widgetToken: '',
   tourDone: false,
   summariesEnabled: true,

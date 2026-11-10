@@ -4,9 +4,12 @@ import {
   askForReminders,
   cancelAllCheckIns,
   cancelCheckIn,
+  cancelWeeklyReport,
+  isReportResponse,
   mealIdFromResponse,
   remindersAllowed,
   scheduleCheckIn,
+  scheduleWeeklyReport,
 } from '../reminders';
 
 jest.mock('@/lib/logger', () => ({ logger: { error: jest.fn() } }));
@@ -119,6 +122,59 @@ describe('permission', () => {
     mocked.getPermissionsAsync.mockRejectedValueOnce(new Error('boom'));
 
     await expect(askForReminders()).resolves.toBe(false);
+  });
+});
+
+describe('the weekly report notification', () => {
+  const TAP = 'expo.modules.notifications.actions.DEFAULT';
+  const response = (actionIdentifier: string, data?: Record<string, unknown>) =>
+    ({ actionIdentifier, notification: { request: { content: { data } } } }) as never;
+
+  it('schedules one weekly notification for Sunday at 6 pm, with no meal in it', async () => {
+    await expect(scheduleWeeklyReport()).resolves.toBe('scheduled');
+
+    expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+    expect(mocked.scheduleNotificationAsync).toHaveBeenCalledWith({
+      identifier: 'weekly-report',
+      content: {
+        title: 'Your week with Bellie',
+        body: 'See what sat well and what to watch.',
+        data: { report: true },
+      },
+      trigger: { type: 'weekly', weekday: 1, hour: 18, minute: 0, channelId: 'check-in' },
+    });
+  });
+
+  it('does not ask for permission, and skips when the phone is not allowing notifications', async () => {
+    mocked.getPermissionsAsync.mockResolvedValueOnce({ granted: false } as never);
+
+    await expect(scheduleWeeklyReport()).resolves.toBe('denied');
+
+    expect(mocked.scheduleNotificationAsync).not.toHaveBeenCalled();
+    expect(mocked.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('reports a failure without throwing', async () => {
+    mocked.scheduleNotificationAsync.mockRejectedValueOnce(new Error('boom'));
+
+    await expect(scheduleWeeklyReport()).resolves.toBe('failed');
+  });
+
+  it('can be dropped by its identifier, and a failure to drop it does not throw', async () => {
+    await cancelWeeklyReport();
+    expect(mocked.cancelScheduledNotificationAsync).toHaveBeenCalledWith('weekly-report');
+
+    mocked.cancelScheduledNotificationAsync.mockRejectedValueOnce(new Error('boom'));
+    await expect(cancelWeeklyReport()).resolves.toBeUndefined();
+  });
+
+  it('recognises a tap on it, and nothing else', () => {
+    expect(isReportResponse(response(TAP, { report: true }))).toBe(true);
+    expect(isReportResponse(response('some.other.action', { report: true }))).toBe(false);
+    expect(isReportResponse(response(TAP, { foodLogId: 7 }))).toBe(false);
+    expect(isReportResponse(response(TAP))).toBe(false);
+    // A check-in reminder is not the report.
+    expect(mealIdFromResponse(response(TAP, { report: true }))).toBeNull();
   });
 });
 

@@ -1,14 +1,12 @@
 import { StyleSheet, View } from 'react-native';
 
 import type { MealPattern } from '@/lib/statsCards';
-import { space, useColors } from '@/theme';
+import { space } from '@/theme';
 
 import { AppText } from '../AppText';
 import { Belly } from '../Belly';
-import { DayAvatar } from './DayAvatar';
+import { MealSection } from './MealSection';
 import { StatCard, StatHeader } from './StatCard';
-
-const AVATAR = 36;
 
 type Props = {
   patterns: { sat: MealPattern[]; watch: MealPattern[] };
@@ -39,7 +37,7 @@ export function MealsCard({ patterns, width, height }: Props) {
     <StatCard width={width} height={height} gap={space.s2}>
       <StatHeader title="What sat well" />
       {patterns.sat.length > 0 && (
-        <Section
+        <MealSection
           label="Sat well"
           state="calm"
           rows={patterns.sat}
@@ -48,7 +46,7 @@ export function MealsCard({ patterns, width, height }: Props) {
         />
       )}
       {patterns.watch.length > 0 && (
-        <Section
+        <MealSection
           label="Worth watching"
           state="some"
           rows={patterns.watch}
@@ -60,53 +58,7 @@ export function MealsCard({ patterns, width, height }: Props) {
   );
 }
 
-function Section({
-  label,
-  state,
-  rows,
-  count,
-  spoken,
-}: {
-  label: string;
-  state: 'calm' | 'some';
-  rows: MealPattern[];
-  count: (meal: MealPattern) => string;
-  spoken: (meal: MealPattern) => string;
-}) {
-  const colors = useColors();
-  return (
-    <View style={styles.section}>
-      <AppText variant="label" color="inkSoft" accessibilityRole="header">
-        {label}
-      </AppText>
-      <View>
-        {rows.map((meal, index) => (
-          <View
-            key={meal.name}
-            accessible
-            accessibilityLabel={spoken(meal)}
-            style={[
-              styles.row,
-              index < rows.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.hairline },
-            ]}>
-            <DayAvatar state={state} size={AVATAR} />
-            <AppText numberOfLines={2} style={styles.name}>
-              {meal.name}
-            </AppText>
-            <AppText variant="caption" color="inkSoft">
-              {count(meal)}
-            </AppText>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  section: { gap: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: space.s1_5, paddingVertical: 6 },
-  name: { flex: 1 },
   empty: { alignItems: 'center', justifyContent: 'center', gap: space.s1_5, paddingVertical: space.s3 },
   centered: { textAlign: 'center' },
 });
