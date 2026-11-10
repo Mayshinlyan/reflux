@@ -256,28 +256,42 @@ describe('Recipe: how was it', () => {
 });
 
 describe('Recipe: with a fridge', () => {
-  it('ticks what you have and marks the rest "to buy"', async () => {
+  it('lists what you have under "In your fridge" and the rest under "To buy"', async () => {
     replaceFridge(mockDb, ['rice', 'eggs']);
     await render(<RecipeScreen />);
 
-    expect(screen.getAllByLabelText('In your fridge')).toHaveLength(2);
-    expect(screen.getAllByText('to buy')).toHaveLength(1);
+    expect(screen.getByText('In your fridge')).toBeTruthy();
+    expect(screen.getByText('To buy')).toBeTruthy();
     expect(screen.getByText('1 tbsp sesame oil')).toBeTruthy();
+    for (const line of recipe.ingredients) expect(screen.getByText(line)).toBeTruthy();
+    // The bullets are decoration, hidden from a screen reader.
+    expect(screen.queryAllByText('•')).toHaveLength(0);
   });
 
-  it('shows plain ingredients, with no ticks or "to buy", when the fridge is empty', async () => {
+  it('puts the whole list under "To buy" when the fridge is empty', async () => {
     await render(<RecipeScreen />);
 
-    expect(screen.queryByLabelText('In your fridge')).toBeNull();
-    expect(screen.queryByText('to buy')).toBeNull();
+    expect(screen.queryByText('In your fridge')).toBeNull();
+    expect(screen.getByText('To buy')).toBeTruthy();
+    for (const line of recipe.ingredients) expect(screen.getByText(line)).toBeTruthy();
+    // The bullets are decoration, hidden from a screen reader.
+    expect(screen.queryAllByText('•')).toHaveLength(0);
   });
 
-  it('ticks nothing when none of the fridge is in the recipe', async () => {
+  it('shows only "To buy" when none of the fridge is in the recipe', async () => {
     replaceFridge(mockDb, ['milk']);
     await render(<RecipeScreen />);
 
-    expect(screen.queryByLabelText('In your fridge')).toBeNull();
-    expect(screen.getAllByText('to buy')).toHaveLength(3);
+    expect(screen.queryByText('In your fridge')).toBeNull();
+    expect(screen.getByText('To buy')).toBeTruthy();
+  });
+
+  it('shows only "In your fridge" when the fridge has everything', async () => {
+    replaceFridge(mockDb, ['rice', 'eggs', 'sesame oil']);
+    await render(<RecipeScreen />);
+
+    expect(screen.getByText('In your fridge')).toBeTruthy();
+    expect(screen.queryByText('To buy')).toBeNull();
   });
 });
 

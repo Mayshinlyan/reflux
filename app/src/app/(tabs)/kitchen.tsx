@@ -69,6 +69,7 @@ export default function KitchenScreen() {
   const openAfterClose = useRef(false);
   // Likewise, "Get ideas" waits for the choices sheet to close before asking and opening the ideas sheet.
   const pendingAsk = useRef<IdeasChoices | null>(null);
+  const openFridgeAfterAsk = useRef(false);
   // True while the ideas sheet shows a round brought back with "AI Ideas"; closing that one clears the count.
   const lookedBack = useRef(false);
 
@@ -172,7 +173,18 @@ export default function KitchenScreen() {
     pendingAsk.current = choices;
     setAsking(false);
   };
+  // "Add items" in the empty-fridge row closes the sheet, then opens the fridge screen once it has finished closing.
+  const addFridge = () => {
+    pendingAsk.current = null;
+    openFridgeAfterAsk.current = true;
+    setAsking(false);
+  };
   const afterAsk = () => {
+    if (openFridgeAfterAsk.current) {
+      openFridgeAfterAsk.current = false;
+      router.push('/fridge');
+      return;
+    }
     const choices = pendingAsk.current;
     if (!choices) return;
     pendingAsk.current = null;
@@ -338,6 +350,7 @@ export default function KitchenScreen() {
         onDismissed={afterAsk}
         initial={initial}
         fridgeCount={fridge.count}
+        onAddFridge={addFridge}
         skipped={skipped}
         onSubmit={submit}
       />

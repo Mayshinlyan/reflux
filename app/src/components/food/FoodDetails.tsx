@@ -8,7 +8,12 @@ import { SymptomChip } from '@/components/SymptomChip';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import { TimePill } from '@/components/TimePill';
-import { type CustomTagKey, LIFESTYLE_TAGS, type LoggedTagKey } from '@/constants/lifestyleTags';
+import {
+  type CustomTagKey,
+  LIFESTYLE_HELP,
+  LIFESTYLE_TAGS,
+  type LoggedTagKey,
+} from '@/constants/lifestyleTags';
 import {
   type CustomSymptomKey,
   customSymptomLabel,
@@ -118,6 +123,9 @@ export function FoodDetails({
           sectionY.current.tags = event.nativeEvent.layout.y;
         }}>
         <AppText variant="section">What&apos;s going on?</AppText>
+        <AppText variant="voice" color="inkSoft">
+          {LIFESTYLE_HELP}
+        </AppText>
         <View style={styles.chips}>
           {LIFESTYLE_TAGS.map((tag) => (
             <TagChip

@@ -13,7 +13,7 @@ import { isQuickLogAllowed } from '@/lib/widgetLinks';
 /**
  * The Food screen: straight to "What did you eat?" (a photo or a typed description), with the saved foods as a
  * Quick log row on top. `?manage=1` (Profile > Favorite foods, and "See all") lists the saved foods to edit or log
- * instead. `?check=1` ("Add a food" there) is the same check, which can also save the result to favorite foods.
+ * instead. "Add a food" there opens `?myFood=1` with no food, which checks a new favorite and saves it to the list.
  * `?camera=1` opens the camera straight away (the home-screen widget's "Snap food" bubble; a denied camera
  * keeps this screen and says why). The tab bar's "+" and Bellie on Today both open this screen plain.
  * `?myFood=1&food=<id>` re-checks a saved food ("Get a verdict" / "Check again"),
@@ -25,9 +25,8 @@ import { isQuickLogAllowed } from '@/lib/widgetLinks';
  */
 export default function LogFoodScreen() {
   const db = useDb();
-  const { camera, check, myFood, food, manage, date, quickLog, t, details, prefill } = useLocalSearchParams<{
+  const { camera, myFood, food, manage, date, quickLog, t, details, prefill } = useLocalSearchParams<{
     camera?: string;
-    check?: string;
     myFood?: string;
     food?: string;
     manage?: string;
@@ -71,7 +70,6 @@ export default function LogFoodScreen() {
       key={quickFood ? `${quickFood.id}:${t}` : 'flow'}
       openCamera={camera === '1'}
       myFood={target}
-      fromList={check === '1'}
       date={date}
       quickLog={quickFood}
       detailsFor={detailsFor}

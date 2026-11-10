@@ -66,6 +66,24 @@ describe('Lifestyle factors', () => {
     expect(screen.queryByText('Lifestyle factors', { exact: true })).toBeTruthy(); // only the title
   });
 
+  it('says what a lifestyle factor is, and lists the six built-in ones above your own', async () => {
+    await render(<LifestyleScreen />);
+
+    expect(screen.getByText('Things besides food that can bother your belly.')).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Built in' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Yours' })).toBeTruthy();
+    for (const name of [
+      'Stress',
+      'Lay down after eating',
+      'Large meal',
+      'Alcohol',
+      'Exercise',
+      'Poor sleep',
+    ]) {
+      expect(screen.getByText(name)).toBeTruthy();
+    }
+  });
+
   it('says so in a few words when empty, with Add a lifestyle factor at the bottom', async () => {
     await render(<LifestyleScreen />);
 

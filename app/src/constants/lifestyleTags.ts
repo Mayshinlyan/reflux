@@ -10,6 +10,9 @@ export const LIFESTYLE_TAGS = [
   { key: 'poor_sleep', label: 'Poor sleep' },
 ] as const;
 
+/** The one line that says what a lifestyle factor is, under "What's going on?" and on the Lifestyle factors page. */
+export const LIFESTYLE_HELP = 'Things besides food that can bother your belly.';
+
 export type LifestyleTagKey = (typeof LIFESTYLE_TAGS)[number]['key'];
 export const LIFESTYLE_TAG_KEYS = LIFESTYLE_TAGS.map((tag) => tag.key) as LifestyleTagKey[];
 
