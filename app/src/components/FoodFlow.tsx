@@ -81,12 +81,15 @@ const copy = {
   textPlaceholder: 'What did you eat?',
   // A food saved to favorite foods may not have been eaten yet.
   myFoodTextLabel: "What's the food?",
+  // Adding a brand-new favorite (Figma 41d): nothing is eaten, so the words say "food" and "save".
+  addFavoriteHeading: 'Add a favorite food',
   analyzeLabel: 'Check this meal',
+  analyzeFoodLabel: 'Check this food',
   saveLabel: 'I ate this',
   updateLabel: 'Update verdict',
   saveUncheckedLabel: 'Just log it',
+  saveUncheckedFoodLabel: 'Just save it',
   favoriteAdded: 'Added to favorite foods',
-  keepOnlyLabel: 'Save to favorite foods only',
   notQuiteRightLabel: 'Not quite right?',
   skipLabel: 'Skip for now',
 } as const;
@@ -131,9 +134,9 @@ export type MyFoodTarget = { id?: number; name?: string };
  * `photoUri` is a photo already taken and prepared: the flow starts on its review step.
  * `openCamera` opens the camera as soon as the screen appears (the widget's "Snap food" bubble; a denied camera
  * keeps this screen and says why).
- * With `myFood`, the verdict is saved to "Favorite foods" instead, and nothing goes into the diary.
- * `fromList` ("Add a food" on the Food list) also offers saving the result to favorite foods only; saving
- * without a verdict still logs the meal to the diary.
+ * With `myFood`, the verdict is saved to "Favorite foods" instead, and nothing goes into the diary. Without an `id`
+ * it is a new favorite ("Add a food" on the Favorite foods list, Figma 41d and 41e): "Check this food" then
+ * "Save to favorite foods", or "Just save it" for a food saved by name, with no verdict.
  * `date` (a day tapped in Today's week strip) logs the meal at noon of that earlier day instead of now.
  * `quickLog` (a saved food tapped on the home-screen widget) logs that food as soon as the screen appears, exactly
  * like tapping its Quick log chip.
@@ -143,7 +146,6 @@ export function FoodFlow({
   photoUri,
   openCamera = false,
   myFood,
-  fromList = false,
   date,
   quickLog,
   detailsFor,
@@ -152,7 +154,6 @@ export function FoodFlow({
   photoUri?: string;
   openCamera?: boolean;
   myFood?: MyFoodTarget;
-  fromList?: boolean;
   date?: string;
   quickLog?: StoredSavedFood;
   detailsFor?: number;
@@ -182,7 +183,7 @@ export function FoodFlow({
   const finishing = useRef(false);
   /** When the meal was logged, to tell whether the time was changed on the check-in. */
   const loggedAtMs = useRef<number | null>(existing?.at.getTime() ?? null);
-  // The Quick log row is for logging what was eaten, so Favorite foods and the Food list's own check leave it out.
+  // The Quick log row is for logging what was eaten, so the Favorite foods checks leave it out.
   // Reloaded on focus, so foods edited or removed under "See all" are right when coming back.
   const [savedFoods, setSavedFoods] = useState<StoredSavedFood[]>([]);
   // Past meal names for the suggestions under the field (Figma row 20); every capture step has them.
@@ -193,13 +194,13 @@ export function FoodFlow({
     } catch {
       setRecentNames([]); // the suggestions still work from favorites and common foods
     }
-    if (myFood || fromList) return;
+    if (myFood) return;
     try {
       setSavedFoods(listSavedFoods(db));
     } catch {
       setSavedFoods([]); // the check still works without the row
     }
-  }, [db, myFood, fromList]);
+  }, [db, myFood]);
   useFocusEffect(loadSavedFoods);
   /** When a meal logged straight away counts as eaten: now, or noon of the day picked in the week strip. */
   const logTime = () => (date ? dayToLoggedAt(date, new Date()) : null) ?? new Date();
@@ -266,7 +267,8 @@ export function FoodFlow({
 
   // Favorite foods checks add to the list; an unchecked save then means "by name", not the diary.
   const addsToList = Boolean(myFood);
-  const foodListMode = addsToList || fromList;
+  // A new favorite typed in from the Favorite foods list, rather than a saved one being checked again.
+  const addingFavorite = myFood !== undefined && myFood.id === undefined;
   const busy = preparing || correcting || state.status === 'loading';
   const shown = state.status === 'done' ? (updated ?? state.result) : null;
   const showResult = shown !== null && !correcting;
@@ -489,39 +491,6 @@ export function FoodFlow({
     router.back();
   };
 
-  /** "Save to favorite foods only" (from the Food list): keeps the verdict for one-tap logging, without eating it now. */
-  const saveOnly = () => {
-    if (!shown || !analyzed || saving.current) return;
-    saving.current = true;
-    const { meta, ...analysis } = shown;
-    let storedPhoto: string | null = null;
-    let saved: { created: boolean; mealName: string };
-    try {
-      if (analyzed.source === 'photo') storedPhoto = savePhoto(analyzed.uri);
-      saved = saveCheckedFood(db, {
-        source: analyzed.source,
-        inputText: analyzed.source === 'text' ? analyzed.text : null,
-        photoUri: storedPhoto,
-        analysis,
-        meta,
-      });
-    } catch {
-      saving.current = false;
-      if (storedPhoto) deletePhoto(storedPhoto);
-      // Code only: a raw error could echo the food text or a file path.
-      logger.error('saveCheckedFood', new AppError('INTERNAL'));
-      toast("We couldn't save that. Please try again.");
-      return;
-    }
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    toast(
-      saved.created
-        ? `${saved.mealName} added to favorite foods`
-        : `Updated ${saved.mealName} in favorite foods`,
-    );
-    router.back();
-  };
-
   /**
    * "Log without checking": what was typed becomes a plain diary entry, with no relay call (works offline), and
    * the details open on it. For Favorite foods it is added by name instead, which has no time or details.
@@ -679,7 +648,7 @@ export function FoodFlow({
   // Log screens slide up as a modal, so a swipe down closes them. That is only on while the plain Food screen
   // is empty, so a stray drag can't drop a typed description or a photo.
   const navigation = useNavigation();
-  const swipeAway = !myFood && !fromList && !openCamera && !analyzed && !text && !busy && logged === null;
+  const swipeAway = !myFood && !openCamera && !analyzed && !text && !busy && logged === null;
   useEffect(() => {
     navigation.setOptions({ gestureEnabled: swipeAway });
   }, [navigation, swipeAway]);
@@ -772,7 +741,9 @@ export function FoodFlow({
   } else {
     body = (
       <FoodCapture
-        heading={foodListMode ? copy.myFoodTextLabel : copy.textLabel}
+        heading={
+          addingFavorite ? copy.addFavoriteHeading : addsToList ? copy.myFoodTextLabel : copy.textLabel
+        }
         fieldLabel="Describe it"
         placeholder="e.g. Oatmeal with banana"
         text={text}
@@ -821,15 +792,10 @@ export function FoodFlow({
     footer = (
       <View style={styles.footer}>
         <Button label={myFood ? 'Save to favorite foods' : copy.saveLabel} onPress={save} />
-        {/* Quiet links. Not eating it is the back arrow; the Food list's own check can also keep it for later. */}
+        {/* A quiet link. Not eating it is the back arrow. */}
         <Pressable accessibilityRole="button" onPress={() => setTelling(true)} style={styles.link}>
           <AppText style={[styles.linkText, { color: colors.clayInk }]}>{copy.notQuiteRightLabel}</AppText>
         </Pressable>
-        {fromList && (
-          <Pressable accessibilityRole="button" onPress={saveOnly} style={styles.link}>
-            <AppText style={[styles.linkText, { color: colors.clayInk }]}>{copy.keepOnlyLabel}</AppText>
-          </Pressable>
-        )}
       </View>
     );
   } else if (state.status === 'loading' && !preparing && !correcting) {
@@ -842,14 +808,22 @@ export function FoodFlow({
     footer = (
       <View style={styles.footer}>
         <Button
-          label={state.status === 'error' && analyzed?.source === 'text' ? 'Try again' : copy.analyzeLabel}
+          label={
+            state.status === 'error' && analyzed?.source === 'text'
+              ? 'Try again'
+              : addingFavorite
+                ? copy.analyzeFoodLabel
+                : copy.analyzeLabel
+          }
           onPress={checkText}
           disabled={trimmed === ''}
         />
         {/* A quiet link: it's the fallback (offline, or no verdict wanted), not the main action. */}
         {trimmed !== '' && canSaveUnchecked && (
           <Pressable accessibilityRole="button" onPress={saveUnchecked} style={styles.link}>
-            <AppText style={[styles.linkText, { color: colors.clayInk }]}>{copy.saveUncheckedLabel}</AppText>
+            <AppText style={[styles.linkText, { color: colors.clayInk }]}>
+              {addingFavorite ? copy.saveUncheckedFoodLabel : copy.saveUncheckedLabel}
+            </AppText>
           </Pressable>
         )}
       </View>
@@ -859,7 +833,7 @@ export function FoodFlow({
   return (
     <Screen>
       <BackHeader
-        title={myFood ? (myFood.id === undefined ? 'Add a food' : 'Get a verdict') : undefined}
+        title={myFood && myFood.id !== undefined ? 'Get a verdict' : undefined}
         onBack={onBack}
         close={logged !== null}
       />

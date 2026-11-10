@@ -682,12 +682,24 @@ describe('Kitchen: My fridge', () => {
     expect(screen.queryByText(/^Updated /)).toBeNull();
   });
 
-  it('leaves "Use my fridge" out of the sheet when the fridge is empty', async () => {
+  it('says "Fridge is empty" with an Add items link in the sheet instead of a switch', async () => {
     await render(<KitchenScreen />);
     await press('Get ideas');
 
     expect(screen.queryByRole('switch', { name: 'Use my fridge' })).toBeNull();
-    expect(screen.queryByText(/none yet/)).toBeNull();
+    expect(screen.getByText('Fridge is empty')).toBeTruthy();
+    expect(screen.getByText('Add items')).toBeTruthy();
+  });
+
+  it('opens the fridge screen from "Add items" once the sheet has closed', async () => {
+    await render(<KitchenScreen />);
+    await press('Get ideas');
+    mockPush.mockClear();
+
+    await press('Fridge is empty. Add items');
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/fridge'));
+    expect(fetchIdeas).not.toHaveBeenCalled();
   });
 
   it('sends the fridge with the request when the switch is on', async () => {

@@ -29,6 +29,7 @@ import { BODY_ZONES, OTHER_AREA_LABEL, type SymptomArea } from '@/constants/body
 import {
   type CustomTagKey,
   isCustomTag,
+  LIFESTYLE_HELP,
   LIFESTYLE_TAGS,
   type LoggedTagKey,
   tagKeyFromText,
@@ -482,6 +483,9 @@ export default function LogSymptomsScreen() {
                   sectionY.current.tags = event.nativeEvent.layout.y;
                 }}>
                 <AppText variant="section">What&apos;s going on?</AppText>
+                <AppText variant="voice" color="inkSoft">
+                  {LIFESTYLE_HELP}
+                </AppText>
                 <View style={styles.chips}>
                   <InlineAddChip
                     label="Add your own to What's going on?"

@@ -40,8 +40,10 @@ type Props = {
   onDismissed?: () => void;
   /** Where the choices start: the last ones used. */
   initial: Omit<IdeasChoices, 'want'>;
-  /** How many things the saved fridge holds. With none, the "Use my fridge" row is left out. */
+  /** How many things the saved fridge holds. With none, the "Use my fridge" row becomes "Fridge is empty, Add items". */
   fridgeCount: number;
+  /** "Add items" on an empty fridge: the page closes this sheet and opens the fridge screen. */
+  onAddFridge: () => void;
   /** The "Foods to avoid" list, so the sheet can say what is skipped. */
   skipped: readonly string[];
   onSubmit: (choices: IdeasChoices) => void;
@@ -60,6 +62,7 @@ export function IdeasSheet({
   onDismissed,
   initial,
   fridgeCount,
+  onAddFridge,
   skipped,
   onSubmit,
 }: Props) {
@@ -132,15 +135,25 @@ export function IdeasSheet({
             </View>
           </View>
 
-          {/* With nothing in the fridge there is nothing to switch on: the row waits until a fridge is saved. */}
-          {hasFridge && (
-            <>
-              <View style={[styles.divider, { backgroundColor: colors.edge }]} />
-              <View style={styles.row}>
-                <AppText style={styles.rowLabel}>Use my fridge</AppText>
-                <Toggle accessibilityLabel="Use my fridge" value={useFridge} onValueChange={setFridgeOn} />
-              </View>
-            </>
+          <View style={[styles.divider, { backgroundColor: colors.edge }]} />
+          {/* The row is always there (Figma 41c). With nothing in the fridge there is nothing to switch on, so it
+              says so and offers the way to fill it. */}
+          {hasFridge ? (
+            <View style={styles.row}>
+              <AppText style={styles.rowLabel}>Use my fridge</AppText>
+              <Toggle accessibilityLabel="Use my fridge" value={useFridge} onValueChange={setFridgeOn} />
+            </View>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Fridge is empty. Add items"
+              onPress={onAddFridge}
+              style={styles.row}>
+              <AppText style={styles.rowLabel}>Fridge is empty</AppText>
+              <AppText variant="bodyEm" color="sageInk">
+                Add items
+              </AppText>
+            </Pressable>
           )}
         </View>
 

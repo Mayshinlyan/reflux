@@ -282,22 +282,34 @@ describe('Log food screen: from a Kitchen recipe (?prefill=)', () => {
   });
 });
 
-describe('Log food screen: "Add a food" from the Food list', () => {
-  // The food may not have been eaten yet, so the field asks "What's the food?".
+describe('Log food screen: "Add a food" from Favorite foods', () => {
   const typeFood = async (value: string) => fireEvent.changeText(screen.getByLabelText('Describe it'), value);
 
   beforeEach(() => {
-    mockParams = { check: '1' };
+    mockParams = { myFood: '1' };
   });
 
-  it('saves the verdict to favorite foods only, without adding a meal to the diary', async () => {
+  it('is headed "Add a favorite food" and says food, not meal', async () => {
+    await render(<LogFoodScreen />);
+    await typeFood('mint tea');
+
+    expect(screen.getByText('Add a favorite food')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Check this food' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Just save it' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Just log it' })).toBeNull();
+  });
+
+  it('saves the verdict to favorite foods with one button, and never adds a meal to the diary', async () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
     await typeFood('mint tea');
-    await press('Check this meal');
+    await press('Check this food');
     await screen.findByRole('header', { name: 'Your belly might not love this.' });
 
-    await press('Save to favorite foods only');
+    // One way to save it: no "I ate this", and no second "save only" link.
+    expect(screen.queryByRole('button', { name: 'I ate this' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save to favorite foods only' })).toBeNull();
+    await press('Save to favorite foods');
 
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
     expect(listSavedFoods(mockDb)).toMatchObject([{ mealName: 'Mint tea', overallVerdict: 'caution' }]);
@@ -305,36 +317,16 @@ describe('Log food screen: "Add a food" from the Food list', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('can still log it as eaten ("Save to favorite foods only" covers saving it)', async () => {
-    analyze.mockResolvedValue(result);
-    await render(<LogFoodScreen />);
-    await typeFood('mint tea');
-    await press('Check this meal');
-    await screen.findByRole('header', { name: 'Your belly might not love this.' });
-
-    await ateThis();
-
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
-    expect(listSavedFoods(mockDb)).toHaveLength(0);
-  });
-
-  it('logs a typed food to the diary, not Favorite foods, when skipping the verdict', async () => {
-    analyze.mockResolvedValue(result);
+  it('"Just save it" adds the typed food by name, with no verdict and no diary meal', async () => {
     await render(<LogFoodScreen />);
     await typeFood('Banana bread');
 
-    await press('Just log it');
-    await addDetails();
-    await press('Done');
+    await press('Just save it');
 
-    // The meal is logged first and checked in the background; it keeps the name that was typed.
-    await waitFor(() => expect(analyze).toHaveBeenCalledWith({ text: 'Banana bread' }));
-    await waitFor(() =>
-      expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
-        { mealName: 'Banana bread', overallVerdict: 'caution' },
-      ]),
-    );
-    expect(listSavedFoods(mockDb)).toHaveLength(0);
+    expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Banana bread']);
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(analyze).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith('Banana bread added to favorite foods');
   });
 });
 
@@ -1140,7 +1132,7 @@ describe('Food screen for Favorite foods', () => {
     analyze.mockResolvedValue(result);
     await render(<LogFoodScreen />);
 
-    expect(screen.getByRole('header', { name: 'Add a food' })).toBeTruthy();
+    expect(screen.getByText('Add a favorite food')).toBeTruthy();
     await takePhoto();
     await screen.findByRole('header', { name: 'Your belly might not love this.' });
     await press('Save to favorite foods');
@@ -1169,7 +1161,7 @@ describe('Food screen for Favorite foods', () => {
     expect(screen.queryByRole('button', { name: /^When did you eat this\?/ })).toBeNull();
     expect(screen.queryByText('What did you eat?')).toBeNull();
     await fireEvent.changeText(screen.getByLabelText('Describe it'), '  Banana bread ');
-    await press('Just log it');
+    await press('Just save it');
 
     expect(listSavedFoods(mockDb).map((food) => food.mealName)).toEqual(['Banana bread', 'Oatmeal']);
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
@@ -1460,7 +1452,7 @@ describe('Log food screen: Quick log', () => {
 
   it("has no Quick log in the Food list's own check or for Favorite foods", async () => {
     saveOatmeal();
-    mockParams = { check: '1' };
+    mockParams = { myFood: '1' };
     await render(<LogFoodScreen />);
     expect(screen.queryByLabelText('Favorite foods')).toBeNull();
   });
@@ -1528,7 +1520,7 @@ describe('Log food screen: food suggestions under the field', () => {
 
   it("leaves out favorites in the Food list's own check, where there is no Quick log", async () => {
     saveOatmeal();
-    mockParams = { check: '1' };
+    mockParams = { myFood: '1' };
     await render(<LogFoodScreen />);
     await type('oat');
     expect(screen.queryByRole('button', { name: /favorite, logs now/ })).toBeNull();

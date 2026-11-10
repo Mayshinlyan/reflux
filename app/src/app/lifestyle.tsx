@@ -11,6 +11,8 @@ import { Button } from '@/components/Button';
 import { ListCard } from '@/components/ListCard';
 import { AddLifestyleSheet } from '@/components/profile/AddLifestyleSheet';
 import { Screen } from '@/components/Screen';
+import { TagChip } from '@/components/TagChip';
+import { LIFESTYLE_HELP, LIFESTYLE_TAGS } from '@/constants/lifestyleTags';
 import { useDb } from '@/db/DatabaseProvider';
 import { listSavedSymptoms, removeSavedSymptom } from '@/db/repositories/savedSymptoms';
 import type { SavedSymptom } from '@/db/schema';
@@ -19,9 +21,10 @@ import { logger } from '@/lib/logger';
 import { space } from '@/theme';
 
 /**
- * Lifestyle factors (Profile > Your lists, Figma row 26): the lifestyle factors you added, as cards laid out like Usual
- * symptoms, Favorite foods and Medications. A tap opens one to remove it (entries already logged keep it), and the
- * Add button at the bottom adds another. Symptoms you typed yourself are on Usual symptoms.
+ * Lifestyle factors (Profile > Your lists, Figma rows 26 and 41f): one line saying what they are, the built-in ones as
+ * plain chips so the page is never empty, then the ones you added as cards laid out like Usual symptoms, Favorite
+ * foods and Medications. A tap on one of yours opens it to remove it (entries already logged keep it), and the Add
+ * button at the bottom adds another. Symptoms you typed yourself are on Usual symptoms.
  */
 export default function LifestyleScreen() {
   const db = useDb();
@@ -73,6 +76,22 @@ export default function LifestyleScreen() {
         <AppText variant="display" accessibilityRole="header" style={styles.title}>
           Lifestyle factors
         </AppText>
+        <AppText variant="voice" color="inkSoft" style={styles.help}>
+          {LIFESTYLE_HELP}
+        </AppText>
+
+        <AppText variant="section" accessibilityRole="header" style={styles.sectionLabel}>
+          Built in
+        </AppText>
+        <View style={styles.chips}>
+          {LIFESTYLE_TAGS.map((tag) => (
+            <TagChip key={tag.key} label={tag.label} selected={false} readOnly />
+          ))}
+        </View>
+
+        <AppText variant="section" accessibilityRole="header" style={[styles.sectionLabel, styles.yours]}>
+          Yours
+        </AppText>
         {loadFailed && items.length === 0 ? (
           <AppText color="inkSoft" style={styles.empty}>
             {`${friendlyMessages.INTERNAL} Your lifestyle list is still on this phone.`}
@@ -122,8 +141,12 @@ export default function LifestyleScreen() {
 const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
   content: { paddingBottom: space.s3 },
-  // No instruction line under the title, so the title itself leaves the gap before the first card.
-  title: { marginBottom: space.s4 },
+  title: { marginBottom: space.s1 },
+  help: { marginBottom: space.s3 },
+  sectionLabel: { marginBottom: space.s1_5 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
+  // A heading gets more room above than below.
+  yours: { marginTop: space.s3 },
   empty: { marginBottom: space.s2 },
   footer: { paddingTop: space.s2 },
   sheetTitle: { marginBottom: space.s1 },

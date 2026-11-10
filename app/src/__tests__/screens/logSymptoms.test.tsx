@@ -624,6 +624,14 @@ describe('Adding your own with a + chip', () => {
     expect(listSavedSymptoms(mockDb)).toEqual([]);
   });
 
+  it('explains what "What\'s going on?" is for on the details step', async () => {
+    await render(<LogSymptomsScreen />);
+    await choose('Heartburn');
+    await logThenAddDetails();
+
+    expect(screen.getByText('Things besides food that can bother your belly.')).toBeTruthy();
+  });
+
   it('adds a lifestyle factor on the details step, saved as a lifestyle addition and logged as a tag', async () => {
     await render(<LogSymptomsScreen />);
     await choose('Heartburn');

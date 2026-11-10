@@ -7,6 +7,8 @@ import {
   ChevronUp,
   Leaf,
   Lightbulb,
+  Refrigerator,
+  ShoppingBag,
   ThumbsDown,
   ThumbsUp,
 } from 'lucide-react-native';
@@ -39,7 +41,7 @@ import { logger } from '@/lib/logger';
 import { recipeMeta } from '@/lib/recipe';
 import { getRecipeDraft } from '@/lib/recipeDraft';
 import { lookFor } from '@/lib/recipeLook';
-import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
+import { cardEdge, fontFamily, minTouchTarget, radius, space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
 
 type Shown = { recipe: Recipe; cuisine: CuisineKey; saved: StoredRecipe | null };
@@ -76,6 +78,13 @@ export default function RecipeScreen() {
   }
 
   const { recipe, cuisine, saved } = shown;
+  // Two plain lists under their own headers (Figma 41a, 41b): what the fridge has, and what to buy. With an empty
+  // fridge nothing is "in your fridge", so the whole list sits under "To buy".
+  const haveItems: string[] = [];
+  const buyItems: string[] = [];
+  for (const item of recipe.ingredients) {
+    (fridge.length > 0 && inFridge(item, fridge) ? haveItems : buyItems).push(item);
+  }
   const stepItems: StepItem[] = [
     { kind: 'video' as const },
     ...recipe.steps.map((text, index) => ({ kind: 'step' as const, text, index })),
@@ -176,27 +185,14 @@ export default function RecipeScreen() {
               <ChevronDown size={24} color={colors.inkMuted} strokeWidth={2} />
             )}
           </Pressable>
-          {open &&
-            recipe.ingredients.map((item, index) => {
-              // With a fridge, each line is ticked (have it) or left open with "to buy" (need it).
-              const have = fridge.length > 0 && inFridge(item, fridge);
-              const need = fridge.length > 0 && !have;
-              return (
-                <View key={`${item}-${index}`} style={styles.ingredient}>
-                  <View
-                    accessibilityLabel={have ? 'In your fridge' : undefined}
-                    style={[styles.dot, { backgroundColor: have ? colors.sageTint : colors.surface2 }]}>
-                    {have && <Check size={14} color={colors.sageInk} strokeWidth={3} />}
-                  </View>
-                  <AppText style={styles.fill}>{item}</AppText>
-                  {need && (
-                    <AppText variant="caption" color="inkMuted">
-                      to buy
-                    </AppText>
-                  )}
-                </View>
-              );
-            })}
+          {open && (
+            <>
+              {haveItems.length > 0 && <IngredientGroup kind="fridge" items={haveItems} first />}
+              {buyItems.length > 0 && (
+                <IngredientGroup kind="buy" items={buyItems} first={haveItems.length === 0} />
+              )}
+            </>
+          )}
         </View>
 
         <View style={styles.steps}>
@@ -265,6 +261,50 @@ export default function RecipeScreen() {
         </AppText>
       </ScrollView>
     </Screen>
+  );
+}
+
+/**
+ * One group of ingredients: a small icon tile and bold title, then plain bullets (Figma 41a). The tile is smaller than
+ * the "Ingredients" title above it, so the card reads in two levels. Sage for what the fridge has, honey for what to buy.
+ */
+function IngredientGroup({
+  kind,
+  items,
+  first,
+}: {
+  kind: 'fridge' | 'buy';
+  items: string[];
+  first: boolean;
+}) {
+  const colors = useColors();
+  const fridge = kind === 'fridge';
+  const Icon = fridge ? Refrigerator : ShoppingBag;
+  const title = fridge ? 'In your fridge' : 'To buy';
+  return (
+    <View style={[styles.group, !first && styles.groupGap]}>
+      <View style={styles.groupHeader}>
+        <View style={[styles.groupIcon, { backgroundColor: fridge ? colors.sageTint : colors.honeyTint }]}>
+          <Icon size={16} color={fridge ? colors.sageInk : colors.honeyInk} strokeWidth={2} />
+        </View>
+        <AppText variant="bodyEm" accessibilityRole="header" style={styles.groupTitle}>
+          {title}
+        </AppText>
+      </View>
+      {items.map((item, index) => (
+        <View key={`${item}-${index}`} style={styles.ingredient}>
+          {/* Decoration: a screen reader reads the ingredient, not "bullet" before every line. */}
+          <AppText
+            color="ink"
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            style={styles.bullet}>
+            •
+          </AppText>
+          <AppText style={styles.fill}>{item}</AppText>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -343,14 +383,33 @@ const styles = StyleSheet.create({
   // The whole header is the button that opens and closes the list, so it is at least a thumb tall.
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: space.s1, minHeight: minTouchTarget },
   steps: { gap: space.s1 + 4 },
-  ingredient: {
+  group: { gap: 0 },
+  // A heading gets more room above than below: 24 between the two groups, 8 under each header.
+  groupGap: { marginTop: space.s3 },
+  groupHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.s1 + 4,
-    minHeight: 36,
-    paddingLeft: 4,
+    gap: space.s1,
+    paddingTop: space.s1,
+    paddingBottom: space.s1,
   },
-  dot: { width: 22, height: 22, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  groupIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupTitle: { fontFamily: fontFamily.bold },
+  ingredient: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space.s1 + 4,
+    minHeight: 32,
+    paddingLeft: 4,
+    paddingVertical: 4,
+  },
+  bullet: { width: 8, textAlign: 'center' },
   actions: { flexDirection: 'row', gap: space.s1 + 4 },
   rate: { flexDirection: 'row', alignItems: 'center', gap: space.s1 + 4 },
   thumb: {

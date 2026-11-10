@@ -48,7 +48,7 @@ const FILLER_PHOTO = require('@/assets/images/filler.jpg');
  * filled cards (Figma row 25, the same layout as Medications and Usual symptoms: a title, the cards, an "Add" button
  * at the bottom, no instruction line). Tapping a card opens it to rename, re-check or remove, and a left swipe
  * deletes it. Logging a favorite happens in the food capture's Quick log chips, not here. "Add a food" checks one
- * from a photo or a description; the result can be logged as eaten, saved to this list, or both.
+ * from a photo or a description and saves it to this list; it is not logged as eaten.
  */
 export function FoodList() {
   const colors = useColors();
@@ -121,8 +121,8 @@ export function FoodList() {
     setChanging(false);
   };
 
-  /** "Add a food": the photo/text check. */
-  const addFood = () => router.push({ pathname: '/log/food', params: { check: '1' } });
+  /** "Add a food": the photo/text check, saved to favorite foods and never to the diary (Figma 41d, 41e). */
+  const addFood = () => router.push({ pathname: '/log/food', params: { myFood: '1' } });
 
   const checkFood = () => {
     if (!editing) return;

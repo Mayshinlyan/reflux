@@ -102,7 +102,7 @@ describe('Food screen: which view', () => {
 
   it('opens the check for "Add a food"', async () => {
     createSavedFood(mockDb, 'Oatmeal');
-    mockParams = { check: '1' };
+    mockParams = { myFood: '1' };
     await render(<LogFoodScreen />);
     expect(screen.getByText('check flow camera=false')).toBeTruthy();
   });
@@ -137,7 +137,7 @@ describe('Food screen: Favorite foods', () => {
     createSavedFood(mockDb, 'Oatmeal');
     await render(<FoodList />);
     await press('Add a food');
-    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/log/food', params: { check: '1' } });
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/log/food', params: { myFood: '1' } });
   });
 
   it('opens the food screen to get a verdict for a saved food', async () => {
