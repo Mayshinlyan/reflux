@@ -284,7 +284,7 @@ describe('Entry: a symptom entry', () => {
     expect(screen.getByText('Rushed morning.')).toBeTruthy();
   });
 
-  it('keeps what is possibly related behind a closed row, worked out from the meal it followed', async () => {
+  it('shows what is possibly related in an open row that a tap closes, worked out from the meal it followed', async () => {
     const mealId = seedTacos();
     const id = createSymptomLog(mockDb, {
       items: [{ key: 'heartburn' }],
@@ -295,13 +295,10 @@ describe('Entry: a symptom entry', () => {
     await render(<EntryScreen />);
 
     expect(screen.getByText('Possibly related')).toBeTruthy();
-    expect(screen.queryByText('Spicy chicken tacos, 2 hours before')).toBeNull();
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Possibly related' }));
     expect(screen.getByText('Spicy chicken tacos, 2 hours before')).toBeTruthy();
     expect(screen.getByText('A late meal, 3 hours before bed')).toBeTruthy();
     expect(screen.queryByText(/Not a diagnosis/)).toBeNull();
-    // A second press closes it again.
+    // A press closes it.
     await fireEvent.press(screen.getByRole('button', { name: 'Possibly related' }));
     expect(screen.queryByText('Spicy chicken tacos, 2 hours before')).toBeNull();
     // The symptom is the title and Bellie shows the meal it followed; it is not listed again as a chip card.
@@ -496,6 +493,10 @@ describe('a meal still being checked (Figma row 44)', () => {
     meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
   };
 
+  /** The row is stamped by the database's own clock, so the test clock is set from it: `afterMs` after it was logged. */
+  const clockAt = (id: number, afterMs: number) =>
+    jest.setSystemTime(new Date(Date.parse(getFoodLog(mockDb, id)?.createdAt ?? '') + afterMs));
+
   it('shows the name, a Checking badge and skeleton blocks instead of a verdict', async () => {
     const id = createUncheckedMeal(mockDb, {
       source: 'text',
@@ -503,6 +504,7 @@ describe('a meal still being checked (Figma row 44)', () => {
       loggedAt: at(10, 11, 0),
     });
     mockParams = { kind: 'food', id: String(id) };
+    clockAt(id, 0);
     await render(<EntryScreen />);
 
     expect(screen.getByRole('header', { name: 'spicy chicken tacos' })).toBeTruthy();
@@ -523,11 +525,36 @@ describe('a meal still being checked (Figma row 44)', () => {
       loggedAt: at(10, 11, 0),
     });
     mockParams = { kind: 'food', id: String(id) };
+    clockAt(id, 0);
     await render(<EntryScreen />);
 
     expect(screen.getByLabelText('Checking this meal')).toBeTruthy();
     expect(screen.queryByRole('header', { name: 'Meal' })).toBeNull();
     expect(screen.queryByLabelText('Add to favorite foods')).toBeNull();
+  });
+
+  it("says it couldn't check yet once a minute has passed with no answer, and still fills in later", async () => {
+    const id = createUncheckedMeal(mockDb, {
+      source: 'photo',
+      photoUri: 'meal.jpg',
+      loggedAt: at(10, 11, 0),
+    });
+    mockParams = { kind: 'food', id: String(id) };
+    clockAt(id, 61_000);
+    await render(<EntryScreen />);
+
+    expect(screen.getByLabelText("Couldn't check this meal yet")).toBeTruthy();
+    expect(screen.getByText("Bellie will try again when you're back online.")).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Meal' })).toBeTruthy();
+    expect(screen.queryByLabelText('Checking this meal')).toBeNull();
+
+    await act(async () => {
+      setMealAnalysis(mockDb, id, verdict);
+      notifyEntriesChanged();
+    });
+
+    expect(screen.queryByLabelText("Couldn't check this meal yet")).toBeNull();
+    expect(screen.getByLabelText('Caution')).toBeTruthy();
   });
 
   it('fills in the verdict when the check finishes, without leaving the page', async () => {
@@ -537,6 +564,7 @@ describe('a meal still being checked (Figma row 44)', () => {
       loggedAt: at(10, 11, 0),
     });
     mockParams = { kind: 'food', id: String(id) };
+    clockAt(id, 0);
     await render(<EntryScreen />);
     expect(screen.getByLabelText('Checking this meal')).toBeTruthy();
 

@@ -255,10 +255,10 @@ function EntryHeader({ title, when, tags = [] }: { title: string; when: string; 
   );
 }
 
-/** A closed one-line card that opens to show more, the same as "Why?" on a meal. */
+/** A card with a one-line row that closes it, open by default like "Why?" on a meal. */
 function Disclosure({ label, children }: { label: string; children: ReactNode }) {
   const colors = useColors();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const Chevron = open ? ChevronUp : ChevronDown;
   return (
     <View style={[styles.disclosure, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
@@ -290,10 +290,32 @@ function SymptomsSection({ keys }: { keys: string[] }) {
   );
 }
 
+/** How long a meal's check may take before the page stops showing skeletons and says it could not be done yet. */
+const STALLED_AFTER_MS = 60_000;
+
+/**
+ * True once `ms` have passed since `since` (an ISO time), counted from when the page opened if it is already late.
+ * It only counts while `active`, and never waits longer than `ms` (a clock set back must not delay it, and an
+ * unreadable time must not fire it at once).
+ */
+function useElapsed(since: string, ms: number, active: boolean): boolean {
+  const start = Date.parse(since);
+  const [elapsed, setElapsed] = useState(() => Number.isFinite(start) && Date.now() - start >= ms);
+  useEffect(() => {
+    if (!active || elapsed || !Number.isFinite(start)) return;
+    const wait = Math.min(ms, Math.max(0, ms - (Date.now() - start)));
+    const timer = setTimeout(() => setElapsed(true), wait);
+    return () => clearTimeout(timer);
+  }, [active, elapsed, start, ms]);
+  return elapsed;
+}
+
 function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] }) {
   const db = useDb();
   const { settings } = useSettings();
   const late = isLateMeal(log.loggedAt, log.tz, settings.bedtime, settings.lateMealWindowMinutes);
+  // A check that has had a minute and no answer (no signal) stops looking like it is about to land (Figma 44d).
+  const stalled = useElapsed(log.createdAt, STALLED_AFTER_MS, !log.analysis && isChecking(log));
   const lifestyle = listMealTags(db, log.id).map(tagLabel);
   const triggers = log.analysis ? matchedTriggerLabels(log.analysis, { late }) : late ? ['Late meal'] : [];
   const tags = [...new Set([...lifestyle, ...triggers])];
@@ -314,6 +336,20 @@ function MealView({ log }: { log: Extract<LoadedEntry, { kind: 'food' }>['log'] 
   ) : null;
   // Logged with "Just log it" and still being checked (Figma row 44): the real header, then skeleton blocks where
   // Bellie, the verdict, the reason and "Why?" will be. A typed meal already has its name; a photo's is on its way.
+  if (!analysis && isChecking(log) && stalled) {
+    return (
+      <>
+        <EntryHeader title={log.mealName} when={when} tags={lifestyle} />
+        <View style={styles.checkingBlock}>
+          <CheckingBadge stalled style={styles.checkingBadge} />
+          <AppText variant="small" color="inkSoft" style={styles.centered}>
+            Bellie will try again when you&apos;re back online.
+          </AppText>
+        </View>
+        {sheet}
+      </>
+    );
+  }
   if (!analysis && isChecking(log)) {
     return (
       <>

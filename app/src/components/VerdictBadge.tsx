@@ -47,16 +47,23 @@ export function VerdictBadge({ verdict, style }: { verdict: AppVerdict; style?: 
  * A meal logged with "Just log it" while its verdict is still on the way (Figma 21f): a quiet tan pill, no icon, no
  * verdict colour. The verdict replaces it as soon as the check finishes.
  */
-export function CheckingBadge({ style }: { style?: StyleProp<ViewStyle> }) {
+export function CheckingBadge({
+  style,
+  stalled = false,
+}: {
+  style?: StyleProp<ViewStyle>;
+  /** The check has taken a minute with no answer (no signal): the same pill says so (Figma 44d). */
+  stalled?: boolean;
+}) {
   const colors = useColors();
   return (
     <View
       style={[styles.badge, { backgroundColor: colors.surface2 }, style]}
       accessible
       accessibilityRole="text"
-      accessibilityLabel="Checking this meal">
+      accessibilityLabel={stalled ? "Couldn't check this meal yet" : 'Checking this meal'}>
       <AppText variant="label" color="inkSoft">
-        Checking…
+        {stalled ? "Couldn't check yet" : 'Checking…'}
       </AppText>
     </View>
   );
