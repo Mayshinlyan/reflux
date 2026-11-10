@@ -9,15 +9,24 @@ import {
   useRef,
   useState,
 } from 'react';
+import { router } from 'expo-router';
 import { BackHandler, StyleSheet, View, type ViewInstance } from 'react-native';
 
 import { useSettings } from '@/db/DatabaseProvider';
 import { logger } from '@/lib/logger';
 
-import { TOUR_STEPS, type TourStep, type TourViewId } from './steps';
+import { TOUR_STEPS, type TourScreen, type TourStep, type TourViewId } from './steps';
 import { TourOverlay } from './TourOverlay';
 
 type Session = { steps: readonly TourStep[]; index: number };
+
+/** Where each tab lives; the tour opens these behind the dimmed layer. */
+const HREF_FOR: Record<TourScreen, '/' | '/history' | '/kitchen' | '/profile'> = {
+  today: '/',
+  history: '/history',
+  kitchen: '/kitchen',
+  profile: '/profile',
+};
 
 type TourApi = {
   /**
@@ -82,8 +91,10 @@ export function TourProvider({ children }: { children: ReactNode }) {
     (prepare?: () => void) => {
       setRequested(false);
       if (current.current) return;
+      // Today's Bellie is on screen when it starts; the Kitchen views only exist once the tour opens that tab.
       const steps = TOUR_STEPS.filter(
-        (step) => step.target?.kind !== 'view' || views.current.has(step.target.id),
+        (step) =>
+          !(step.target?.kind === 'view' && step.target.id === 'bellie') || views.current.has('bellie'),
       );
       if (steps.length === 0) return;
       prepare?.();
@@ -98,6 +109,8 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const getView = useCallback((id: TourViewId) => views.current.get(id)?.current ?? null, []);
 
   const finish = useCallback(() => {
+    // However it ends, the app is back on Today.
+    if (current.current?.steps[current.current.index]?.screen !== 'today') router.navigate(HREF_FOR.today);
     open(null);
     try {
       update('tourDone', true);
@@ -117,6 +130,12 @@ export function TourProvider({ children }: { children: ReactNode }) {
     const now = current.current;
     if (now && now.index > 0) open({ ...now, index: now.index - 1 });
   }, [open]);
+
+  // The screen behind the tour follows the step: History for the History step, and so on.
+  const screen = session?.steps[session.index]?.screen;
+  useEffect(() => {
+    if (screen) router.navigate(HREF_FOR[screen]);
+  }, [screen]);
 
   // The Android back button ends the tour instead of leaving the screen behind it.
   useEffect(() => {

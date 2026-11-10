@@ -16,6 +16,7 @@ const SCRIM = 'rgba(58, 47, 37, 0.62)';
 const CARD_ESTIMATE = 230;
 /** Lets Today finish scrolling and laying out before a view is measured. */
 const MEASURE_DELAY_MS = 100;
+const MEASURE_ATTEMPTS = 10;
 
 type Size = { width: number; height: number };
 
@@ -75,23 +76,34 @@ export function TourOverlay({ steps, index, getView, onNext, onBack, onClose }: 
     const viewId = step.target.id;
     // A measurement that comes back after the step changed (or the tour closed) is dropped.
     let cancelled = false;
-    const timer = setTimeout(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    // The Kitchen's views only exist once that tab has opened behind the tour, so ask again a few times.
+    const measure = (attempt: number) => {
       const view = getView(viewId);
       const overlay = root.current;
       if (!view || !overlay) {
-        setMeasured({ id: stepId, rect: null });
+        if (attempt < MEASURE_ATTEMPTS && !cancelled)
+          timer = setTimeout(() => measure(attempt + 1), MEASURE_DELAY_MS);
+        else setMeasured({ id: stepId, rect: null });
         return;
       }
       overlay.measureInWindow((originX, originY) => {
         view.measureInWindow((x, y, width, height) => {
           if (cancelled) return;
+          const found = width > 0 && height > 0;
+          // Still laying out: ask again, like a view that isn't there yet.
+          if (!found && attempt < MEASURE_ATTEMPTS) {
+            timer = setTimeout(() => measure(attempt + 1), MEASURE_DELAY_MS);
+            return;
+          }
           setMeasured({
             id: stepId,
-            rect: width > 0 && height > 0 ? { x: x - originX, y: y - originY, width, height } : null,
+            rect: found ? { x: x - originX, y: y - originY, width, height } : null,
           });
         });
       });
-    }, MEASURE_DELAY_MS);
+    };
+    timer = setTimeout(() => measure(1), MEASURE_DELAY_MS);
     return () => {
       cancelled = true;
       clearTimeout(timer);

@@ -1,9 +1,11 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { BackHandler, Pressable, StyleSheet } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 
 import { useTourAutoStart } from '@/hooks/useTourAutoStart';
 
-import { TourProvider, useTour } from '../TourContext';
+import { TourProvider, useTour, useTourTarget } from '../TourContext';
+
+const mockNavigate = jest.fn();
 
 let mockTourDone = false;
 const mockUpdate = jest.fn();
@@ -23,17 +25,28 @@ jest.mock('react-native-reanimated', () => ({
   useReducedMotion: () => true,
 }));
 jest.mock('expo-router', () => ({
+  router: { navigate: (href: string) => mockNavigate(href) },
   useFocusEffect: (effect: () => void | (() => void)) => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('react').useEffect(effect, [effect]);
   },
 }));
 
+const measureAt = (done: (x: number, y: number, width: number, height: number) => void) =>
+  done(60, 240, 280, 270);
+
 /** Starts the tour from a button, as Today does once it is on screen. */
 function Screen() {
   const { begin, replay } = useTour();
+  // The views the screens let the tour spotlight.
+  const bellie = useTourTarget('bellie');
+  const aiIdeas = useTourTarget('aiIdeas');
+  const fridge = useTourTarget('fridge');
   return (
     <>
+      <View ref={bellie} />
+      <View ref={aiIdeas} />
+      <View ref={fridge} />
       <Pressable accessibilityRole="button" accessibilityLabel="Start tour" onPress={() => begin()} />
       <Pressable accessibilityRole="button" accessibilityLabel="Replay tour" onPress={() => replay()} />
     </>
@@ -61,11 +74,24 @@ async function start() {
   );
   await fireEvent.press(screen.getByLabelText('Start tour'));
   await layOut();
+  // Bellie is measured a moment after the step opens.
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  });
+  await screen.findByText('Tap Bellie to log', {}, { timeout: 2000 });
 }
+
+beforeAll(() => {
+  // Jest has no layout: every view reports the same place when measured.
+  jest
+    .spyOn(View.prototype as never as { measureInWindow: typeof measureAt }, 'measureInWindow')
+    .mockImplementation(measureAt);
+});
 
 beforeEach(() => {
   mockTourDone = false;
   mockUpdate.mockReset();
+  mockNavigate.mockClear();
 });
 
 describe('App tour', () => {
@@ -78,38 +104,50 @@ describe('App tour', () => {
     expect(screen.queryByTestId('tour-overlay')).toBeNull();
   });
 
-  it('opens on the first step, with no Back', async () => {
+  it('opens on the first step, Bellie, with no Back', async () => {
     await start();
 
-    expect(screen.getByText('A quick look around')).toBeTruthy();
-    expect(screen.getByLabelText('Step 1 of 6')).toBeTruthy();
+    expect(screen.getByText('Tap Bellie to log')).toBeTruthy();
+    expect(screen.getByText('Tap Bellie to log food, how you feel, or a medication.')).toBeTruthy();
+    expect(screen.getByLabelText('Step 1 of 7')).toBeTruthy();
     // Sentence case, not capitals.
-    expect(screen.getByText('1 of 6')).toBeTruthy();
+    expect(screen.getByText('1 of 7')).toBeTruthy();
     expect(screen.queryByLabelText('Back')).toBeNull();
   });
 
-  it('walks through the tabs with Next and Back, and ends on Done', async () => {
+  it('opens the screen behind each step, and ends back on Today', async () => {
     await start();
+    expect(mockNavigate).toHaveBeenLastCalledWith('/');
 
     await fireEvent.press(screen.getByLabelText('Next'));
     expect(screen.getByText('Log anything')).toBeTruthy();
-    await fireEvent.press(screen.getByLabelText('Next'));
-    expect(screen.getByText('Today: Bellie and your day')).toBeTruthy();
+    expect(mockNavigate).toHaveBeenLastCalledWith('/');
     await fireEvent.press(screen.getByLabelText('Next'));
     expect(screen.getByText('History')).toBeTruthy();
+    expect(mockNavigate).toHaveBeenLastCalledWith('/history');
+    await fireEvent.press(screen.getByLabelText('Next'));
+    expect(screen.getByText('Kitchen')).toBeTruthy();
+    expect(mockNavigate).toHaveBeenLastCalledWith('/kitchen');
     await fireEvent.press(screen.getByLabelText('Back'));
-    expect(screen.getByText('Today: Bellie and your day')).toBeTruthy();
+    expect(screen.getByText('History')).toBeTruthy();
+    expect(mockNavigate).toHaveBeenLastCalledWith('/history');
     await fireEvent.press(screen.getByLabelText('Next'));
     await fireEvent.press(screen.getByLabelText('Next'));
+    expect(await screen.findByText('AI Ideas')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Next'));
+    expect(await screen.findByText('My fridge')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Next'));
 
     expect(screen.getByText('Profile')).toBeTruthy();
+    expect(screen.getByText('7 of 7')).toBeTruthy();
+    expect(mockNavigate).toHaveBeenLastCalledWith('/profile');
     expect(screen.queryByLabelText('Next')).toBeNull();
     expect(mockUpdate).not.toHaveBeenCalled();
 
     await fireEvent.press(screen.getByLabelText('Done'));
 
     expect(mockUpdate).toHaveBeenCalledWith('tourDone', true);
+    expect(mockNavigate).toHaveBeenLastCalledWith('/');
     expect(screen.queryByTestId('tour-overlay')).toBeNull();
   });
 
@@ -154,6 +192,23 @@ describe('App tour', () => {
     await fireEvent.press(screen.getByLabelText('Start tour', { includeHiddenElements: true }));
 
     expect(screen.getByText('Log anything')).toBeTruthy();
+  });
+
+  it('leaves out the Bellie step when Today has no Bellie on screen', async () => {
+    function NoBellie() {
+      const { begin } = useTour();
+      return <Pressable accessibilityRole="button" accessibilityLabel="Start tour" onPress={() => begin()} />;
+    }
+    await render(
+      <TourProvider>
+        <NoBellie />
+      </TourProvider>,
+    );
+    await fireEvent.press(screen.getByLabelText('Start tour'));
+    await layOut();
+
+    expect(screen.getByText('Log anything')).toBeTruthy();
+    expect(screen.getByText('1 of 6')).toBeTruthy();
   });
 });
 
