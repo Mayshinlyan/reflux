@@ -22,7 +22,7 @@ type Props = {
 
 /**
  * Figma "21c Food: verdict": Bellie under a speech bubble that carries the verdict, the AI's one-line summary and
- * the triggers that matched, then one closed "Why?" with the tip, the reasons and the disclaimer inside (21d). The
+ * the triggers that matched, then one open "Why?" with the tip, the reasons and the disclaimer inside (21d). The
  * bubble already says the verdict, so there is no badge here. The pieces are exported so a logged meal's page
  * (Figma "04b.1") can show the same verdict, with its own badge.
  */
@@ -38,12 +38,13 @@ export function FoodVerdict({ analysis, late }: Props) {
 const DISCLAIMER = 'For tracking only, not medical advice. Food results are AI-generated.';
 
 /**
- * "Why?": closed by default, one line. Open, it holds "Better next time", the reasons and key ingredients, and the
- * disclaimer. With nothing to explain, only the disclaimer shows.
+ * "Why?": open by default, so the reasons are in view; a tap on the row closes it to one line. Open, it holds
+ * "Better next time", the reasons and key ingredients, and the disclaimer. With nothing to explain, only the
+ * disclaimer shows.
  */
 export function VerdictMore({ analysis, late }: Props) {
   const colors = useColors();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const tip = analysis.overall.tip;
   const hasWhy = verdictReasons(analysis, { late }).length > 0 || uniqueIngredients(analysis).length > 0;
   if (!tip && !hasWhy) {
