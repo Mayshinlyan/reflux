@@ -84,7 +84,7 @@ describe('About you', () => {
     expect(screen.getByRole('button', { name: 'Medications, 1 added' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Foods to avoid, None yet' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Favorite foods, None yet' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Lifestyle factors, 6 tracked' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Lifestyle factors, 6 added' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /^Usual symptoms, / })).toBeTruthy();
   });
 

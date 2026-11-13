@@ -19,7 +19,7 @@ type Props = {
   icon: LucideIcon;
   tone: TileTone;
   label: string;
-  /** How many are in it ("4 saved"), one quiet line. */
+  /** How many are in it ("4 added"), one quiet line. */
   count: string;
   onPress: () => void;
 };

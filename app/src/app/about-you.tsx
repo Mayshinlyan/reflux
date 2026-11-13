@@ -17,7 +17,8 @@ import { listSavedSymptoms } from '@/db/repositories/savedSymptoms';
 import { logger } from '@/lib/logger';
 import { space } from '@/theme';
 
-const count = (n: number, word: string) => (n === 0 ? 'None yet' : `${n} ${word}`);
+/** One wording for every tile: how many, then "added". */
+const count = (n: number) => (n === 0 ? 'None yet' : `${n} added`);
 
 /**
  * About you (Figma G6b): the six lists Bellie uses to read your meals, as big tiles with how many are in each. It
@@ -65,7 +66,7 @@ export default function AboutYouScreen() {
               icon={Stethoscope}
               tone="lavender"
               label="Condition"
-              count={conditions === 0 ? 'Not set' : `${conditions} added`}
+              count={count(conditions)}
               onPress={() => {
                 setOpened((n) => n + 1);
                 setConditionOpen(true);
@@ -75,7 +76,7 @@ export default function AboutYouScreen() {
               icon={Thermometer}
               tone="honey"
               label="Usual symptoms"
-              count={count(settings.usualSymptoms.length + counts.own, 'saved')}
+              count={count(settings.usualSymptoms.length + counts.own)}
               onPress={() => router.push('/usual-symptoms')}
             />
           </View>
@@ -84,14 +85,14 @@ export default function AboutYouScreen() {
               icon={Utensils}
               tone="rose"
               label="Favorite foods"
-              count={count(counts.foods, 'saved')}
+              count={count(counts.foods)}
               onPress={() => router.push({ pathname: '/log/food', params: { manage: '1' } })}
             />
             <AboutTile
               icon={Ban}
               tone="clay"
               label="Foods to avoid"
-              count={count(counts.avoid, 'listed')}
+              count={count(counts.avoid)}
               onPress={() => router.push('/avoid-foods')}
             />
           </View>
@@ -100,14 +101,14 @@ export default function AboutYouScreen() {
               icon={Pill}
               tone="sky"
               label="Medications"
-              count={count(counts.meds, 'added')}
+              count={count(counts.meds)}
               onPress={() => router.push({ pathname: '/log/medication', params: { manage: '1' } })}
             />
             <AboutTile
               icon={Leaf}
               tone="mint"
               label="Lifestyle factors"
-              count={`${LIFESTYLE_TAGS.length + counts.lifestyle} tracked`}
+              count={count(LIFESTYLE_TAGS.length + counts.lifestyle)}
               onPress={() => router.push('/lifestyle')}
             />
           </View>
