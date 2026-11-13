@@ -2,7 +2,7 @@
 <style>
   :root{
     --bg:#FFFDF9; --surface:#FFFFFF; --surface-2:#ECDAB9;
-    --ink:#3A2F25; --ink-soft:#65574A; --ink-muted:#75634F; --hairline:#EBDCC2; --edge:#D9C49C;
+    --ink:#3A2F25; --ink-soft:#65574A; --ink-muted:#75634F; --hairline:#EBDCC2; --edge:#E6D9C0;
     --clay:#C8664A; --clay-ink:#8A4531; --clay-tint:#F3D3C0;
     --sage:#8E9A6D; --sage-ink:#55612F; --sage-tint:#D8E0B6;
     --good:#5E8F63; --good-ink:#2F5A3A; --good-tint:#D3E8D6;
@@ -399,7 +399,7 @@
     </div>
     <div class="principle">
       <h3>No outlines</h3>
-      <p>Containers are filled, never outlined. The one soft touch is a 1px <code>edge</code> line on cards and rows (about 1.7:1 on the page; cards are white on a near-white page, so since the 2026-11-12 palette change this edge is what separates them, and the warmth lives in the edge, Bellie, the olive button and the tints). Text boxes wear it too: every <em>TextField</em> (Describe it, notes, names of foods) has the edge while idle (1.5pt, the same width as the focus ring so nothing shifts) and swaps it for the clay focus ring while typing, and pick-one rows and cards (option rows, choice cards) wear it until they are chosen, when it becomes the olive outline. The food suggestions under Describe it are a card with the same edge. Chips, badges, pills and the little circles inside rows do not get one. Selection is a different tint, not a border. Unselected chips are surface; chips inside cards are surface 2. One exception: form dropdowns (portion, verdict, eaten time) keep a 1px hairline edge so they show against the sheet they sit in, and a hairline between the options when open.</p>
+      <p>Containers are filled, never outlined. The one soft touch is a 1px <code>edge</code> line on cards and rows (about 1.4:1 on the page; cards are white on a near-white page, so since the 2026-11-12 palette change this edge is what separates them, and the warmth lives in the edge, Bellie, the olive button and the tints). Text boxes wear it too: every <em>TextField</em> (Describe it, notes, names of foods) has the edge while idle (1.5pt, the same width as the focus ring so nothing shifts) and swaps it for the clay focus ring while typing, and pick-one rows and cards (option rows, choice cards) wear it until they are chosen, when it becomes the olive outline. The food suggestions under Describe it are a card with the same edge. Since the 2026-11-12 palette change the pills and chips that sit on the page (symptom chips, the Saved and AI Ideas pills, the Feedback pill, ingredient chips), the round back and gear buttons and the stepper pills wear the same 1px edge, because a white shape on a near-white page otherwise disappears. Chips inside a card (surface 2), verdict badges and the little circles inside rows do not get one. Selection is a different tint, not a border. Unselected chips are surface; chips inside cards are surface 2. One exception: form dropdowns (portion, verdict, eaten time) keep a 1px hairline edge so they show against the sheet they sit in, and a hairline between the options when open.</p>
     </div>
     <div class="principle">
       <h3>Icon and label, always</h3>
@@ -426,7 +426,7 @@
       <div class="swatch"><div class="chip" style="background:var(--ink)"></div><div class="meta"><div class="name">Ink</div><div class="hex">#3A2F25</div><div class="use">Primary text</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--ink-soft)"></div><div class="meta"><div class="name">Ink soft</div><div class="hex">#65574A</div><div class="use">Secondary text</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--ink-muted)"></div><div class="meta"><div class="name">Ink muted</div><div class="hex">#75634F</div><div class="use">Unselected tab icons, footnotes, dots (about 5.7:1 on the page and on surface)</div></div></div>
-      <div class="swatch"><div class="chip" style="background:var(--edge)"></div><div class="meta"><div class="name">Edge</div><div class="hex">#D9C49C</div><div class="use">The 1px soft edge on cards and rows</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--edge)"></div><div class="meta"><div class="name">Edge</div><div class="hex">#E6D9C0</div><div class="use">The 1px soft edge on cards, rows, fields, round buttons and the pills and chips that sit on the page (was #D9C49C until 2026-11-12, about 1.4:1 on the page now)</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--clay)"></div><div class="meta"><div class="name">Clay</div><div class="hex">#C8664A</div><div class="use">Accents, marks, selected tag text</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--cta)"></div><div class="meta"><div class="name">Olive (primary)</div><div class="hex">#5F6B3A</div><div class="use">Primary button, active dots, today</div></div></div>
       <div class="swatch"><div class="chip" style="background:var(--good)"></div><div class="meta"><div class="name">Deep green</div><div class="hex">#5E8F63</div><div class="use">"Good", a verdict you set yourself</div></div></div>
@@ -542,7 +542,7 @@
                 <span class="topbar__title">Title</span>
                 <button class="topbar__btn" type="button" aria-label="More"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
               </div>
-              <p class="caption-s" style="margin-top:10px">44pt filled surface circles, no outline. Title is Nunito bold 18, centered on the bar.</p>
+              <p class="caption-s" style="margin-top:10px">44pt surface circles with the 1px edge. Title is Nunito bold 18, centered on the bar.</p>
             </div>
 
             <div class="device__group">
