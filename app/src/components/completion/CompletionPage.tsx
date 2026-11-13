@@ -25,6 +25,7 @@ export function CompletionPage({ kind, summary, note, quiet, onContinue }: Props
   return (
     <CompletionLayout
       backdrop={<Confetti />}
+      low
       action={{ label: 'Continue', onPress: onContinue }}
       quiet={quiet}>
       <HoppingBelly hop shadow />

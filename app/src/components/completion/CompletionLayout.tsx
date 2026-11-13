@@ -16,17 +16,19 @@ type Props = {
   top?: boolean;
   /** Drawn behind the content (confetti). */
   backdrop?: ReactNode;
+  /** Content sits low, a fixed gap above the button, instead of floating in the middle (the completion page). */
+  low?: boolean;
 };
 
 /** The shared page of the completion flow (Figma G1 to G4): content above, a full-width button and a quiet link below. */
-export function CompletionLayout({ children, action, quiet, top = false, backdrop }: Props) {
+export function CompletionLayout({ children, action, quiet, top = false, backdrop, low = false }: Props) {
   const colors = useColors();
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.bg }]}
       edges={['top', 'bottom', 'left', 'right']}>
       {backdrop}
-      <View style={[styles.body, top ? styles.top : styles.centre]}>{children}</View>
+      <View style={[styles.body, top ? styles.top : low ? styles.low : styles.centre]}>{children}</View>
       <View style={styles.footer}>
         <Button label={action.label} onPress={action.onPress} disabled={action.disabled} />
         {/* Always reserves the link's room, so the button stays put from screen to screen. */}
@@ -54,6 +56,7 @@ const styles = StyleSheet.create({
   body: { flex: 1 },
   centre: { justifyContent: 'center', alignItems: 'center' },
   top: { paddingTop: space.s4 },
+  low: { justifyContent: 'flex-end', alignItems: 'center', paddingBottom: space.s5 },
   footer: { paddingBottom: space.s2 },
   quietSlot: { height: minTouchTarget + space.s1, justifyContent: 'center', alignItems: 'center' },
   quiet: { minHeight: minTouchTarget, justifyContent: 'center', paddingHorizontal: space.s2 },
