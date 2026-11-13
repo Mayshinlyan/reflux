@@ -53,6 +53,11 @@ export function isOwned(key: ShelfKey, checkInDays: number): boolean {
   return item !== undefined && GIFT_DAYS.some((day) => day === item.day) && checkInDays >= item.day;
 }
 
+/** How many gifts are owned, for "2 gifts so far" on Profile. */
+export function giftCount(checkInDays: number): number {
+  return SHELF.filter((item) => isOwned(item.key, checkInDays)).length;
+}
+
 export function titleFor(kind: LogKind): string {
   return kind === 'meal' ? 'Meal logged' : kind === 'symptoms' ? 'Symptoms logged' : 'Dose logged';
 }
@@ -60,7 +65,7 @@ export function titleFor(kind: LogKind): string {
 export function subtitleFor(kind: LogKind, note?: string): string {
   if (kind === 'meal') return 'Nice, that is in your day.';
   if (kind === 'symptoms') return 'Thanks for telling Bellie.';
-  return note ? `${note}.` : 'Nice, that is in your day.';
+  return note ?? 'Nice, that is in your day.';
 }
 
 export function statLineFor(kind: LogKind, summary: CheckInSummary): string {
@@ -71,8 +76,7 @@ export function statLineFor(kind: LogKind, summary: CheckInSummary): string {
         ? summary.todayByKind.symptoms
         : summary.todayByKind.doses;
   if (kind === 'meal') return `${n} ${n === 1 ? 'meal' : 'meals'} today`;
-  if (kind === 'symptoms')
-    return `${summary.todayCount} ${summary.todayCount === 1 ? 'check-in' : 'check-ins'} today`;
+  if (kind === 'symptoms') return `${n} ${n === 1 ? 'check-in' : 'check-ins'} today`;
   return `${n} ${n === 1 ? 'dose' : 'doses'} today`;
 }
 

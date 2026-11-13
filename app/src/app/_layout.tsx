@@ -94,13 +94,14 @@ function RootLayout() {
               />
               <Stack.Screen name="log/symptoms" options={{ presentation: 'modal' }} />
               <Stack.Screen name="log/medication" options={{ presentation: 'modal' }} />
-              {/* What follows a saved log (completion, streak, goal, gift): full screen, a fade, no swipe away. */}
+              {/* What follows a saved log (completion, streak, goal, gift): full screen, no swipe away. It slides up
+                  over the log page rather than fading: a fade lets the page behind show through, so the two overlap. */}
               <Stack.Screen
                 name="completion"
                 options={{
                   presentation: 'fullScreenModal',
                   gestureEnabled: false,
-                  animation: reduceMotion ? 'none' : 'fade',
+                  animation: reduceMotion ? 'none' : 'slide_from_bottom',
                 }}
               />
             </Stack>

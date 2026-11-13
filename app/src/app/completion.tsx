@@ -20,17 +20,27 @@ const KINDS: readonly LogKind[] = ['meal', 'symptoms', 'dose'];
  * `?kind=meal|symptoms|dose`, `?id=` the entry just made (for Add details / Change time), `?note=` the dose line.
  */
 export default function CompletionScreen() {
-  const params = useLocalSearchParams<{ kind?: string; id?: string; note?: string }>();
+  const params = useLocalSearchParams<{ kind?: string; id?: string; note?: string; preview?: string }>();
   const kind: LogKind = KINDS.find((k) => k === params.kind) ?? 'meal';
   const db = useDb();
-  const { settings, update } = useSettings();
+  const { settings, update: save } = useSettings();
+  // A preview (development builds) plays the pages without saving a goal or a seen gift into the real settings.
+  const preview = __DEV__ && Number.isInteger(Number(params.preview)) && Number(params.preview) >= 1;
+  const update: typeof save = preview ? () => {} : save;
 
   // Worked out once, from the logs as they are right now, so the pages don't shift while they are on screen.
   const [{ summary, steps }] = useState(() => {
-    const result = summarizeCheckIns(listCheckIns(db), new Date(), currentTimeZone());
+    const real = summarizeCheckIns(listCheckIns(db), new Date(), currentTimeZone());
+    // Development builds only: `?preview=3` plays the pages as the first check-in of day 3 (a goal or gift not yet
+    // picked or opened), so each page can be seen without waiting for the day. Never reachable in a release build.
+    const day = __DEV__ ? Number(params.preview) : NaN;
+    if (Number.isInteger(day) && day >= 1) {
+      const result = { ...real, todayCount: 1, checkInDays: day, streak: day, returningAfterGap: false };
+      return { summary: result, steps: planCompletion(result, { commitGoal: null, giftsSeen: [] }) };
+    }
     return {
-      summary: result,
-      steps: planCompletion(result, { commitGoal: settings.commitGoal, giftsSeen: settings.giftsSeen }),
+      summary: real,
+      steps: planCompletion(real, { commitGoal: settings.commitGoal, giftsSeen: settings.giftsSeen }),
     };
   });
   const [index, setIndex] = useState(0);

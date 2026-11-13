@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
   body: { flex: 1 },
   centre: { justifyContent: 'center', alignItems: 'center' },
   top: { paddingTop: space.s4 },
-  low: { justifyContent: 'flex-end', alignItems: 'center', paddingBottom: space.s5 },
+  low: { justifyContent: 'flex-end', alignItems: 'center', paddingBottom: space.s5 + space.s4 },
   footer: { paddingBottom: space.s2 },
   quietSlot: { height: minTouchTarget + space.s1, justifyContent: 'center', alignItems: 'center' },
   quiet: { minHeight: minTouchTarget, justifyContent: 'center', paddingHorizontal: space.s2 },

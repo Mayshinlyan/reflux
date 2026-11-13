@@ -1,5 +1,14 @@
+import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { useReducedMotion, ZoomIn } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withTiming,
+  ZoomIn,
+} from 'react-native-reanimated';
 
 import { useColors } from '@/theme';
 
@@ -20,40 +29,78 @@ const PIECES = [
 ] as const;
 
 const FRAME = 402;
+/** The burst pops in, hangs about a second, then drifts down and fades, so the page settles quietly. */
+const HOLD_MS = 900;
+const FALL_MS = 1400;
+const FALL_PX = 72;
 
-/** A soft burst of confetti behind the page, decoration only. Still with Reduce Motion on. */
-export function Confetti({ count = PIECES.length }: { count?: number }) {
-  const colors = useColors();
-  const reduceMotion = useReducedMotion();
+/**
+ * A soft burst of confetti behind the page, decoration only: it pops in, then falls and fades. Still with Reduce
+ * Motion on. `anchor` is where, in Figma's frame, the thing it surrounds starts (Bellie's top, 216): the pieces are
+ * placed from it, so inside a wrapper around Bellie they travel with her wherever the page puts her.
+ */
+export function Confetti({ count = PIECES.length, anchor = 0 }: { count?: number; anchor?: number }) {
   return (
     <View
       pointerEvents="none"
       style={StyleSheet.absoluteFill}
       importantForAccessibility="no-hide-descendants">
       {PIECES.slice(0, count).map((piece, index) => (
-        <Animated.View
-          key={`${piece.x}-${piece.y}`}
-          entering={
-            reduceMotion
-              ? undefined
-              : ZoomIn.delay(index * 45)
-                  .springify()
-                  .damping(12)
-          }
-          style={[styles.piece, { left: `${(piece.x / FRAME) * 100}%`, top: piece.y }]}>
-          {/* The tilt sits on an inner view: a layout animation on the outer one would overwrite it. */}
-          <View
-            style={[
-              piece.bar ? styles.bar : styles.dot,
-              {
-                backgroundColor: colors[piece.tone],
-                transform: [{ rotate: piece.bar ? `${(index % 2 ? 1 : -1) * 28}deg` : '0deg' }],
-              },
-            ]}
-          />
-        </Animated.View>
+        <ConfettiPiece key={`${piece.x}-${piece.y}`} piece={piece} index={index} anchor={anchor} />
       ))}
     </View>
+  );
+}
+
+function ConfettiPiece({
+  piece,
+  index,
+  anchor,
+}: {
+  piece: (typeof PIECES)[number];
+  index: number;
+  anchor: number;
+}) {
+  const colors = useColors();
+  const reduceMotion = useReducedMotion();
+  const fall = useSharedValue(0);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    fall.value = withDelay(
+      HOLD_MS + index * 60,
+      withTiming(1, { duration: FALL_MS, easing: Easing.in(Easing.quad) }),
+    );
+  }, [reduceMotion, index, fall]);
+
+  const fallStyle = useAnimatedStyle(() => ({
+    opacity: 1 - fall.value,
+    transform: [{ translateY: fall.value * FALL_PX }],
+  }));
+
+  return (
+    <Animated.View
+      entering={
+        reduceMotion
+          ? undefined
+          : ZoomIn.delay(index * 45)
+              .springify()
+              .damping(12)
+      }
+      style={[styles.piece, { left: `${(piece.x / FRAME) * 100}%`, top: piece.y - anchor }]}>
+      {/* The pop-in sits on the outer view, the fall on this one and the tilt on the inner one: each animation gets its own view so none overwrites another. */}
+      <Animated.View style={fallStyle}>
+        <View
+          style={[
+            piece.bar ? styles.bar : styles.dot,
+            {
+              backgroundColor: colors[piece.tone],
+              transform: [{ rotate: piece.bar ? `${(index % 2 ? 1 : -1) * 28}deg` : '0deg' }],
+            },
+          ]}
+        />
+      </Animated.View>
+    </Animated.View>
   );
 }
 

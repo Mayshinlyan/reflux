@@ -23,12 +23,12 @@ type Props = {
 /** Screen 1 (Figma G1): shown after every log. Bellie hops, confetti, one line, a Continue button. */
 export function CompletionPage({ kind, summary, note, quiet, onContinue }: Props) {
   return (
-    <CompletionLayout
-      backdrop={<Confetti />}
-      low
-      action={{ label: 'Continue', onPress: onContinue }}
-      quiet={quiet}>
-      <HoppingBelly hop shadow />
+    <CompletionLayout low action={{ label: 'Continue', onPress: onContinue }} quiet={quiet}>
+      {/* The confetti is placed from Bellie's top (Figma G1a, 216), so it sits around her wherever she lands. */}
+      <View style={styles.stage}>
+        <Confetti anchor={216} />
+        <HoppingBelly hop shadow />
+      </View>
       <AppText variant="display" accessibilityRole="header" style={styles.title}>
         {titleFor(kind)}
       </AppText>
@@ -45,6 +45,7 @@ export function CompletionPage({ kind, summary, note, quiet, onContinue }: Props
 }
 
 const styles = StyleSheet.create({
+  stage: { alignSelf: 'stretch', alignItems: 'center' },
   title: { marginTop: space.s3, textAlign: 'center' },
   line: { marginTop: space.s1, textAlign: 'center' },
   stat: { marginTop: space.s3 },

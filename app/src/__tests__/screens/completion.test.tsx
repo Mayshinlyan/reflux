@@ -87,7 +87,7 @@ describe('Completion flow', () => {
     mockParams = { kind: 'dose', id: String(logId), note: 'Metformin, 8:30 AM' };
     await render(<CompletionScreen />);
 
-    expect(screen.getByText('Metformin, 8:30 AM.')).toBeTruthy();
+    expect(screen.getByText('Metformin, 8:30 AM')).toBeTruthy();
     await press('Change time');
 
     expect(mockReplace).toHaveBeenCalledWith({
