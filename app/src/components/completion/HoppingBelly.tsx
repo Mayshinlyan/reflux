@@ -11,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Belly } from '@/components/Belly';
+import { BELLY_BODY } from '@/components/belly/moods';
 import { useSettings } from '@/db/DatabaseProvider';
 import { useColors } from '@/theme';
 
@@ -42,7 +43,10 @@ export function HoppingBelly({ size = 168, hop = false, forceHat = false, shadow
   }, [hop, reduceMotion, lift]);
 
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: lift.value }] }));
-  const hatWidth = size * 0.71;
+  // The hat sits on the body's top: 90% of its width, its brim (66 of its 120 units down) just inside the top edge.
+  const scale = size / 120;
+  const hatWidth = BELLY_BODY.width * scale * 0.9;
+  const hatTop = (BELLY_BODY.y + 3) * scale - (hatWidth * 66) / 120;
   const hatShown = forceHat || settings.bellieHat;
 
   return (
@@ -50,7 +54,7 @@ export function HoppingBelly({ size = 168, hop = false, forceHat = false, shadow
       <Animated.View style={[{ width: size, height: size }, style]}>
         <Belly size={size} />
         {hatShown && (
-          <View style={[styles.hat, { top: -size * 0.12, left: (size - hatWidth) / 2 }]}>
+          <View style={[styles.hat, { top: hatTop, left: (size - hatWidth) / 2 }]}>
             <BellieHat size={hatWidth} />
           </View>
         )}

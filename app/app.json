@@ -19,7 +19,7 @@
     "android": {
       "package": "com.mayshinlyan.adayinmybelly",
       "adaptiveIcon": {
-        "backgroundColor": "#FAF1DE",
+        "backgroundColor": "#FFFDF9",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
