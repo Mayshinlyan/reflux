@@ -53,6 +53,10 @@ jest.mock('expo-router', () => ({
     canGoBack: () => true,
     replace: jest.fn(),
   },
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('react').useEffect(effect, [effect]);
+  },
 }));
 jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn(() => Promise.resolve()) }));
 
@@ -96,58 +100,23 @@ describe('Profile', () => {
     expect(mockPush).toHaveBeenCalledWith('/settings');
   });
 
-  it('lists Condition, Usual symptoms, Favorite foods, Foods to avoid, Medications and Lifestyle factors under Your lists', async () => {
+  it('has two rows: About you, and Customize Bellie with how many gifts so far', async () => {
     await render(<ProfileScreen />);
 
-    expect(screen.getByRole('header', { name: 'Your lists' })).toBeTruthy();
-    const rows = screen
-      .getAllByRole('button')
-      .map((button) => button.props.accessibilityLabel)
-      .filter((label) =>
-        /^(Condition|Usual symptoms|Favorite foods|Foods to avoid|Medications|Lifestyle factors)$/.test(
-          label ?? '',
-        ),
-      );
-    expect(rows).toEqual([
-      'Condition',
-      'Usual symptoms',
-      'Favorite foods',
-      'Foods to avoid',
-      'Medications',
-      'Lifestyle factors',
-    ]);
+    expect(screen.getByRole('button', { name: 'About you, What Bellie knows about you' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Customize Bellie, Gifts come with check-ins' })).toBeTruthy();
+    // The six lists moved to About you.
+    expect(screen.queryByRole('button', { name: 'Usual symptoms' })).toBeNull();
+    expect(screen.queryByRole('header', { name: 'Your lists' })).toBeNull();
   });
 
-  it('opens Foods to avoid', async () => {
+  it('opens About you and Customize Bellie', async () => {
     await render(<ProfileScreen />);
 
-    await press('button', 'Foods to avoid');
-
-    expect(mockPush).toHaveBeenCalledWith('/avoid-foods');
-  });
-
-  it('opens Favorite foods', async () => {
-    await render(<ProfileScreen />);
-
-    await press('button', 'Favorite foods');
-
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/food', params: { manage: '1' } });
-  });
-
-  it('opens Medications', async () => {
-    await render(<ProfileScreen />);
-
-    await press('button', 'Medications');
-
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/medication', params: { manage: '1' } });
-  });
-
-  it('opens Lifestyle factors', async () => {
-    await render(<ProfileScreen />);
-
-    await press('button', 'Lifestyle factors');
-
-    expect(mockPush).toHaveBeenCalledWith('/lifestyle');
+    await press('button', 'About you, What Bellie knows about you');
+    expect(mockPush).toHaveBeenLastCalledWith('/about-you');
+    await press('button', 'Customize Bellie, Gifts come with check-ins');
+    expect(mockPush).toHaveBeenLastCalledWith('/bellies-things');
   });
 });
 
@@ -199,65 +168,5 @@ describe('Profile: avatar', () => {
     expect(getSetting(mockDb, 'avatar')).toBe('coffee');
     expect(screen.getByLabelText('Coffee cup avatar')).toBeTruthy();
     expect(screen.queryAllByRole('radio')).toHaveLength(0);
-  });
-});
-
-describe('Profile: condition', () => {
-  const change = 'Condition';
-
-  it('lists the conditions with the current ones checked', async () => {
-    setSetting(mockDb, 'conditions', ['acid_reflux']);
-    await render(<ProfileScreen />);
-    await press('button', change);
-
-    const options = screen.getAllByRole('checkbox');
-    expect(options).toHaveLength(4);
-    expect(
-      options.filter((o) => o.props.accessibilityState?.checked).map((o) => o.props.accessibilityLabel),
-    ).toEqual(['Acid reflux or GERD, Heartburn, sour taste, burping']);
-  });
-
-  it('saves several conditions on Save, updates the Profile, and closes the sheet', async () => {
-    setSetting(mockDb, 'conditions', ['acid_reflux']);
-    await render(<ProfileScreen />);
-    await press('button', change);
-
-    await press('checkbox', 'Silent reflux (LPR), Hoarse voice, throat clearing');
-    expect(getSetting(mockDb, 'conditions')).toEqual(['acid_reflux']);
-    await press('button', 'Save');
-
-    expect(getSetting(mockDb, 'conditions')).toEqual(['acid_reflux', 'lpr']);
-    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
-  });
-
-  it('"Not sure yet" clears the rest, and picking a condition clears "Not sure yet"', async () => {
-    setSetting(mockDb, 'conditions', ['acid_reflux', 'lpr']);
-    await render(<ProfileScreen />);
-    await press('button', 'Condition');
-
-    const checked = () =>
-      screen
-        .getAllByRole('checkbox')
-        .filter((o) => o.props.accessibilityState?.checked)
-        .map((o) => o.props.accessibilityLabel.split(',')[0]);
-    await press('checkbox', 'Not sure yet, Track first, decide later');
-    expect(checked()).toEqual(['Not sure yet']);
-
-    await press('checkbox', 'Gastritis, Stomach irritation, pain, feeling full');
-    expect(checked()).toEqual(['Gastritis']);
-    await press('button', 'Save');
-
-    expect(getSetting(mockDb, 'conditions')).toEqual(['gastritis']);
-  });
-});
-
-describe('Profile: usual symptoms', () => {
-  it('opens the Usual symptoms page, not a sheet of every symptom', async () => {
-    await render(<ProfileScreen />);
-
-    await press('button', 'Usual symptoms');
-
-    expect(mockPush).toHaveBeenCalledWith('/usual-symptoms');
-    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
   });
 });

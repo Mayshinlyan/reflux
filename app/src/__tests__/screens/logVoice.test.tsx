@@ -9,9 +9,7 @@ import type { AppDb } from '@/db/types';
 let mockDb: AppDb;
 let closeDb: () => void;
 let mockParams: { date?: string; demo?: string } = {};
-const mockDismissTo = jest.fn();
 const mockReplace = jest.fn();
-const mockToast = jest.fn();
 const mockChing = jest.fn();
 
 jest.mock('@/db/DatabaseProvider', () => ({
@@ -20,13 +18,11 @@ jest.mock('@/db/DatabaseProvider', () => ({
 }));
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('@/lib/ching', () => ({ playChing: () => mockChing() }));
-jest.mock('@/components/Toast', () => ({ useToast: () => mockToast }));
 jest.mock('@/services/pendingChecks', () => ({ checkPendingMeals: jest.fn(() => Promise.resolve()) }));
 jest.mock('expo-router', () => ({
   router: {
     back: jest.fn(),
     replace: (...args: unknown[]) => mockReplace(...args),
-    dismissTo: (...args: unknown[]) => mockDismissTo(...args),
     canGoBack: () => true,
     push: jest.fn(),
   },
@@ -69,9 +65,7 @@ beforeEach(() => {
   mockDb = db;
   closeDb = () => sqlite.close();
   mockParams = {};
-  mockDismissTo.mockClear();
   mockReplace.mockClear();
-  mockToast.mockClear();
   mockChing.mockClear();
 });
 
@@ -106,8 +100,11 @@ describe('Log voice screen', () => {
     const [symptoms] = listSymptomLogs(mockDb, ALL_TIME);
     expect(symptoms?.items.map((item) => item.key)).toEqual(['heartburn']);
     expect(symptoms?.foodLogId).toBe(meal?.id);
-    expect(mockToast).toHaveBeenCalledWith('Meal logged');
-    expect(mockDismissTo).toHaveBeenCalledWith('/');
+    // One swap to the completion page for the meal, like every other log.
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/completion',
+      params: { kind: 'meal', id: String(meal?.id) },
+    });
   });
 
   it('fixes a symptom by typing, with the matching symptoms listed below', async () => {
@@ -124,6 +121,26 @@ describe('Log voice screen', () => {
 
     expect(screen.getByRole('button', { name: 'Burping' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Heartburn' })).toBeNull();
+  });
+
+  it('hands symptoms on their own to a symptoms completion', async () => {
+    await speakAndConfirm();
+    for (const name of ['Pasta', 'Glass of wine']) {
+      await press(name);
+      await press('Remove this food');
+      await act(async () => {
+        jest.advanceTimersByTime(600);
+      });
+    }
+
+    await press('Save');
+
+    const [log] = listSymptomLogs(mockDb, ALL_TIME);
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/completion',
+      params: { kind: 'symptoms', id: String(log?.id) },
+    });
   });
 
   it('fixes a food by typing and can remove one', async () => {

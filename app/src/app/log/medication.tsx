@@ -17,12 +17,9 @@ import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
-import { DoseFields } from '@/components/DoseFields';
-import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
-import { TimePill } from '@/components/TimePill';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { useToast } from '@/components/Toast';
 import { COMMON_MEDICATIONS, findCommonMedication } from '@/constants/commonMedications';
@@ -45,11 +42,11 @@ import { logger } from '@/lib/logger';
 import { dayToLoggedAt, formatMealTime } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
 import { medicationTypeLabel } from '@/lib/timeline';
-import { cardEdge, fontFamily, minTouchTarget, radius, space, typography, useColors } from '@/theme';
+import { cardEdge, minTouchTarget, radius, space, typography, useColors } from '@/theme';
 
 const MAX_NAME = 60;
 const MAX_DOSE = 40;
-/** How long a row says "Logged ✓" (and ignores taps) after a one-tap log, so a double-tap can't log twice. */
+/** How long a row ignores taps after a one-tap log (the completion page covers it), so a double-tap cannot log twice. */
 const LOGGED_FLASH_MS = 2500;
 const DAY_MS = 86_400_000;
 
@@ -89,15 +86,16 @@ const doseLabel = (med: Pick<Medication, 'name' | 'defaultDose'>) =>
   med.defaultDose ? `${med.name} ${med.defaultDose}` : med.name;
 
 /**
- * "Medications": one tap logs a saved medication; tap a medication to see it, then edit or remove it;
- * "Log a new medication" saves a new one. Reached from Log → Medication and from Profile.
+ * "Which medication?": one tap on a saved medicine logs a dose of it, with the dose it was saved with (the completion
+ * page's "Change time" fixes the time). Under About you ("manage"), a tap shows the medicine, then edit or remove it.
+ * "Add a medication" saves a new one, with its dose.
  */
 export default function MedicationScreen() {
   const colors = useColors();
   const db = useDb();
   const toast = useToast();
   const navigation = useNavigation();
-  // From Profile > Medications: tap to edit, with a Log button. From Log: tap to log.
+  // From About you > Medications: tap to see and edit. From Log: tap to log.
   const { manage: manageParam, date } = useLocalSearchParams<{ manage?: string; date?: string }>();
   const manage = manageParam === '1';
   // A day tapped in Today's week strip: doses are logged at noon of that earlier day instead of now.
@@ -107,13 +105,6 @@ export default function MedicationScreen() {
   const [taken, setTaken] = useState<TakenToday>(new Map());
   const [loadFailed, setLoadFailed] = useState(false);
   const [justLogged, setJustLogged] = useState<ReadonlySet<number>>(new Set());
-  // The medication opened for details (time, dose, note) before logging it, and what has been set so far.
-  const [detail, setDetail] = useState<Medication | null>(null);
-  const [takenAt, setTakenAt] = useState<Date | null>(null);
-  const [timeOpen, setTimeOpen] = useState(false);
-  const [detailDose, setDetailDose] = useState('');
-  const [detailCustom, setDetailCustom] = useState(false);
-  const [detailNote, setDetailNote] = useState('');
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
   // The medication tapped in the list: shown in a sheet first; its fields open after Edit.
@@ -145,12 +136,9 @@ export default function MedicationScreen() {
     return () => pending.forEach((timer) => clearTimeout(timer));
   }, []);
 
-  // Back closes an open form or details page before it leaves the screen.
-  const closeForm = useCallback(() => {
-    if (form !== null) setForm(null);
-    else setDetail(null);
-  }, [form]);
-  const inner = form !== null || detail !== null;
+  // Back closes an open form before it leaves the screen.
+  const closeForm = useCallback(() => setForm(null), []);
+  const inner = form !== null;
   useFocusEffect(
     useCallback(() => {
       const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -201,56 +189,25 @@ export default function MedicationScreen() {
   const chosen = pick === null || pick === NOT_LISTED ? undefined : findCommonMedication(pick);
   const pickerLabel = pick === null ? 'Choose a medication' : chosen ? chosen.name : 'Not listed';
 
-  const openDetail = (med: Medication) => {
-    const common = findCommonMedication(med.name);
-    setDetail(med);
-    setTakenAt(dayAt);
-    setDetailDose(med.defaultDose ?? '');
-    setDetailCustom(Boolean(med.defaultDose) && !common?.doses.includes(med.defaultDose ?? ''));
-    setDetailNote('');
-  };
-
-  const pickTime = () => {
-    if (Platform.OS === 'android') pickTimeAndroid(takenAt ?? new Date(), setTakenAt);
-    else setTimeOpen(true);
-  };
-
-  /** Logs the dose now, or with the dose, time and note set on its details page. */
-  const logDose = (
-    med: Medication,
-    extras?: { at: Date | null; doseText?: string; notes?: string; fromDetails?: boolean },
-  ): boolean => {
-    // `disabled` only applies after a re-render, so two taps in the same instant on a Log pill must be
-    // caught here. A dose logged from its details page was chosen deliberately, so it is never dropped.
-    if (!extras?.fromDetails && timers.current.has(med.id)) return false;
+  /**
+   * Logs one dose of the medicine now (or at noon of an earlier day tapped in the week strip), with the dose it was
+   * saved with: a dose is set once, when the medicine is added. The completion page's "Change time" fixes the time.
+   */
+  const logDose = (med: Medication, at: Date | null): void => {
+    // `disabled` only applies after a re-render, so two taps in the same instant on a row must be caught here.
+    if (timers.current.has(med.id)) return;
     let loggedId: number;
     try {
-      loggedId = logMedication(db, med.id, {
-        ...(extras?.at ? { takenAt: extras.at.toISOString() } : {}),
-        doseText: extras?.doseText,
-        notes: extras?.notes,
-      });
+      loggedId = logMedication(db, med.id, at ? { takenAt: at.toISOString() } : {});
     } catch (error) {
       logger.error('logMedication', error);
       Alert.alert("Couldn't log", friendlyMessages.INTERNAL);
-      return false;
+      return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     playChing();
-    // An earlier dose doesn't show under "Taken today", so the toast says when it was logged for.
-    const message = extras?.at
-      ? `${med.name} logged for ${formatMealTime(extras.at, new Date())}`
-      : `${med.name} logged`;
-    if (extras?.fromDetails) toast(message);
-    // The Log pill logs at once; "Change time" opens that dose's edit page for a different time.
-    else
-      toast(message, {
-        action: {
-          label: 'Change time',
-          onPress: () =>
-            router.push({ pathname: '/entry/edit', params: { kind: 'medication', id: String(loggedId) } }),
-        },
-      });
+    const note = `${med.name}, ${formatMealTime(at ?? new Date(), new Date())}`;
+    router.push({ pathname: '/completion', params: { kind: 'dose', id: String(loggedId), note } });
     setJustLogged((current) => new Set(current).add(med.id));
     clearTimeout(timers.current.get(med.id));
     timers.current.set(
@@ -265,7 +222,6 @@ export default function MedicationScreen() {
       }, LOGGED_FLASH_MS),
     );
     reload();
-    return true;
   };
 
   const trimmedName = name.trim();
@@ -458,61 +414,6 @@ export default function MedicationScreen() {
     );
   }
 
-  if (detail !== null) {
-    return (
-      <Screen style={styles.screen}>
-        <BackHeader onBack={closeForm} />
-        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView
-            contentContainerStyle={styles.detailContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
-            <AppText variant="display" accessibilityRole="header">
-              {detail.name}
-            </AppText>
-            <View style={styles.timeRow}>
-              <TimePill label={formatMealTime(takenAt, new Date())} onPress={pickTime} />
-              <View style={[styles.typeBadge, { backgroundColor: colors.surface }]}>
-                <AppText style={styles.typeBadgeText}>{medicationTypeLabel(detail.type)}</AppText>
-              </View>
-            </View>
-            <DoseFields
-              name={detail.name}
-              dose={detailDose}
-              custom={detailCustom}
-              note={detailNote}
-              onDose={setDetailDose}
-              onCustom={setDetailCustom}
-              onNote={setDetailNote}
-            />
-          </ScrollView>
-          <View style={styles.footer}>
-            <Button
-              label="Log dose"
-              onPress={() => {
-                // Stay on the page (keeping what was typed) if the dose could not be saved.
-                if (
-                  logDose(detail, { at: takenAt, doseText: detailDose, notes: detailNote, fromDetails: true })
-                )
-                  setDetail(null);
-              }}
-            />
-          </View>
-        </KeyboardAvoidingView>
-        <MealTimeSheet
-          visible={timeOpen}
-          question="When did you take this?"
-          confirmLabel="Set time"
-          onConfirm={(at) => {
-            setTimeOpen(false);
-            setTakenAt(at);
-          }}
-          onClose={() => setTimeOpen(false)}
-        />
-      </Screen>
-    );
-  }
-
   return (
     <Screen style={styles.screen}>
       <BackHeader />
@@ -523,7 +424,7 @@ export default function MedicationScreen() {
         {/* Managing the list needs no instruction (Figma row 25); logging a dose does. */}
         {!manage && meds.length > 0 && (
           <AppText color="inkSoft" style={styles.subtitle}>
-            Tap Log for a dose now, or a medicine to change its details.
+            Tap a medicine to log a dose now.
           </AppText>
         )}
         {loadFailed && meds.length === 0 ? (
@@ -549,13 +450,15 @@ export default function MedicationScreen() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={doseLabel(med)}
-                  accessibilityHint={manage ? 'Shows its details' : 'Opens time, dose and note'}
+                  accessibilityHint={manage ? 'Shows its details' : 'Logs a dose now'}
+                  accessibilityState={manage ? undefined : { disabled: done }}
+                  disabled={!manage && done}
                   // A screen reader can't swipe, so managing offers Delete from its actions menu.
                   accessibilityActions={manage ? [{ name: 'delete', label: 'Delete' }] : undefined}
                   onAccessibilityAction={(event) => {
                     if (manage && event.nativeEvent.actionName === 'delete') confirmRemove(med);
                   }}
-                  onPress={() => (manage ? setViewing(med) : openDetail(med))}
+                  onPress={() => (manage ? setViewing(med) : logDose(med, dayAt))}
                   style={styles.info}>
                   <View style={[styles.icon, { backgroundColor: colors.sageTint }]}>
                     <Pill size={20} color={colors.sageInk} strokeWidth={2} />
@@ -570,26 +473,6 @@ export default function MedicationScreen() {
                     </AppText>
                   </View>
                 </Pressable>
-                {/* Managing the list, not logging: a tap opens the medication, so no Log pill. */}
-                {!manage && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={done ? `${med.name} logged` : `Log ${doseLabel(med)}`}
-                    accessibilityState={{ disabled: done }}
-                    disabled={done}
-                    onPress={() => logDose(med, dayAt ? { at: dayAt } : undefined)}
-                    style={({ pressed }) => [
-                      styles.logButton,
-                      {
-                        backgroundColor: done ? colors.sageInk : colors.sageTint,
-                        opacity: pressed ? 0.8 : 1,
-                      },
-                    ]}>
-                    <AppText style={[styles.logText, { color: done ? colors.ctaInk : colors.sageInk }]}>
-                      {done ? 'Logged ✓' : 'Log'}
-                    </AppText>
-                  </Pressable>
-                )}
               </View>
             );
             // Managing the list, a swipe left removes the medication, after the same confirmation as the sheet.
@@ -649,14 +532,10 @@ const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
   flex: { flex: 1 },
   content: { paddingBottom: space.s3 },
-  detailContent: { paddingBottom: space.s3, gap: space.s4 },
   subtitle: { ...typography.subtitle, marginTop: space.s2, marginBottom: space.s4 },
   // No subtitle when managing, so the title leaves the gap before the first card.
   manageTitle: { marginBottom: space.s4 },
   empty: { marginBottom: space.s2 },
-  timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  typeBadge: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill },
-  typeBadgeText: typography.label,
   section: { gap: space.s1_5 },
   card: {
     flexDirection: 'row',
@@ -682,15 +561,6 @@ const styles = StyleSheet.create({
   icon: { width: 38, height: 38, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   text: { flex: 1, minWidth: 0 },
   medName: typography.button,
-  logButton: {
-    minWidth: 76,
-    minHeight: minTouchTarget,
-    paddingHorizontal: 16,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logText: { ...typography.button, fontFamily: fontFamily.extrabold },
   fieldLabel: { marginBottom: space.s1_5 },
   picker: {
     flexDirection: 'row',

@@ -6,7 +6,6 @@ import { Alert, Linking, Platform, StyleSheet } from 'react-native';
 import { BackHeader } from '@/components/BackHeader';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
-import { useToast } from '@/components/Toast';
 import { VoiceConfirm } from '@/components/voice/VoiceConfirm';
 import { FixFoodSheet, FixSymptomSheet } from '@/components/voice/VoiceFixSheets';
 import { VoiceListening } from '@/components/voice/VoiceListening';
@@ -51,7 +50,6 @@ const capitalise = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
 export default function LogVoiceScreen() {
   const db = useDb();
   const { settings } = useSettings();
-  const toast = useToast();
   const params = useLocalSearchParams<{ date?: string; demo?: string }>();
   const demo = isVoiceProblem(params.demo) ? params.demo : undefined;
 
@@ -184,6 +182,7 @@ export default function LogVoiceScreen() {
     setSaving(true);
     const when = at ?? new Date();
     let mealId: number | undefined;
+    let symptomsId: number | undefined;
     try {
       if (foods.length > 0) {
         mealId = createUncheckedMeal(db, {
@@ -193,7 +192,7 @@ export default function LogVoiceScreen() {
         });
       }
       if (symptoms.length > 0) {
-        createSymptomLog(db, {
+        symptomsId = createSymptomLog(db, {
           items: symptoms.map((key) => ({ key })),
           foodLogId: mealId,
           ...(foods.length === 0 && at ? { loggedAt: at.toISOString(), tz: currentTimeZone() } : {}),
@@ -207,8 +206,14 @@ export default function LogVoiceScreen() {
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     playChing();
-    toast(mealId !== undefined ? 'Meal logged' : 'Symptoms logged');
-    router.dismissTo('/');
+    // One swap to the completion page, like the other logs; a meal (with any symptoms after it) is a meal log.
+    router.replace({
+      pathname: '/completion',
+      params:
+        mealId !== undefined
+          ? { kind: 'meal', id: String(mealId) }
+          : { kind: 'symptoms', id: String(symptomsId) },
+    });
     if (mealId !== undefined) {
       void checkPendingMeals(db);
       if (typeof settings.checkInReminderMinutes === 'number') {

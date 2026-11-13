@@ -191,6 +191,23 @@ export default function SettingsScreen() {
         <SettingsRow icon={MessageCircle} label="Send feedback" onPress={() => setSheet('feedback')} />
         <SettingsRow icon={Shield} label="Privacy and disclaimer" onPress={() => setSheet('privacy')} />
 
+        {__DEV__ && (
+          <>
+            {/* Development builds only: plays the completion pages as a given day, so each can be seen. */}
+            <SectionTitle>Preview (development only)</SectionTitle>
+            {[1, 3, 7].map((day) => (
+              <SettingsRow
+                key={day}
+                icon={Leaf}
+                label={`Completion, day ${day}`}
+                onPress={() =>
+                  router.push({ pathname: '/completion', params: { kind: 'meal', preview: String(day) } })
+                }
+              />
+            ))}
+          </>
+        )}
+
         <View style={styles.danger}>
           <SettingsRow icon={Trash2} label="Delete all my data" danger onPress={confirmDeleteAll} />
         </View>
