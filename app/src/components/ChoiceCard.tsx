@@ -1,7 +1,7 @@
 import { Check, ChevronRight, type LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { radius, cardEdge, selectedEdge, useColors } from '@/theme';
+import { radius, cardEdge, selectedEdge, selectedFill, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -12,7 +12,7 @@ type Props = {
   onPress: () => void;
   /**
    * Omit for a plain navigation card (chevron). Pass true/false for a pick-one card (radio):
-   * selected = cream fill with a 1px olive outline. Set `multiple` for pick-any cards (checkbox).
+   * selected = light green fill with a 1px olive outline. Set `multiple` for pick-any cards (checkbox).
    */
   selected?: boolean;
   multiple?: boolean;
@@ -31,7 +31,7 @@ export function ChoiceCard({ title, subtitle, icon: Icon, onPress, selected, mul
       style={({ pressed }) => [
         styles.card,
         {
-          backgroundColor: colors.surface,
+          backgroundColor: selectedFill(colors, !!selected),
           ...(selected ? selectedEdge(colors, true) : cardEdge(colors)),
           opacity: pressed ? 0.85 : 1,
         },

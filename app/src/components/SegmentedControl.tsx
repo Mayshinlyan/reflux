@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { minTouchTarget, radius, useColors } from '@/theme';
+import { cardEdge, minTouchTarget, radius, selectedEdge, selectedFill, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -24,11 +24,13 @@ type Props<T extends string> = {
   compact?: boolean;
 };
 
-/** Figma "Segmented control" (W / M / infinity): a `surface2` track with the current option on `surface`. */
+/** Figma "Segmented control" (W / M / infinity): a white track with the soft edge, the current option light green with the olive outline. */
 export function SegmentedControl<T extends string>({ options, value, onChange, compact = false }: Props<T>) {
   const colors = useColors();
   return (
-    <View accessibilityRole="tablist" style={[styles.track, { backgroundColor: colors.surface2 }]}>
+    <View
+      accessibilityRole="tablist"
+      style={[styles.track, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
       {options.map((option) => {
         const selected = option.value === value;
         const Icon = option.icon;
@@ -44,7 +46,10 @@ export function SegmentedControl<T extends string>({ options, value, onChange, c
               styles.option,
               compact && styles.compactOption,
               Icon && styles.iconOption,
-              selected && { backgroundColor: colors.surface },
+              {
+                backgroundColor: selectedFill(colors, selected, 'transparent'),
+                ...selectedEdge(colors, selected),
+              },
               { opacity: pressed ? 0.85 : 1 },
             ]}>
             {Icon ? (
@@ -62,15 +67,16 @@ export function SegmentedControl<T extends string>({ options, value, onChange, c
 }
 
 const styles = StyleSheet.create({
-  track: { flexDirection: 'row', alignSelf: 'flex-start', padding: 4, borderRadius: radius.pill },
+  // The track and each option carry a 1px border, so the padding is 1 less than before (3, 15): the control keeps its size.
+  track: { flexDirection: 'row', alignSelf: 'flex-start', padding: 3, borderRadius: radius.pill },
   option: {
     minHeight: minTouchTarget,
-    paddingHorizontal: 16,
+    paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   compactOption: { minHeight: 36, paddingVertical: 4 },
-  iconOption: { paddingHorizontal: 14 },
+  iconOption: { paddingHorizontal: 13 },
 });

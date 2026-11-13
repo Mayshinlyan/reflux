@@ -1,7 +1,7 @@
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { radius, useColors } from '@/theme';
+import { cardEdge, radius, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -40,7 +40,7 @@ export function RangeStepper({
       style={[
         styles.pill,
         arrows ? styles.withArrows : styles.labelOnly,
-        { backgroundColor: colors.surface },
+        { backgroundColor: colors.surface, ...cardEdge(colors) },
       ]}>
       {arrows && (
         <Pressable

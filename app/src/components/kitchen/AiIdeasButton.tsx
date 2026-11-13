@@ -4,7 +4,7 @@ import Animated from 'react-native-reanimated';
 
 import { AppText } from '@/components/AppText';
 import { PRESS_SHRINK, usePressScale } from '@/hooks/usePressScale';
-import { minTouchTarget, radius, space, useColors } from '@/theme';
+import { cardEdge, minTouchTarget, radius, space, useColors } from '@/theme';
 
 /** "AI Ideas" with the sparkles logo and the number of ideas in a filled oval (Figma 31a). Brings back the last round. */
 export function AiIdeasButton({ count, onPress }: { count: number; onPress: () => void }) {
@@ -19,7 +19,7 @@ export function AiIdeasButton({ count, onPress }: { count: number; onPress: () =
         onPress={onPress}
         onPressIn={press.pressIn}
         onPressOut={press.pressOut}
-        style={[styles.button, { backgroundColor: colors.surface2 }]}>
+        style={[styles.button, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
         <Sparkles size={20} color={colors.ink} strokeWidth={2} />
         <AppText variant="bodyEm">AI Ideas</AppText>
         <View style={[styles.count, { backgroundColor: colors.cta }]}>

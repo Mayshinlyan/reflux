@@ -1,7 +1,7 @@
 import { Minus } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { radius, selectedEdge, typography, useColors } from '@/theme';
+import { pillStyle, radius, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -21,14 +21,12 @@ type Props = {
   onCard?: boolean;
 };
 
-/** Small pill for lifestyle tags and filter rows. Selected = cream fill, 1px olive outline, per the style guide. */
+/** Small pill for lifestyle tags and filter rows. Selected = light green fill, 1px olive outline, per the style guide. */
 export function TagChip({ label, selected, onPress, role = 'toggle', readOnly, onRemove, onCard }: Props) {
   const colors = useColors();
-  // Same fill selected or not (surface, surface2 on a card); selected only adds a 1px olive outline.
-  const colorStyle = {
-    backgroundColor: onCard ? colors.surface2 : colors.surface,
-    ...selectedEdge(colors, selected),
-  };
+  // Selected is light green with a 1px olive outline; unselected is white with the soft edge (surface2 and no
+  // visible edge inside a card).
+  const colorStyle = pillStyle(colors, selected, onCard);
 
   // The label and the minus are separate accessibility elements, so a screen reader can reach
   // both ("Stress" and the button "Remove Stress").

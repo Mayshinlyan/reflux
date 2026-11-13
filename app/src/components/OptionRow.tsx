@@ -1,13 +1,13 @@
 import { Check } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { minTouchTarget, radius, cardEdge, selectedEdge, space, useColors } from '@/theme';
+import { minTouchTarget, radius, cardEdge, selectedEdge, selectedFill, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
 type Props = { label: string; selected: boolean; onPress: () => void };
 
-/** Figma "Option row": a filled `surface` row with a radio, the chosen one cream with a 1px olive outline (option sheets, reminder timing). */
+/** Figma "Option row": a filled `surface` row with a radio, the chosen one light green with a 1px olive outline (option sheets, reminder timing). */
 export function OptionRow({ label, selected, onPress }: Props) {
   const colors = useColors();
   return (
@@ -19,7 +19,7 @@ export function OptionRow({ label, selected, onPress }: Props) {
       style={({ pressed }) => [
         styles.row,
         {
-          backgroundColor: colors.surface,
+          backgroundColor: selectedFill(colors, selected),
           ...(selected ? selectedEdge(colors, true) : cardEdge(colors)),
           opacity: pressed ? 0.85 : 1,
         },

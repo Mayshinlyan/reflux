@@ -16,6 +16,8 @@ type Props = {
   disabled?: boolean;
 };
 
+/** The off track: `inkMuted` at 30% over white, a soft warm grey that stays visible now that `surface2` is so light. */
+const OFF_TRACK = '#D6D0CA';
 const TRACK_W = 51;
 const TRACK_H = 31;
 const THUMB = 27;
@@ -50,7 +52,7 @@ export function Toggle({ value, onValueChange, accessibilityLabel, disabled = fa
         left: 4,
         right: 4,
       }}
-      style={[styles.track, { backgroundColor: value ? colors.cta : colors.surface2 }]}>
+      style={[styles.track, { backgroundColor: value ? colors.cta : OFF_TRACK }]}>
       <Animated.View style={[styles.thumb, { backgroundColor: colors.surface }, thumbStyle]} />
     </Pressable>
   );
