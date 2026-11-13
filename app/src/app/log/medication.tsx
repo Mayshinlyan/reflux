@@ -237,20 +237,16 @@ export default function MedicationScreen() {
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     playChing();
-    // An earlier dose doesn't show under "Taken today", so the toast says when it was logged for.
-    const message = extras?.at
-      ? `${med.name} logged for ${formatMealTime(extras.at, new Date())}`
-      : `${med.name} logged`;
-    if (extras?.fromDetails) toast(message);
-    // The Log pill logs at once; "Change time" opens that dose's edit page for a different time.
-    else
-      toast(message, {
-        action: {
-          label: 'Change time',
-          onPress: () =>
-            router.push({ pathname: '/entry/edit', params: { kind: 'medication', id: String(loggedId) } }),
-        },
-      });
+    // From the details sheet the toast says when it was logged for (an earlier dose doesn't show under "Taken today").
+    if (extras?.fromDetails) {
+      toast(
+        extras.at ? `${med.name} logged for ${formatMealTime(extras.at, new Date())}` : `${med.name} logged`,
+      );
+    } else {
+      // The Log pill logs at once; the completion's "Change time" opens that dose's edit page for a different time.
+      const note = `${med.name}, ${formatMealTime(extras?.at ?? new Date(), new Date())}`;
+      router.push({ pathname: '/completion', params: { kind: 'dose', id: String(loggedId), note } });
+    }
     setJustLogged((current) => new Set(current).add(med.id));
     clearTimeout(timers.current.get(med.id));
     timers.current.set(

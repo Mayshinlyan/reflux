@@ -70,11 +70,10 @@ async function choose(...symptoms: string[]) {
  */
 async function logThenAddDetails() {
   await press('button', 'Log');
-  const options = mockToast.mock.calls.at(-1)?.[1] as { action: { onPress: () => void } };
-  options.action.onPress();
-  const { params } = mockPush.mock.calls.at(-1)?.[0] as { params: typeof mockParams };
+  const opened = mockPush.mock.calls.at(-1)?.[0] as { pathname: string; params: { id: string } };
+  expect(opened.pathname).toBe('/completion');
   await screen.unmount();
-  mockParams = params;
+  mockParams = { id: opened.params.id, details: '1' };
   mockBack.mockClear();
   await render(<LogSymptomsScreen />);
 }
@@ -124,10 +123,10 @@ describe('Log symptoms screen: pick, then details', () => {
       tags: [],
       notes: null,
     });
-    expect(mockToast).toHaveBeenCalledWith(
-      'Symptoms logged',
-      expect.objectContaining({ action: expect.objectContaining({ label: 'Add details' }) }),
-    );
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/completion',
+      params: expect.objectContaining({ kind: 'symptoms' }),
+    });
     expect(mockChing).toHaveBeenCalledTimes(1);
     expect(mockBack).toHaveBeenCalled();
   });
@@ -139,8 +138,8 @@ describe('Log symptoms screen: pick, then details', () => {
 
     const [log] = listSymptomLogs(mockDb, ALL_TIME);
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/log/symptoms',
-      params: { id: String(log!.id), details: '1' },
+      pathname: '/completion',
+      params: { kind: 'symptoms', id: String(log!.id) },
     });
     expect(screen.getByText('Heartburn')).toBeTruthy(); // the details title
     await press('checkbox', 'Stress');
@@ -744,7 +743,7 @@ describe('Log symptoms screen: lifestyle on its own', () => {
     const [log] = listSymptomLogs(mockDb, ALL_TIME);
     expect(log?.items).toEqual([]);
     expect(log?.tags.sort()).toEqual(['lay_down_after_eating', 'stress']);
-    expect(mockToast).toHaveBeenCalledWith('Logged');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/completion', params: { kind: 'symptoms' } });
     expect(mockBack).toHaveBeenCalled();
   });
 

@@ -94,6 +94,15 @@ function RootLayout() {
               />
               <Stack.Screen name="log/symptoms" options={{ presentation: 'modal' }} />
               <Stack.Screen name="log/medication" options={{ presentation: 'modal' }} />
+              {/* What follows a saved log (completion, streak, goal, gift): full screen, a fade, no swipe away. */}
+              <Stack.Screen
+                name="completion"
+                options={{
+                  presentation: 'fullScreenModal',
+                  gestureEnabled: false,
+                  animation: reduceMotion ? 'none' : 'fade',
+                }}
+              />
             </Stack>
           </TourProvider>
           <CheckInRouter />

@@ -97,7 +97,7 @@ const copy = {
 /** A meal just logged, which the details step adds to. `canFavorite`: it isn't one of the favorite foods yet. */
 type LoggedMeal = { id: number; name: string; canFavorite: boolean };
 
-/** The diary meal the check-in opens on ("Add details" on the Meal logged toast), or null if it's gone. */
+/** The diary meal the check-in opens on ("Add details" on the completion page), or null if it's gone. */
 function loadLoggedMeal(db: AppDb, id: number): { meal: LoggedMeal; at: Date } | null {
   try {
     const row = getFoodLog(db, id);
@@ -127,7 +127,7 @@ export type MyFoodTarget = { id?: number; name?: string };
  * (a How I feel-style check-in: time, lifestyle tags, symptoms, a note; all optional, each group with a "+"
  * to add your own). Saved foods sit on top of the capture step as a Quick
  * log row. Each result is kept as a check (outside the diary); "I ate this" promotes that check, reusing its
- * analysis instead of calling the relay again, and goes back to Today with a "Meal logged · Add details" toast
+ * analysis instead of calling the relay again, and goes back to Today with the completion page ("Add details" on it)
  * (Figma 13a, and the same for a Quick log chip or "Log without checking"). "Add details" opens this screen on
  * the details step, for that meal (`detailsFor`).
  * `detailsFor` is the id of a meal already in the diary: the flow starts on its details step.
@@ -347,19 +347,14 @@ export function FoodFlow({
   };
 
   /**
-   * A meal was just logged: the nudge, then back to Today with "Meal logged · Add details" (Figma 13a). The
-   * details are optional, so nothing stands between the meal and Today; the toast's button opens them.
+   * A meal was just logged: the nudge, then back to Today with the completion page (Figma G1). The
+   * details are optional, so nothing stands between the meal and Today; the completion's "Add details" opens them.
    */
   const mealLogged = (meal: { id: number; name: string }, at: Date) => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     playChing();
-    toast('Meal logged', {
-      action: {
-        label: 'Add details',
-        onPress: () => router.push({ pathname: '/log/food', params: { details: String(meal.id) } }),
-      },
-    });
     router.dismissTo('/');
+    router.push({ pathname: '/completion', params: { kind: 'meal', id: String(meal.id) } });
     // The check-in reminder, if they turned it on. It checks the time and the phone's permission itself.
     const reminderMinutes = settings.checkInReminderMinutes;
     if (typeof reminderMinutes === 'number') {

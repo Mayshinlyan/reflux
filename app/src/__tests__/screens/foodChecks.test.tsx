@@ -124,12 +124,11 @@ const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.00
 const allRows = () => mockDb.select().from(foodLogs).all();
 const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('Describe it'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
-/** "Add details" on the "Meal logged" toast opens the check-in on that meal, as its own screen. */
+/** "Add details" on the completion page opens the check-in on that meal, as its own screen. */
 const addDetails = async () => {
-  const [message, options] = mockToast.mock.calls.at(-1) ?? [];
-  expect(message).toBe('Meal logged');
-  options.action.onPress();
-  mockParams = { details: mockPush.mock.calls.at(-1)?.[0].params.details };
+  const opened = mockPush.mock.calls.at(-1)?.[0];
+  expect(opened).toMatchObject({ pathname: '/completion', params: { kind: 'meal' } });
+  mockParams = { details: opened.params.id };
   await screen.unmount();
   await render(<LogFoodScreen />);
 };
@@ -194,12 +193,9 @@ describe('Food screen: checks and "I ate this"', () => {
     });
     expect(diary[0].analysis?.items[0].matchedTriggers[0]?.category).toBe('mint');
     expect(allRows()).toHaveLength(1); // the check itself was promoted, not copied
-    // One toast, "Meal logged · Add details"; completing the check-in then adds none.
-    expect(mockToast).toHaveBeenCalledTimes(1);
-    expect(mockToast).toHaveBeenCalledWith(
-      'Meal logged',
-      expect.objectContaining({ action: expect.objectContaining({ label: 'Add details' }) }),
-    );
+    // The completion page opens once; completing the check-in then opens none, and there is no toast.
+    expect(mockToast).not.toHaveBeenCalled();
+    expect(mockPush.mock.calls.filter(([to]) => to?.pathname === '/completion')).toHaveLength(1);
     expect(mockBack).toHaveBeenCalledTimes(2); // back to Today after "I ate this", and again after the check-in
   });
 
@@ -313,7 +309,7 @@ describe('Food screen: saving without a verdict', () => {
         analysisMeta: null,
       },
     ]);
-    expect(mockToast).toHaveBeenCalledTimes(1); // "Meal logged"
+    expect(mockToast).not.toHaveBeenCalled(); // the completion page, not a toast
     expect(mockBack).toHaveBeenCalledTimes(2);
   });
 

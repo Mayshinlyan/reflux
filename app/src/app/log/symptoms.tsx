@@ -357,17 +357,19 @@ export default function LogSymptomsScreen() {
     if ((editingId === undefined || detailsMode) && linked) void cancelCheckIn(linked.id);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     if (editingId === undefined) playChing();
-    if (quick && createdId !== undefined) {
-      const id = createdId;
-      toast('Symptoms logged', {
-        action: {
-          label: 'Add details',
-          onPress: () => router.push({ pathname: '/log/symptoms', params: { id: String(id), details: '1' } }),
-        },
+    // A new log opens the completion (with "Add details" when it was the quick one); edits keep the small toast.
+    if (editingId === undefined) {
+      router.back();
+      router.push({
+        pathname: '/completion',
+        params:
+          quick && createdId !== undefined
+            ? { kind: 'symptoms', id: String(createdId) }
+            : { kind: 'symptoms' },
       });
-    } else {
-      toast(editingId !== undefined ? 'Entry updated' : 'Logged');
+      return;
     }
+    toast('Entry updated');
     router.back();
   };
 

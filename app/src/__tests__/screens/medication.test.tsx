@@ -103,19 +103,18 @@ describe('Medications: logging', () => {
     expect(screen.getByRole('header', { name: 'Medications' })).toBeTruthy();
   });
 
-  it('offers Change time on the toast, which opens that dose to edit', async () => {
+  it('opens the completion page for the dose, which carries what Change time needs', async () => {
     mockParams = {};
     seedOmeprazole();
     await render(<MedicationScreen />);
 
     await press('button', 'Log Omeprazole 20mg');
-    const [, options] = mockToast.mock.calls[0];
-    options.action.onPress();
 
     const [log] = listMedicationLogs(mockDb, ALL_TIME);
+    expect(mockToast).not.toHaveBeenCalled();
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/entry/edit',
-      params: { kind: 'medication', id: String(log.id) },
+      pathname: '/completion',
+      params: { kind: 'dose', id: String(log.id), note: expect.stringMatching(/^Omeprazole, /) },
     });
   });
 
@@ -129,10 +128,10 @@ describe('Medications: logging', () => {
     expect(listMedicationLogs(mockDb, ALL_TIME)).toEqual([
       expect.objectContaining({ medicationId: id, name: 'Omeprazole', type: 'ppi', doseText: '20mg' }),
     ]);
-    expect(mockToast).toHaveBeenCalledWith(
-      'Omeprazole logged',
-      expect.objectContaining({ action: expect.objectContaining({ label: 'Change time' }) }),
-    );
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/completion',
+      params: expect.objectContaining({ kind: 'dose' }),
+    });
     expect(screen.queryByText('When did you take this?')).toBeNull();
     expect(screen.queryByText(/Any symptoms/)).toBeNull();
   });
@@ -583,10 +582,10 @@ describe('Medications: logging an earlier dose', () => {
       const logs = listMedicationLogs(mockDb, ALL_TIME);
       expect(logs).toHaveLength(1);
       expect(logs[0].takenAt).toBe(noonYesterday().toISOString());
-      expect(mockToast).toHaveBeenCalledWith(
-        'Omeprazole logged for Yesterday, 12:00 PM',
-        expect.objectContaining({ action: expect.objectContaining({ label: 'Change time' }) }),
-      );
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: '/completion',
+        params: expect.objectContaining({ kind: 'dose', note: 'Omeprazole, Yesterday, 12:00 PM' }),
+      });
     });
 
     it('starts the details page on that day', async () => {
