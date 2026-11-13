@@ -353,8 +353,8 @@ export function FoodFlow({
   const mealLogged = (meal: { id: number; name: string }, at: Date) => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     playChing();
-    router.dismissTo('/');
-    router.push({ pathname: '/completion', params: { kind: 'meal', id: String(meal.id) } });
+    // One swap to the completion, not a dismiss and then a push; closing it goes on to Today.
+    router.replace({ pathname: '/completion', params: { kind: 'meal', id: String(meal.id) } });
     // The check-in reminder, if they turned it on. It checks the time and the phone's permission itself.
     const reminderMinutes = settings.checkInReminderMinutes;
     if (typeof reminderMinutes === 'number') {

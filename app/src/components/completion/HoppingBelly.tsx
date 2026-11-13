@@ -36,7 +36,7 @@ export function HoppingBelly({ size = 168, hop = false, forceHat = false, shadow
   useEffect(() => {
     if (!hop || reduceMotion) return;
     lift.value = withDelay(
-      150,
+      60,
       withSequence(withTiming(-28, { duration: 180 }), withSpring(0, { damping: 6, stiffness: 220 })),
     );
   }, [hop, reduceMotion, lift]);

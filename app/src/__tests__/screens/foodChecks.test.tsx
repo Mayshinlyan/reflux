@@ -82,7 +82,11 @@ jest.mock('expo-router', () => ({
     dismissTo: () => mockBack(),
     push: (...args: unknown[]) => mockPush(...args),
     canGoBack: () => true,
-    replace: jest.fn(),
+    // The completion now replaces the log page in one step; count it as the leave plus the push the tests expect.
+    replace: (...args: unknown[]) => {
+      mockBack();
+      mockPush(...args);
+    },
   },
   useLocalSearchParams: () => mockParams,
   useNavigation: () => ({ setOptions: mockSetOptions }),

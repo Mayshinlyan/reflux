@@ -23,7 +23,12 @@ jest.mock('@/db/DatabaseProvider', () => ({
   }),
 }));
 jest.mock('expo-router', () => ({
-  router: { back: () => mockBack(), replace: (...args: unknown[]) => mockReplace(...args) },
+  router: {
+    back: () => mockBack(),
+    // A new meal closes on to Today.
+    dismissTo: () => mockBack(),
+    replace: (...args: unknown[]) => mockReplace(...args),
+  },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('react-native-safe-area-context', () => ({

@@ -359,8 +359,8 @@ export default function LogSymptomsScreen() {
     if (editingId === undefined) playChing();
     // A new log opens the completion (with "Add details" when it was the quick one); edits keep the small toast.
     if (editingId === undefined) {
-      router.back();
-      router.push({
+      // One swap, not a dismiss and then a push: the completion replaces the log page in a single transition.
+      router.replace({
         pathname: '/completion',
         params:
           quick && createdId !== undefined

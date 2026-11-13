@@ -47,7 +47,8 @@ export default function CompletionScreen() {
   const [picked, setPicked] = useState<Goal | null>(null);
   const step = steps[index] ?? steps[0]!;
 
-  const close = () => router.back();
+  // A new meal replaced the log page, so closing goes on to Today, where the meal now is. Other logs go back to where they were opened.
+  const close = () => (kind === 'meal' && !preview ? router.dismissTo('/') : router.back());
   const next = () => (index + 1 < steps.length ? setIndex(index + 1) : close());
 
   const quiet = useMemo(() => {

@@ -83,7 +83,7 @@ function ConfettiPiece({
       entering={
         reduceMotion
           ? undefined
-          : ZoomIn.delay(index * 45)
+          : ZoomIn.delay(index * 15)
               .springify()
               .damping(12)
       }
