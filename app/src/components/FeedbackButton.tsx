@@ -6,7 +6,7 @@ import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PRESS_SHRINK, usePressScale } from '@/hooks/usePressScale';
-import { radius, shadow, space, useColors } from '@/theme';
+import { cardEdge, radius, shadow, space, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { FeedbackSheet } from './FeedbackSheet';
@@ -47,7 +47,10 @@ export function FeedbackButton() {
             onPress={() => setOpen(true)}
             onPressIn={press.pressIn}
             onPressOut={press.pressOut}
-            style={[styles.pill, { backgroundColor: colors.surface, boxShadow: shadow.softLift }]}>
+            style={[
+              styles.pill,
+              { backgroundColor: colors.surface, ...cardEdge(colors), boxShadow: shadow.softLift },
+            ]}>
             <MessageSquareText size={ICON_SIZE} color={colors.ink} strokeWidth={2} />
             <AppText variant="label" accessible={false}>
               Feedback

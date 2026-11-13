@@ -43,16 +43,21 @@ describe('filled, outline-free styling', () => {
     );
 
     const bg = (name: string) => screen.getByRole('checkbox', { name });
-    expect(bg('Hoarse voice')).toHaveStyle({ backgroundColor: lightColors.surface, minHeight: 38 });
-    expect(bg('Cough')).toHaveStyle({ backgroundColor: lightColors.surface2 });
-    // Selected = the same fill, plus a 1px olive outline; unselected keeps a transparent 1px so nothing shifts.
-    const selected = {
+    // Unselected on the page: white with the soft edge. Inside a card: surface2 with a transparent 1px.
+    expect(bg('Hoarse voice')).toHaveStyle({
       backgroundColor: lightColors.surface,
+      borderColor: lightColors.edge,
+      minHeight: 38,
+    });
+    expect(bg('Cough')).toHaveStyle({ backgroundColor: lightColors.surface2, borderColor: 'transparent' });
+    // Selected = a light green fill plus a 1px olive outline.
+    const selected = {
+      backgroundColor: lightColors.sageTint,
       borderWidth: 1,
       borderColor: lightColors.sageInk,
     };
     expect(bg('Heartburn')).toHaveStyle(selected);
-    expect(bg('Stress')).toHaveStyle({ backgroundColor: lightColors.surface, borderColor: 'transparent' });
+    expect(bg('Stress')).toHaveStyle({ backgroundColor: lightColors.surface, borderColor: lightColors.edge });
     expect(bg('Large meal')).toHaveStyle(selected);
   });
 });
@@ -156,7 +161,7 @@ describe('ChoiceCard', () => {
     const radio = screen.getByRole('radio', { name: 'Meal' });
     expect(radio.props.accessibilityState).toMatchObject({ checked: true });
     expect(radio).toHaveStyle({
-      backgroundColor: lightColors.surface,
+      backgroundColor: lightColors.sageTint,
       borderWidth: 1,
       borderColor: lightColors.sageInk,
     });

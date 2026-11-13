@@ -78,7 +78,7 @@ export function IdeasPanel({
             accessibilityLabel="Close"
             onPress={onClose}
             hitSlop={(minTouchTarget - 36) / 2}
-            style={[styles.close, { backgroundColor: colors.surface }]}>
+            style={[styles.close, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
             <X size={18} color={colors.ink} strokeWidth={2} />
           </Pressable>
         )}

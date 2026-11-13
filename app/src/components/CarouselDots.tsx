@@ -50,7 +50,7 @@ export function CarouselDots({ page, total, onSelect }: Props) {
               style={
                 active
                   ? [styles.dot, { width: ACTIVE_WIDTH, backgroundColor: colors.cta }]
-                  : [styles.dot, { width: DOT, backgroundColor: colors.inkMuted }]
+                  : [styles.dot, { width: DOT, backgroundColor: colors.inkMuted, opacity: 0.3 }]
               }
             />
           </Pressable>

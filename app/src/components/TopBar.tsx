@@ -3,7 +3,7 @@ import { ChevronLeft, type LucideIcon, X } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { radius, useColors } from '@/theme';
+import { cardEdge, radius, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -30,7 +30,7 @@ export function TopBarButton({ icon: Icon, label, onPress, active = false }: But
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
+        { backgroundColor: colors.surface, ...cardEdge(colors), opacity: pressed ? 0.7 : 1 },
       ]}>
       <Icon
         size={24}

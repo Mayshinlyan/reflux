@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput } from 'react-native';
 
 import { MAX_CUSTOM_SYMPTOM } from '@/constants/symptomItems';
-import { radius, typography, useColors } from '@/theme';
+import { cardEdge, radius, typography, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -48,7 +48,7 @@ export function InlineAddChip({ label, placeholder, onAdd, onOpen }: Props) {
         style={({ pressed }) => [
           styles.chip,
           styles.plus,
-          { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 },
+          { backgroundColor: colors.surface, ...cardEdge(colors), opacity: pressed ? 0.85 : 1 },
         ]}>
         <AppText style={[styles.plusText, { color: colors.clayInk }]}>+</AppText>
       </Pressable>

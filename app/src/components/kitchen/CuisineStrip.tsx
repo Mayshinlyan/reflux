@@ -11,7 +11,7 @@ import Animated, {
 import { AppText } from '@/components/AppText';
 import { SHEET_GUTTER } from '@/components/BottomSheet';
 import { CUISINES, type CuisineKey } from '@/constants/cuisines';
-import { cardEdge, radius, space, useColors } from '@/theme';
+import { cardEdge, radius, selectedFill, space, useColors } from '@/theme';
 
 import { CuisineIcon } from './CuisineIcon';
 
@@ -114,7 +114,7 @@ function Tile({
       accessibilityState={{ checked: selected }}
       onPress={onPress}
       style={styles.tile}>
-      <View style={[styles.circle, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+      <View style={[styles.circle, { backgroundColor: selectedFill(colors, selected), ...cardEdge(colors) }]}>
         <Animated.View
           pointerEvents="none"
           style={[styles.ring, { borderColor: colors.sageInk }, ringStyle]}

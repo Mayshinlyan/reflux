@@ -8,17 +8,20 @@
 import type { AppVerdict } from '@/types/analysis';
 
 export const lightColors = {
-  bg: '#FAF1DE',
-  surface: '#FFFBF3',
-  surface2: '#ECDAB9',
+  // 2026-11-12 palette: a warm near-white page, white cards and a calm greyish-tan surface 2 (was cream #FAF1DE,
+  // #FFFBF3 and #ECDAB9).
+  bg: '#FFFDF9',
+  surface: '#FFFFFF',
+  surface2: '#F2EADB',
   ink: '#3A2F25',
   // Figma has #75675A (3.98:1 on surface2); darkened so it clears WCAG AA everywhere.
   inkSoft: '#65574A',
-  // Unselected tab icons and footnotes: 5.1:1 on bg and 5.6:1 on surface. Not for text on surface2 (4.2:1).
+  // Unselected tab icons and footnotes: about 5.7:1 on bg and on surface, 4.8:1 on surface2.
   inkMuted: '#75634F',
   hairline: '#EBDCC2',
-  // The 1px soft edge on cards (about 1.5:1 on bg): visible without turning them into outlined boxes.
-  edge: '#D9C49C',
+  // The 1px soft edge on cards, rows, fields, round buttons and the pills that sit on the page (about 1.4:1 on bg):
+  // white shapes on the near-white page would otherwise disappear, and it stays faint enough not to look boxed in.
+  edge: '#E6D9C0',
   clay: '#C8664A',
   clayInk: '#8A4531',
   clayTint: '#F3D3C0',
@@ -54,11 +57,26 @@ export type Palette = Record<ColorToken, string>;
 export const cardEdge = (colors: Palette) => ({ borderWidth: 1, borderColor: colors.edge }) as const;
 
 /**
- * The selected state (Figma "Selected" variants): the same fill as unselected plus a 1px olive outline.
- * Unselected keeps a transparent 1px so nothing shifts when it toggles.
+ * The selected state (Figma "Selected" variants): a light green fill (`sageTint`, see `selectedFill`) plus a 1px
+ * olive outline. Unselected keeps a transparent 1px so nothing shifts when it toggles.
  */
 export const selectedEdge = (colors: Palette, selected: boolean) =>
   ({ borderWidth: 1, borderColor: selected ? colors.sageInk : 'transparent' }) as const;
+
+/** The fill of anything selectable: light green when selected, otherwise `rest` (`surface` unless it sits on a card). */
+export const selectedFill = (colors: Palette, selected: boolean, rest: string = colors.surface) =>
+  selected ? colors.sageTint : rest;
+
+/**
+ * A pill or chip: selected is light green with the olive outline; unselected on the page is white with the soft
+ * `edge`; unselected inside a card rests on `surface2` with no visible edge (still 1px, so nothing shifts).
+ */
+export const pillStyle = (colors: Palette, selected: boolean, onCard = false) =>
+  ({
+    backgroundColor: selectedFill(colors, selected, onCard ? colors.surface2 : colors.surface),
+    borderWidth: 1,
+    borderColor: selected ? colors.sageInk : onCard ? 'transparent' : colors.edge,
+  }) as const;
 
 export const darkColors: Palette = {
   bg: '#1F1B18',

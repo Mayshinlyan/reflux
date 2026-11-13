@@ -1,7 +1,7 @@
 import { History } from 'lucide-react-native';
 import { Pressable, StyleSheet } from 'react-native';
 
-import { radius, useColors } from '@/theme';
+import { cardEdge, radius, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -18,7 +18,7 @@ export function TimePill({ label, onPress }: Props) {
       accessibilityLabel={label}
       style={({ pressed }) => [
         styles.pill,
-        { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 },
+        { backgroundColor: colors.surface, ...cardEdge(colors), opacity: pressed ? 0.85 : 1 },
       ]}>
       <History size={16} color={colors.ink} strokeWidth={2} />
       <AppText variant="label">{label}</AppText>

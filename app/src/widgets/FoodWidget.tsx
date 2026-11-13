@@ -39,8 +39,8 @@ export type FoodWidgetProps = {
  */
 const FoodWidgetView = (props: FoodWidgetProps, environment: WidgetEnvironment) => {
   'widget';
-  const cream = '#FFFBF3';
-  const tan = '#ECDAB9';
+  const cream = '#FFFFFF';
+  const tan = '#F2EADB';
   const ink = '#3A2F25';
   const inkSoft = '#65574A';
   const snapLink = 'adayinmybelly://log/food?camera=1';
