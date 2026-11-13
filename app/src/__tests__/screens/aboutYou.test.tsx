@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import AboutYouScreen from '@/app/about-you';
 import { createTestDb } from '@/db/__tests__/testDb';
-import { createMedication } from '@/db/repositories/medications';
 import { getSetting, setSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';
 
@@ -74,18 +73,21 @@ const press = async (role: 'button' | 'radio' | 'checkbox', name: string, prefix
   fireEvent.press(screen.getByRole(role, { name: prefix ? new RegExp(`^${name}(,|$)`) : name }));
 
 describe('About you', () => {
-  it('shows six tiles with how many are in each', async () => {
-    createMedication(mockDb, { name: 'Pantoprazole', type: 'ppi', defaultDose: '20mg' });
-    setSetting(mockDb, 'conditions', ['acid_reflux']);
+  it('shows six tiles, each an icon and a name, with no counts', async () => {
     await render(<AboutYouScreen />);
 
     expect(screen.getByRole('header', { name: 'About you' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Condition, 1 added' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Medications, 1 added' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Foods to avoid, None yet' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Favorite foods, None yet' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Lifestyle factors, 6 added' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /^Usual symptoms, / })).toBeTruthy();
+    const tiles = screen.getAllByRole('button').map((button) => button.props.accessibilityLabel);
+    expect(tiles).toEqual([
+      expect.stringMatching(/^Back/),
+      'Condition',
+      'Usual symptoms',
+      'Favorite foods',
+      'Foods to avoid',
+      'Medications',
+      'Lifestyle factors',
+    ]);
+    expect(screen.queryByText(/added|saved|listed|tracked|None yet/)).toBeNull();
   });
 
   it('opens each list', async () => {
