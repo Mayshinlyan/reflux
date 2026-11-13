@@ -93,6 +93,7 @@ function RootLayout() {
                 })}
               />
               <Stack.Screen name="log/symptoms" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="log/voice" options={{ presentation: 'modal' }} />
               <Stack.Screen name="log/medication" options={{ presentation: 'modal' }} />
             </Stack>
           </TourProvider>

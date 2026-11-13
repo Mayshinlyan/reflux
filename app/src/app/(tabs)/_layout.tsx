@@ -5,7 +5,7 @@ import { BackHandler, StyleSheet, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { FloatingTabBar, type TabKey } from '@/components/FloatingTabBar';
-import { type LogKind, QuickLogArch } from '@/components/QuickLogArch';
+import { type ArchKind, QuickLogArch } from '@/components/QuickLogArch';
 import { closeLogArch, openLogArch, useLogArch } from '@/lib/logArch';
 import { lightColors } from '@/theme';
 
@@ -24,13 +24,14 @@ const TAB_FOR: Record<string, Exclude<TabKey, 'log'>> = {
 };
 
 /**
- * Where each button on the quick log arch goes. Log food opens the Food screen (type it, add a photo, or tap a
+ * Where each button on the quick log arch goes. Tell me opens the voice log (listen, then confirm). Log food opens the Food screen (type it, add a photo, or tap a
  * saved food), not straight to the camera. The arch opens from the + button, from Bellie, and from a day in
  * Today's week strip, which hands its day on to the screen.
  */
-const LOG_ROUTE: Record<LogKind, '/log/food' | '/log/symptoms' | '/log/medication'> = {
+const LOG_ROUTE: Record<ArchKind, '/log/food' | '/log/symptoms' | '/log/voice' | '/log/medication'> = {
   food: '/log/food',
   symptoms: '/log/symptoms',
+  voice: '/log/voice',
   medication: '/log/medication',
 };
 
