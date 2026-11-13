@@ -116,7 +116,11 @@ jest.mock('expo-router', () => ({
     dismissTo: () => mockBack(),
     push: (...args: unknown[]) => mockPush(...args),
     canGoBack: () => true,
-    replace: jest.fn(),
+    // The completion now replaces the log page in one step; count it as the leave plus the push the tests expect.
+    replace: (...args: unknown[]) => {
+      mockBack();
+      mockPush(...args);
+    },
   },
   useLocalSearchParams: () => mockParams,
   useNavigation: () => ({ setOptions: mockSetOptions }),
@@ -153,12 +157,11 @@ const result = {
 const ALL_TIME = { from: '2000-01-01T00:00:00.000Z', to: '2100-01-01T00:00:00.000Z' };
 const type = async (value: string) => fireEvent.changeText(screen.getByLabelText('Describe it'), value);
 const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
-/** "Add details" on the "Meal logged" toast opens the check-in on that meal, as its own screen. */
+/** "Add details" on the completion page opens the check-in on that meal, as its own screen. */
 const addDetails = async () => {
-  const [message, options] = mockToast.mock.calls.at(-1) ?? [];
-  expect(message).toBe('Meal logged');
-  options.action.onPress();
-  mockParams = { details: mockPush.mock.calls.at(-1)?.[0].params.details };
+  const opened = mockPush.mock.calls.at(-1)?.[0];
+  expect(opened).toMatchObject({ pathname: '/completion', params: { kind: 'meal' } });
+  mockParams = { details: opened.params.id };
   await screen.unmount();
   await render(<LogFoodScreen />);
 };
@@ -251,7 +254,7 @@ describe('Log food screen: Save to favorite foods', () => {
     await ateThis();
 
     expect(listSavedFoods(mockDb)).toHaveLength(0);
-    expect(mockToast).toHaveBeenCalledTimes(1); // only "Meal logged"
+    expect(mockToast).not.toHaveBeenCalled(); // the completion page, not a toast
   });
 });
 
@@ -379,7 +382,7 @@ describe('Log food screen (text)', () => {
       analysisMeta: result.meta,
     });
     expect(logs[0].analysis).not.toHaveProperty('meta');
-    expect(mockToast).toHaveBeenCalledTimes(1); // only "Meal logged"
+    expect(mockToast).not.toHaveBeenCalled(); // the completion page, not a toast
     expect(mockBack).toHaveBeenCalledTimes(2); // Today after "I ate this", and again after the check-in
   });
 
@@ -398,7 +401,7 @@ describe('Log food screen (text)', () => {
       { mealName: 'Mint tea', entryType: 'diary', overallVerdict: 'caution' },
     ]);
     await addDetails();
-    expect(mockToast).toHaveBeenCalledTimes(1); // only "Meal logged"
+    expect(mockToast).not.toHaveBeenCalled(); // the completion page, not a toast
   });
 
   it('skips the check-in extras with "Skip for now", leaving the meal logged', async () => {
@@ -904,10 +907,10 @@ describe('Log food screen (photo)', () => {
     expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toMatchObject([
       { mealName: 'Meal', source: 'photo', overallVerdict: null },
     ]);
-    expect(mockToast).toHaveBeenCalledWith(
-      'Meal logged',
-      expect.objectContaining({ action: expect.objectContaining({ label: 'Add details' }) }),
-    );
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/completion',
+      params: expect.objectContaining({ kind: 'meal' }),
+    });
   });
 
   it('cancels a check in progress and returns to the typed meal, nothing lost', async () => {
@@ -1373,7 +1376,7 @@ describe('Log food screen: Quick log', () => {
     const meals = listDiaryFoodLogs(mockDb, ALL_TIME);
     expect(meals).toHaveLength(1);
     expect(meals[0]).toMatchObject({ mealName: 'Oatmeal with banana', overallVerdict: 'caution' });
-    expect(mockToast).toHaveBeenCalledTimes(1); // "Meal logged", once
+    expect(mockToast).not.toHaveBeenCalled(); // the completion page, not a toast
     await addDetails();
     expect(screen.getByRole('header', { name: 'Oatmeal with banana' })).toBeTruthy();
     // Already one of the favorite foods, so there is nothing to add.
@@ -1402,7 +1405,7 @@ describe('Log food screen: Quick log', () => {
       const meals = listDiaryFoodLogs(mockDb, ALL_TIME);
       expect(meals).toHaveLength(1);
       expect(meals[0]).toMatchObject({ mealName: 'Oatmeal with banana', overallVerdict: 'caution' });
-      expect(mockToast).toHaveBeenCalledTimes(1); // "Meal logged", once
+      expect(mockToast).not.toHaveBeenCalled(); // the completion page, not a toast
       await addDetails();
       expect(screen.getByRole('header', { name: 'Oatmeal with banana' })).toBeTruthy();
       expect(analyze).not.toHaveBeenCalled();
@@ -1535,24 +1538,17 @@ describe('Log food screen: after "I ate this"', () => {
     await press('I ate this');
   };
 
-  it('goes back to Today with "Meal logged · Add details", with no check-in page in the way', async () => {
-    await eatMintTea();
-
-    expect(mockBack).toHaveBeenCalledTimes(1);
-    expect(mockToast).toHaveBeenCalledWith('Meal logged', {
-      action: { label: 'Add details', onPress: expect.any(Function) },
-    });
-    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
-    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
-  });
-
-  it("opens that meal's details from the toast", async () => {
+  it('goes back to Today and opens the completion page, with no check-in page in the way', async () => {
     await eatMintTea();
     const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
 
-    mockToast.mock.calls.at(-1)?.[1].action.onPress();
-
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/food', params: { details: String(meal.id) } });
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/completion',
+      params: { kind: 'meal', id: String(meal.id) },
+    });
+    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(1);
   });
 
   it('is just the Food screen when the meal for ?details is gone', async () => {

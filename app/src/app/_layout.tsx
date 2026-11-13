@@ -93,7 +93,24 @@ function RootLayout() {
                 })}
               />
               <Stack.Screen name="log/symptoms" options={{ presentation: 'modal' }} />
-              <Stack.Screen name="log/medication" options={{ presentation: 'modal' }} />
+              <Stack.Screen
+                name="log/medication"
+                options={({ route }) => ({
+                  // Managing the list (from About you) is a page you drill into, like Favorite foods; logging a dose is a sheet.
+                  presentation:
+                    (route.params as { manage?: string } | undefined)?.manage === '1' ? 'card' : 'modal',
+                })}
+              />
+              {/* What follows a saved log (completion, streak, goal, gift): full screen, no swipe away. It slides up
+                  over the log page rather than fading: a fade lets the page behind show through, so the two overlap. */}
+              <Stack.Screen
+                name="completion"
+                options={{
+                  presentation: 'fullScreenModal',
+                  gestureEnabled: false,
+                  animation: reduceMotion ? 'none' : 'slide_from_bottom',
+                }}
+              />
             </Stack>
           </TourProvider>
           <CheckInRouter />

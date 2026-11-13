@@ -68,6 +68,12 @@ export type Settings = {
    * `seen` is set once the ideas sheet was opened and closed again, so the count on "AI Ideas" starts over (Figma 38).
    */
   kitchenIdeas: { cuisine: CuisineKey; recipes: Recipe[]; seen?: boolean } | null;
+  /** The check-in days they committed to reaching (the completion flow's goal screen, Figma G3); null = not picked. */
+  commitGoal: 7 | 14 | 30 | null;
+  /** The check-in day milestones whose gift was already opened, so each shows once. */
+  giftsSeen: number[];
+  /** True once they chose "Put it on" for Bellie's hat. */
+  bellieHat: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -93,6 +99,9 @@ export const DEFAULT_SETTINGS: Settings = {
   kitchenUseFridge: true,
   kitchenRounds: { day: '', count: 0 },
   kitchenIdeas: null,
+  commitGoal: null,
+  giftsSeen: [],
+  bellieHat: false,
 };
 
 export type SettingKey = keyof Settings;
@@ -167,6 +176,16 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
       throw new Error('kitchenRounds must be a day and a count');
     }
   }
+  if (key === 'commitGoal' && value !== null && ![7, 14, 30].includes(value as number)) {
+    throw new Error('commitGoal must be null, 7, 14 or 30');
+  }
+  if (key === 'giftsSeen') {
+    const days = value as number[];
+    if (!Array.isArray(days) || !days.every((day) => Number.isInteger(day) && day > 0)) {
+      throw new Error('giftsSeen must be a list of check-in days');
+    }
+  }
+  if (key === 'bellieHat' && typeof value !== 'boolean') throw new Error('bellieHat must be true or false');
   if (key === 'kitchenIdeas') {
     const ideas = value as Settings['kitchenIdeas'];
     const valid =
