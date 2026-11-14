@@ -202,11 +202,28 @@ export function stageArt(stage: BellieStage): StageArt {
   return stage === 'little' ? LITTLE : DRAWINGS[stage];
 }
 
-/** The whole SVG for a stage with a mood's face. */
-export function bellySvg(stage: BellieStage, mood: BellyMood): string {
-  if (stage === 'little') return BELLY_SVG[mood];
-  const drawing = DRAWINGS[stage];
-  return `${drawing.open}${drawing.faces[mood]}</svg>`;
+const LEAF_GREENS = ['#92B971', '#B8D68E'];
+
+/**
+ * The drawing without its sprout: the leaves, their veins and the stem (and the bud an adult has) are the run of
+ * lines from the first leaf up to the body, plus the stem line just before it. Used under a hat, which the leaf
+ * would otherwise poke out over.
+ */
+export function withoutSprout(xml: string): string {
+  const lines = xml.split('\n');
+  const first = lines.findIndex((line) => LEAF_GREENS.some((green) => line.includes(`fill="${green}"`)));
+  if (first < 0) return xml;
+  const body = lines.findIndex((line, i) => i > first && line.includes('fill="#FCE3BD"'));
+  if (body < 0) return xml;
+  const from = first > 0 && !lines[first - 1].includes('fill=') ? first - 1 : first;
+  return [...lines.slice(0, from), ...lines.slice(body)].join('\n');
+}
+
+/** The whole SVG for a stage with a mood's face; `sprout: false` leaves the sprout off (under a hat). */
+export function bellySvg(stage: BellieStage, mood: BellyMood, sprout = true): string {
+  const xml =
+    stage === 'little' ? BELLY_SVG[mood] : `${DRAWINGS[stage].open}${DRAWINGS[stage].faces[mood]}</svg>`;
+  return sprout ? xml : withoutSprout(xml);
 }
 
 /**

@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 
-import { type ItemKey } from '@/lib/bellieItems';
+import { ITEM_SPOT, type ItemKey } from '@/lib/bellieItems';
 import { type BellieStage } from '@/lib/bellieStage';
 import { BELLY_MOOD_LABEL, type BellyMood } from '@/lib/belly';
 
@@ -33,6 +33,8 @@ export function Belly({ mood = 'happy', size = 120, stage, worn }: Props) {
   // Too small to see (the Kitchen icons, History's faces): nothing is drawn on top unless asked for.
   const wearing = worn ?? (size >= MIN_DRESSED ? currentWorn : []);
   const layout = bellyLayout(shown, size);
+  // The sprout would poke out over a hat, so a hat takes its place.
+  const hatOn = wearing.some((key) => ITEM_SPOT[key] === 'head');
   return (
     <View
       style={{ width: size, height: size }}
@@ -40,7 +42,7 @@ export function Belly({ mood = 'happy', size = 120, stage, worn }: Props) {
       accessibilityRole="image"
       accessibilityLabel={BELLY_MOOD_LABEL[mood]}>
       <SvgXml
-        xml={bellySvg(shown, mood)}
+        xml={bellySvg(shown, mood, !hatOn)}
         width={layout.width}
         height={layout.height}
         style={{ position: 'absolute', left: layout.left, top: layout.top }}

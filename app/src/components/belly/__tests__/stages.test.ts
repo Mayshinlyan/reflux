@@ -5,6 +5,25 @@ import { bellyLayout, bellySvg, STAGE_HEIGHT, stageArt } from '../stages';
 
 const MOODS: BellyMood[] = ['happy', 'okay', 'caution', 'avoid'];
 
+describe('bellySvg without the sprout (under a hat)', () => {
+  it('drops the leaves and stem at every stage and mood, and keeps the body and the face', () => {
+    for (const stage of BELLIE_STAGES) {
+      for (const mood of MOODS) {
+        const whole = bellySvg(stage, mood);
+        const bare = bellySvg(stage, mood, false);
+        expect(whole).toMatch(/#92B971/);
+        expect(bare).not.toMatch(/#92B971|#B8D68E/);
+        expect(bare.startsWith('<svg')).toBe(true);
+        expect(bare.trimEnd().endsWith('</svg>')).toBe(true);
+        expect(bare).toContain('#FCE3BD');
+        // Only the sprout went: the face is still drawn.
+        expect(bare.split('\n').length).toBeGreaterThan(whole.split('\n').length - 12);
+        expect(bare.split('\n').length).toBeLessThan(whole.split('\n').length);
+      }
+    }
+  });
+});
+
 describe('bellySvg', () => {
   it('is a whole SVG for every stage and mood, with a different face for each mood', () => {
     for (const stage of BELLIE_STAGES) {
