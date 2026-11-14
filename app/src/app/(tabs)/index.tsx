@@ -168,9 +168,10 @@ const styles = StyleSheet.create({
   grow: { flexGrow: 1 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: space.s2 },
   greeting: { flex: 1, gap: space.s1 },
-  bellie: { alignItems: 'center' },
+  // Room under the week strip (24 on top of the content gap), so the days, the bubble and Bellie each have space.
+  bellie: { alignItems: 'center', marginTop: space.s3 },
   // On an empty day Bellie sits in the middle of the room left under the week.
-  bellieEmpty: { flex: 1, justifyContent: 'center' },
+  bellieEmpty: { flex: 1, justifyContent: 'center', marginTop: 0 },
   today: { gap: space.s1_5 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   badges: { gap: 4, alignItems: 'flex-end' },

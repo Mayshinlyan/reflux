@@ -205,6 +205,11 @@ export default function SettingsScreen() {
                 }
               />
             ))}
+            <SettingsRow
+              icon={Leaf}
+              label="Customize Bellie, all unlocked"
+              onPress={() => router.push({ pathname: '/bellies-things', params: { preview: '60' } })}
+            />
           </>
         )}
 

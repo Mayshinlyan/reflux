@@ -14,7 +14,7 @@ import { Screen } from '@/components/Screen';
 import { TopBarButton } from '@/components/TopBar';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { listCheckIns } from '@/db/repositories/checkIns';
-import { giftCount } from '@/lib/completionFlow';
+import { ownedCount } from '@/lib/bellieItems';
 import { summarizeCheckIns } from '@/lib/streak';
 import { currentTimeZone } from '@/lib/time';
 import { radius, space, useColors } from '@/theme';
@@ -43,7 +43,7 @@ export default function ProfileScreen() {
   const [gifts, setGifts] = useState(0);
   useFocusEffect(
     useCallback(() => {
-      setGifts(giftCount(summarizeCheckIns(listCheckIns(db), new Date(), currentTimeZone()).checkInDays));
+      setGifts(ownedCount(summarizeCheckIns(listCheckIns(db), new Date(), currentTimeZone()).checkInDays));
     }, [db]),
   );
 

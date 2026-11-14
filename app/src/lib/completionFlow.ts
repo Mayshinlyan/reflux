@@ -1,12 +1,16 @@
+import { ITEM_KEYS, ITEM_UNLOCK_DAY, type ItemKey } from './bellieItems';
 import { type BellieStage, stageForDays, stageIndex } from './bellieStage';
 import type { CheckInSummary } from './streak';
 
 /** What was just logged: a meal, symptoms (with any lifestyle), or a medication dose. */
 export type LogKind = 'meal' | 'symptoms' | 'dose';
 
-/** The gift days that have art so far; 14 and 30 stay locked on the shelf until their gifts are drawn. */
-export const GIFT_DAYS = [3, 7] as const;
-export type GiftDay = (typeof GIFT_DAYS)[number];
+/**
+ * A gift: an item on the day it unlocks, or the first weekly report. Items are remembered in `giftsSeen` by their
+ * unlock day; the report has its own key, because it shares a day with the bow tie.
+ */
+export type Gift = { kind: 'item'; item: ItemKey; day: number } | { kind: 'report' };
+export const REPORT_GIFT_KEY = 1007;
 
 /** The first pattern needs about a week of check-ins. */
 export const PATTERN_DAYS = 7;
@@ -16,15 +20,15 @@ export type Step =
   | { screen: 'streak' }
   | { screen: 'grew'; stage: BellieStage }
   | { screen: 'commit'; mode: 'goal' | 'progress' }
-  | { screen: 'gift'; day: GiftDay };
+  | { screen: 'gift'; gift: Gift };
 
 type Memory = { commitGoal: number | null; giftsSeen: number[]; stageSeen: BellieStage };
 
 /**
  * Which screens follow a saved log (Figma G5): the completion always; the rest only on the first check-in of the
  * day, so a second log that day is just the completion. When the check-in days reach a new growth stage, Bellie grows
- * (the "grew" page, after the streak). Goal on days 1 and 2 until one is picked, progress on day 3, a gift on day 3
- * (the hat) and day 7 (the first report), each once.
+ * (the "grew" page, after the streak). Goal on days 1 and 2 until one is picked, progress on day 3, and a gift for
+ * every item on the day it unlocks, plus the first report from day 7, each once.
  */
 export function planCompletion(summary: CheckInSummary, memory: Memory): Step[] {
   const steps: Step[] = [{ screen: 'completion' }];
@@ -36,31 +40,19 @@ export function planCompletion(summary: CheckInSummary, memory: Memory): Step[] 
   if (stageIndex(reached) > stageIndex(memory.stageSeen)) steps.push({ screen: 'grew', stage: reached });
   if ((day === 1 || day === 2) && memory.commitGoal === null) steps.push({ screen: 'commit', mode: 'goal' });
   if (day === 3) steps.push({ screen: 'commit', mode: 'progress' });
-  // The first gift not yet opened that has been reached, so a milestone day with no check-in is not lost.
-  const gift = GIFT_DAYS.find((giftDay) => giftDay <= day && !memory.giftsSeen.includes(giftDay));
-  if (gift !== undefined) steps.push({ screen: 'gift', day: gift });
+  // An item's gift is given on its own day only: Customize Bellie lists it from then on (an unopened gift stays a gift
+  // box there), so a late gift page would hand over something that is already there. The first report is the real
+  // payoff, so it is still given if its day had no check-in.
+  for (const item of ITEM_KEYS) {
+    const unlockDay = ITEM_UNLOCK_DAY[item];
+    if (unlockDay === day && !memory.giftsSeen.includes(unlockDay)) {
+      steps.push({ screen: 'gift', gift: { kind: 'item', item, day: unlockDay } });
+    }
+  }
+  if (day >= PATTERN_DAYS && !memory.giftsSeen.includes(REPORT_GIFT_KEY)) {
+    steps.push({ screen: 'gift', gift: { kind: 'report' } });
+  }
   return steps;
-}
-
-/** Shelf on Customize Bellie (Figma G4d): the day each unlocks. Owned once that many check-in days are reached. */
-export const SHELF = [
-  { key: 'hat', name: 'Little hat', day: 3 },
-  { key: 'glasses', name: 'Round glasses', day: 7 },
-  { key: 'scarf', name: 'Cozy scarf', day: 14 },
-  { key: 'surprise', name: 'A surprise', day: 30 },
-] as const;
-
-export type ShelfKey = (typeof SHELF)[number]['key'];
-
-/** Only the gifts that have art and a way to be given are owned; the scarf and surprise stay locked for now. */
-export function isOwned(key: ShelfKey, checkInDays: number): boolean {
-  const item = SHELF.find((entry) => entry.key === key);
-  return item !== undefined && GIFT_DAYS.some((day) => day === item.day) && checkInDays >= item.day;
-}
-
-/** How many gifts are owned, for "2 gifts so far" on Profile. */
-export function giftCount(checkInDays: number): number {
-  return SHELF.filter((item) => isOwned(item.key, checkInDays)).length;
 }
 
 export function titleFor(kind: LogKind): string {
