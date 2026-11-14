@@ -11,10 +11,11 @@ import { AvatarSheet } from '@/components/profile/AvatarSheet';
 import { NameSheet } from '@/components/profile/NameSheet';
 import { ProfileLinkRow } from '@/components/profile/ProfileLinkRow';
 import { Screen } from '@/components/Screen';
+import { useTourTarget } from '@/components/tour/TourContext';
 import { TopBarButton } from '@/components/TopBar';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { listCheckIns } from '@/db/repositories/checkIns';
-import { giftCount } from '@/lib/completionFlow';
+import { ownedCount } from '@/lib/bellieItems';
 import { summarizeCheckIns } from '@/lib/streak';
 import { currentTimeZone } from '@/lib/time';
 import { radius, space, useColors } from '@/theme';
@@ -27,6 +28,9 @@ type Sheet = 'avatar' | 'name' | null;
  */
 export default function ProfileScreen() {
   const colors = useColors();
+  // The app tour spotlights these two rows.
+  const aboutYouRef = useTourTarget('aboutYou');
+  const customizeRef = useTourTarget('customize');
   const { settings } = useSettings();
   const db = useDb();
   const insets = useSafeAreaInsets();
@@ -43,7 +47,7 @@ export default function ProfileScreen() {
   const [gifts, setGifts] = useState(0);
   useFocusEffect(
     useCallback(() => {
-      setGifts(giftCount(summarizeCheckIns(listCheckIns(db), new Date(), currentTimeZone()).checkInDays));
+      setGifts(ownedCount(summarizeCheckIns(listCheckIns(db), new Date(), currentTimeZone()).checkInDays));
     }, [db]),
   );
 
@@ -89,6 +93,7 @@ export default function ProfileScreen() {
             icon={User}
             tone="lavender"
             title="About you"
+            targetRef={aboutYouRef}
             subtitle="What Bellie knows about you"
             onPress={() => router.push('/about-you')}
           />
@@ -96,6 +101,7 @@ export default function ProfileScreen() {
             icon={Gift}
             tone="honey"
             title="Customize Bellie"
+            targetRef={customizeRef}
             subtitle={
               gifts === 0 ? 'Gifts come with check-ins' : `${gifts} ${gifts === 1 ? 'gift' : 'gifts'} so far`
             }

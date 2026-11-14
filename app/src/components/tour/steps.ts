@@ -1,12 +1,12 @@
 import type { TabKey } from '@/components/FloatingTabBar';
 
-/** Views that register themselves as a spotlight target (see `useTourTarget`): Bellie on Today, two on Kitchen. */
-export type TourViewId = 'bellie' | 'aiIdeas' | 'fridge';
+/** Views that register themselves as a spotlight target (see `useTourTarget`): Bellie on Today, two on Kitchen, two rows on Profile and the row of gifts on Customize Bellie. */
+export type TourViewId = 'bellie' | 'aiIdeas' | 'fridge' | 'aboutYou' | 'customize' | 'giftRow';
 
 export type TourTarget = { kind: 'view'; id: TourViewId } | { kind: 'tab'; key: TabKey };
 
-/** The tab screen shown behind a step. */
-export type TourScreen = Exclude<TabKey, 'log'>;
+/** The screen shown behind a step: a tab, or a page opened from Profile (About you, Customize Bellie). */
+export type TourScreen = Exclude<TabKey, 'log'> | 'aboutYou' | 'customize';
 
 export type TourStep = {
   id: string;
@@ -19,11 +19,14 @@ export type TourStep = {
   /** Room (pt) the cut-out leaves around the target, and its corner radius. */
   pad: number;
   radius: number;
+  /** Pins the card to the top or bottom of the screen instead of beside the cut-out (a whole page behind it). */
+  card?: 'top' | 'bottom';
 };
 
 /**
- * Figma row 43 "App tour": seven steps, each with its own screen behind it. Bellie and the + button on Today, then
- * History, Kitchen (the tab, the AI Ideas pill, My fridge) and Profile. It ends back on Today.
+ * Figma row 43 "App tour" (G18 for the last five): eleven steps, each with its own screen behind it. Bellie and the +
+ * button on Today, then History, Kitchen (the tab, the AI Ideas pill, My fridge) and Profile. Profile goes on to its
+ * two pages: the About you row and then the page itself, the Customize Bellie row and then the page. It ends back on Today.
  */
 export const TOUR_STEPS: readonly TourStep[] = [
   {
@@ -83,10 +86,48 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'profile',
     title: 'Profile',
-    body: 'Your favorite foods, symptoms and medications live here. The gear opens Settings, reminders, privacy and this tour.',
+    body: 'Your own space. Tell Bellie about you and customize her with the gifts you earn. The gear has reminders and settings.',
     screen: 'profile',
     target: { kind: 'tab', key: 'profile' },
     pad: 6,
     radius: 22,
+  },
+  {
+    id: 'aboutYouRow',
+    title: 'About you',
+    body: 'Tell Bellie about you, like your condition, symptoms, foods and medications, so her tips fit you.',
+    screen: 'profile',
+    target: { kind: 'view', id: 'aboutYou' },
+    pad: 0,
+    radius: 24,
+  },
+  {
+    id: 'aboutYouPage',
+    title: 'Tell Bellie about you',
+    body: 'Tap a tile to add your condition, usual symptoms, favorite foods, foods to avoid, medications or lifestyle. You can change them any time.',
+    screen: 'aboutYou',
+    target: null,
+    pad: 0,
+    radius: 0,
+    card: 'bottom',
+  },
+  {
+    id: 'customizeRow',
+    title: 'Customize Bellie',
+    body: 'Keep checking in and you will get gifts to customize Bellie. They wait for you here.',
+    screen: 'profile',
+    target: { kind: 'view', id: 'customize' },
+    pad: 0,
+    radius: 24,
+  },
+  {
+    id: 'customizePage',
+    title: 'Make Bellie yours',
+    body: 'Tap a gift to open it, then tap an item to put it on her. Locked ones say how many more days of check-in they need.',
+    screen: 'customize',
+    target: { kind: 'view', id: 'giftRow' },
+    pad: 8,
+    radius: 20,
+    card: 'top',
   },
 ];

@@ -34,12 +34,15 @@ export type Placement = {
 /**
  * Puts the card on the side of the cut-out with more room (below first), so tabs at the bottom get it above and
  * Bellie gets it below. With no target it is centred. `top`/`bottom` are the safe-area insets it keeps clear of.
+ * `anchor` pins the card to the top or bottom of the screen instead (a whole page behind it, or a cut-out the card
+ * must not cover); it then has no tail.
  */
 export function placeCard(
   hole: TargetRect | null,
   screen: Size,
   cardHeight: number,
   insets: { top: number; bottom: number },
+  anchor?: 'top' | 'bottom',
 ): Placement {
   const width = Math.min(screen.width - 2 * CARD_MARGIN, CARD_MAX_WIDTH);
   const left = (screen.width - width) / 2;
@@ -47,6 +50,7 @@ export function placeCard(
   const maxTop = Math.max(minTop, screen.height - insets.bottom - CARD_MARGIN - cardHeight);
   const clamp = (top: number) => Math.min(Math.max(top, minTop), maxTop);
 
+  if (anchor) return { left, width, top: anchor === 'top' ? minTop : maxTop, tail: null };
   if (!hole) return { left, width, top: clamp((screen.height - cardHeight) / 2), tail: null };
 
   const belowTop = hole.y + hole.height + GAP;

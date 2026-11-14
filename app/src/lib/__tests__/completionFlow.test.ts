@@ -1,4 +1,5 @@
-import { giftCount, planCompletion, statLineFor, streakHeadline, subtitleFor } from '../completionFlow';
+import { planCompletion, REPORT_GIFT_KEY, statLineFor, streakHeadline, subtitleFor } from '../completionFlow';
+import type { BellieStage } from '../bellieStage';
 import type { CheckInSummary } from '../streak';
 
 const summary = (over: Partial<CheckInSummary> = {}): CheckInSummary => ({
@@ -11,7 +12,12 @@ const summary = (over: Partial<CheckInSummary> = {}): CheckInSummary => ({
   todayByKind: { meals: 1, symptoms: 0, doses: 0 },
   ...over,
 });
-const fresh: { commitGoal: number | null; giftsSeen: number[] } = { commitGoal: null, giftsSeen: [] };
+const fresh: { commitGoal: number | null; giftsSeen: number[]; stageSeen: BellieStage } = {
+  commitGoal: null,
+  giftsSeen: [],
+  stageSeen: 'baby',
+};
+const allSeen = [3, 7, 10, 14, 21, 30, 45, 50, REPORT_GIFT_KEY];
 const screens = (s: CheckInSummary, memory = fresh) => planCompletion(s, memory).map((step) => step.screen);
 
 describe('planCompletion', () => {
@@ -30,31 +36,91 @@ describe('planCompletion', () => {
     ]);
   });
 
-  it('shows progress and the hat on day 3', () => {
+  it('shows progress and the round glasses on day 3', () => {
     const steps = planCompletion(summary({ checkInDays: 3 }), fresh);
     expect(steps.map((step) => step.screen)).toEqual(['completion', 'streak', 'commit', 'gift']);
     expect(steps[2]).toEqual({ screen: 'commit', mode: 'progress' });
-    expect(steps[3]).toEqual({ screen: 'gift', day: 3 });
+    expect(steps[3]).toEqual({ screen: 'gift', gift: { kind: 'item', item: 'glasses', day: 3 } });
   });
 
-  it('gives the first report on day 7, once', () => {
-    const seenHat = { ...fresh, giftsSeen: [3] };
-    expect(planCompletion(summary({ checkInDays: 7 }), seenHat).at(-1)).toEqual({ screen: 'gift', day: 7 });
-    expect(screens(summary({ checkInDays: 7 }), { ...fresh, giftsSeen: [3, 7] })).toEqual([
+  it('gives the bow tie and then the first report on day 7, each once', () => {
+    const steps = planCompletion(summary({ checkInDays: 7 }), { ...fresh, giftsSeen: [3] });
+    expect(steps.slice(-2)).toEqual([
+      { screen: 'gift', gift: { kind: 'item', item: 'bow', day: 7 } },
+      { screen: 'gift', gift: { kind: 'report' } },
+    ]);
+    expect(screens(summary({ checkInDays: 7 }), { ...fresh, giftsSeen: allSeen })).toEqual([
       'completion',
       'streak',
     ]);
   });
 
-  it('still gives the hat on day 4 if day 3 had no check-in', () => {
-    expect(planCompletion(summary({ checkInDays: 4 }), fresh).at(-1)).toEqual({ screen: 'gift', day: 3 });
+  it('gives a gift for every item on the day it unlocks', () => {
+    const days: [number, string][] = [
+      [10, 'hat'],
+      [14, 'shades'],
+      [21, 'phones'],
+      [30, 'scarf'],
+      [45, 'night'],
+      [50, 'chef'],
+    ];
+    for (const [day, item] of days) {
+      const steps = planCompletion(summary({ checkInDays: day }), {
+        ...fresh,
+        giftsSeen: [3, 7, REPORT_GIFT_KEY],
+        stageSeen: 'adult',
+      });
+      expect(steps.at(-1)).toEqual({ screen: 'gift', gift: { kind: 'item', item, day } });
+    }
+  });
+
+  it('does not hand over an item late: it is already in Customize Bellie as a gift box', () => {
+    expect(
+      screens(summary({ checkInDays: 11 }), {
+        ...fresh,
+        giftsSeen: [3, 7, REPORT_GIFT_KEY],
+        stageSeen: 'adult',
+      }),
+    ).toEqual(['completion', 'streak']);
+  });
+
+  it('still gives the first report on day 8 if day 7 had no check-in', () => {
+    const steps = planCompletion(summary({ checkInDays: 8 }), { ...fresh, giftsSeen: [3, 7] });
+    expect(steps.at(-1)).toEqual({ screen: 'gift', gift: { kind: 'report' } });
   });
 
   it('keeps ordinary days short', () => {
-    expect(screens(summary({ checkInDays: 5 }), { ...fresh, giftsSeen: [3] })).toEqual([
+    expect(screens(summary({ checkInDays: 5 }), { ...fresh, giftsSeen: allSeen })).toEqual([
       'completion',
       'streak',
     ]);
+  });
+});
+
+describe('planCompletion: Bellie grows', () => {
+  it('shows the grew page after the streak on the first check-in that reaches a new stage', () => {
+    const steps = planCompletion(summary({ checkInDays: 30 }), { ...fresh, giftsSeen: allSeen });
+    expect(steps.map((step) => step.screen)).toEqual(['completion', 'streak', 'grew']);
+    expect(steps[2]).toEqual({ screen: 'grew', stage: 'little' });
+  });
+
+  it('shows it once: nothing more when the stage was already seen', () => {
+    expect(
+      screens(summary({ checkInDays: 45 }), { ...fresh, giftsSeen: allSeen, stageSeen: 'little' }),
+    ).toEqual(['completion', 'streak']);
+  });
+
+  it('jumps to the newest stage reached when several were skipped, and not on a later log of the day', () => {
+    const steps = planCompletion(summary({ checkInDays: 400 }), { ...fresh, giftsSeen: allSeen });
+    expect(steps.map((step) => step.screen)).toContain('grew');
+    expect(steps.find((step) => step.screen === 'grew')).toEqual({ screen: 'grew', stage: 'adult' });
+    expect(screens(summary({ checkInDays: 400, todayCount: 2 }))).toEqual(['completion']);
+  });
+
+  it('never grows back down', () => {
+    expect(screens(summary({ checkInDays: 10 }), { ...fresh, giftsSeen: allSeen, stageSeen: 'kid' })).toEqual(
+      ['completion', 'streak'],
+    );
   });
 });
 
@@ -81,11 +147,5 @@ describe('copy', () => {
   it('says welcome back after a gap, never a loss', () => {
     expect(streakHeadline(summary({ returningAfterGap: true, checkInDays: 4 })).title).toBe('Welcome back');
     expect(streakHeadline(summary({ streak: 4 }))).toMatchObject({ big: '4', title: 'days checking in' });
-  });
-});
-
-describe('giftCount', () => {
-  it('owns the hat from day 3 and the glasses from day 7', () => {
-    expect([giftCount(1), giftCount(3), giftCount(6), giftCount(7), giftCount(30)]).toEqual([0, 1, 1, 2, 2]);
   });
 });

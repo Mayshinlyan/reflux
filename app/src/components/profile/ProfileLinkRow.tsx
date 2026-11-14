@@ -1,5 +1,6 @@
 import { ChevronRight, type LucideIcon } from 'lucide-react-native';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewInstance } from 'react-native';
+import type { Ref } from 'react';
 
 import { AppText } from '@/components/AppText';
 import { cardEdge, minTouchTarget, radius, space, type Palette, useColors } from '@/theme';
@@ -11,6 +12,8 @@ type Props = {
   title: string;
   subtitle: string;
   onPress: () => void;
+  /** Lets the app tour spotlight the row (see `useTourTarget`). */
+  targetRef?: Ref<ViewInstance>;
 };
 
 const TONES = {
@@ -19,10 +22,11 @@ const TONES = {
 } as const satisfies Record<Props['tone'], { tint: keyof Palette; ink: keyof Palette }>;
 
 /** A Profile row (Figma G6a): a tinted round icon, a title with one quiet line under it, a chevron. */
-export function ProfileLinkRow({ icon: Icon, tone, title, subtitle, onPress }: Props) {
+export function ProfileLinkRow({ icon: Icon, tone, title, subtitle, onPress, targetRef }: Props) {
   const colors = useColors();
   return (
     <Pressable
+      ref={targetRef}
       accessibilityRole="button"
       accessibilityLabel={`${title}, ${subtitle}`}
       onPress={onPress}

@@ -11,6 +11,8 @@ import {
   type RecipeTime,
 } from '@/constants/cuisines';
 import { RETIRED_SYMPTOM_KEYS, SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
+import { type ItemKey, isValidWorn } from '@/lib/bellieItems';
+import { type BellieStage, isBellieStage } from '@/lib/bellieStage';
 import { type PetAnimal, PETS } from '@/lib/pets';
 import { isRecipe } from '@/lib/recipe';
 import { REMINDER_OPTIONS } from '@/lib/reminderTiming';
@@ -72,8 +74,12 @@ export type Settings = {
   commitGoal: 7 | 14 | 30 | null;
   /** The check-in day milestones whose gift was already opened, so each shows once. */
   giftsSeen: number[];
-  /** True once they chose "Put it on" for Bellie's hat. */
+  /** True once they chose "Put it on" for Bellie's hat. Only read now: what Bellie wears is `bellieWorn`. */
   bellieHat: boolean;
+  /** What Bellie wears, from Customize Bellie: any of the items, one per spot. */
+  bellieWorn: ItemKey[];
+  /** The newest growth stage whose "Bellie grew" page was seen: Bellie is drawn at this stage everywhere. */
+  bellieStageSeen: BellieStage;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -102,6 +108,8 @@ export const DEFAULT_SETTINGS: Settings = {
   commitGoal: null,
   giftsSeen: [],
   bellieHat: false,
+  bellieWorn: [],
+  bellieStageSeen: 'baby',
 };
 
 export type SettingKey = keyof Settings;
@@ -186,6 +194,9 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
     }
   }
   if (key === 'bellieHat' && typeof value !== 'boolean') throw new Error('bellieHat must be true or false');
+  if (key === 'bellieWorn' && !isValidWorn(value)) throw new Error('bellieWorn must be items, one per spot');
+  if (key === 'bellieStageSeen' && !isBellieStage(value))
+    throw new Error(`Unknown Bellie stage: ${String(value)}`);
   if (key === 'kitchenIdeas') {
     const ideas = value as Settings['kitchenIdeas'];
     const valid =

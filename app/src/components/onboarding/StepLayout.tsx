@@ -13,15 +13,17 @@ type Props = {
   footer: ReactNode;
   /** Saving this step's answer failed; shows the usual message above the buttons. */
   saveFailed?: boolean;
+  /** Centres the content in the room between the heading and the buttons (a picture, not a list). */
+  centerBody?: boolean;
 };
 
 /** An onboarding question: title, a warm line under it, the answer, and buttons pinned below (Figma 01c to 01g). */
-export function StepLayout({ title, subtitle, children, footer, saveFailed }: Props) {
+export function StepLayout({ title, subtitle, children, footer, saveFailed, centerBody }: Props) {
   return (
     <>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, centerBody && styles.grow]}
         showsVerticalScrollIndicator={false}>
         <AppText variant="display" accessibilityRole="header">
           {title}
@@ -31,7 +33,7 @@ export function StepLayout({ title, subtitle, children, footer, saveFailed }: Pr
             {subtitle}
           </AppText>
         ) : null}
-        <View style={styles.body}>{children}</View>
+        <View style={[styles.body, centerBody && styles.centered]}>{children}</View>
       </ScrollView>
       <View style={styles.footer}>
         {saveFailed && (
@@ -50,6 +52,8 @@ const styles = StyleSheet.create({
   content: { paddingTop: space.s4 },
   subtitle: { marginTop: space.s1 },
   body: { marginTop: space.s3 },
+  grow: { flexGrow: 1 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: space.s3 },
   footer: { paddingTop: space.s2, paddingBottom: space.s3, gap: space.s1 },
   error: { textAlign: 'center' },
 });

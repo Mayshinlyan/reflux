@@ -1,68 +1,65 @@
-// From the Figma "Belly" component set (42:377), one SVG per mood: soft belly body with a sprout (2026-10-21).
+// From the Figma "Belly" component set (42:377), one SVG per mood: the peach-drop Bellie (the "Little" growth stage)
+// with a leaf sprout and two small feet (2026-11-12). The art is drawn in a 120 unit box with a 2 unit margin all
+// round (viewBox -2 -2 124 124) so the leaf tip and feet are not clipped; `BELLY_BODY` is where the body sits in the
+// rendered 120 box.
+
+/** Where the body sits in the 120 x 120 mood boxes, for anything worn on top of it (the hat). */
+export const BELLY_BODY = { x: 15.8, y: 24.5, width: 88.5, height: 84.3 } as const;
 
 export const BELLY_SVG = {
-  happy: `<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="Belly">
-<g id="Sprout">
-<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
-<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
-<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
-</g>
-<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
-<path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
-<path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
-<path id="Vector_4" d="M40 67C44 61.6667 48 61.6667 52 67" stroke="#6B4423" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<path id="Vector_5" d="M68 67C72 61.6667 76 61.6667 80 67" stroke="#6B4423" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<path id="Vector_6" d="M53 77C57.6667 83 62.3333 83 67 77" stroke="#6B4423" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-</g>
+  happy: `<svg width="120" height="120" viewBox="-2 -2 124 124" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M35.98 99.55C25.77 106.15 26.97 117.56 37.18 118.76C46.19 120.56 50.99 111.56 49.79 104.35L35.98 99.55Z" fill="#FCE3BD" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M70.2 104.35C69.0 111.56 73.8 120.56 82.81 118.76C93.02 117.56 94.22 106.15 84.01 99.55L70.2 104.35Z" fill="#FCE3BD" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M59.39 27.50C43.18 26.3 34.78 14.29 37.18 1.08C53.99 -0.11 64.8 11.89 59.39 27.50Z" fill="#92B971" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M59.39 26.90C54.99 18.49 49.39 11.69 42.58 6.48" stroke="#896347" stroke-width="1.8" stroke-linecap="round"/>
+<path d="M60.0 23.29C81.01 23.29 101.43 44.31 105.03 69.53C109.83 95.95 90.02 110.36 60.0 110.36C29.97 110.36 10.16 95.95 14.96 69.53C18.57 44.31 38.98 23.29 60.0 23.29Z" fill="#FCE3BD" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M24.57 58.12C29.97 41.91 41.98 32.3 52.79 31.10C39.58 39.51 35.38 50.31 32.98 60.52C31.17 67.13 22.17 64.72 24.57 58.12Z" fill="#FFEED6"/>
+<path d="M31.77 83.94C36.75 83.94 40.78 81.52 40.78 78.53C40.78 75.55 36.75 73.13 31.77 73.13C26.8 73.13 22.77 75.55 22.77 78.53C22.77 81.52 26.8 83.94 31.77 83.94Z" fill="#EFA5A0"/>
+<path d="M88.22 83.94C93.19 83.94 97.22 81.52 97.22 78.53C97.22 75.55 93.19 73.13 88.22 73.13C83.24 73.13 79.21 75.55 79.21 78.53C79.21 81.52 83.24 83.94 88.22 83.94Z" fill="#EFA5A0"/>
+<path d="M35.98 68.93C40.38 63.72 44.78 63.72 49.19 68.93M70.8 68.93C75.21 63.72 79.61 63.72 84.01 68.93" stroke="#896347" stroke-width="2.7" stroke-linecap="round"/>
+<path d="M53.99 80.33C57.99 85.14 62.0 85.14 66.0 80.33" stroke="#896347" stroke-width="2.4" stroke-linecap="round"/>
 </svg>`,
-  okay: `<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="Belly">
-<g id="Sprout">
-<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
-<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
-<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
-</g>
-<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
-<path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
-<path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
-<path id="Vector_4" d="M46 69.2C47.7673 69.2 49.2 67.7673 49.2 66C49.2 64.2327 47.7673 62.8 46 62.8C44.2327 62.8 42.8 64.2327 42.8 66C42.8 67.7673 44.2327 69.2 46 69.2Z" fill="#6B4423"/>
-<path id="Vector_5" d="M74 69.2C75.7673 69.2 77.2 67.7673 77.2 66C77.2 64.2327 75.7673 62.8 74 62.8C72.2327 62.8 70.8 64.2327 70.8 66C70.8 67.7673 72.2327 69.2 74 69.2Z" fill="#6B4423"/>
-<path id="Vector_6" d="M54 79C58 81 62 81 66 79" stroke="#6B4423" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-</g>
+  okay: `<svg width="120" height="120" viewBox="-2 -2 124 124" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M35.98 99.55C25.77 106.15 26.97 117.56 37.18 118.76C46.19 120.56 50.99 111.56 49.79 104.35L35.98 99.55Z" fill="#FCE3BD" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M70.2 104.35C69.0 111.56 73.8 120.56 82.81 118.76C93.02 117.56 94.22 106.15 84.01 99.55L70.2 104.35Z" fill="#FCE3BD" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M59.39 27.50C43.18 26.3 34.78 14.29 37.18 1.08C53.99 -0.11 64.8 11.89 59.39 27.50Z" fill="#92B971" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M59.39 26.90C54.99 18.49 49.39 11.69 42.58 6.48" stroke="#896347" stroke-width="1.8" stroke-linecap="round"/>
+<path d="M60.0 23.29C81.01 23.29 101.43 44.31 105.03 69.53C109.83 95.95 90.02 110.36 60.0 110.36C29.97 110.36 10.16 95.95 14.96 69.53C18.57 44.31 38.98 23.29 60.0 23.29Z" fill="#FCE3BD" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M24.57 58.12C29.97 41.91 41.98 32.3 52.79 31.10C39.58 39.51 35.38 50.31 32.98 60.52C31.17 67.13 22.17 64.72 24.57 58.12Z" fill="#FFEED6"/>
+<path d="M31.77 83.94C36.75 83.94 40.78 81.52 40.78 78.53C40.78 75.55 36.75 73.13 31.77 73.13C26.8 73.13 22.77 75.55 22.77 78.53C22.77 81.52 26.8 83.94 31.77 83.94Z" fill="#EFA5A0"/>
+<path d="M88.22 83.94C93.19 83.94 97.22 81.52 97.22 78.53C97.22 75.55 93.19 73.13 88.22 73.13C83.24 73.13 79.21 75.55 79.21 78.53C79.21 81.52 83.24 83.94 88.22 83.94Z" fill="#EFA5A0"/>
+<ellipse cx="44.27" cy="67.04" rx="3.9" ry="4.5" fill="#49382E"/>
+<ellipse cx="75.49" cy="67.04" rx="3.9" ry="4.5" fill="#49382E"/>
+<path d="M53.27 80.25C57.48 82.65 62.28 82.65 66.48 80.25" stroke="#49382E" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`,
-  caution: `<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="Belly">
-<g id="Sprout">
-<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
-<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
-<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
-</g>
-<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
-<path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
-<path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
-<path id="Vector_4" d="M46 69.2C47.7673 69.2 49.2 67.7673 49.2 66C49.2 64.2327 47.7673 62.8 46 62.8C44.2327 62.8 42.8 64.2327 42.8 66C42.8 67.7673 44.2327 69.2 46 69.2Z" fill="#6B4423"/>
-<path id="Vector_5" d="M74 69.2C75.7673 69.2 77.2 67.7673 77.2 66C77.2 64.2327 75.7673 62.8 74 62.8C72.2327 62.8 70.8 64.2327 70.8 66C70.8 67.7673 72.2327 69.2 74 69.2Z" fill="#6B4423"/>
-<path id="Vector_6" d="M51 80C54 76.6667 57 76.6667 60 80C63 83.3333 66 83.3333 69 80" stroke="#6B4423" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<path id="Vector_7" d="M95 44C99 50 99 54.6667 95 58C91 54.6667 91 50 95 44Z" fill="#A9D3EA" stroke="#6FA6C4" stroke-width="1.5"/>
-</g>
+  caution: `<svg width="120" height="120" viewBox="-2 -2 124 124" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M35.98 99.55C25.77 106.15 26.97 117.56 37.18 118.76C46.19 120.56 50.99 111.56 49.79 104.35L35.98 99.55Z" fill="#FCE3BD" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M70.2 104.35C69.0 111.56 73.8 120.56 82.81 118.76C93.02 117.56 94.22 106.15 84.01 99.55L70.2 104.35Z" fill="#FCE3BD" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M59.39 27.50C43.18 26.3 34.78 14.29 37.18 1.08C53.99 -0.11 64.8 11.89 59.39 27.50Z" fill="#92B971" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M59.39 26.90C54.99 18.49 49.39 11.69 42.58 6.48" stroke="#896347" stroke-width="1.8" stroke-linecap="round"/>
+<path d="M60.0 23.29C81.01 23.29 101.43 44.31 105.03 69.53C109.83 95.95 90.02 110.36 60.0 110.36C29.97 110.36 10.16 95.95 14.96 69.53C18.57 44.31 38.98 23.29 60.0 23.29Z" fill="#FCE3BD" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M24.57 58.12C29.97 41.91 41.98 32.3 52.79 31.10C39.58 39.51 35.38 50.31 32.98 60.52C31.17 67.13 22.17 64.72 24.57 58.12Z" fill="#FFEED6"/>
+<path d="M31.77 83.94C36.75 83.94 40.78 81.52 40.78 78.53C40.78 75.55 36.75 73.13 31.77 73.13C26.8 73.13 22.77 75.55 22.77 78.53C22.77 81.52 26.8 83.94 31.77 83.94Z" fill="#EFA5A0"/>
+<path d="M88.22 83.94C93.19 83.94 97.22 81.52 97.22 78.53C97.22 75.55 93.19 73.13 88.22 73.13C83.24 73.13 79.21 75.55 79.21 78.53C79.21 81.52 83.24 83.94 88.22 83.94Z" fill="#EFA5A0"/>
+<ellipse cx="44.27" cy="67.04" rx="3.9" ry="4.5" fill="#49382E"/>
+<ellipse cx="75.49" cy="67.04" rx="3.9" ry="4.5" fill="#49382E"/>
+<path d="M49.07 82.65C52.07 77.85 55.68 77.85 58.68 82.65C61.68 87.46 65.28 87.46 68.28 82.65" stroke="#49382E" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M96.35 43.03C101.76 50.83 101.76 57.44 96.35 61.04C90.95 57.44 90.95 50.83 96.35 43.03Z" fill="#A9D3EA" stroke="#7FB0CF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`,
-  avoid: `<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="Belly">
-<g id="Sprout">
-<path d="M60 40V24" stroke="#5F6B3A" stroke-width="3" stroke-linecap="round"/>
-<path d="M60 26C50 26 45 20 44 13C53 13 60 17 60 26Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
-<path d="M60 23C62 15 68 11 77 11C77 19 71 23 60 23Z" fill="#A9B87A" stroke="#5F6B3A" stroke-width="2.5" stroke-linejoin="round"/>
-</g>
-<path id="Body" d="M58.2 32.7C78.5 30.9 101.5 45.5 105.2 72C108.9 98.5 91.4 112.2 60 112.2C30.5 112.2 13.9 98.5 15.7 73.8C17.5 50.1 37.9 34.6 58.2 32.7Z" fill="#FCE2BD" stroke="#B9773B" stroke-width="3" stroke-linejoin="round"/>
-<path id="Vector_2" d="M34 82C37.866 82 41 79.7614 41 77C41 74.2386 37.866 72 34 72C30.134 72 27 74.2386 27 77C27 79.7614 30.134 82 34 82Z" fill="#F9A98B" fill-opacity="0.7"/>
-<path id="Vector_3" d="M86 82C89.866 82 93 79.7614 93 77C93 74.2386 89.866 72 86 72C82.134 72 79 74.2386 79 77C79 79.7614 82.134 82 86 82Z" fill="#F9A98B" fill-opacity="0.7"/>
-<path id="Vector_4" d="M38 58L52 54" stroke="#6B4423" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<path id="Vector_5" d="M82 58L68 54" stroke="#6B4423" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<path id="Vector_6" d="M46 70.2C47.7673 70.2 49.2 68.7673 49.2 67C49.2 65.2327 47.7673 63.8 46 63.8C44.2327 63.8 42.8 65.2327 42.8 67C42.8 68.7673 44.2327 70.2 46 70.2Z" fill="#6B4423"/>
-<path id="Vector_7" d="M74 70.2C75.7673 70.2 77.2 68.7673 77.2 67C77.2 65.2327 75.7673 63.8 74 63.8C72.2327 63.8 70.8 65.2327 70.8 67C70.8 68.7673 72.2327 70.2 74 70.2Z" fill="#6B4423"/>
-<path id="Vector_8" d="M53 84C57.6667 78.6667 62.3333 78.6667 67 84" stroke="#6B4423" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<path id="Vector_9" d="M95 44C99 50 99 54.6667 95 58C91 54.6667 91 50 95 44Z" fill="#A9D3EA" stroke="#6FA6C4" stroke-width="1.5"/>
-</g>
+  avoid: `<svg width="120" height="120" viewBox="-2 -2 124 124" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M35.98 99.55C25.77 106.15 26.97 117.56 37.18 118.76C46.19 120.56 50.99 111.56 49.79 104.35L35.98 99.55Z" fill="#FCE3BD" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M70.2 104.35C69.0 111.56 73.8 120.56 82.81 118.76C93.02 117.56 94.22 106.15 84.01 99.55L70.2 104.35Z" fill="#FCE3BD" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M59.39 27.50C43.18 26.3 34.78 14.29 37.18 1.08C53.99 -0.11 64.8 11.89 59.39 27.50Z" fill="#92B971" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M59.39 26.90C54.99 18.49 49.39 11.69 42.58 6.48" stroke="#896347" stroke-width="1.8" stroke-linecap="round"/>
+<path d="M60.0 23.29C81.01 23.29 101.43 44.31 105.03 69.53C109.83 95.95 90.02 110.36 60.0 110.36C29.97 110.36 10.16 95.95 14.96 69.53C18.57 44.31 38.98 23.29 60.0 23.29Z" fill="#FCE3BD" stroke="#896347" stroke-width="3.0" stroke-linejoin="round"/>
+<path d="M24.57 58.12C29.97 41.91 41.98 32.3 52.79 31.10C39.58 39.51 35.38 50.31 32.98 60.52C31.17 67.13 22.17 64.72 24.57 58.12Z" fill="#FFEED6"/>
+<path d="M31.77 83.94C36.75 83.94 40.78 81.52 40.78 78.53C40.78 75.55 36.75 73.13 31.77 73.13C26.8 73.13 22.77 75.55 22.77 78.53C22.77 81.52 26.8 83.94 31.77 83.94Z" fill="#EFA5A0"/>
+<path d="M88.22 83.94C93.19 83.94 97.22 81.52 97.22 78.53C97.22 75.55 93.19 73.13 88.22 73.13C83.24 73.13 79.21 75.55 79.21 78.53C79.21 81.52 83.24 83.94 88.22 83.94Z" fill="#EFA5A0"/>
+<ellipse cx="44.27" cy="67.04" rx="3.9" ry="4.5" fill="#49382E"/>
+<ellipse cx="75.49" cy="67.04" rx="3.9" ry="4.5" fill="#49382E"/>
+<path d="M35.86 56.23L52.67 50.23" stroke="#49382E" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M83.9 56.23L67.08 50.23" stroke="#49382E" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M49.07 86.86C53.87 79.65 63.48 79.65 68.28 86.86" stroke="#49382E" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M96.35 43.03C101.76 50.83 101.76 57.44 96.35 61.04C90.95 57.44 90.95 50.83 96.35 43.03Z" fill="#A9D3EA" stroke="#7FB0CF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`,
 } as const;

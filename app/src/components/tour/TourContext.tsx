@@ -20,12 +20,17 @@ import { TourOverlay } from './TourOverlay';
 
 type Session = { steps: readonly TourStep[]; index: number };
 
-/** Where each tab lives; the tour opens these behind the dimmed layer. */
-const HREF_FOR: Record<TourScreen, '/' | '/history' | '/kitchen' | '/profile'> = {
+/** Where each screen lives; the tour opens these behind the dimmed layer (Profile's two pages are pushed on top of it). */
+const HREF_FOR: Record<
+  TourScreen,
+  '/' | '/history' | '/kitchen' | '/profile' | '/about-you' | '/bellies-things'
+> = {
   today: '/',
   history: '/history',
   kitchen: '/kitchen',
   profile: '/profile',
+  aboutYou: '/about-you',
+  customize: '/bellies-things',
 };
 
 type TourApi = {
