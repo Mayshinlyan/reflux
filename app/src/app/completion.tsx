@@ -8,6 +8,7 @@ import { GrewPage } from '@/components/completion/GrewPage';
 import { StreakPage } from '@/components/completion/StreakPage';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { listCheckIns } from '@/db/repositories/checkIns';
+import { wearItem, wornNow } from '@/lib/bellieItems';
 import { isBellieStage } from '@/lib/bellieStage';
 import { type LogKind, planCompletion } from '@/lib/completionFlow';
 import { summarizeCheckIns } from '@/lib/streak';
@@ -117,7 +118,9 @@ export default function CompletionScreen() {
         <GiftPage
           day={step.day}
           onWear={() => {
-            update('bellieHat', true);
+            // The old yes-or-no hat is folded into the list of what Bellie wears.
+            if (settings.bellieHat) update('bellieHat', false);
+            update('bellieWorn', wearItem(wornNow(settings.bellieWorn, settings.bellieHat), 'hat'));
             markSeen(step.day);
             next();
           }}

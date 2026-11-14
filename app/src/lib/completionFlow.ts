@@ -4,7 +4,7 @@ import type { CheckInSummary } from './streak';
 /** What was just logged: a meal, symptoms (with any lifestyle), or a medication dose. */
 export type LogKind = 'meal' | 'symptoms' | 'dose';
 
-/** The gift days that have art so far; 14 and 30 stay locked on the shelf until their gifts are drawn. */
+/** The days with a gift page: the hat on day 3 and the first report on day 7. The other items unlock quietly (see bellieItems). */
 export const GIFT_DAYS = [3, 7] as const;
 export type GiftDay = (typeof GIFT_DAYS)[number];
 
@@ -40,27 +40,6 @@ export function planCompletion(summary: CheckInSummary, memory: Memory): Step[] 
   const gift = GIFT_DAYS.find((giftDay) => giftDay <= day && !memory.giftsSeen.includes(giftDay));
   if (gift !== undefined) steps.push({ screen: 'gift', day: gift });
   return steps;
-}
-
-/** Shelf on Customize Bellie (Figma G4d): the day each unlocks. Owned once that many check-in days are reached. */
-export const SHELF = [
-  { key: 'hat', name: 'Little hat', day: 3 },
-  { key: 'glasses', name: 'Round glasses', day: 7 },
-  { key: 'scarf', name: 'Cozy scarf', day: 14 },
-  { key: 'surprise', name: 'A surprise', day: 30 },
-] as const;
-
-export type ShelfKey = (typeof SHELF)[number]['key'];
-
-/** Only the gifts that have art and a way to be given are owned; the scarf and surprise stay locked for now. */
-export function isOwned(key: ShelfKey, checkInDays: number): boolean {
-  const item = SHELF.find((entry) => entry.key === key);
-  return item !== undefined && GIFT_DAYS.some((day) => day === item.day) && checkInDays >= item.day;
-}
-
-/** How many gifts are owned, for "2 gifts so far" on Profile. */
-export function giftCount(checkInDays: number): number {
-  return SHELF.filter((item) => isOwned(item.key, checkInDays)).length;
 }
 
 export function titleFor(kind: LogKind): string {

@@ -1,4 +1,4 @@
-import { giftCount, planCompletion, statLineFor, streakHeadline, subtitleFor } from '../completionFlow';
+import { planCompletion, statLineFor, streakHeadline, subtitleFor } from '../completionFlow';
 import type { BellieStage } from '../bellieStage';
 import type { CheckInSummary } from '../streak';
 
@@ -114,11 +114,5 @@ describe('copy', () => {
   it('says welcome back after a gap, never a loss', () => {
     expect(streakHeadline(summary({ returningAfterGap: true, checkInDays: 4 })).title).toBe('Welcome back');
     expect(streakHeadline(summary({ streak: 4 }))).toMatchObject({ big: '4', title: 'days checking in' });
-  });
-});
-
-describe('giftCount', () => {
-  it('owns the hat from day 3 and the glasses from day 7', () => {
-    expect([giftCount(1), giftCount(3), giftCount(6), giftCount(7), giftCount(30)]).toEqual([0, 1, 1, 2, 2]);
   });
 });

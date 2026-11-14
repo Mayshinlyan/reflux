@@ -117,6 +117,17 @@ describe('settings', () => {
     expect(getSetting(db, 'bellieStageSeen')).toBe('kid');
   });
 
+  it('starts Bellie in nothing, stores items one per spot, and rejects the rest', () => {
+    const { db } = createTestDb();
+    expect(getSetting(db, 'bellieWorn')).toEqual([]);
+
+    setSetting(db, 'bellieWorn', ['hat', 'glasses']);
+    expect(getSetting(db, 'bellieWorn')).toEqual(['hat', 'glasses']);
+    expect(() => setSetting(db, 'bellieWorn', ['hat', 'chef'])).toThrow('one per spot');
+    expect(() => setSetting(db, 'bellieWorn', ['cape'] as never)).toThrow('one per spot');
+    expect(getSetting(db, 'bellieWorn')).toEqual(['hat', 'glasses']);
+  });
+
   it('has the check-in reminder off and unasked, stores the offered times, and rejects others', () => {
     const { db } = createTestDb();
     expect(getSetting(db, 'checkInReminderMinutes')).toBeNull();
