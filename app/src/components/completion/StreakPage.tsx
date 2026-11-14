@@ -103,9 +103,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: space.s5,
+    alignSelf: 'center',
   },
-  sprout: { position: 'absolute', top: -20 },
-  number: { transform: [{ scale: 1.8 }], marginTop: space.s2 },
+  sprout: { position: 'absolute', top: -20, alignSelf: 'center' },
+  number: { transform: [{ scale: 1.8 }], textAlign: 'center', includeFontPadding: false },
   title: { marginTop: space.s3, textAlign: 'center' },
   line: { marginTop: space.s1, textAlign: 'center' },
   week: {

@@ -51,8 +51,13 @@ describe('planCompletion', () => {
     ]);
   });
 
-  it('still gives the hat on day 4 if day 3 had no check-in', () => {
-    expect(planCompletion(summary({ checkInDays: 4 }), fresh).at(-1)).toEqual({ screen: 'gift', day: 3 });
+  it('does not hand over the hat late: it is already in Customize Bellie after day 3', () => {
+    expect(screens(summary({ checkInDays: 4 }), fresh)).toEqual(['completion', 'streak']);
+  });
+
+  it('still gives the first report on day 8 if day 7 had no check-in', () => {
+    const seenHat = { ...fresh, giftsSeen: [3] };
+    expect(planCompletion(summary({ checkInDays: 8 }), seenHat).at(-1)).toEqual({ screen: 'gift', day: 7 });
   });
 
   it('keeps ordinary days short', () => {

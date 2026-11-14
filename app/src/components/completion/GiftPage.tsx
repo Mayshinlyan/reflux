@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -7,6 +7,7 @@ import Animated, {
   withDelay,
   withRepeat,
   withSequence,
+  runOnJS,
   withTiming,
   ZoomIn,
 } from 'react-native-reanimated';
@@ -71,28 +72,46 @@ function ClosedGift({ day, onOpen }: { day: GiftDay; onOpen: () => void }) {
       ),
     );
   }, [reduceMotion, tilt]);
-  const wiggle = useAnimatedStyle(() => ({ transform: [{ rotate: `${tilt.value}deg` }] }));
+  const pop = useSharedValue(1);
+  const [opening, setOpening] = useState(false);
+  useEffect(() => {
+    if (!opening) return;
+    pop.value = withSequence(
+      withTiming(0.88, { duration: 90 }),
+      withTiming(1.45, { duration: 200 }, (finished) => {
+        if (finished) runOnJS(onOpen)();
+      }),
+    );
+  }, [opening, pop, onOpen]);
+  const wiggle = useAnimatedStyle(() => ({
+    opacity: pop.value > 1 ? Math.max(0, 2.2 - pop.value * 1.5) : 1,
+    transform: [{ rotate: `${tilt.value}deg` }, { scale: pop.value }],
+  }));
+  // Tapping the gift (or the button) pops it open: it swells and fades as the reveal begins.
+  const open = () => (reduceMotion ? onOpen() : setOpening(true));
 
   return (
-    <CompletionLayout backdrop={<Confetti count={8} />} action={{ label: 'Open it', onPress: onOpen }}>
-      <Animated.View style={wiggle} accessible accessibilityRole="image" accessibilityLabel="A wrapped gift">
-        <Svg width={200} height={200} viewBox="0 0 200 200">
-          <Rect
-            x={28}
-            y={64}
-            width={144}
-            height={112}
-            rx={14}
-            fill={colors.honeyTint}
-            stroke={colors.honey}
-            strokeWidth={2}
-          />
-          <Rect x={20} y={32} width={160} height={44} rx={12} fill={colors.honey} />
-          <Rect x={88} y={32} width={24} height={144} fill={colors.clay} />
-          <Ellipse cx={80} cy={22} rx={23} ry={19} fill={colors.clay} rotation={-20} origin="80, 22" />
-          <Ellipse cx={120} cy={16} rx={23} ry={19} fill={colors.clay} rotation={20} origin="120, 16" />
-        </Svg>
-      </Animated.View>
+    <CompletionLayout backdrop={<Confetti count={8} />} action={{ label: 'Open it', onPress: open }}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Open the gift" onPress={open}>
+        <Animated.View style={wiggle}>
+          <Svg width={200} height={200} viewBox="0 0 200 200">
+            <Rect
+              x={28}
+              y={64}
+              width={144}
+              height={112}
+              rx={14}
+              fill={colors.honeyTint}
+              stroke={colors.honey}
+              strokeWidth={2}
+            />
+            <Rect x={20} y={32} width={160} height={44} rx={12} fill={colors.honey} />
+            <Rect x={88} y={32} width={24} height={144} fill={colors.clay} />
+            <Ellipse cx={80} cy={22} rx={23} ry={19} fill={colors.clay} rotation={-20} origin="80, 22" />
+            <Ellipse cx={120} cy={16} rx={23} ry={19} fill={colors.clay} rotation={20} origin="120, 16" />
+          </Svg>
+        </Animated.View>
+      </Pressable>
       <AppText variant="display" accessibilityRole="header" style={styles.title}>
         Bellie left you a gift
       </AppText>

@@ -36,8 +36,13 @@ export function planCompletion(summary: CheckInSummary, memory: Memory): Step[] 
   if (stageIndex(reached) > stageIndex(memory.stageSeen)) steps.push({ screen: 'grew', stage: reached });
   if ((day === 1 || day === 2) && memory.commitGoal === null) steps.push({ screen: 'commit', mode: 'goal' });
   if (day === 3) steps.push({ screen: 'commit', mode: 'progress' });
-  // The first gift not yet opened that has been reached, so a milestone day with no check-in is not lost.
-  const gift = GIFT_DAYS.find((giftDay) => giftDay <= day && !memory.giftsSeen.includes(giftDay));
+  // The hat is given on its own day only: Customize Bellie lists it from that day on, so a late "gift" would hand over
+  // something already there. The first report is the real payoff, so it is still given if its day had no check-in.
+  const gift = GIFT_DAYS.find(
+    (giftDay) =>
+      !memory.giftsSeen.includes(giftDay) &&
+      (giftDay === day || (giftDay === PATTERN_DAYS && giftDay <= day)),
+  );
   if (gift !== undefined) steps.push({ screen: 'gift', day: gift });
   return steps;
 }
