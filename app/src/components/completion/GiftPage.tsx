@@ -44,7 +44,7 @@ export function GiftPage({ day, onWear, onReport, onDone }: Props) {
         A little hat for Bellie
       </AppText>
       <AppText color="inkSoft" style={styles.line}>
-        Find it any time in Bellie’s things.
+        Find it any time in Customize Bellie.
       </AppText>
     </CompletionLayout>
   ) : (

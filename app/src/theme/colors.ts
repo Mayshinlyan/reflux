@@ -19,6 +19,8 @@ export const lightColors = {
   // Unselected tab icons and footnotes: about 5.7:1 on bg and on surface, 4.8:1 on surface2.
   inkMuted: '#75634F',
   hairline: '#EBDCC2',
+  // The Switch's off track: a neutral grey a step darker than surface 2, so the white thumb still stands out.
+  switchOff: '#D6D0CA',
   // The 1px soft edge on cards, rows, fields, round buttons and the pills that sit on the page (about 1.4:1 on bg):
   // white shapes on the near-white page would otherwise disappear, and it stays faint enough not to look boxed in.
   edge: '#E6D9C0',
@@ -86,6 +88,7 @@ export const darkColors: Palette = {
   inkSoft: '#B3A89D',
   inkMuted: '#7D7268',
   hairline: '#3D362F',
+  switchOff: '#4A433C',
   edge: '#4A4036',
   clay: '#E08260',
   clayInk: '#F2C4B0',

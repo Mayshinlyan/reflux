@@ -42,7 +42,7 @@ export function planCompletion(summary: CheckInSummary, memory: Memory): Step[] 
   return steps;
 }
 
-/** Shelf of Bellie's things (Figma G4d): the day each unlocks. Owned once that many check-in days are reached. */
+/** Shelf on Customize Bellie (Figma G4d): the day each unlocks. Owned once that many check-in days are reached. */
 export const SHELF = [
   { key: 'hat', name: 'Little hat', day: 3 },
   { key: 'glasses', name: 'Round glasses', day: 7 },
