@@ -14,7 +14,7 @@ import { summarizeCheckIns } from '@/lib/streak';
 import { currentTimeZone } from '@/lib/time';
 import { cardEdge, radius, space, useColors } from '@/theme';
 
-/** Bellie's things (Figma G4d): the gifts from check-ins, and the days the next ones unlock. */
+/** Customize Bellie (Figma G4d): the gifts from check-ins, and the days the next ones unlock. */
 export default function BelliesThingsScreen() {
   const colors = useColors();
   const db = useDb();
@@ -43,7 +43,7 @@ export default function BelliesThingsScreen() {
       <BackHeader />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <AppText variant="display" accessibilityRole="header">
-          Bellie&apos;s things
+          Customize Bellie
         </AppText>
         <AppText color="inkSoft" style={styles.sub}>
           Gifts from your check-ins
