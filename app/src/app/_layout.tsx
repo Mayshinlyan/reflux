@@ -16,6 +16,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { BellieStageProvider } from '@/components/belly/BellieStageContext';
 import { CheckInRouter } from '@/components/CheckInRouter';
 import { Screen } from '@/components/Screen';
 import { preloadChing } from '@/lib/ching';
@@ -66,55 +67,57 @@ function RootLayout() {
         <HideSplash />
         <WidgetSync />
         <PendingChecks />
-        <ToastProvider>
-          {/* The app tour is drawn over whatever screen is up (the tabs and their bar), and Settings, which sits
+        <BellieStageProvider>
+          <ToastProvider>
+            {/* The app tour is drawn over whatever screen is up (the tabs and their bar), and Settings, which sits
               outside the tabs, can ask for a replay. */}
-          <TourProvider>
-            {/* Drill-downs (Settings, Entry, Edit, My additions, Favorite foods) push from the side and swipe back
+            <TourProvider>
+              {/* Drill-downs (Settings, Entry, Edit, My additions, Favorite foods) push from the side and swipe back
                 from the edge. Logging slides up as a modal and closes with a swipe down. Tabs and Welcome only
                 cross-fade. */}
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                animation: reduceMotion ? 'none' : 'default',
-                contentStyle: { backgroundColor: lightColors.bg },
-              }}>
-              <Stack.Screen name="(tabs)" options={{ animation: reduceMotion ? 'none' : 'fade' }} />
-              <Stack.Screen
-                name="welcome"
-                options={{ gestureEnabled: false, animation: reduceMotion ? 'none' : 'fade' }}
-              />
-              <Stack.Screen
-                name="log/food"
-                options={({ route }) => ({
-                  // Favorite foods is a list you drill into, not a log.
-                  presentation:
-                    (route.params as { manage?: string } | undefined)?.manage === '1' ? 'card' : 'modal',
-                })}
-              />
-              <Stack.Screen name="log/symptoms" options={{ presentation: 'modal' }} />
-              <Stack.Screen
-                name="log/medication"
-                options={({ route }) => ({
-                  // Managing the list (from About you) is a page you drill into, like Favorite foods; logging a dose is a sheet.
-                  presentation:
-                    (route.params as { manage?: string } | undefined)?.manage === '1' ? 'card' : 'modal',
-                })}
-              />
-              {/* What follows a saved log (completion, streak, goal, gift): full screen, no swipe away. It slides up
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  animation: reduceMotion ? 'none' : 'default',
+                  contentStyle: { backgroundColor: lightColors.bg },
+                }}>
+                <Stack.Screen name="(tabs)" options={{ animation: reduceMotion ? 'none' : 'fade' }} />
+                <Stack.Screen
+                  name="welcome"
+                  options={{ gestureEnabled: false, animation: reduceMotion ? 'none' : 'fade' }}
+                />
+                <Stack.Screen
+                  name="log/food"
+                  options={({ route }) => ({
+                    // Favorite foods is a list you drill into, not a log.
+                    presentation:
+                      (route.params as { manage?: string } | undefined)?.manage === '1' ? 'card' : 'modal',
+                  })}
+                />
+                <Stack.Screen name="log/symptoms" options={{ presentation: 'modal' }} />
+                <Stack.Screen
+                  name="log/medication"
+                  options={({ route }) => ({
+                    // Managing the list (from About you) is a page you drill into, like Favorite foods; logging a dose is a sheet.
+                    presentation:
+                      (route.params as { manage?: string } | undefined)?.manage === '1' ? 'card' : 'modal',
+                  })}
+                />
+                {/* What follows a saved log (completion, streak, goal, gift): full screen, no swipe away. It slides up
                   over the log page rather than fading: a fade lets the page behind show through, so the two overlap. */}
-              <Stack.Screen
-                name="completion"
-                options={{
-                  presentation: 'fullScreenModal',
-                  gestureEnabled: false,
-                  animation: reduceMotion ? 'none' : 'slide_from_bottom',
-                }}
-              />
-            </Stack>
-          </TourProvider>
-          <CheckInRouter />
-        </ToastProvider>
+                <Stack.Screen
+                  name="completion"
+                  options={{
+                    presentation: 'fullScreenModal',
+                    gestureEnabled: false,
+                    animation: reduceMotion ? 'none' : 'slide_from_bottom',
+                  }}
+                />
+              </Stack>
+            </TourProvider>
+            <CheckInRouter />
+          </ToastProvider>
+        </BellieStageProvider>
       </DatabaseProvider>
     </GestureHandlerRootView>
   );

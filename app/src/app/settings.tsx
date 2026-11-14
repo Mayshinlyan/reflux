@@ -195,7 +195,7 @@ export default function SettingsScreen() {
           <>
             {/* Development builds only: plays the completion pages as a given day, so each can be seen. */}
             <SectionTitle>Preview (development only)</SectionTitle>
-            {[1, 3, 7].map((day) => (
+            {[1, 3, 7, 30, 90, 180, 365].map((day) => (
               <SettingsRow
                 key={day}
                 icon={Leaf}
