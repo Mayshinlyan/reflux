@@ -7,7 +7,7 @@ import type { AppDb } from '@/db/types';
 
 let mockDb: AppDb;
 let closeDb: () => void;
-let mockParams: { preview?: string } = {};
+let mockParams: { preview?: string; gift?: string } = {};
 
 // A small stand-in for the real provider's settings hook, backed by the real repository, so a save re-renders.
 const mockListeners = new Set<() => void>();
@@ -129,6 +129,23 @@ describe('Customize Bellie', () => {
 
     expect(worn()).toEqual([]);
     expect(screen.queryByRole('button', { name: 'Take it all off' })).toBeNull();
+  });
+
+  it('shows a gift box instead of the hat until the gift has been opened', async () => {
+    mockParams = { preview: '5', gift: '1' };
+    await render(<CustomizeBellieScreen />);
+
+    expect(screen.getByRole('button', { name: 'A gift from Bellie, tap to open' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Little hat' })).toBeNull();
+  });
+
+  it('shows the hat itself once the gift has been opened', async () => {
+    setSetting(mockDb, 'giftsSeen', [3]);
+    mockParams = { preview: '5', gift: '1' };
+    await render(<CustomizeBellieScreen />);
+
+    expect(screen.queryByRole('button', { name: 'A gift from Bellie, tap to open' })).toBeNull();
+    expect(tile('Little hat')).toBeTruthy();
   });
 
   it('does nothing for a locked item', async () => {

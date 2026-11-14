@@ -10,6 +10,7 @@ import { BackHeader } from '@/components/BackHeader';
 import { Belly } from '@/components/Belly';
 import { useBellieStage } from '@/components/belly/BellieStageContext';
 import { ITEM_ART } from '@/components/belly/items';
+import { GiftBox } from '@/components/completion/GiftBox';
 import { Screen } from '@/components/Screen';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { listCheckIns } from '@/db/repositories/checkIns';
@@ -29,6 +30,7 @@ import { currentTimeZone } from '@/lib/time';
 import { cardEdge, radius, selectedEdge, selectedFill, space, useColors } from '@/theme';
 
 const TILE = 84;
+const HAT_GIFT_DAY = 3;
 const STAGE_BELLIE = 264;
 
 /**
@@ -43,13 +45,18 @@ export default function CustomizeBellieScreen() {
   const db = useDb();
   const { settings, update } = useSettings();
   const stage = useBellieStage();
-  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const { preview, gift } = useLocalSearchParams<{ preview?: string; gift?: string }>();
 
   const days = useMemo(() => {
     const pretend = __DEV__ ? Number(preview) : NaN;
     if (Number.isInteger(pretend) && pretend >= 1) return pretend;
     return summarizeCheckIns(listCheckIns(db), new Date(), currentTimeZone()).checkInDays;
   }, [db, preview]);
+
+  // The hat is a gift (day 3). Until it has been opened, Customize Bellie shows the gift box in its place. Pretend days
+  // (`?preview=`) skip this unless `&gift=1` asks for it.
+  const hatBoxed =
+    isOwned('hat', days) && !settings.giftsSeen.includes(HAT_GIFT_DAY) && (!preview || gift === '1');
 
   const worn = wornNow(settings.bellieWorn, settings.bellieHat);
   const owned = ITEM_KEYS.filter((key) => isOwned(key, days));
@@ -66,6 +73,21 @@ export default function CustomizeBellieScreen() {
   const toggle = (key: ItemKey) => save(worn.includes(key) ? takeOff(worn, key) : wearItem(worn, key));
 
   const tile = (key: ItemKey, state: 'on' | 'off' | 'locked') => {
+    if (key === 'hat' && hatBoxed) {
+      return (
+        <View key={key} style={[styles.tile, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+          <GiftBox
+            size={64}
+            wiggle
+            accessibilityLabel="A gift from Bellie, tap to open"
+            onOpen={() => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+              update('giftsSeen', [...settings.giftsSeen, HAT_GIFT_DAY]);
+            }}
+          />
+        </View>
+      );
+    }
     const art = ITEM_ART[key];
     const k = Math.min(60 / art.width, 52 / art.height);
     const remaining = daysUntil(key, days);

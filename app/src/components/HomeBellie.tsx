@@ -6,6 +6,8 @@ import { useBellyJiggle } from '@/hooks/useBellyJiggle';
 import { type BellyMood } from '@/lib/belly';
 
 import { Belly } from './Belly';
+import { useBellieStage } from './belly/BellieStageContext';
+import { bellyLayout } from './belly/stages';
 import { SpeechBubble } from './SpeechBubble';
 import { useTourTarget } from './tour/TourContext';
 
@@ -26,6 +28,8 @@ type Props = {
  * squashes and tilts under a finger, with a tap on touch-down, and jiggles as the Food screen opens.
  */
 export function HomeBellie({ line, mood, onPress }: Props) {
+  // The art stands on the bottom of its square box, so a shorter stage leaves empty room above; pull Bellie up into it.
+  const headroom = bellyLayout(useBellieStage(), BELLY_SIZE).top;
   const jiggle = useBellyJiggle(BELLY_SIZE, BELLY_SIZE);
   // The app tour spotlights her with her bubble.
   const tourTarget = useTourTarget('bellie');
@@ -54,7 +58,7 @@ export function HomeBellie({ line, mood, onPress }: Props) {
         <View style={styles.bubble}>
           <SpeechBubble card tail="down" text={line} />
         </View>
-        <Animated.View style={jiggle.style}>
+        <Animated.View style={[jiggle.style, { marginTop: -headroom }]}>
           <Belly mood={mood} size={BELLY_SIZE} />
         </Animated.View>
       </View>

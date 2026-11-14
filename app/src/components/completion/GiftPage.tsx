@@ -1,17 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  runOnJS,
-  withTiming,
-  ZoomIn,
-} from 'react-native-reanimated';
-import Svg, { Ellipse, Rect } from 'react-native-svg';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import Animated, { useReducedMotion, ZoomIn } from 'react-native-reanimated';
 
 import { AppText } from '@/components/AppText';
 import type { GiftDay } from '@/lib/completionFlow';
@@ -19,6 +8,7 @@ import { cardEdge, radius, space, useColors } from '@/theme';
 
 import { CompletionLayout } from './CompletionLayout';
 import { Confetti } from './Confetti';
+import { GiftBox } from './GiftBox';
 import { HoppingBelly } from './HoppingBelly';
 
 type Props = {
@@ -54,64 +44,9 @@ export function GiftPage({ day, onWear, onReport, onDone }: Props) {
 }
 
 function ClosedGift({ day, onOpen }: { day: GiftDay; onOpen: () => void }) {
-  const colors = useColors();
-  const reduceMotion = useReducedMotion();
-  const tilt = useSharedValue(0);
-  useEffect(() => {
-    if (reduceMotion) return;
-    tilt.value = withDelay(
-      400,
-      withRepeat(
-        withSequence(
-          withTiming(-5, { duration: 120 }),
-          withTiming(5, { duration: 120 }),
-          withTiming(0, { duration: 120 }),
-          withDelay(900, withTiming(0, { duration: 1 })),
-        ),
-        -1,
-      ),
-    );
-  }, [reduceMotion, tilt]);
-  const pop = useSharedValue(1);
-  const [opening, setOpening] = useState(false);
-  useEffect(() => {
-    if (!opening) return;
-    pop.value = withSequence(
-      withTiming(0.88, { duration: 90 }),
-      withTiming(1.45, { duration: 200 }, (finished) => {
-        if (finished) runOnJS(onOpen)();
-      }),
-    );
-  }, [opening, pop, onOpen]);
-  const wiggle = useAnimatedStyle(() => ({
-    opacity: pop.value > 1 ? Math.max(0, 2.2 - pop.value * 1.5) : 1,
-    transform: [{ rotate: `${tilt.value}deg` }, { scale: pop.value }],
-  }));
-  // Tapping the gift (or the button) pops it open: it swells and fades as the reveal begins.
-  const open = () => (reduceMotion ? onOpen() : setOpening(true));
-
   return (
-    <CompletionLayout backdrop={<Confetti count={8} />} action={{ label: 'Open it', onPress: open }}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Open the gift" onPress={open}>
-        <Animated.View style={wiggle}>
-          <Svg width={200} height={200} viewBox="0 0 200 200">
-            <Rect
-              x={28}
-              y={64}
-              width={144}
-              height={112}
-              rx={14}
-              fill={colors.honeyTint}
-              stroke={colors.honey}
-              strokeWidth={2}
-            />
-            <Rect x={20} y={32} width={160} height={44} rx={12} fill={colors.honey} />
-            <Rect x={88} y={32} width={24} height={144} fill={colors.clay} />
-            <Ellipse cx={80} cy={22} rx={23} ry={19} fill={colors.clay} rotation={-20} origin="80, 22" />
-            <Ellipse cx={120} cy={16} rx={23} ry={19} fill={colors.clay} rotation={20} origin="120, 16" />
-          </Svg>
-        </Animated.View>
-      </Pressable>
+    <CompletionLayout backdrop={<Confetti count={8} />} action={{ label: 'Open it', onPress: onOpen }}>
+      <GiftBox wiggle onOpen={onOpen} />
       <AppText variant="display" accessibilityRole="header" style={styles.title}>
         Bellie left you a gift
       </AppText>
