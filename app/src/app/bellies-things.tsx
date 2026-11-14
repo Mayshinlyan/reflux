@@ -129,18 +129,21 @@ export default function CustomizeBellieScreen() {
           {locked.map((key) => tile(key, 'locked'))}
         </ScrollView>
 
-        {worn.length > 0 && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Take it all off"
-            onPress={() => save([])}
-            hitSlop={8}
-            style={({ pressed }) => [styles.off, { opacity: pressed ? 0.6 : 1 }]}>
-            <AppText variant="bodyEm" color="cta">
-              Take it all off
-            </AppText>
-          </Pressable>
-        )}
+        {/* Always takes its room, so the stage and the tray do not jump when the first item goes on. */}
+        <View style={styles.offSlot}>
+          {worn.length > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Take it all off"
+              onPress={() => save([])}
+              hitSlop={8}
+              style={({ pressed }) => [styles.off, { opacity: pressed ? 0.6 : 1 }]}>
+              <AppText variant="bodyEm" color="cta">
+                Take it all off
+              </AppText>
+            </Pressable>
+          )}
+        </View>
       </ScrollView>
     </Screen>
   );
@@ -170,5 +173,6 @@ const styles = StyleSheet.create({
   },
   left: { textAlign: 'center' },
   divider: { width: 1, height: 60, marginHorizontal: space.s1 },
-  off: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', marginTop: space.s3 },
+  offSlot: { height: 44, marginTop: space.s3, alignItems: 'center', justifyContent: 'center' },
+  off: { minHeight: 44, justifyContent: 'center' },
 });

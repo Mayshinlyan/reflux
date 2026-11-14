@@ -9,7 +9,7 @@ import { Belly } from './Belly';
 import { SpeechBubble } from './SpeechBubble';
 import { useTourTarget } from './tour/TourContext';
 
-const BELLY_SIZE = 160;
+const BELLY_SIZE = 200;
 /** The bubble wraps long lines inside this width (Figma 02f). */
 const BUBBLE_MAX = 280;
 

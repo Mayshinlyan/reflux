@@ -115,9 +115,9 @@ export function itemRect(key: ItemKey, layout: BellyLayout): ItemRect {
   const ex = (layout.eyes.left + layout.eyes.right) / 2;
   const ey = layout.eyes.y;
   const origin: Record<ItemKey, [number, number]> = {
-    hat: [cx - 60 * s, top + 4 * s - 66 * s],
-    chef: [cx - 60 * s, top + 14 * s - 88 * s],
-    night: [cx - 65 * s, top + 12 * s - 78 * s],
+    hat: [cx - 60 * s, top + 16 * s - 66 * s],
+    chef: [cx - 60 * s, top + 24 * s - 88 * s],
+    night: [cx - 65 * s, top + 22 * s - 78 * s],
     phones: [cx - 80 * s, ey - 51 * s],
     glasses: [ex - 35 * s, ey - 15 * s],
     shades: [ex - 36 * s, ey - 13 * s],

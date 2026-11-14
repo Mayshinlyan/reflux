@@ -39,7 +39,7 @@ export function GiftPage({ day, onWear, onReport, onDone }: Props) {
       backdrop={<Confetti />}
       action={{ label: 'Put it on', onPress: onWear }}
       quiet={{ label: 'Later', onPress: onDone }}>
-      <HoppingBelly forceHat shadow />
+      <HoppingBelly forceHat shadow size={240} />
       <AppText variant="display" accessibilityRole="header" style={styles.title}>
         A little hat for Bellie
       </AppText>
