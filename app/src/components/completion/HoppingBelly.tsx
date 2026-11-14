@@ -11,8 +11,10 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Belly } from '@/components/Belly';
-import { BELLY_BODY } from '@/components/belly/moods';
+import { useBellieStage } from '@/components/belly/BellieStageContext';
+import { bellyLayout } from '@/components/belly/stages';
 import { useSettings } from '@/db/DatabaseProvider';
+import type { BellieStage } from '@/lib/bellieStage';
 import { useColors } from '@/theme';
 
 import { BellieHat } from './BellieHat';
@@ -25,12 +27,16 @@ type Props = {
   forceHat?: boolean;
   /** A soft floor shadow under it (Figma G1). */
   shadow?: boolean;
+  /** Draws this stage instead of the one Bellie has reached (the "Bellie grew" page). */
+  stage?: BellieStage;
 };
 
 /** Bellie for the completion flow: it hops once, and wears the hat once "Put it on" was chosen. */
-export function HoppingBelly({ size = 168, hop = false, forceHat = false, shadow = false }: Props) {
+export function HoppingBelly({ size = 168, hop = false, forceHat = false, shadow = false, stage }: Props) {
   const colors = useColors();
   const { settings } = useSettings();
+  const current = useBellieStage();
+  const shown = stage ?? current;
   const reduceMotion = useReducedMotion();
   const lift = useSharedValue(0);
 
@@ -44,24 +50,25 @@ export function HoppingBelly({ size = 168, hop = false, forceHat = false, shadow
 
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: lift.value }] }));
   // The hat sits on the body's top: 90% of its width, its brim (66 of its 120 units down) just inside the top edge.
-  const scale = size / 120;
-  const hatWidth = BELLY_BODY.width * scale * 0.9;
-  const hatTop = (BELLY_BODY.y + 3) * scale - (hatWidth * 66) / 120;
+  const layout = bellyLayout(shown, size);
+  const hatWidth = layout.body.width * 0.9;
+  const hatTop = layout.body.y + 3 * layout.scale - (hatWidth * 66) / 120;
+  const hatLeft = layout.body.x + (layout.body.width - hatWidth) / 2;
   const hatShown = forceHat || settings.bellieHat;
 
   return (
     <View style={{ alignItems: 'center' }}>
       <Animated.View style={[{ width: size, height: size }, style]}>
-        <Belly size={size} />
+        <Belly size={size} stage={shown} />
         {hatShown && (
-          <View style={[styles.hat, { top: hatTop, left: (size - hatWidth) / 2 }]}>
+          <View style={[styles.hat, { top: hatTop, left: hatLeft }]}>
             <BellieHat size={hatWidth} />
           </View>
         )}
       </Animated.View>
       {shadow && (
         <View
-          style={[styles.shadow, { width: size * 0.71, backgroundColor: colors.surface2 }]}
+          style={[styles.shadow, { width: layout.width * 0.8, backgroundColor: colors.surface2 }]}
           importantForAccessibility="no-hide-descendants"
         />
       )}

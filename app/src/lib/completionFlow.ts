@@ -1,3 +1,4 @@
+import { type BellieStage, stageForDays, stageIndex } from './bellieStage';
 import type { CheckInSummary } from './streak';
 
 /** What was just logged: a meal, symptoms (with any lifestyle), or a medication dose. */
@@ -13,15 +14,17 @@ export const PATTERN_DAYS = 7;
 export type Step =
   | { screen: 'completion' }
   | { screen: 'streak' }
+  | { screen: 'grew'; stage: BellieStage }
   | { screen: 'commit'; mode: 'goal' | 'progress' }
   | { screen: 'gift'; day: GiftDay };
 
-type Memory = { commitGoal: number | null; giftsSeen: number[] };
+type Memory = { commitGoal: number | null; giftsSeen: number[]; stageSeen: BellieStage };
 
 /**
  * Which screens follow a saved log (Figma G5): the completion always; the rest only on the first check-in of the
- * day, so a second log that day is just the completion. Goal on days 1 and 2 until one is picked, progress on day 3,
- * a gift on day 3 (the hat) and day 7 (the first report), each once.
+ * day, so a second log that day is just the completion. When the check-in days reach a new growth stage, Bellie grows
+ * (the "grew" page, after the streak). Goal on days 1 and 2 until one is picked, progress on day 3, a gift on day 3
+ * (the hat) and day 7 (the first report), each once.
  */
 export function planCompletion(summary: CheckInSummary, memory: Memory): Step[] {
   const steps: Step[] = [{ screen: 'completion' }];
@@ -29,6 +32,8 @@ export function planCompletion(summary: CheckInSummary, memory: Memory): Step[] 
 
   steps.push({ screen: 'streak' });
   const day = summary.checkInDays;
+  const reached = stageForDays(day);
+  if (stageIndex(reached) > stageIndex(memory.stageSeen)) steps.push({ screen: 'grew', stage: reached });
   if ((day === 1 || day === 2) && memory.commitGoal === null) steps.push({ screen: 'commit', mode: 'goal' });
   if (day === 3) steps.push({ screen: 'commit', mode: 'progress' });
   // The first gift not yet opened that has been reached, so a milestone day with no check-in is not lost.

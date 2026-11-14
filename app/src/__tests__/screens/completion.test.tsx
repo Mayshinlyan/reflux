@@ -1,17 +1,19 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { eq } from 'drizzle-orm';
 
 import CompletionScreen from '@/app/completion';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createUncheckedMeal } from '@/db/repositories/food';
 import { logMedication, createMedication } from '@/db/repositories/medications';
 import { getAllSettings, getSetting, setSetting } from '@/db/repositories/settings';
+import { foodLogs } from '@/db/schema';
 import type { AppDb } from '@/db/types';
 
 const mockGetAll = getAllSettings;
 const mockSet = setSetting;
 let mockDb: AppDb;
 let closeDb: () => void;
-let mockParams: { kind?: string; id?: string; note?: string } = {};
+let mockParams: { kind?: string; id?: string; note?: string; preview?: string } = {};
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
 
@@ -84,6 +86,42 @@ describe('Completion flow', () => {
     await press('Continue');
 
     expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('grows Bellie on the first check-in after a milestone, and keeps the stage once seen', async () => {
+    mockParams = { kind: 'meal', preview: '90' };
+    await render(<CompletionScreen />);
+    await press('Continue'); // the completion
+    await press('Continue'); // the streak
+
+    expect(screen.getByRole('header', { name: 'Bellie is a kid now' })).toBeTruthy();
+    expect(screen.getByText('90 days of check-ins')).toBeTruthy();
+    await press('Continue');
+    // The gift for day 3 follows; a preview saves nothing into the real settings.
+    expect(screen.getByRole('header', { name: 'Bellie left you a gift' })).toBeTruthy();
+    expect(getSetting(mockDb, 'bellieStageSeen')).toBe('baby');
+  });
+
+  it('saves the stage once the grew page is left, outside a preview', async () => {
+    mockParams = { kind: 'meal' };
+    // Thirty days in a row, the last one today: this log is the 30th check-in day.
+    setSetting(mockDb, 'giftsSeen', [3, 7]);
+    for (let day = 0; day < 30; day++) {
+      const id = createUncheckedMeal(mockDb, { source: 'text', inputText: `Oatmeal ${day}` });
+      // Noon of each earlier local day (not exact 24h steps, which a clock change would shift across midnight).
+      const today = new Date();
+      const at = (
+        day === 0 ? today : new Date(today.getFullYear(), today.getMonth(), today.getDate() - day, 12)
+      ).toISOString();
+      mockDb.update(foodLogs).set({ createdAt: at }).where(eq(foodLogs.id, id)).run();
+    }
+    await render(<CompletionScreen />);
+    await press('Continue');
+    await press('Continue');
+
+    expect(screen.getByRole('header', { name: 'Bellie is growing up' })).toBeTruthy();
+    await press('Continue');
+    expect(getSetting(mockDb, 'bellieStageSeen')).toBe('little');
   });
 
   it('offers Change time on a dose, which opens that dose to edit', async () => {

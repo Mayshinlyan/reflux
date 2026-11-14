@@ -4,9 +4,11 @@ import { useMemo, useState } from 'react';
 import { CommitGoalPage, CommitProgressPage, type Goal } from '@/components/completion/CommitPage';
 import { CompletionPage } from '@/components/completion/CompletionPage';
 import { GiftPage } from '@/components/completion/GiftPage';
+import { GrewPage } from '@/components/completion/GrewPage';
 import { StreakPage } from '@/components/completion/StreakPage';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { listCheckIns } from '@/db/repositories/checkIns';
+import { isBellieStage } from '@/lib/bellieStage';
 import { type LogKind, planCompletion } from '@/lib/completionFlow';
 import { summarizeCheckIns } from '@/lib/streak';
 import { currentTimeZone } from '@/lib/time';
@@ -36,11 +38,18 @@ export default function CompletionScreen() {
     const day = __DEV__ ? Number(params.preview) : NaN;
     if (Number.isInteger(day) && day >= 1) {
       const result = { ...real, todayCount: 1, checkInDays: day, streak: day, returningAfterGap: false };
-      return { summary: result, steps: planCompletion(result, { commitGoal: null, giftsSeen: [] }) };
+      return {
+        summary: result,
+        steps: planCompletion(result, { commitGoal: null, giftsSeen: [], stageSeen: 'baby' }),
+      };
     }
     return {
       summary: real,
-      steps: planCompletion(real, { commitGoal: settings.commitGoal, giftsSeen: settings.giftsSeen }),
+      steps: planCompletion(real, {
+        commitGoal: settings.commitGoal,
+        giftsSeen: settings.giftsSeen,
+        stageSeen: isBellieStage(settings.bellieStageSeen) ? settings.bellieStageSeen : 'baby',
+      }),
     };
   });
   const [index, setIndex] = useState(0);
@@ -79,6 +88,16 @@ export default function CompletionScreen() {
   switch (step.screen) {
     case 'streak':
       return <StreakPage summary={summary} onContinue={next} />;
+    case 'grew':
+      return (
+        <GrewPage
+          stage={step.stage}
+          onContinue={() => {
+            update('bellieStageSeen', step.stage);
+            next();
+          }}
+        />
+      );
     case 'commit':
       return step.mode === 'goal' ? (
         <CommitGoalPage

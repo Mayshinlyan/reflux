@@ -107,6 +107,16 @@ describe('settings', () => {
     expect(getAllSettings(db)).toMatchObject({ bedtime: '21:45', petName: 'Biscuit', onboardingDone: true });
   });
 
+  it('starts Bellie as a Baby, stores a growth stage, and rejects anything else', () => {
+    const { db } = createTestDb();
+    expect(getSetting(db, 'bellieStageSeen')).toBe('baby');
+
+    setSetting(db, 'bellieStageSeen', 'kid');
+    expect(getSetting(db, 'bellieStageSeen')).toBe('kid');
+    expect(() => setSetting(db, 'bellieStageSeen', 'toddler' as never)).toThrow('Unknown Bellie stage');
+    expect(getSetting(db, 'bellieStageSeen')).toBe('kid');
+  });
+
   it('has the check-in reminder off and unasked, stores the offered times, and rejects others', () => {
     const { db } = createTestDb();
     expect(getSetting(db, 'checkInReminderMinutes')).toBeNull();

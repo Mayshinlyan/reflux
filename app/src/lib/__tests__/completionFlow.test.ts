@@ -1,4 +1,5 @@
 import { giftCount, planCompletion, statLineFor, streakHeadline, subtitleFor } from '../completionFlow';
+import type { BellieStage } from '../bellieStage';
 import type { CheckInSummary } from '../streak';
 
 const summary = (over: Partial<CheckInSummary> = {}): CheckInSummary => ({
@@ -11,7 +12,11 @@ const summary = (over: Partial<CheckInSummary> = {}): CheckInSummary => ({
   todayByKind: { meals: 1, symptoms: 0, doses: 0 },
   ...over,
 });
-const fresh: { commitGoal: number | null; giftsSeen: number[] } = { commitGoal: null, giftsSeen: [] };
+const fresh: { commitGoal: number | null; giftsSeen: number[]; stageSeen: BellieStage } = {
+  commitGoal: null,
+  giftsSeen: [],
+  stageSeen: 'baby',
+};
 const screens = (s: CheckInSummary, memory = fresh) => planCompletion(s, memory).map((step) => step.screen);
 
 describe('planCompletion', () => {
@@ -52,6 +57,34 @@ describe('planCompletion', () => {
 
   it('keeps ordinary days short', () => {
     expect(screens(summary({ checkInDays: 5 }), { ...fresh, giftsSeen: [3] })).toEqual([
+      'completion',
+      'streak',
+    ]);
+  });
+});
+
+describe('planCompletion: Bellie grows', () => {
+  it('shows the grew page after the streak on the first check-in that reaches a new stage', () => {
+    const steps = planCompletion(summary({ checkInDays: 30 }), { ...fresh, giftsSeen: [3, 7] });
+    expect(steps.map((step) => step.screen)).toEqual(['completion', 'streak', 'grew']);
+    expect(steps[2]).toEqual({ screen: 'grew', stage: 'little' });
+  });
+
+  it('shows it once: nothing more when the stage was already seen', () => {
+    expect(
+      screens(summary({ checkInDays: 45 }), { ...fresh, giftsSeen: [3, 7], stageSeen: 'little' }),
+    ).toEqual(['completion', 'streak']);
+  });
+
+  it('jumps to the newest stage reached when several were skipped, and not on a later log of the day', () => {
+    const steps = planCompletion(summary({ checkInDays: 400 }), { ...fresh, giftsSeen: [3, 7] });
+    expect(steps.map((step) => step.screen)).toContain('grew');
+    expect(steps.find((step) => step.screen === 'grew')).toEqual({ screen: 'grew', stage: 'adult' });
+    expect(screens(summary({ checkInDays: 400, todayCount: 2 }))).toEqual(['completion']);
+  });
+
+  it('never grows back down', () => {
+    expect(screens(summary({ checkInDays: 10 }), { ...fresh, giftsSeen: [3, 7], stageSeen: 'kid' })).toEqual([
       'completion',
       'streak',
     ]);
