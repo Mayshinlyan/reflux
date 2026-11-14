@@ -237,3 +237,50 @@ export function issuePaths(error: z.ZodError): string[] {
 export function issueCodes(error: z.ZodError): string[] {
   return [...new Set(error.issues.map((issue) => issue.code))];
 }
+
+/** The symptom names the app can store as built-in keys; the voice prompt offers these first. */
+export const VOICE_SYMPTOM_KEYS = [
+  'hoarseness',
+  'throat_clearing',
+  'mucus',
+  'swallowing',
+  'cough_after_eating',
+  'breathing',
+  'cough',
+  'lump',
+  'heartburn',
+  'burping',
+  'stomach_pain',
+  'feeling_full',
+  'constipation',
+] as const;
+
+/**
+ * What the app sends beside a spoken log's audio (a JSON string in the `context` field): the phone's clock and
+ * zone so "around eight" can become a time, and short lists of the person's own foods and symptoms, which help
+ * the speech model spell them. Nothing else. Unknown fields are rejected.
+ */
+export const voiceContextSchema = z.strictObject({
+  now: z.iso.datetime({ offset: true }),
+  tz: z.string().min(1).max(64).transform(sanitizeFoodText),
+  foods: z.array(label(60)).max(40).default([]),
+  symptoms: z.array(label(40)).max(20).default([]),
+});
+
+export type VoiceContext = z.infer<typeof voiceContextSchema>;
+
+/** What Claude pulls out of the transcript. A symptom is a built-in key, or the person's own words (max 40). */
+export const voiceExtractSchema = z.strictObject({
+  foods: z.array(z.string().min(1).max(60)).max(8),
+  symptoms: z.array(z.string().min(1).max(40)).max(6),
+  /** When the food was eaten, as an ISO time with offset; null means "just now". */
+  at: z.iso.datetime({ offset: true }).nullable(),
+});
+
+export type VoiceExtract = z.infer<typeof voiceExtractSchema>;
+
+/** JSON Schema handed to Claude as the voice tool's input schema. */
+export function voiceExtractJsonSchema() {
+  const { $schema: _ignored, ...schema } = z.toJSONSchema(voiceExtractSchema) as Record<string, unknown>;
+  return schema as { type: 'object'; [key: string]: unknown };
+}

@@ -23,6 +23,15 @@ const envSchema = z
     PER_USER_DAILY_RECIPE_LIMIT: z.coerce.number().int().positive().default(15),
     /** Fridge scans (one to three photos each) per person per day. Its own counter; each scan is an image call. */
     PER_USER_DAILY_FRIDGE_LIMIT: z.coerce.number().int().positive().default(5),
+    /** Spoken logs per person per day. Its own counter; each one is a speech call plus an AI call. */
+    PER_USER_DAILY_VOICE_LIMIT: z.coerce.number().int().positive().default(20),
+    /**
+     * The speech-to-text provider: any service with an OpenAI-style `/audio/transcriptions` endpoint (hosted
+     * Whisper, OpenAI, or our own). Without a key, spoken logs report busy. The key is a secret; never logged.
+     */
+    STT_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
+    STT_API_KEY: z.string().min(1).optional(),
+    STT_MODEL: z.string().min(1).default('whisper-1'),
     /** Feedback messages per person per day; no AI cost, so it never counts toward the AI breaker above. */
     PER_USER_DAILY_FEEDBACK_LIMIT: z.coerce.number().int().positive().default(5),
     /** A daily ceiling on feedback from everyone, because anonymous sign-in makes a per-person cap easy to dodge. */
