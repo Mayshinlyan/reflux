@@ -25,8 +25,10 @@ describe('itemRect', () => {
         // The brim is inside the body's top and the crown above it.
         expect(rect.top).toBeLessThan(layout.body.y);
         expect(rect.top + rect.height).toBeGreaterThan(layout.body.y);
-        expect(rect.left).toBeGreaterThan(layout.body.x - 1);
-        expect(rect.left + rect.width).toBeLessThan(layout.body.x + layout.body.width + 1);
+        // A hat is a little wider than the body (it covers the sprout), but not by much.
+        const overhang = layout.body.width * 0.2;
+        expect(rect.left).toBeGreaterThan(layout.body.x - overhang);
+        expect(rect.left + rect.width).toBeLessThan(layout.body.x + layout.body.width + overhang);
       }
     }
   });
@@ -59,10 +61,10 @@ describe('itemRect', () => {
     }
   });
 
-  it('scales with the body it is on: the hat is 90% of the body wide at every stage', () => {
+  it('scales with the body it is on: the hat is about 1.1 body widths at every stage', () => {
     for (const stage of BELLIE_STAGES) {
       const layout = bellyLayout(stage, 200);
-      expect(itemRect('hat', layout).width / layout.body.width).toBeCloseTo(0.9, 1);
+      expect(itemRect('hat', layout).width / layout.body.width).toBeCloseTo(1.12, 1);
     }
   });
 });

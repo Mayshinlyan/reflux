@@ -21,10 +21,10 @@ export const ITEM_ART: Record<ItemKey, Art> = {
     width: 120,
     height: 100,
     xml: `<svg width="120" height="100" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-<circle cx="28" cy="40" r="21" fill="white" stroke="#E6D9C0" stroke-width="2"/>
-<circle cx="92" cy="40" r="21" fill="white" stroke="#E6D9C0" stroke-width="2"/>
-<circle cx="60" cy="28" r="25" fill="white" stroke="#E6D9C0" stroke-width="2"/>
-<rect x="15" y="63" width="90" height="24" rx="7" fill="white" stroke="#E6D9C0" stroke-width="2"/>
+<path d="M26 72C8 72 4 42 26 38C22 16 48 6 60 20C72 6 98 16 94 38C116 42 112 72 94 72Z" fill="white" stroke="#C9B48F" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M44 72C42 62 42 54 44 46M60 72C60 62 60 52 60 42M76 72C78 62 78 54 76 46" stroke="#C9B48F" stroke-width="2.5" stroke-linecap="round"/>
+<rect x="22" y="70" width="76" height="24" rx="6" fill="white" stroke="#C9B48F" stroke-width="2.5"/>
+<path d="M30 82H90" stroke="#C9B48F" stroke-width="2.5" stroke-linecap="round"/>
 </svg>`,
   },
   night: {
@@ -100,6 +100,9 @@ export const ITEM_DRAW_ORDER: readonly ItemKey[] = [
   'shades',
 ];
 
+/** How much bigger than drawn the little hat and the chef hat are put on (a hat is then about 1.1 body widths). */
+const HAT_GROW = 1.25;
+
 export type ItemRect = { left: number; top: number; width: number; height: number };
 
 /**
@@ -124,7 +127,13 @@ export function itemRect(key: ItemKey, layout: BellyLayout): ItemRect {
     bow: [cx - 22 * s, ey + 41 * s],
     scarf: [cx - 63 * s, ey + 31 * s],
   };
-  const [left, drawnTop] = origin[key];
+  let [left, drawnTop] = origin[key];
+  // The hats are drawn a little bigger than the body, so they cover where the sprout was and sit snug on the head.
+  const grow = key === 'hat' || key === 'chef' ? HAT_GROW : 1;
+  if (grow !== 1) {
+    left -= ((grow - 1) * art.width * s) / 2;
+    drawnTop -= (grow - 1) * art.height * s;
+  }
   // The neck items were placed for a tall body: on a short one (a baby) they would hang past its bottom edge, so the
   // band is held on the body. Their tails (the scarf's) still hang below, over the feet.
   const band = (key === 'scarf' ? 26 : art.height) * s;
@@ -132,5 +141,5 @@ export function itemRect(key: ItemKey, layout: BellyLayout): ItemRect {
     key === 'scarf' || key === 'bow'
       ? Math.min(drawnTop, layout.body.y + layout.body.height - band * 1.1)
       : drawnTop;
-  return { left, top: y, width: art.width * s, height: art.height * s };
+  return { left, top: y, width: art.width * s * grow, height: art.height * s * grow };
 }
