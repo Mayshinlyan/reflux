@@ -16,6 +16,8 @@ const SCRIM = 'rgba(58, 47, 37, 0.62)';
 const CARD_ESTIMATE = 230;
 /** Lets Today finish scrolling and laying out before a view is measured. */
 const MEASURE_DELAY_MS = 100;
+/** A page pushed from Profile slides in from the side; measure it once it has stopped (a view mid-slide is offset). */
+const SLIDE_DELAY_MS = 450;
 const MEASURE_ATTEMPTS = 10;
 
 type Size = { width: number; height: number };
@@ -103,7 +105,8 @@ export function TourOverlay({ steps, index, getView, onNext, onBack, onClose }: 
         });
       });
     };
-    timer = setTimeout(() => measure(1), MEASURE_DELAY_MS);
+    const pushed = step.screen === 'aboutYou' || step.screen === 'customize';
+    timer = setTimeout(() => measure(1), pushed ? SLIDE_DELAY_MS : MEASURE_DELAY_MS);
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -135,7 +138,7 @@ export function TourOverlay({ steps, index, getView, onNext, onBack, onClose }: 
           total={steps.length}
           title={step.title}
           body={step.body}
-          placement={placeCard(hole, size, cardHeight, insets)}
+          placement={placeCard(hole, size, cardHeight, insets, step.card)}
           height={cardHeight}
           reduceMotion={reduceMotion}
           onBack={index > 0 ? onBack : undefined}

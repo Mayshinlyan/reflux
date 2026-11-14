@@ -54,7 +54,7 @@ const press = async (name: string | RegExp) => fireEvent.press(screen.getByRole(
 const pick = async (role: 'checkbox' | 'radio' | 'button', name: string) =>
   fireEvent.press(screen.getByRole(role, { name }));
 const header = (name: string) => screen.getByRole('header', { name });
-const bar = (step: number) => screen.getByRole('progressbar', { name: `Step ${step} of 6` });
+const bar = (step: number) => screen.getByRole('progressbar', { name: `Step ${step} of 7` });
 
 const HELLO = "Hi, I'm Bellie! Let's see how your tummy feels.";
 const CONDITION_ACID = 'Burning in my chest, Acid reflux or GERD';
@@ -75,6 +75,7 @@ function expectFinished() {
 async function toCondition() {
   await press('Get started');
   await press('Continue'); // How it works
+  await press('Continue'); // Gifts
 }
 
 /** Answers condition and skips symptoms, landing on Privacy. */
@@ -123,13 +124,30 @@ describe('Welcome', () => {
     expect(screen.getByText(HELLO)).toBeTruthy();
   });
 
+  it('tells them they will get gifts to customize Bellie, right after what they get for logging', async () => {
+    await render(<WelcomeScreen />);
+    await press('Get started');
+    await press('Continue'); // How it works
+
+    expect(header('Check in, and get gifts to customize Bellie.')).toBeTruthy();
+    expect(screen.getByText('Hats, glasses and more, yours to put on her.')).toBeTruthy();
+    expect(screen.getByText('Find them in Customize Bellie, on your profile.')).toBeTruthy();
+    expect(bar(2)).toBeTruthy();
+
+    await press('Back');
+    expect(header('Find what upsets your body.')).toBeTruthy();
+    await press('Continue');
+    await press('Continue');
+    expect(header("What's bothering you?")).toBeTruthy();
+  });
+
   describe('condition step', () => {
     it('starts with nothing picked and waits for a choice', async () => {
       await render(<WelcomeScreen />);
       await toCondition();
 
       expect(header("What's bothering you?")).toBeTruthy();
-      expect(bar(2)).toBeTruthy();
+      expect(bar(3)).toBeTruthy();
       for (const name of [CONDITION_ACID, CONDITION_LPR, CONDITION_UNSURE]) {
         expect(screen.getByRole('checkbox', { name }).props.accessibilityState).toMatchObject({
           checked: false,
@@ -172,7 +190,7 @@ describe('Welcome', () => {
       await press('Continue');
 
       expect(header('What do you usually feel?')).toBeTruthy();
-      expect(bar(3)).toBeTruthy();
+      expect(bar(4)).toBeTruthy();
       expect(screen.getByRole('checkbox', { name: 'Heartburn' }).props.accessibilityState).toMatchObject({
         checked: false,
       });
@@ -212,7 +230,7 @@ describe('Welcome', () => {
     await render(<WelcomeScreen />);
     await toPrivacy();
 
-    expect(bar(4)).toBeTruthy();
+    expect(bar(5)).toBeTruthy();
     expect(screen.getByText('No sign-in')).toBeTruthy();
     expect(screen.getByText('Meal checks use AI')).toBeTruthy();
     expect(screen.queryByText('Private by default')).toBeNull();
@@ -223,7 +241,7 @@ describe('Welcome', () => {
       await render(<WelcomeScreen />);
       await toBedtime();
 
-      expect(bar(5)).toBeTruthy();
+      expect(bar(6)).toBeTruthy();
       expect(screen.getByRole('radio', { name: '10:30 PM' }).props.accessibilityState).toMatchObject({
         checked: true,
       });
@@ -262,7 +280,7 @@ describe('Welcome', () => {
       await render(<WelcomeScreen />);
       await toReminders();
 
-      expect(bar(6)).toBeTruthy();
+      expect(bar(7)).toBeTruthy();
       expect(
         screen.getByRole('radio', { name: '2 hours after I eat' }).props.accessibilityState,
       ).toMatchObject({
@@ -288,7 +306,7 @@ describe('Welcome', () => {
       await press('Continue');
 
       expect(header('Let Bellie check in after meals')).toBeTruthy();
-      expect(bar(6)).toBeTruthy();
+      expect(bar(7)).toBeTruthy();
       expect(mockUpdate).not.toHaveBeenCalledWith('reminderAsked', expect.anything());
       await act(async () => answer({ granted: true }));
 

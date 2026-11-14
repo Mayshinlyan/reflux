@@ -42,11 +42,17 @@ function Screen() {
   const bellie = useTourTarget('bellie');
   const aiIdeas = useTourTarget('aiIdeas');
   const fridge = useTourTarget('fridge');
+  const aboutYou = useTourTarget('aboutYou');
+  const customize = useTourTarget('customize');
+  const giftRow = useTourTarget('giftRow');
   return (
     <>
       <View ref={bellie} />
       <View ref={aiIdeas} />
       <View ref={fridge} />
+      <View ref={aboutYou} />
+      <View ref={customize} />
+      <View ref={giftRow} />
       <Pressable accessibilityRole="button" accessibilityLabel="Start tour" onPress={() => begin()} />
       <Pressable accessibilityRole="button" accessibilityLabel="Replay tour" onPress={() => replay()} />
     </>
@@ -109,9 +115,9 @@ describe('App tour', () => {
 
     expect(screen.getByText('Tap Bellie to log')).toBeTruthy();
     expect(screen.getByText('Tap Bellie to log food, how you feel, or a medication.')).toBeTruthy();
-    expect(screen.getByLabelText('Step 1 of 7')).toBeTruthy();
+    expect(screen.getByLabelText('Step 1 of 11')).toBeTruthy();
     // Sentence case, not capitals.
-    expect(screen.getByText('1 of 7')).toBeTruthy();
+    expect(screen.getByText('1 of 11')).toBeTruthy();
     expect(screen.queryByLabelText('Back')).toBeNull();
   });
 
@@ -139,10 +145,26 @@ describe('App tour', () => {
     await fireEvent.press(screen.getByLabelText('Next'));
 
     expect(screen.getByText('Profile')).toBeTruthy();
-    expect(screen.getByText('7 of 7')).toBeTruthy();
+    expect(screen.getByText('7 of 11')).toBeTruthy();
     expect(mockNavigate).toHaveBeenLastCalledWith('/profile');
-    expect(screen.queryByLabelText('Next')).toBeNull();
     expect(mockUpdate).not.toHaveBeenCalled();
+
+    // Profile goes on to its two pages: the About you row and the page, the Customize Bellie row and the page.
+    await fireEvent.press(screen.getByLabelText('Next'));
+    expect(await screen.findByText('About you')).toBeTruthy();
+    expect(mockNavigate).toHaveBeenLastCalledWith('/profile');
+    await fireEvent.press(screen.getByLabelText('Next'));
+    expect(screen.getByText('Tell Bellie about you')).toBeTruthy();
+    expect(screen.getByText('9 of 11')).toBeTruthy();
+    expect(mockNavigate).toHaveBeenLastCalledWith('/about-you');
+    await fireEvent.press(screen.getByLabelText('Next'));
+    expect(await screen.findByText('Customize Bellie')).toBeTruthy();
+    expect(mockNavigate).toHaveBeenLastCalledWith('/profile');
+    await fireEvent.press(screen.getByLabelText('Next'));
+    expect(await screen.findByText('Make Bellie yours')).toBeTruthy();
+    expect(screen.getByText('11 of 11')).toBeTruthy();
+    expect(mockNavigate).toHaveBeenLastCalledWith('/bellies-things');
+    expect(screen.queryByLabelText('Next')).toBeNull();
 
     await fireEvent.press(screen.getByLabelText('Done'));
 
@@ -208,7 +230,7 @@ describe('App tour', () => {
     await layOut();
 
     expect(screen.getByText('Log anything')).toBeTruthy();
-    expect(screen.getByText('1 of 6')).toBeTruthy();
+    expect(screen.getByText('1 of 10')).toBeTruthy();
   });
 });
 

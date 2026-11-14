@@ -8,6 +8,7 @@ import { AllowStep } from '@/components/onboarding/AllowStep';
 import { BedtimeStep } from '@/components/onboarding/BedtimeStep';
 import { ConditionStep } from '@/components/onboarding/ConditionStep';
 import { FirstMealStep } from '@/components/onboarding/FirstMealStep';
+import { GiftsStep } from '@/components/onboarding/GiftsStep';
 import { HowItWorksStep } from '@/components/onboarding/HowItWorksStep';
 import { PrivacyStep } from '@/components/onboarding/PrivacyStep';
 import { RemindersStep } from '@/components/onboarding/RemindersStep';
@@ -27,6 +28,7 @@ import { space } from '@/theme';
 const FLOW = [
   'hello',
   'how',
+  'gifts',
   'condition',
   'symptoms',
   'privacy',
@@ -40,14 +42,15 @@ type Step = (typeof FLOW)[number];
 /** How far the progress bar is on each screen; Hello and the first meal have no bar, and the permission screen shares its step with the timing question. */
 const BAR_STEP: Partial<Record<Step, number>> = {
   how: 1,
-  condition: 2,
-  symptoms: 3,
-  privacy: 4,
-  bedtime: 5,
-  reminders: 6,
-  allow: 6,
+  gifts: 2,
+  condition: 3,
+  symptoms: 4,
+  privacy: 5,
+  bedtime: 6,
+  reminders: 7,
+  allow: 7,
 };
-const BAR_TOTAL = 6;
+const BAR_TOTAL = 7;
 
 /** First launch: say hello, show how it works, ask the setup questions, then invite a first meal (Figma rows 17 and 35). */
 export default function WelcomeScreen() {
@@ -89,6 +92,7 @@ export default function WelcomeScreen() {
       {step === 'hello' && <BellieSays text="Hi, I'm Bellie! Let's see how your tummy feels." />}
 
       {step === 'how' && <HowItWorksStep onNext={next} />}
+      {step === 'gifts' && <GiftsStep onNext={next} />}
       {step === 'condition' && (
         <ConditionStep
           initial={conditions}
