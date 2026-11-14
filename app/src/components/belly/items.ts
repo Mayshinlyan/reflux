@@ -21,10 +21,10 @@ export const ITEM_ART: Record<ItemKey, Art> = {
     width: 120,
     height: 100,
     xml: `<svg width="120" height="100" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M26 72C8 72 4 42 26 38C22 16 48 6 60 20C72 6 98 16 94 38C116 42 112 72 94 72Z" fill="white" stroke="#C9B48F" stroke-width="2.5" stroke-linejoin="round"/>
-<path d="M44 72C42 62 42 54 44 46M60 72C60 62 60 52 60 42M76 72C78 62 78 54 76 46" stroke="#C9B48F" stroke-width="2.5" stroke-linecap="round"/>
-<rect x="22" y="70" width="76" height="24" rx="6" fill="white" stroke="#C9B48F" stroke-width="2.5"/>
-<path d="M30 82H90" stroke="#C9B48F" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M26 72C8 72 4 42 26 38C22 16 48 6 60 20C72 6 98 16 94 38C116 42 112 72 94 72Z" fill="white" stroke="#896347" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M44 72C42 62 42 54 44 46M60 72C60 62 60 52 60 42M76 72C78 62 78 54 76 46" stroke="#896347" stroke-width="2.5" stroke-linecap="round"/>
+<rect x="22" y="70" width="76" height="24" rx="6" fill="white" stroke="#896347" stroke-width="2.5"/>
+<path d="M30 82H90" stroke="#896347" stroke-width="2.5" stroke-linecap="round"/>
 </svg>`,
   },
   night: {
