@@ -6,8 +6,11 @@ import {
   ITEM_KEYS,
   ITEM_SPOT,
   ITEM_UNLOCK_DAY,
+  moreDays,
+  nextLocked,
   ownedCount,
   takeOff,
+  unlockLine,
   wearItem,
   wornNow,
 } from '../bellieItems';
@@ -17,15 +20,30 @@ describe('unlocking', () => {
     expect([0, 2].map(ownedCount)).toEqual([0, 0]);
     expect(ownedCount(3)).toBe(1);
     expect(ownedCount(7)).toBe(2);
-    expect(ownedCount(60)).toBe(ITEM_KEYS.length);
-    expect(isOwned('scarf', 9)).toBe(false);
-    expect(isOwned('scarf', 10)).toBe(true);
+    expect(ownedCount(50)).toBe(ITEM_KEYS.length);
+    expect(isOwned('scarf', 29)).toBe(false);
+    expect(isOwned('scarf', 30)).toBe(true);
   });
 
   it('counts the days left, never below zero', () => {
-    expect(daysUntil('shades', 7)).toBe(14);
-    expect(daysUntil('shades', 21)).toBe(0);
+    expect(daysUntil('shades', 7)).toBe(7);
+    expect(daysUntil('shades', 14)).toBe(0);
     expect(daysUntil('shades', 400)).toBe(0);
+  });
+
+  it('unlocks in the planned order: glasses, bow tie, hat, sunglasses, headphones, scarf, nightcap, chef hat', () => {
+    const order = [...ITEM_KEYS].sort((a, b) => ITEM_UNLOCK_DAY[a] - ITEM_UNLOCK_DAY[b]);
+    expect(order).toEqual(['glasses', 'bow', 'hat', 'shades', 'phones', 'scarf', 'night', 'chef']);
+    expect(order.map((key) => ITEM_UNLOCK_DAY[key])).toEqual([3, 7, 10, 14, 21, 30, 45, 50]);
+  });
+
+  it('says what is left in words, and which item is next', () => {
+    expect(moreDays(1)).toBe('1 more day');
+    expect(moreDays(4)).toBe('4 more days');
+    expect(unlockLine(4)).toBe('Unlock after 4 more days of check-in');
+    expect(nextLocked(0)).toBe('glasses');
+    expect(nextLocked(12)).toBe('shades');
+    expect(nextLocked(50)).toBeNull();
   });
 
   it('has the ladder spread out: each item later than the one before it, in unlock order', () => {

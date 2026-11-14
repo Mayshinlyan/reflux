@@ -10,7 +10,7 @@ import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { listCheckIns } from '@/db/repositories/checkIns';
 import { wearItem, wornNow } from '@/lib/bellieItems';
 import { isBellieStage } from '@/lib/bellieStage';
-import { type LogKind, planCompletion } from '@/lib/completionFlow';
+import { type Gift, type LogKind, planCompletion, REPORT_GIFT_KEY } from '@/lib/completionFlow';
 import { summarizeCheckIns } from '@/lib/streak';
 import { currentTimeZone } from '@/lib/time';
 
@@ -82,8 +82,9 @@ export default function CompletionScreen() {
     };
   }, [kind, params.id]);
 
-  const markSeen = (day: number) => {
-    if (!settings.giftsSeen.includes(day)) update('giftsSeen', [...settings.giftsSeen, day]);
+  const markSeen = (gift: Gift) => {
+    const key = gift.kind === 'item' ? gift.day : REPORT_GIFT_KEY;
+    if (!settings.giftsSeen.includes(key)) update('giftsSeen', [...settings.giftsSeen, key]);
   };
 
   switch (step.screen) {
@@ -116,20 +117,20 @@ export default function CompletionScreen() {
     case 'gift':
       return (
         <GiftPage
-          day={step.day}
-          onWear={() => {
+          gift={step.gift}
+          onWear={(item) => {
             // The old yes-or-no hat is folded into the list of what Bellie wears.
             if (settings.bellieHat) update('bellieHat', false);
-            update('bellieWorn', wearItem(wornNow(settings.bellieWorn, settings.bellieHat), 'hat'));
-            markSeen(step.day);
+            update('bellieWorn', wearItem(wornNow(settings.bellieWorn, settings.bellieHat), item));
+            markSeen(step.gift);
             next();
           }}
           onReport={() => {
-            markSeen(step.day);
+            markSeen(step.gift);
             router.replace('/weekly-report');
           }}
           onDone={() => {
-            markSeen(step.day);
+            markSeen(step.gift);
             next();
           }}
         />

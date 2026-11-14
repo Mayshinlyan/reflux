@@ -21,14 +21,26 @@ export const ITEM_SPOT: Record<ItemKey, Spot> = {
 
 /** The check-in day each item unlocks on. */
 export const ITEM_UNLOCK_DAY: Record<ItemKey, number> = {
-  hat: 3,
-  glasses: 7,
-  scarf: 10,
-  bow: 14,
-  shades: 21,
-  phones: 30,
+  glasses: 3,
+  bow: 7,
+  hat: 10,
+  shades: 14,
+  phones: 21,
+  scarf: 30,
   night: 45,
-  chef: 60,
+  chef: 50,
+};
+
+/** The line on an item's gift page (Figma G4). */
+export const ITEM_GIFT_TITLE: Record<ItemKey, string> = {
+  hat: 'A little hat for Bellie',
+  chef: 'A chef hat for Bellie',
+  night: 'A nightcap for Bellie',
+  phones: 'Headphones for Bellie',
+  glasses: 'Round glasses for Bellie',
+  shades: 'Sunglasses for Bellie',
+  bow: 'A bow tie for Bellie',
+  scarf: 'A cozy scarf for Bellie',
 };
 
 export const ITEM_NAME: Record<ItemKey, string> = {
@@ -53,6 +65,23 @@ export function isOwned(key: ItemKey, checkInDays: number): boolean {
 /** How many more check-in days until an item unlocks (0 once it is owned). */
 export function daysUntil(key: ItemKey, checkInDays: number): number {
   return Math.max(0, ITEM_UNLOCK_DAY[key] - checkInDays);
+}
+
+/** "4 more days", "1 more day": what a locked item says on its tile. */
+export function moreDays(days: number): string {
+  return `${days} more ${days === 1 ? 'day' : 'days'}`;
+}
+
+/** "Unlock after 4 more days of check-in": the line under the row for a locked item. */
+export function unlockLine(days: number): string {
+  return `Unlock after ${moreDays(days)} of check-in`;
+}
+
+/** The item that unlocks soonest, or null once everything is owned. */
+export function nextLocked(checkInDays: number): ItemKey | null {
+  const locked = ITEM_KEYS.filter((key) => !isOwned(key, checkInDays));
+  locked.sort((a, b) => ITEM_UNLOCK_DAY[a] - ITEM_UNLOCK_DAY[b]);
+  return locked[0] ?? null;
 }
 
 export function ownedCount(checkInDays: number): number {

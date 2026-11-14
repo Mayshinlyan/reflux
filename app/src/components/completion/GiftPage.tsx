@@ -3,7 +3,8 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { useReducedMotion, ZoomIn } from 'react-native-reanimated';
 
 import { AppText } from '@/components/AppText';
-import type { GiftDay } from '@/lib/completionFlow';
+import { ITEM_GIFT_TITLE, type ItemKey } from '@/lib/bellieItems';
+import type { Gift } from '@/lib/completionFlow';
 import { cardEdge, radius, space, useColors } from '@/theme';
 
 import { CompletionLayout } from './CompletionLayout';
@@ -12,27 +13,27 @@ import { GiftBox } from './GiftBox';
 import { HoppingBelly } from './HoppingBelly';
 
 type Props = {
-  day: GiftDay;
-  /** "Put it on" (the hat): saved and closed. */
-  onWear: () => void;
-  /** "See my report" (day 7). */
+  gift: Gift;
+  /** "Put it on" (an item): saved and closed. */
+  onWear: (item: ItemKey) => void;
+  /** "See my report". */
   onReport: () => void;
   /** "Later", or finishing. */
   onDone: () => void;
 };
 
-/** Screen 4 (Figma G4): a wrapped gift that wiggles; tapping Open it shows what is inside. Day 3 a hat, day 7 the report. */
-export function GiftPage({ day, onWear, onReport, onDone }: Props) {
+/** Screen 4 (Figma G4): a wrapped gift that wiggles; tapping it shows what is inside. An item on its day, or the first report. */
+export function GiftPage({ gift, onWear, onReport, onDone }: Props) {
   const [opened, setOpened] = useState(false);
-  if (!opened) return <ClosedGift day={day} onOpen={() => setOpened(true)} />;
-  return day === 3 ? (
+  if (!opened) return <ClosedGift gift={gift} onOpen={() => setOpened(true)} />;
+  return gift.kind === 'item' ? (
     <CompletionLayout
       backdrop={<Confetti />}
-      action={{ label: 'Put it on', onPress: onWear }}
+      action={{ label: 'Put it on', onPress: () => onWear(gift.item) }}
       quiet={{ label: 'Later', onPress: onDone }}>
-      <HoppingBelly forceHat shadow size={240} />
+      <HoppingBelly forceItem={gift.item} shadow size={240} />
       <AppText variant="display" accessibilityRole="header" style={styles.title}>
-        A little hat for Bellie
+        {ITEM_GIFT_TITLE[gift.item]}
       </AppText>
       <AppText color="inkSoft" style={styles.line}>
         Find it any time in Customize Bellie.
@@ -43,14 +44,16 @@ export function GiftPage({ day, onWear, onReport, onDone }: Props) {
   );
 }
 
-function ClosedGift({ day, onOpen }: { day: GiftDay; onOpen: () => void }) {
+function ClosedGift({ gift, onOpen }: { gift: Gift; onOpen: () => void }) {
   return (
     <CompletionLayout backdrop={<Confetti count={8} />} action={{ label: 'Open it', onPress: onOpen }}>
       <GiftBox wiggle onOpen={onOpen} />
       <AppText variant="display" accessibilityRole="header" style={styles.title}>
         Bellie left you a gift
       </AppText>
-      <AppText color="inkSoft" style={styles.line}>{`For ${day} days of check-ins`}</AppText>
+      <AppText color="inkSoft" style={styles.line}>
+        {gift.kind === 'item' ? `For ${gift.day} days of check-ins` : 'For a week of check-ins'}
+      </AppText>
     </CompletionLayout>
   );
 }

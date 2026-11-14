@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams } from 'expo-router';
 import { Lock } from 'lucide-react-native';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 
@@ -21,7 +21,9 @@ import {
   ITEM_UNLOCK_DAY,
   type ItemKey,
   isOwned,
+  moreDays,
   takeOff,
+  unlockLine,
   wearItem,
   wornNow,
 } from '@/lib/bellieItems';
@@ -30,7 +32,6 @@ import { currentTimeZone } from '@/lib/time';
 import { cardEdge, radius, selectedEdge, selectedFill, space, useColors } from '@/theme';
 
 const TILE = 84;
-const HAT_GIFT_DAY = 3;
 const STAGE_BELLIE = 264;
 
 /**
@@ -53,16 +54,21 @@ export default function CustomizeBellieScreen() {
     return summarizeCheckIns(listCheckIns(db), new Date(), currentTimeZone()).checkInDays;
   }, [db, preview]);
 
-  // The hat is a gift (day 3). Until it has been opened, Customize Bellie shows the gift box in its place. Pretend days
-  // (`?preview=`) skip this unless `&gift=1` asks for it.
-  const hatBoxed =
-    isOwned('hat', days) && !settings.giftsSeen.includes(HAT_GIFT_DAY) && (!preview || gift === '1');
+  // Every item is a gift on its day. Until it has been opened, Customize Bellie shows a gift box in its place. Pretend
+  // days (`?preview=`) skip this unless `&gift=1` asks for it.
+  const boxed = (key: ItemKey) =>
+    isOwned(key, days) && !settings.giftsSeen.includes(ITEM_UNLOCK_DAY[key]) && (!preview || gift === '1');
 
   const worn = wornNow(settings.bellieWorn, settings.bellieHat);
   const owned = ITEM_KEYS.filter((key) => isOwned(key, days));
   const locked = ITEM_KEYS.filter((key) => !isOwned(key, days)).sort(
     (a, b) => ITEM_UNLOCK_DAY[a] - ITEM_UNLOCK_DAY[b],
   );
+
+  // The line under the row: how many more check-in days a locked item needs. It starts on the next one to unlock; tapping
+  // another locked tile reads its own.
+  const [peek, setPeek] = useState<ItemKey | null>(null);
+  const peeked = peek && locked.includes(peek) ? peek : (locked[0] ?? null);
 
   const save = (next: ItemKey[]) => {
     Haptics.selectionAsync().catch(() => {});
@@ -73,7 +79,7 @@ export default function CustomizeBellieScreen() {
   const toggle = (key: ItemKey) => save(worn.includes(key) ? takeOff(worn, key) : wearItem(worn, key));
 
   const tile = (key: ItemKey, state: 'on' | 'off' | 'locked') => {
-    if (key === 'hat' && hatBoxed) {
+    if (state !== 'locked' && boxed(key)) {
       return (
         <View key={key} style={[styles.tile, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
           <GiftBox
@@ -82,7 +88,7 @@ export default function CustomizeBellieScreen() {
             accessibilityLabel="A gift from Bellie, tap to open"
             onOpen={() => {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-              update('giftsSeen', [...settings.giftsSeen, HAT_GIFT_DAY]);
+              update('giftsSeen', [...settings.giftsSeen, ITEM_UNLOCK_DAY[key]]);
             }}
           />
         </View>
@@ -91,17 +97,18 @@ export default function CustomizeBellieScreen() {
     const art = ITEM_ART[key];
     const k = Math.min(60 / art.width, 52 / art.height);
     const remaining = daysUntil(key, days);
-    const left = `In ${remaining} ${remaining === 1 ? 'day' : 'days'}`;
+    const left = moreDays(remaining);
     return (
       <Pressable
         key={key}
         accessibilityRole="button"
         accessibilityLabel={
-          state === 'locked' ? `${ITEM_NAME[key]}, locked, unlocks ${left.toLowerCase()}` : ITEM_NAME[key]
+          state === 'locked'
+            ? `${ITEM_NAME[key]}, locked, ${unlockLine(remaining).toLowerCase()}`
+            : ITEM_NAME[key]
         }
-        accessibilityState={{ selected: state === 'on', disabled: state === 'locked' }}
-        disabled={state === 'locked'}
-        onPress={() => toggle(key)}
+        accessibilityState={{ selected: state === 'on' }}
+        onPress={() => (state === 'locked' ? setPeek(key) : toggle(key))}
         style={({ pressed }) => [
           styles.tile,
           {
@@ -151,6 +158,15 @@ export default function CustomizeBellieScreen() {
           {locked.map((key) => tile(key, 'locked'))}
         </ScrollView>
 
+        {/* Says how many more check-in days the next locked item needs, so there is a reason to come back. */}
+        <View style={styles.unlockSlot}>
+          {peeked && (
+            <AppText color="inkSoft" style={styles.unlock} accessibilityLiveRegion="polite">
+              {unlockLine(daysUntil(peeked, days))}
+            </AppText>
+          )}
+        </View>
+
         {/* Always takes its room, so the stage and the tray do not jump when the first item goes on. */}
         <View style={styles.offSlot}>
           {worn.length > 0 && (
@@ -195,6 +211,8 @@ const styles = StyleSheet.create({
   },
   left: { textAlign: 'center' },
   divider: { width: 1, height: 60, marginHorizontal: space.s1 },
+  unlockSlot: { minHeight: 24, marginTop: space.s2, justifyContent: 'center' },
+  unlock: { textAlign: 'center' },
   offSlot: { height: 44, marginTop: space.s3, alignItems: 'center', justifyContent: 'center' },
   off: { minHeight: 44, justifyContent: 'center' },
 });

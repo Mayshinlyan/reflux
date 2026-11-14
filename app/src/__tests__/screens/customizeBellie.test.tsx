@@ -56,17 +56,26 @@ const tile = (name: string | RegExp) => screen.getByRole('button', { name });
 const worn = () => getSetting(mockDb, 'bellieWorn');
 
 describe('Customize Bellie', () => {
-  it('starts with everything locked, each saying how many check-in days away it is', async () => {
+  it('starts with everything locked, each saying how many more check-in days it needs', async () => {
     await render(<CustomizeBellieScreen />);
 
     expect(screen.getByRole('header', { name: 'Customize Bellie' })).toBeTruthy();
-    expect(tile('Little hat, locked, unlocks in 3 days')).toBeTruthy();
-    expect(tile('Scarf, locked, unlocks in 10 days')).toBeTruthy();
-    expect(tile('Chef hat, locked, unlocks in 60 days')).toBeTruthy();
-    expect(tile('Chef hat, locked, unlocks in 60 days').props.accessibilityState).toMatchObject({
-      disabled: true,
-    });
+    expect(tile('Round glasses, locked, unlock after 3 more days of check-in')).toBeTruthy();
+    expect(tile('Scarf, locked, unlock after 30 more days of check-in')).toBeTruthy();
+    expect(tile('Chef hat, locked, unlock after 50 more days of check-in')).toBeTruthy();
+    expect(screen.getByText('3 more days')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Take it all off' })).toBeNull();
+  });
+
+  it('says in full, under the row, what the next locked item needs, and what a tapped one needs', async () => {
+    mockParams = { preview: '12' };
+    await render(<CustomizeBellieScreen />);
+
+    expect(screen.getByText('Unlock after 2 more days of check-in')).toBeTruthy();
+
+    await fireEvent.press(tile('Scarf, locked, unlock after 18 more days of check-in'));
+    expect(screen.getByText('Unlock after 18 more days of check-in')).toBeTruthy();
+    expect(worn()).toEqual([]);
   });
 
   it('lists what you own first, then the locked ones soonest first', async () => {
@@ -80,12 +89,12 @@ describe('Customize Bellie', () => {
     expect(names).toEqual([
       'Little hat',
       'Round glasses',
-      'Scarf',
-      'Bow tie, locked, unlocks in 2 days',
-      'Sunglasses, locked, unlocks in 9 days',
-      'Headphones, locked, unlocks in 18 days',
-      'Nightcap, locked, unlocks in 33 days',
-      'Chef hat, locked, unlocks in 48 days',
+      'Bow tie',
+      'Sunglasses, locked, unlock after 2 more days of check-in',
+      'Headphones, locked, unlock after 9 more days of check-in',
+      'Scarf, locked, unlock after 18 more days of check-in',
+      'Nightcap, locked, unlock after 33 more days of check-in',
+      'Chef hat, locked, unlock after 38 more days of check-in',
     ]);
   });
 
@@ -131,35 +140,38 @@ describe('Customize Bellie', () => {
     expect(screen.queryByRole('button', { name: 'Take it all off' })).toBeNull();
   });
 
-  it('shows a gift box instead of the hat until the gift has been opened', async () => {
-    mockParams = { preview: '5', gift: '1' };
+  it('shows a gift box in place of an item until its gift has been opened', async () => {
+    mockParams = { preview: '8', gift: '1' };
+    setSetting(mockDb, 'giftsSeen', [3]);
     await render(<CustomizeBellieScreen />);
 
+    // Round glasses were opened; the bow tie (day 7) is still a gift box.
+    expect(tile('Round glasses')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'A gift from Bellie, tap to open' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Little hat' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Bow tie' })).toBeNull();
   });
 
-  it('shows the hat itself once the gift has been opened', async () => {
-    setSetting(mockDb, 'giftsSeen', [3]);
-    mockParams = { preview: '5', gift: '1' };
+  it('shows the item itself once its gift has been opened', async () => {
+    setSetting(mockDb, 'giftsSeen', [3, 7]);
+    mockParams = { preview: '8', gift: '1' };
     await render(<CustomizeBellieScreen />);
 
     expect(screen.queryByRole('button', { name: 'A gift from Bellie, tap to open' })).toBeNull();
-    expect(tile('Little hat')).toBeTruthy();
+    expect(tile('Bow tie')).toBeTruthy();
   });
 
-  it('does nothing for a locked item', async () => {
+  it('does nothing to what Bellie wears for a locked item', async () => {
     mockParams = { preview: '5' };
     await render(<CustomizeBellieScreen />);
 
-    await fireEvent.press(tile('Chef hat, locked, unlocks in 55 days'));
+    await fireEvent.press(tile('Chef hat, locked, unlock after 45 more days of check-in'));
 
     expect(worn()).toEqual([]);
   });
 
   it('wears the hat saved the old way, and folds it into the list when it is taken off', async () => {
     setSetting(mockDb, 'bellieHat', true);
-    mockParams = { preview: '5' };
+    mockParams = { preview: '12' };
     await render(<CustomizeBellieScreen />);
     expect(tile('Little hat').props.accessibilityState).toMatchObject({ selected: true });
 
