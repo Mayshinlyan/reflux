@@ -71,7 +71,7 @@ describe('Customize Bellie', () => {
     mockParams = { preview: '12' };
     await render(<CustomizeBellieScreen />);
 
-    expect(screen.getByText('Unlock after 2 more days of check-in')).toBeTruthy();
+    expect(screen.getByText('Next gift: unlock after 2 more days of check-in')).toBeTruthy();
 
     await fireEvent.press(tile('Scarf, locked, unlock after 18 more days of check-in'));
     expect(screen.getByText('Unlock after 18 more days of check-in')).toBeTruthy();

@@ -72,9 +72,10 @@ export function moreDays(days: number): string {
   return `${days} more ${days === 1 ? 'day' : 'days'}`;
 }
 
-/** "Unlock after 4 more days of check-in": the line under the row for a locked item. */
-export function unlockLine(days: number): string {
-  return `Unlock after ${moreDays(days)} of check-in`;
+/** "Unlock after 4 more days of check-in": the line under the row for a locked item ("Next gift: ..." for the next). */
+export function unlockLine(days: number, next = false): string {
+  const line = `unlock after ${moreDays(days)} of check-in`;
+  return next ? `Next gift: ${line}` : `${line[0].toUpperCase()}${line.slice(1)}`;
 }
 
 /** The item that unlocks soonest, or null once everything is owned. */

@@ -41,6 +41,7 @@ describe('unlocking', () => {
     expect(moreDays(1)).toBe('1 more day');
     expect(moreDays(4)).toBe('4 more days');
     expect(unlockLine(4)).toBe('Unlock after 4 more days of check-in');
+    expect(unlockLine(1, true)).toBe('Next gift: unlock after 1 more day of check-in');
     expect(nextLocked(0)).toBe('glasses');
     expect(nextLocked(12)).toBe('shades');
     expect(nextLocked(50)).toBeNull();

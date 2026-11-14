@@ -162,7 +162,7 @@ export default function CustomizeBellieScreen() {
         <View style={styles.unlockSlot}>
           {peeked && (
             <AppText color="inkSoft" style={styles.unlock} accessibilityLiveRegion="polite">
-              {unlockLine(daysUntil(peeked, days))}
+              {unlockLine(daysUntil(peeked, days), peeked === locked[0])}
             </AppText>
           )}
         </View>
