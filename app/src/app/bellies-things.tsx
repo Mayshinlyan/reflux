@@ -12,6 +12,7 @@ import { useBellieStage } from '@/components/belly/BellieStageContext';
 import { ITEM_ART } from '@/components/belly/items';
 import { GiftBox } from '@/components/completion/GiftBox';
 import { Screen } from '@/components/Screen';
+import { useTourTarget } from '@/components/tour/TourContext';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { listCheckIns } from '@/db/repositories/checkIns';
 import {
@@ -46,6 +47,8 @@ export default function CustomizeBellieScreen() {
   const db = useDb();
   const { settings, update } = useSettings();
   const stage = useBellieStage();
+  // The app tour spotlights the row of gifts.
+  const giftRow = useTourTarget('giftRow');
   const { preview, gift } = useLocalSearchParams<{ preview?: string; gift?: string }>();
 
   const days = useMemo(() => {
@@ -146,17 +149,18 @@ export default function CustomizeBellieScreen() {
           <Belly size={STAGE_BELLIE} stage={stage} worn={worn} />
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.trayScroll}
-          contentContainerStyle={styles.tray}>
-          {owned.map((key) => tile(key, worn.includes(key) ? 'on' : 'off'))}
-          {owned.length > 0 && locked.length > 0 && (
-            <View style={[styles.divider, { backgroundColor: colors.edge }]} importantForAccessibility="no" />
-          )}
-          {locked.map((key) => tile(key, 'locked'))}
-        </ScrollView>
+        <View ref={giftRow} collapsable={false} style={styles.trayScroll}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tray}>
+            {owned.map((key) => tile(key, worn.includes(key) ? 'on' : 'off'))}
+            {owned.length > 0 && locked.length > 0 && (
+              <View
+                style={[styles.divider, { backgroundColor: colors.edge }]}
+                importantForAccessibility="no"
+              />
+            )}
+            {locked.map((key) => tile(key, 'locked'))}
+          </ScrollView>
+        </View>
 
         {/* Says how many more check-in days the next locked item needs, so there is a reason to come back. */}
         <View style={styles.unlockSlot}>

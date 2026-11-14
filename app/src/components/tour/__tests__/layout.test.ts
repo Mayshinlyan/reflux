@@ -24,6 +24,17 @@ describe('holeFor', () => {
 });
 
 describe('placeCard', () => {
+  it('pins the card to the top or the bottom of the screen when asked, with no tail', () => {
+    const hole = { x: 8, y: 548, width: 386, height: 108 };
+    const top = placeCard(hole, SCREEN, 200, NO_INSETS, 'top');
+    const bottom = placeCard(null, SCREEN, 200, NO_INSETS, 'bottom');
+
+    expect(top.top).toBe(CARD_MARGIN);
+    expect(top.tail).toBeNull();
+    expect(bottom.top).toBe(SCREEN.height - CARD_MARGIN - 200);
+    expect(bottom.tail).toBeNull();
+  });
+
   it('centres the card when there is no target', () => {
     const placed = placeCard(null, SCREEN, 200, NO_INSETS);
     expect(placed.top).toBe(337);
