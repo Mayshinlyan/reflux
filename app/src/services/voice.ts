@@ -21,6 +21,7 @@ export const DEMO_TRANSCRIPT =
   'I had pasta and a glass of wine around eight, and now my chest is burning a bit';
 
 const WORD_MS = 200;
+const LEVEL_MS = 70;
 const THINK_MS = 1800;
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -37,24 +38,42 @@ export type Listening = {
   cancel: () => void;
 };
 
-/** Listens, calling `onWords` with everything heard so far as it grows. */
-export function startListening(onWords: (words: string) => void, demo?: VoiceProblem): Listening {
+export type ListenHandlers = {
+  /** Everything heard so far, as it grows. Kept out of sight while listening; shown after "Done". */
+  onWords: (words: string) => void;
+  /** How loud the voice is right now, 0 (silence) to 1 (loud), about 14 times a second. Drives the wave. */
+  onLevel: (level: number) => void;
+};
+
+/** Listens. The stand-in speaks a fixed sentence, with a made-up voice level that rises and falls as it goes. */
+export function startListening({ onWords, onLevel }: ListenHandlers, demo?: VoiceProblem): Listening {
   const words = demo === 'nothing' ? [] : DEMO_TRANSCRIPT.split(' ');
   let shown = 0;
-  const timer = setInterval(() => {
+  let level = 0;
+  const wordTimer = setInterval(() => {
     if (shown >= words.length) {
-      clearInterval(timer);
+      clearInterval(wordTimer);
       return;
     }
     shown += 1;
     onWords(words.slice(0, shown).join(' '));
   }, WORD_MS);
+  const levelTimer = setInterval(() => {
+    // Loud and uneven while words come, settling to nothing once the sentence is done (always flat if nothing is said).
+    const target = shown > 0 && shown < words.length ? 0.35 + Math.random() * 0.65 : 0;
+    level += (target - level) * 0.5;
+    onLevel(level);
+  }, LEVEL_MS);
+  const stopTimers = () => {
+    clearInterval(wordTimer);
+    clearInterval(levelTimer);
+  };
   return {
     stop: () => {
-      clearInterval(timer);
+      stopTimers();
       return words.slice(0, shown).join(' ');
     },
-    cancel: () => clearInterval(timer),
+    cancel: stopTimers,
   };
 }
 

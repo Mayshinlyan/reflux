@@ -31,7 +31,9 @@ jest.mock('expo-router', () => ({
 jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(() => Promise.resolve()),
   notificationAsync: jest.fn(() => Promise.resolve()),
+  impactAsync: jest.fn(() => Promise.resolve()),
   NotificationFeedbackType: { Success: 'success' },
+  ImpactFeedbackStyle: { Light: 'light' },
 }));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
@@ -80,10 +82,14 @@ describe('Log voice screen', () => {
     expect(screen.getByText("I'm listening")).toBeTruthy();
 
     await advance(4000);
-    expect(screen.getByText(/I had pasta and a glass of wine/)).toBeTruthy();
+    // The words are kept, not shown, while listening; the wave is what moves.
+    expect(screen.queryByText(/I had pasta and a glass of wine/)).toBeNull();
+    expect(screen.getByTestId('voice-wave', { includeHiddenElements: true })).toBeTruthy();
 
     await press('Done');
     expect(screen.getByText('Got it')).toBeTruthy();
+    // They appear once listening has ended.
+    expect(screen.getByText(/I had pasta and a glass of wine/)).toBeTruthy();
     await advance(2000);
 
     expect(screen.getByText('Did I get that?')).toBeTruthy();
@@ -180,6 +186,15 @@ describe('Log voice screen', () => {
     expect(screen.getByRole('button', { name: 'Save' }).props.accessibilityState).toMatchObject({
       disabled: true,
     });
+  });
+
+  it('ends the recording when the wave is tapped, the same as Done', async () => {
+    await render(<LogVoiceScreen />);
+    await advance(4000);
+
+    await fireEvent.press(screen.getByTestId('voice-wave', { includeHiddenElements: true }));
+
+    expect(screen.getByText('Got it')).toBeTruthy();
   });
 
   it('starts listening again from Talk again', async () => {

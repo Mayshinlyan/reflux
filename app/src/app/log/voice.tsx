@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Platform, StyleSheet } from 'react-native';
+import { useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { BackHeader } from '@/components/BackHeader';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
@@ -38,6 +39,9 @@ import { space } from '@/theme';
 
 type Phase = 'listening' | 'working' | 'confirm' | 'problem';
 
+/** How long the wave takes to follow a change in loudness, so it moves smoothly instead of flickering. */
+const LEVEL_SMOOTHING_MS = 90;
+
 const capitalise = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /**
@@ -61,6 +65,8 @@ export default function LogVoiceScreen() {
   const [symptomSheet, setSymptomSheet] = useState<{ key: LoggedSymptomKey; open: boolean } | null>(null);
   const [timeOpen, setTimeOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  /** How loud the voice is, 0 to 1, smoothed: the wave's height. */
+  const level = useSharedValue(0);
   const listening = useRef<Listening | null>(null);
   const transcript = useRef('');
   const alive = useRef(true);
@@ -108,11 +114,22 @@ export default function LogVoiceScreen() {
     if (!alive.current) return;
     // A second "Talk again" during the permission check must not leave two listeners running.
     listening.current?.cancel();
-    listening.current = startListening((heardSoFar) => {
-      transcript.current = heardSoFar;
-      setWords(heardSoFar);
-    }, demo);
-  }, [demo, fail]);
+    level.set(0);
+    listening.current = startListening(
+      {
+        // The words are only kept, not shown, while listening; they appear after Done.
+        onWords: (heardSoFar) => {
+          transcript.current = heardSoFar;
+        },
+        onLevel: (loudness) => {
+          level.set(withTiming(loudness, { duration: LEVEL_SMOOTHING_MS }));
+        },
+      },
+      demo,
+    );
+    // A light tap says the microphone is open.
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  }, [demo, fail, level]);
 
   /** Works out what was said. Kept apart so "Try again" after no signal reuses the same words. */
   const work = useCallback(async () => {
@@ -143,6 +160,7 @@ export default function LogVoiceScreen() {
     if (phase !== 'listening') return;
     const text = listening.current?.stop() ?? transcript.current;
     transcript.current = text;
+    setWords(text);
     if (!text.trim()) {
       fail(new VoiceError('nothing'));
       return;
@@ -235,7 +253,7 @@ export default function LogVoiceScreen() {
     <Screen style={styles.screen}>
       <BackHeader close />
       {(phase === 'listening' || phase === 'working') && (
-        <VoiceListening phase={phase} words={words} onDone={done} onTypeInstead={typeInstead} />
+        <VoiceListening phase={phase} level={level} words={words} onDone={done} onTypeInstead={typeInstead} />
       )}
       {phase === 'problem' && (
         <VoiceProblem problem={problem} onAction={problemAction} onTypeInstead={typeInstead} />

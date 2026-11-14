@@ -1,70 +1,31 @@
-import { Mic } from 'lucide-react-native';
-import { useEffect } from 'react';
+import type { SharedValue } from 'react-native-reanimated';
 import { StyleSheet, View } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { FoodLoading } from '@/components/FoodLoading';
-import { radius, space, typography, useColors } from '@/theme';
+import { space, typography } from '@/theme';
 
 import { TypeInstead } from './TypeInstead';
-
-const CORE = 120;
-const RINGS = [
-  { size: 232, opacity: 0.08 },
-  { size: 176, opacity: 0.14 },
-];
-
-/** The big olive mic with two soft rings that breathe while listening (still under Reduce Motion). */
-function MicPulse() {
-  const colors = useColors();
-  const still = useReducedMotion();
-  const pulse = useSharedValue(0);
-  useEffect(() => {
-    if (still) return;
-    pulse.value = withRepeat(withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.sin) }), -1, true);
-  }, [pulse, still]);
-  const ringStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 + pulse.value * 0.05 }] }));
-  return (
-    <View style={styles.stage} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      {RINGS.map((ring) => (
-        <Animated.View
-          key={ring.size}
-          style={[
-            styles.ring,
-            { width: ring.size, height: ring.size, opacity: ring.opacity, backgroundColor: colors.cta },
-            ringStyle,
-          ]}
-        />
-      ))}
-      <View style={[styles.core, { backgroundColor: colors.cta }]}>
-        <Mic size={48} color={colors.ctaInk} strokeWidth={2} />
-      </View>
-    </View>
-  );
-}
+import { VoiceWave } from './VoiceWave';
 
 type Props = {
-  /** Listening: the words appear as they are heard. Working: the same words stay while Bellie sorts them out. */
+  /** Listening: the wave moves with the voice, and no words show. Working: the words appear, as Bellie sorts them out. */
   phase: 'listening' | 'working';
+  /** How loud the voice is, 0 to 1; drives the wave. */
+  level: SharedValue<number>;
+  /** What was heard, shown only once listening has ended. */
   words: string;
   onDone: () => void;
   onTypeInstead: () => void;
 };
 
 /**
- * Figma 45b and 45c. Listening is one big mic, the words as they come, "Done" and "Type instead". Working keeps
- * the words and shows the app's own steaming-pot loader, unchanged.
+ * Figma 45b and 45c. Listening is a wave that moves with your voice, "Done" and "Type instead"; the words are not
+ * shown while you talk (a live transcript flickers and invites fixing as you go). Working shows the words you said and
+ * the app's own steaming-pot loader, unchanged.
  */
-export function VoiceListening({ phase, words, onDone, onTypeInstead }: Props) {
+export function VoiceListening({ phase, level, words, onDone, onTypeInstead }: Props) {
   const listening = phase === 'listening';
   return (
     <>
@@ -75,13 +36,18 @@ export function VoiceListening({ phase, words, onDone, onTypeInstead }: Props) {
         <AppText variant="voice" color="inkSoft" style={styles.centre}>
           {listening ? 'Say what you ate or how you feel.' : 'Just a moment.'}
         </AppText>
-        <View style={styles.middle}>{listening ? <MicPulse /> : <FoodLoading source="voice" />}</View>
-        <AppText
-          accessibilityLiveRegion="polite"
-          color={listening ? 'ink' : 'inkSoft'}
-          style={[styles.centre, styles.words]}>
-          {words ? `“${words}”` : ''}
-        </AppText>
+        <View style={styles.middle}>
+          {listening ? (
+            <VoiceWave level={level} onPress={onDone} />
+          ) : (
+            <>
+              <FoodLoading source="voice" />
+              <AppText color="inkSoft" style={[styles.centre, styles.words]}>
+                {words ? `“${words}”` : ''}
+              </AppText>
+            </>
+          )}
+        </View>
       </View>
       {listening && (
         <View style={styles.footer}>
@@ -96,16 +62,8 @@ export function VoiceListening({ phase, words, onDone, onTypeInstead }: Props) {
 const styles = StyleSheet.create({
   body: { flex: 1, paddingTop: space.s3, gap: space.s1 },
   centre: { textAlign: 'center' },
-  middle: { height: 260, alignItems: 'center', justifyContent: 'center', marginTop: space.s3 },
-  stage: { width: RINGS[0].size, height: RINGS[0].size, alignItems: 'center', justifyContent: 'center' },
-  ring: { position: 'absolute', borderRadius: radius.pill },
-  core: {
-    width: CORE,
-    height: CORE,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  words: { ...typography.lead, paddingHorizontal: space.s3, minHeight: 100 },
+  // The wave (or the loader and the words) sits in the middle of whatever room is left, so the gaps above and below match.
+  middle: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.s2 },
+  words: { ...typography.lead, paddingHorizontal: space.s3 },
   footer: { paddingTop: space.s2, paddingBottom: space.s1, gap: space.s1 },
 });
