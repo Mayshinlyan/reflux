@@ -16,6 +16,7 @@ import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { Button } from '@/components/Button';
 import { InlineAddChip } from '@/components/InlineAddChip';
+import { LogKindSwitcher } from '@/components/LogKindSwitcher';
 import { MealTimeSheet, pickTimeAndroid } from '@/components/MealTimeSheet';
 import { Screen } from '@/components/Screen';
 import { SymptomChip } from '@/components/SymptomChip';
@@ -386,7 +387,15 @@ export default function LogSymptomsScreen() {
 
   return (
     <Screen style={styles.screen}>
-      <BackHeader onBack={goBack} />
+      <BackHeader
+        onBack={goBack}
+        // Figma 48c: the kind tabs show on a fresh first step, not when editing or following a meal.
+        tabs={
+          step === 1 && editingId === undefined && !params.afterFood ? (
+            <LogKindSwitcher current="symptoms" date={params.date} confirmLeave={hasInput} />
+          ) : undefined
+        }
+      />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           ref={scroll}

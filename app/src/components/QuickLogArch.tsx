@@ -1,4 +1,4 @@
-import { Mic, type LucideIcon } from 'lucide-react-native';
+import { Keyboard, Mic, type LucideIcon } from 'lucide-react-native';
 import { type ReactNode, useEffect } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
@@ -12,36 +12,24 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { LOG_KINDS, type LogKind } from '@/lib/logKinds';
 import { type ColorToken, shadow, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { LOG_CENTRE_BELOW_BAR_TOP, tabBarHeight } from './FloatingTabBar';
 
-export type { LogKind };
-
-/** The arch adds "Tell me" (speak it) to the three things that can be logged. */
-export type ArchKind = LogKind | 'voice';
+/** The arch has two buttons: speak it ("Tell me") or type it ("Type", which opens the Food screen and its kind tabs). */
+export type ArchKind = 'voice' | 'type';
 
 type ArchEntry = { kind: ArchKind; label: string; icon: LucideIcon; tint: ColorToken; iconColor: ColorToken };
 
-/** Figma 45a: Food, How I feel, Tell me, Medication, left to right. "Tell me" is a white bubble with an olive mic. */
-const VOICE_ITEM: ArchEntry = {
-  kind: 'voice',
-  label: 'Tell me',
-  icon: Mic,
-  tint: 'surface',
-  iconColor: 'sageInk',
-};
-const KIND_ITEMS: ArchEntry[] = LOG_KINDS.map((item) => ({ ...item, iconColor: 'ink' }));
-const [FOOD_ITEM, SYMPTOMS_ITEM, MEDICATION_ITEM] = KIND_ITEMS as [ArchEntry, ArchEntry, ArchEntry];
-
-/** Where each button sits on the arch, in degrees around the Log button: the outer two low, the inner two higher. */
-const ANGLE: Record<ArchKind, number> = { food: 143.5, symptoms: 106, voice: 74, medication: 36.5 };
-const ITEMS = [FOOD_ITEM, SYMPTOMS_ITEM, VOICE_ITEM, MEDICATION_ITEM].map((item) => ({
-  ...item,
-  angle: ANGLE[item.kind],
-}));
+/**
+ * Figma 48a: Tell me (white bubble, olive mic) on the left and Type (tan bubble, ink keyboard) on the right, at 120 and
+ * 60 degrees around the Log button.
+ */
+const ITEMS: (ArchEntry & { angle: number })[] = [
+  { kind: 'voice', label: 'Tell me', icon: Mic, tint: 'surface', iconColor: 'sageInk', angle: 120 },
+  { kind: 'type', label: 'Type', icon: Keyboard, tint: 'surface2', iconColor: 'ink', angle: 60 },
+];
 
 /** The arch's radius around the Log button's centre, and the size of each round button on it. */
 const RADIUS = 138;

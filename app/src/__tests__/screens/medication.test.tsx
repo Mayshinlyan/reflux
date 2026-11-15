@@ -92,6 +92,22 @@ describe('Medications: logging', () => {
     expect(screen.getByRole('header', { name: 'Medications' })).toBeTruthy();
   });
 
+  it('shows the kind tabs when logging a dose (Medication selected), not when managing the list', async () => {
+    seedOmeprazole();
+    mockParams = {};
+    await render(<MedicationScreen />);
+    expect(screen.getAllByRole('tab').map((el) => el.props.accessibilityState.selected)).toEqual([
+      false,
+      false,
+      true,
+    ]);
+    await screen.unmount();
+
+    mockParams = { manage: '1' };
+    await render(<MedicationScreen />);
+    expect(screen.queryByRole('tab')).toBeNull();
+  });
+
   it('opens the completion page for the dose, which carries what Change time needs', async () => {
     mockParams = {};
     seedOmeprazole();

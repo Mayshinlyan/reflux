@@ -24,15 +24,14 @@ const TAB_FOR: Record<string, Exclude<TabKey, 'log'>> = {
 };
 
 /**
- * Where each button on the quick log arch goes. Tell me opens the voice log (listen, then confirm). Log food opens the Food screen (type it, add a photo, or tap a
- * saved food), not straight to the camera. The arch opens from the + button, from Bellie, and from a day in
- * Today's week strip, which hands its day on to the screen.
+ * Where each button on the quick log arch goes. Tell me opens the voice log (listen, then confirm). Type opens the Food
+ * screen (type it, add a photo, or tap a saved food), whose Food / How I feel / Medication tabs reach the other two.
+ * The arch opens from the + button, from Bellie, and from a day in Today's week strip, which hands its day on to the
+ * screen.
  */
-const LOG_ROUTE: Record<ArchKind, '/log/food' | '/log/symptoms' | '/log/voice' | '/log/medication'> = {
-  food: '/log/food',
-  symptoms: '/log/symptoms',
+const LOG_ROUTE: Record<ArchKind, '/log/food' | '/log/voice'> = {
   voice: '/log/voice',
-  medication: '/log/medication',
+  type: '/log/food',
 };
 
 /** Adapts the router's tab state to the Figma tab bar, with the quick log arch opening over the screen. */

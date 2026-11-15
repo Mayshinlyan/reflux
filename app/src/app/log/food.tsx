@@ -74,6 +74,8 @@ export default function LogFoodScreen() {
       quickLog={quickFood}
       detailsFor={detailsFor}
       initialText={prefill ? prefill.slice(0, 200) : undefined}
+      // The kind tabs belong to a fresh log, not to a favorite food, the widget, a meal's details or a Kitchen recipe.
+      switchKinds={!target && !quickFood && detailsFor === undefined && !prefill}
     />
   );
 }

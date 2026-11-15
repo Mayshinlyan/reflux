@@ -258,6 +258,30 @@ describe('Log food screen: Save to favorite foods', () => {
   });
 });
 
+describe('Log food screen: kind tabs (Figma 48b)', () => {
+  it('shows Food / How I feel / Medication on a fresh log, with Food selected', async () => {
+    mockParams = {};
+    await render(<LogFoodScreen />);
+
+    expect(screen.getAllByRole('tab').map((el) => el.props.accessibilityState.selected)).toEqual([
+      true,
+      false,
+      false,
+    ]);
+  });
+
+  it('hides them for a Kitchen recipe and for a favorite food', async () => {
+    mockParams = { prefill: 'Kimchi egg fried rice' };
+    await render(<LogFoodScreen />);
+    expect(screen.queryByRole('tab')).toBeNull();
+    await screen.unmount();
+
+    mockParams = { myFood: '1' };
+    await render(<LogFoodScreen />);
+    expect(screen.queryByRole('tab')).toBeNull();
+  });
+});
+
 describe('Log food screen: from a Kitchen recipe (?prefill=)', () => {
   it('starts with the dish typed in, ready to check like any typed meal', async () => {
     mockParams = { prefill: 'Kimchi egg fried rice' };

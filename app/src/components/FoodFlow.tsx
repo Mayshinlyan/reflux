@@ -17,6 +17,7 @@ import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { FoodLoading } from '@/components/FoodLoading';
+import { LogKindSwitcher } from '@/components/LogKindSwitcher';
 import { FoodCapture } from '@/components/food/FoodCapture';
 import { FoodDetails, type MealDetailsState } from '@/components/food/FoodDetails';
 import { FoodSuggestions } from '@/components/food/FoodSuggestions';
@@ -150,6 +151,7 @@ export function FoodFlow({
   quickLog,
   detailsFor,
   initialText,
+  switchKinds = false,
 }: {
   photoUri?: string;
   openCamera?: boolean;
@@ -158,6 +160,8 @@ export function FoodFlow({
   quickLog?: StoredSavedFood;
   detailsFor?: number;
   initialText?: string;
+  /** Show the Food / How I feel / Medication tabs on the capture step (Figma 48b): a fresh log opened from the arch. */
+  switchKinds?: boolean;
 }) {
   const colors = useColors();
   const db = useDb();
@@ -831,6 +835,11 @@ export function FoodFlow({
         title={myFood && myFood.id !== undefined ? 'Get a verdict' : undefined}
         onBack={onBack}
         close={logged !== null}
+        tabs={
+          switchKinds && logged === null && !showResult && !busy && !reviewingPhoto ? (
+            <LogKindSwitcher current="food" date={date} confirmLeave={trimmed !== ''} />
+          ) : undefined
+        }
       />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
