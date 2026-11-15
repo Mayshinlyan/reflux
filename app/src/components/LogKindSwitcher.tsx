@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { createContext, type ReactNode, useContext } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { LOG_KINDS, type LogKind } from '@/lib/logKinds';
@@ -6,40 +6,48 @@ import { minTouchTarget, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 
-const LOG_ROUTE = {
-  food: '/log/food',
-  symptoms: '/log/symptoms',
-  medication: '/log/medication',
-} as const satisfies Record<LogKind, string>;
+const SwitchKindContext = createContext<((kind: LogKind) => void) | null>(null);
+
+/** Lets the Food, How I feel and Medication screens switch to each other inside one modal (`/log/type`). */
+export function SwitchKindProvider({
+  onSwitch,
+  children,
+}: {
+  onSwitch: (kind: LogKind) => void;
+  children: ReactNode;
+}) {
+  return <SwitchKindContext.Provider value={onSwitch}>{children}</SwitchKindContext.Provider>;
+}
+
+/** True when this screen sits inside the tabbed log, so it can show the tabs. */
+export function useCanSwitchKind(): boolean {
+  return useContext(SwitchKindContext) !== null;
+}
 
 /**
  * Figma 48b to 48d: Food · How I feel · Medication as full-width underline tabs under the Back row of the three
  * manual log screens. The selected tab is ink with a 2pt olive underline; a 1pt edge line runs under all three.
- * Picking another kind swaps the screen in place (the log stays one modal) and keeps the day being logged.
- * `confirmLeave` is true once something has been typed or picked, so switching asks before it throws that away.
+ * Picking another kind swaps the content of the one modal they live in, with no navigation and no animation, like
+ * switching tabs. `confirmLeave` is true once something has been typed or picked, so switching asks before it
+ * throws that away. Renders nothing outside the tabbed log.
  */
 export function LogKindSwitcher({
   current,
-  date,
   confirmLeave = false,
 }: {
   current: LogKind;
-  /** A day tapped in Today's week strip, handed on to the other screens. */
-  date?: string;
   confirmLeave?: boolean;
 }) {
   const colors = useColors();
+  const onSwitch = useContext(SwitchKindContext);
+  if (!onSwitch) return null;
 
-  const open = (kind: LogKind) => {
-    // `switched` tells the root stack to skip the slide, so this reads as switching tabs (see tabSwitchAnimation).
-    router.replace({ pathname: LOG_ROUTE[kind], params: { ...(date ? { date } : {}), switched: '1' } });
-  };
   const pick = (kind: LogKind) => {
     if (kind === current) return;
-    if (!confirmLeave) return open(kind);
+    if (!confirmLeave) return onSwitch(kind);
     Alert.alert('Switch without saving?', "What you've entered here won't be saved.", [
       { text: 'Stay', style: 'cancel' },
-      { text: 'Switch', style: 'destructive', onPress: () => open(kind) },
+      { text: 'Switch', style: 'destructive', onPress: () => onSwitch(kind) },
     ]);
   };
 

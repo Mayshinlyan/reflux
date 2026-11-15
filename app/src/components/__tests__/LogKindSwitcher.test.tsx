@@ -1,61 +1,57 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, type AlertButton } from 'react-native';
 
-import { LogKindSwitcher } from '../LogKindSwitcher';
-
-const mockReplace = jest.fn();
-jest.mock('expo-router', () => ({ router: { replace: (...args: unknown[]) => mockReplace(...args) } }));
+import { LogKindSwitcher, SwitchKindProvider } from '../LogKindSwitcher';
 
 const tab = (name: string) => screen.getByRole('tab', { name });
+const inside = (ui: React.ReactElement, onSwitch = jest.fn()) => (
+  <SwitchKindProvider onSwitch={onSwitch}>{ui}</SwitchKindProvider>
+);
 
 describe('LogKindSwitcher', () => {
-  beforeEach(() => mockReplace.mockClear());
-
   it('shows Food, How I feel and Medication, with the current one selected', async () => {
-    await render(<LogKindSwitcher current="symptoms" />);
+    await render(inside(<LogKindSwitcher current="symptoms" />));
 
     expect(tab('Food').props.accessibilityState.selected).toBe(false);
     expect(tab('How I feel').props.accessibilityState.selected).toBe(true);
     expect(tab('Medication').props.accessibilityState.selected).toBe(false);
   });
 
-  it('swaps to another kind in place', async () => {
-    await render(<LogKindSwitcher current="food" />);
+  it('switches to another kind in place', async () => {
+    const onSwitch = jest.fn();
+    await render(inside(<LogKindSwitcher current="food" />, onSwitch));
 
     await fireEvent.press(tab('Medication'));
 
-    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/log/medication', params: { switched: '1' } });
-  });
-
-  it('keeps the day being logged', async () => {
-    await render(<LogKindSwitcher current="food" date="2026-11-10" />);
-
-    await fireEvent.press(tab('How I feel'));
-
-    expect(mockReplace).toHaveBeenCalledWith({
-      pathname: '/log/symptoms',
-      params: { date: '2026-11-10', switched: '1' },
-    });
+    expect(onSwitch).toHaveBeenCalledWith('medication');
   });
 
   it('does nothing when the current kind is tapped', async () => {
-    await render(<LogKindSwitcher current="food" />);
+    const onSwitch = jest.fn();
+    await render(inside(<LogKindSwitcher current="food" />, onSwitch));
 
     await fireEvent.press(tab('Food'));
 
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(onSwitch).not.toHaveBeenCalled();
   });
 
   it('asks before throwing away what was entered, and switches only on confirm', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-    await render(<LogKindSwitcher current="food" confirmLeave />);
+    const onSwitch = jest.fn();
+    await render(inside(<LogKindSwitcher current="food" confirmLeave />, onSwitch));
 
     await fireEvent.press(tab('Medication'));
 
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(onSwitch).not.toHaveBeenCalled();
     const buttons = alert.mock.calls[0]?.[2] as AlertButton[];
     buttons.find((b) => b.text === 'Switch')?.onPress?.();
-    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/log/medication', params: { switched: '1' } });
+    expect(onSwitch).toHaveBeenCalledWith('medication');
     alert.mockRestore();
+  });
+
+  it('draws nothing outside the tabbed log', async () => {
+    await render(<LogKindSwitcher current="food" />);
+
+    expect(screen.queryByRole('tab')).toBeNull();
   });
 });

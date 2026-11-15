@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, type AlertButton } from 'react-native';
 
 import MedicationScreen from '@/app/log/medication';
+import { SwitchKindProvider } from '@/components/LogKindSwitcher';
 import { createTestDb } from '@/db/__tests__/testDb';
 import {
   createMedication,
@@ -95,7 +96,11 @@ describe('Medications: logging', () => {
   it('shows the kind tabs when logging a dose (Medication selected), not when managing the list', async () => {
     seedOmeprazole();
     mockParams = {};
-    await render(<MedicationScreen />);
+    await render(
+      <SwitchKindProvider onSwitch={jest.fn()}>
+        <MedicationScreen />
+      </SwitchKindProvider>,
+    );
     expect(screen.getAllByRole('tab').map((el) => el.props.accessibilityState.selected)).toEqual([
       false,
       false,
@@ -104,7 +109,11 @@ describe('Medications: logging', () => {
     await screen.unmount();
 
     mockParams = { manage: '1' };
-    await render(<MedicationScreen />);
+    await render(
+      <SwitchKindProvider onSwitch={jest.fn()}>
+        <MedicationScreen />
+      </SwitchKindProvider>,
+    );
     expect(screen.queryByRole('tab')).toBeNull();
   });
 

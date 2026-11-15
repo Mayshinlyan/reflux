@@ -837,7 +837,7 @@ export function FoodFlow({
         close={logged !== null}
         tabs={
           switchKinds && logged === null && !showResult && !busy && !reviewingPhoto ? (
-            <LogKindSwitcher current="food" date={date} confirmLeave={trimmed !== ''} />
+            <LogKindSwitcher current="food" confirmLeave={trimmed !== ''} />
           ) : undefined
         }
       />

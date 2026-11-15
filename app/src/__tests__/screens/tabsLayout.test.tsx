@@ -120,7 +120,7 @@ describe('Quick log arch', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Type' }));
 
-    expect(mockPush.mock.calls).toEqual([['/log/food']]);
+    expect(mockPush.mock.calls).toEqual([['/log/type']]);
     expect(screen.queryByRole('button', { name: 'Tell me' })).toBeNull();
   });
 
@@ -142,7 +142,7 @@ describe('Quick log arch', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Tell me' }));
 
     expect(mockPush.mock.calls).toEqual([
-      [{ pathname: '/log/food', params: { date: '2026-10-28' } }],
+      [{ pathname: '/log/type', params: { date: '2026-10-28' } }],
       [{ pathname: '/log/voice', params: { date: '2026-10-28' } }],
     ]);
   });
@@ -155,7 +155,7 @@ describe('Quick log arch', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Log' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Type' }));
 
-    expect(mockPush.mock.calls).toEqual([['/log/food']]);
+    expect(mockPush.mock.calls).toEqual([['/log/type']]);
   });
 
   it('closes from the close button without going anywhere', async () => {

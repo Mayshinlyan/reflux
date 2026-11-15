@@ -228,12 +228,7 @@ describe('Log symptoms screen: pick, then details', () => {
     await render(<LogSymptomsScreen />);
 
     for (const area of ['Throat & voice', 'Chest', 'Tummy']) expect(screen.getByText(area)).toBeTruthy();
-    // The only tabs are the log kinds (Food / How I feel / Medication), never one per body area.
-    expect(screen.getAllByRole('tab').map((el) => el.props.accessibilityState.selected)).toEqual([
-      false,
-      true,
-      false,
-    ]);
+    expect(screen.queryByRole('tab')).toBeNull();
     expect(screen.getAllByRole('checkbox').map((el) => el.props.accessibilityLabel)).toEqual([
       'Hoarse voice',
       'Throat clearing',
