@@ -26,6 +26,7 @@ const meal = (day: string, d: PlanDish, over: Partial<StoredMeal> = {}): StoredM
   dish: d,
   locked: false,
   skipped: false,
+  loggedAt: null,
   ...over,
 });
 

@@ -24,6 +24,8 @@ export type StoredMeal = {
   dish: PlanDish;
   locked: boolean;
   skipped: boolean;
+  /** When "Log it" was tapped for this meal, or null. */
+  loggedAt: string | null;
 };
 
 export type StoredPlan = {
@@ -51,6 +53,7 @@ function toMeal(row: PlannedMeal): StoredMeal | null {
     dish: row.recipe,
     locked: row.locked,
     skipped: row.skipped,
+    loggedAt: row.loggedAt,
   };
 }
 
@@ -122,10 +125,18 @@ export function setMealSkipped(db: AppDb, mealId: number, skipped: boolean): voi
   db.update(plannedMeals).set({ skipped, updatedAt: nowIso() }).where(eq(plannedMeals.id, mealId)).run();
 }
 
+/**
+ * "Log it" was tapped for this meal. Only a note of when: a meal logged after it counts as this one, and nothing is
+ * logged here (a plan is never a log).
+ */
+export function markMealLogOffered(db: AppDb, mealId: number, at: string): void {
+  db.update(plannedMeals).set({ loggedAt: at, updatedAt: nowIso() }).where(eq(plannedMeals.id, mealId)).run();
+}
+
 /** Swapping a meal for another dish. */
 export function swapMeal(db: AppDb, mealId: number, dish: PlanDish): void {
   db.update(plannedMeals)
-    .set({ dishId: dish.id, recipe: pickPlanDish(dish), skipped: false, updatedAt: nowIso() })
+    .set({ dishId: dish.id, recipe: pickPlanDish(dish), skipped: false, loggedAt: null, updatedAt: nowIso() })
     .where(eq(plannedMeals.id, mealId))
     .run();
 }

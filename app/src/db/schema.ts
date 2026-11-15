@@ -291,6 +291,8 @@ export const plannedMeals = sqliteTable(
     recipe: text('recipe', { mode: 'json' }).notNull(),
     locked: integer('locked', { mode: 'boolean' }).notNull().default(false),
     skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
+    /** When "Log it" was tapped on the Today card; a meal logged after this counts as this planned meal. */
+    loggedAt: text('logged_at'),
     ...timestamps,
   },
   (t) => [
