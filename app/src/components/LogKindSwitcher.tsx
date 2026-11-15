@@ -31,7 +31,8 @@ export function LogKindSwitcher({
   const colors = useColors();
 
   const open = (kind: LogKind) => {
-    router.replace(date ? { pathname: LOG_ROUTE[kind], params: { date } } : LOG_ROUTE[kind]);
+    // `switched` tells the root stack to skip the slide, so this reads as switching tabs (see tabSwitchAnimation).
+    router.replace({ pathname: LOG_ROUTE[kind], params: { ...(date ? { date } : {}), switched: '1' } });
   };
   const pick = (kind: LogKind) => {
     if (kind === current) return;

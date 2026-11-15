@@ -24,7 +24,7 @@ describe('LogKindSwitcher', () => {
 
     await fireEvent.press(tab('Medication'));
 
-    expect(mockReplace).toHaveBeenCalledWith('/log/medication');
+    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/log/medication', params: { switched: '1' } });
   });
 
   it('keeps the day being logged', async () => {
@@ -32,7 +32,10 @@ describe('LogKindSwitcher', () => {
 
     await fireEvent.press(tab('How I feel'));
 
-    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/log/symptoms', params: { date: '2026-11-10' } });
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/log/symptoms',
+      params: { date: '2026-11-10', switched: '1' },
+    });
   });
 
   it('does nothing when the current kind is tapped', async () => {
@@ -52,7 +55,7 @@ describe('LogKindSwitcher', () => {
     expect(mockReplace).not.toHaveBeenCalled();
     const buttons = alert.mock.calls[0]?.[2] as AlertButton[];
     buttons.find((b) => b.text === 'Switch')?.onPress?.();
-    expect(mockReplace).toHaveBeenCalledWith('/log/medication');
+    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/log/medication', params: { switched: '1' } });
     alert.mockRestore();
   });
 });

@@ -41,6 +41,13 @@ SplashScreen.setOptions({ fade: true, duration: 300 });
 const SPLASH_MIN_MS = 1200;
 const splashShownAt = Date.now();
 
+/** A log screen reached from the Food / How I feel / Medication tabs (`?switched=1`) swaps in without sliding. */
+function tabSwitchAnimation(params: object | undefined) {
+  return (params as { switched?: string } | undefined)?.switched === '1'
+    ? ({ animation: 'none' } as const)
+    : {};
+}
+
 function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Gaegu_400Regular,
@@ -86,15 +93,21 @@ function RootLayout() {
                   name="welcome"
                   options={{ gestureEnabled: false, animation: reduceMotion ? 'none' : 'fade' }}
                 />
+                {/* Food, How I feel and Medication swap in place from their tabs (`?switched=1`): no slide, so it
+                  reads as switching tabs, not as the sheet going down and coming back up. */}
                 <Stack.Screen
                   name="log/food"
                   options={({ route }) => ({
                     // Favorite foods is a list you drill into, not a log.
                     presentation:
                       (route.params as { manage?: string } | undefined)?.manage === '1' ? 'card' : 'modal',
+                    ...tabSwitchAnimation(route.params),
                   })}
                 />
-                <Stack.Screen name="log/symptoms" options={{ presentation: 'modal' }} />
+                <Stack.Screen
+                  name="log/symptoms"
+                  options={({ route }) => ({ presentation: 'modal', ...tabSwitchAnimation(route.params) })}
+                />
                 <Stack.Screen name="log/voice" options={{ presentation: 'modal' }} />
                 <Stack.Screen
                   name="log/medication"
@@ -102,6 +115,7 @@ function RootLayout() {
                     // Managing the list (from About you) is a page you drill into, like Favorite foods; logging a dose is a sheet.
                     presentation:
                       (route.params as { manage?: string } | undefined)?.manage === '1' ? 'card' : 'modal',
+                    ...tabSwitchAnimation(route.params),
                   })}
                 />
                 {/* What follows a saved log (completion, streak, goal, gift): full screen, no swipe away. It slides up
