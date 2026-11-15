@@ -300,6 +300,28 @@ export const plannedMeals = sqliteTable(
   ],
 );
 
+/**
+ * What was ticked on a plan's prep day and shopping list, and what was added to the list by hand. One row per tick
+ * (unticking deletes it). `kind` is 'prep' (a step), 'shop' (an item, by its key) or 'own' (an item the person
+ * typed; its key is its text). They go with the plan.
+ */
+export const planChecks = sqliteTable(
+  'plan_checks',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    planId: integer('plan_id')
+      .notNull()
+      .references(() => mealPlans.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['prep', 'shop', 'own'] }).notNull(),
+    key: text('key').notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('plan_checks_uq').on(t.planId, t.kind, t.key),
+    check('plan_checks_kind_check', sql`${t.kind} in ('prep', 'shop', 'own')`),
+  ],
+);
+
 /** Key/value settings. Values are JSON-encoded; see repositories/settings.ts for keys and defaults. */
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),

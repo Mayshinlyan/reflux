@@ -149,6 +149,47 @@ export async function scheduleWeeklyReport(): Promise<'scheduled' | 'denied' | '
   }
 }
 
+const PREP_ID = 'prep-day';
+const PREP_HOUR = 10;
+
+/**
+ * Schedules one reminder to cook, at 10:00 on the prep day (Figma "meal planning flow" E2). It is a single local
+ * notification, replaced if asked again. 'past' when that time has gone; it asks for permission itself, because the
+ * person just turned the switch on.
+ */
+export async function schedulePrepReminder(
+  dayKey: string,
+): Promise<'scheduled' | 'past' | 'denied' | 'failed'> {
+  try {
+    const [y, m, d] = dayKey.split('-').map(Number);
+    const at = new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1, PREP_HOUR, 0, 0);
+    if (at.getTime() <= Date.now()) return 'past';
+    if (!(await askForReminders())) return 'denied';
+    await Notifications.scheduleNotificationAsync({
+      identifier: PREP_ID,
+      content: {
+        title: 'Time to cook',
+        body: 'Your meal prep is on the plan for today.',
+        data: { prep: true },
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: CHANNEL },
+    });
+    return 'scheduled';
+  } catch (error) {
+    logger.error('schedulePrepReminder', error);
+    return 'failed';
+  }
+}
+
+/** Drops the prep day reminder. Safe if none is scheduled. */
+export async function cancelPrepReminder(): Promise<void> {
+  try {
+    await Notifications.cancelScheduledNotificationAsync(PREP_ID);
+  } catch (error) {
+    logger.error('cancelPrepReminder', error);
+  }
+}
+
 /** Drops the weekly notification: check-in reminders were turned off. Safe if none is scheduled. */
 export async function cancelWeeklyReport(): Promise<void> {
   try {

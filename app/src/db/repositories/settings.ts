@@ -73,6 +73,8 @@ export type Settings = {
   kitchenIdeas: { cuisine: CuisineKey; recipes: Recipe[]; seen?: boolean } | null;
   /** The meal planner's set-up sheet as it was left (Figma "meal planning flow" B), so it opens prefilled. */
   planChoices: PlanChoices;
+  /** The id of the plan whose prep day they asked a reminder for (Figma "meal planning flow" E2); null = none. */
+  prepReminderPlan: number | null;
   /** The check-in days they committed to reaching (the completion flow's goal screen, Figma G3); null = not picked. */
   commitGoal: 7 | 14 | 30 | null;
   /** The check-in day milestones whose gift was already opened, so each shows once. */
@@ -109,6 +111,7 @@ export const DEFAULT_SETTINGS: Settings = {
   kitchenRounds: { day: '', count: 0 },
   kitchenIdeas: null,
   planChoices: DEFAULT_PLAN_CHOICES,
+  prepReminderPlan: null,
   commitGoal: null,
   giftsSeen: [],
   bellieHat: false,
@@ -190,6 +193,9 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
   }
   if (key === 'planChoices' && !isPlanChoices(value)) {
     throw new Error('planChoices must be days, meals, cuisines, a mode, a prep time and a fridge switch');
+  }
+  if (key === 'prepReminderPlan' && value !== null && !(Number.isInteger(value) && (value as number) > 0)) {
+    throw new Error('prepReminderPlan must be null or a plan id');
   }
   if (key === 'commitGoal' && value !== null && ![7, 14, 30].includes(value as number)) {
     throw new Error('commitGoal must be null, 7, 14 or 30');
