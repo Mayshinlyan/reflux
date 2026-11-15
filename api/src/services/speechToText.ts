@@ -21,7 +21,11 @@ const EXTENSIONS: Record<string, string> = {
   'audio/ogg': 'ogg',
 };
 
-export const isAudioType = (mimeType: string) => mimeType in EXTENSIONS;
+/** Any audio type (parameters like `; codecs=` ignored), or a bare binary part, which a phone's upload may send for an m4a. */
+export const isAudioType = (mimeType: string) => {
+  const type = mimeType.split(';')[0]?.trim().toLowerCase() ?? '';
+  return type.startsWith('audio/') || type === 'application/octet-stream';
+};
 
 /**
  * Any service that speaks the OpenAI `/audio/transcriptions` shape: hosted Whisper-family models, OpenAI itself,
@@ -37,7 +41,7 @@ export function createOpenAiCompatibleSpeech(options: {
   return {
     async transcribe(audio, mimeType, hint) {
       const form = new FormData();
-      const name = `voice.${EXTENSIONS[mimeType] ?? 'm4a'}`;
+      const name = `voice.${EXTENSIONS[mimeType.split(';')[0]?.trim().toLowerCase() ?? ''] ?? 'm4a'}`;
       form.append('file', new Blob([new Uint8Array(audio)], { type: mimeType }), name);
       form.append('model', options.model);
       form.append('response_format', 'json');

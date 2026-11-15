@@ -88,6 +88,14 @@ describe('POST /v1/voice-log', () => {
     expect((await send(app, { ctx: JSON.stringify({ ...context, name: 'Sam' }) })).status).toBe(400);
   });
 
+  it('accepts an audio type with parameters, or a bare binary part from a phone upload', async () => {
+    const { app } = testApp();
+
+    expect((await send(app, { type: 'audio/mp4; codecs=mp4a.40.2' })).status).toBe(200);
+    expect((await send(app, { type: 'application/octet-stream' })).status).toBe(200);
+    expect((await send(app, { type: 'text/plain' })).status).toBe(400);
+  });
+
   it('retries once on an off-schema answer, then gives up', async () => {
     const flaky = claudeSaying((n) => (n === 1 ? { foods: 'pasta' } : goodVoice));
     const { app } = testApp({}, { claude: flaky.claude.service });
