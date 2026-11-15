@@ -15,6 +15,7 @@ type Props = Pick<
   | 'returnKeyType'
   | 'onSubmitEditing'
   | 'multiline'
+  | 'autoFocus'
 > & {
   label: string;
   /** Shown after the label, e.g. "(optional)". */
