@@ -97,7 +97,10 @@ export default function SettingsScreen() {
       update('checkInReminderMinutes', minutes);
       update('reminderAsked', true);
     }, 'saveReminder');
-    if (minutes === null) void cancelAllCheckIns();
+    if (minutes === null) {
+      void cancelAllCheckIns();
+      update('prepReminderPlan', null);
+    }
   };
 
   const confirmDeleteAll = () => {

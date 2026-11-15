@@ -1,11 +1,12 @@
 import * as Haptics from 'expo-haptics';
-import { router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { ChevronLeft, ChefHat, ShoppingBasket } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { ListRow } from '@/components/kitchen/ListRow';
 import { PlanMealCard } from '@/components/kitchen/PlanMealCard';
 import { PlanSkeleton } from '@/components/kitchen/PlanSkeleton';
 import { PlanWeekStrip } from '@/components/kitchen/PlanWeekStrip';
@@ -24,7 +25,10 @@ import {
   setMealSkipped,
   swapMeal,
 } from '@/db/repositories/mealPlans';
-import { getSetting } from '@/db/repositories/settings';
+import { listFridgeItems } from '@/db/repositories/fridgeItems';
+import { getPlanChecks } from '@/db/repositories/planChecks';
+import { getSetting, setSetting } from '@/db/repositories/settings';
+import type { AppDb } from '@/db/types';
 import { AppError, type ErrorCode } from '@/lib/errors';
 import { buildRecipeRequest, todayKey } from '@/lib/kitchen';
 import { ideasErrorMessage } from '@/lib/kitchenCopy';
@@ -38,13 +42,27 @@ import {
   planWeekStart,
 } from '@/lib/mealPlan';
 import { dishFromRecipe } from '@/lib/planDish';
+import { prepDishes, prepSummary } from '@/lib/prep';
+import { buildShoppingList, shoppingSummary } from '@/lib/shopping';
 import { setRecipeDraft } from '@/lib/recipeDraft';
 import { fetchMealPlan, fetchRecipeIdeas } from '@/services/relayClient';
+import { cancelPrepReminder } from '@/services/reminders';
 import { space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
 import { slotLabel } from '@/constants/mealPlan';
 
 type Status = 'loading' | 'ready' | 'error';
+
+/** The prep day moves (or goes) with the plan, so a reminder for the old one is dropped; it can be turned on again. */
+function dropPrepReminder(db: AppDb): void {
+  try {
+    if (getSetting(db, 'prepReminderPlan') === null) return;
+    setSetting(db, 'prepReminderPlan', null);
+    void cancelPrepReminder();
+  } catch (error) {
+    logger.error('dropPrepReminder', error);
+  }
+}
 
 /**
  * The week plan (Figma "meal planning flow" C and D). Opened with `make=new` it asks the relay for a plan from the
@@ -75,6 +93,13 @@ export default function PlanScreen() {
       logger.error('loadMealPlan', error);
     }
   }, [db]);
+
+  // Back from the shopping list, whose own items change the summary.
+  useFocusEffect(
+    useCallback(() => {
+      if (!running.current) refresh();
+    }, [refresh]),
+  );
 
   const generate = useCallback(
     async (what: 'new' | 'redo') => {
@@ -117,6 +142,7 @@ export default function PlanScreen() {
         const saved = current
           ? redoPlan(db, current.id, choices, today, meals)
           : createPlan(db, { weekStart, choices, meals });
+        dropPrepReminder(db);
         setPlan(saved);
         setPicked(null);
         setStatus('ready');
@@ -196,7 +222,11 @@ export default function PlanScreen() {
   };
 
   const startOver = () => {
-    if (plan) guard('deleteMealPlan', () => deletePlan(db, plan.id));
+    if (plan)
+      guard('deleteMealPlan', () => {
+        deletePlan(db, plan.id);
+        dropPrepReminder(db);
+      });
     goBack();
   };
 
@@ -250,6 +280,13 @@ export default function PlanScreen() {
   }
 
   const dayMeals = shownDay ? (byDay.get(shownDay) ?? []) : [];
+  const prep = prepDishes(plan.meals, today);
+  const shopping = buildShoppingList(
+    plan.meals,
+    plan.choices.useFridge ? listFridgeItems(db).map((item) => item.name) : [],
+    getPlanChecks(db, plan.id).own,
+    today,
+  );
   const unlocked = plan.meals.some((meal) => !meal.locked && !meal.skipped && meal.day >= today);
 
   return (
@@ -290,6 +327,23 @@ export default function PlanScreen() {
               />
             ))
           )}
+        </View>
+
+        <View style={styles.rows}>
+          {plan.mode === 'once' && prep.length > 0 && (
+            <ListRow
+              icon={<ChefHat size={20} color={colors.sageInk} strokeWidth={2} />}
+              title="Prep day"
+              subtitle={prepSummary(prep, plan.choices.prepMinutes)}
+              onPress={() => router.push('/prep-day')}
+            />
+          )}
+          <ListRow
+            icon={<ShoppingBasket size={20} color={colors.sageInk} strokeWidth={2} />}
+            title="Shopping list"
+            subtitle={shoppingSummary(shopping)}
+            onPress={() => router.push('/shopping-list')}
+          />
         </View>
 
         <View style={styles.links}>
@@ -349,6 +403,7 @@ const styles = StyleSheet.create({
   loading: { gap: space.s4, paddingBottom: space.s4 },
   heading: { gap: space.s1, marginBottom: space.s2 },
   day: { gap: space.s1_5 },
+  rows: { gap: space.s1 },
   links: { alignItems: 'center', gap: space.s1 },
   link: { minHeight: 44, justifyContent: 'center' },
   underline: { textDecorationLine: 'underline' },

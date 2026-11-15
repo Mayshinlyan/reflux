@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
-import { Bookmark, CalendarDays, ChevronRight, Refrigerator } from 'lucide-react-native';
-import { type ReactNode, useCallback, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Bookmark, CalendarDays, Refrigerator } from 'lucide-react-native';
+import { useCallback, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
@@ -10,6 +10,7 @@ import { Button } from '@/components/Button';
 import { FeedbackButton, feedbackButtonClearance } from '@/components/FeedbackButton';
 import { tabBarClearance } from '@/components/FloatingTabBar';
 import { FridgeRow } from '@/components/kitchen/FridgeRow';
+import { ListRow } from '@/components/kitchen/ListRow';
 import { PillButton } from '@/components/kitchen/PillButton';
 import { PlanSetupSheet } from '@/components/kitchen/PlanSetupSheet';
 import { PlanWeekStrip } from '@/components/kitchen/PlanWeekStrip';
@@ -226,37 +227,6 @@ export default function KitchenScreen() {
   );
 }
 
-/** A white row with a green icon tile, a title and a line under it, that opens something (Saved recipes, Meal plan). */
-function ListRow({
-  icon,
-  title,
-  subtitle,
-  onPress,
-}: {
-  icon: ReactNode;
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-}) {
-  const colors = useColors();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${title}, ${subtitle}`}
-      onPress={onPress}
-      style={[styles.listRow, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
-      <View style={[styles.tile, { backgroundColor: colors.sageTint }]}>{icon}</View>
-      <View style={styles.fill}>
-        <AppText variant="bodyEm">{title}</AppText>
-        <AppText variant="caption" color="inkMuted">
-          {subtitle}
-        </AppText>
-      </View>
-      <ChevronRight size={20} color={colors.inkMuted} strokeWidth={2} />
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   content: { paddingTop: space.s2, gap: space.s4 + space.s1 },
   heading: { gap: space.s1 },
@@ -266,13 +236,4 @@ const styles = StyleSheet.create({
   pills: { flexDirection: 'row', gap: space.s2 },
   fill: { flex: 1 },
   section: { gap: space.s1_5 },
-  listRow: {
-    minHeight: 66,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.s1_5,
-    padding: space.s1_5,
-    borderRadius: radius.md,
-  },
-  tile: { width: 40, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
 });

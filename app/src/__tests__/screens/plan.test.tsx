@@ -68,7 +68,11 @@ jest.mock('expo-router', () => ({
     canGoBack: () => true,
   },
   useLocalSearchParams: () => mockParams,
+  useFocusEffect: (effect: () => void) =>
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('react').useEffect(effect, [effect]),
 }));
+jest.mock('@/services/reminders', () => ({ cancelPrepReminder: jest.fn(() => Promise.resolve()) }));
 
 const planFetch = fetchMealPlan as jest.Mock;
 const ideasFetch = fetchRecipeIdeas as jest.Mock;
@@ -222,6 +226,28 @@ describe('Plan: the review', () => {
     expect(screen.getByText('Miso salmon')).toBeTruthy();
     expect(screen.getByText('Chicken bowls is soft and mild.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
+  });
+
+  it('opens the prep day and the shopping list from two rows under the days', async () => {
+    savedPlan();
+    await render(<PlanScreen />);
+
+    await press(/^Prep day, 2 dishes, about 2 hours/);
+    expect(mockPush).toHaveBeenLastCalledWith('/prep-day');
+    await press(/^Shopping list, /);
+    expect(mockPush).toHaveBeenLastCalledWith('/shopping-list');
+  });
+
+  it('has no prep day row when every meal is cooked on its day', async () => {
+    createPlan(mockDb, {
+      weekStart: today,
+      choices: { ...DEFAULT_PLAN_CHOICES, mode: 'daily' },
+      meals: [{ day: today, slot: 'dinner', dish: dish('d1', 'Chicken bowls', 0) }],
+    });
+    await render(<PlanScreen />);
+
+    expect(screen.queryByRole('button', { name: /^Prep day/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Shopping list/ })).toBeTruthy();
   });
 
   it('locks a meal and unlocks it again', async () => {
