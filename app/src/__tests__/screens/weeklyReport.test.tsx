@@ -93,7 +93,7 @@ describe('Your week with Bellie', () => {
     expect(screen.getByRole('header', { name: 'Your week with Bellie' })).toBeTruthy();
     expect(await screen.findByText('Not enough yet')).toBeTruthy();
     expect(screen.getByText('4 more meals with a check-in')).toBeTruthy();
-    expect(screen.queryByText('Worth watching')).toBeNull();
+    expect(screen.queryByText("Foods that didn't sit well")).toBeNull();
   });
 
   it('lists the foods symptoms followed and the foods that sat well, and when it shows up', async () => {
@@ -105,10 +105,10 @@ describe('Your week with Bellie', () => {
     meal('Toast', at(3, '08:00:00'));
     await render(<WeeklyReportScreen />);
 
-    expect(await screen.findByText('Worth watching')).toBeTruthy();
+    expect(await screen.findByText("Foods that didn't sit well")).toBeTruthy();
     expect(screen.getByText('Spicy tacos')).toBeTruthy();
     expect(screen.getByText('2 of 2')).toBeTruthy();
-    expect(screen.getByText('Sat well')).toBeTruthy();
+    expect(screen.getByText('Foods that sat well')).toBeTruthy();
     expect(screen.getByText('Oatmeal')).toBeTruthy();
     expect(screen.getByText('2 times')).toBeTruthy();
     expect(screen.getByRole('header', { name: 'When it shows up' })).toBeTruthy();
@@ -128,12 +128,13 @@ describe('Your week with Bellie', () => {
     expect(await screen.findByText('Mostly in the evening, after 6pm.')).toBeTruthy();
   });
 
-  it('says nothing stands out when there are enough meals but no pattern', async () => {
+  it('lists single meals as sat well once there are enough meals, with Once as the count', async () => {
     for (let i = 0; i < 5; i += 1) meal(`Meal ${i}`, at(1, `0${i + 1}:00:00`));
     await render(<WeeklyReportScreen />);
 
-    expect(await screen.findByText('Nothing stands out yet')).toBeTruthy();
-    expect(screen.getByText('Keep logging')).toBeTruthy();
+    expect(await screen.findByText('Foods that sat well')).toBeTruthy();
+    expect(screen.getAllByText('Once').length).toBeGreaterThan(0);
+    expect(screen.queryByText("Foods that didn't sit well")).toBeNull();
   });
 
   it('marks the week as seen once it has something to show, so Today stops offering it', async () => {

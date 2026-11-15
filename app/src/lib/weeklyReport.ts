@@ -1,6 +1,7 @@
 import { type Period, periodOf, shiftPeriod } from './range';
 import {
   MAX_MEAL_ROWS,
+  MIN_MEAL_TIMES,
   type MealPattern,
   mealPatterns,
   symptomsByTime,
@@ -53,21 +54,22 @@ export function whenSentence(counts: Record<TimeOfDay, number>): string | null {
 }
 
 /**
- * `entries` is everything logged up to the end of the week, so a food shows up once it has been eaten twice at any
- * time, not only inside one week. `weekEntries` is just the week, for when the symptoms came.
+ * `entries` is everything logged up to the end of the week, so a food shows up once it has been eaten and checked at
+ * any time, not only inside one week; one meal is enough. `weekEntries` is just the week, for when the symptoms came.
  */
 export function buildWeeklyReport(input: {
   entries: readonly TimelineEntry[];
   weekEntries: readonly TimelineEntry[];
   now: Date;
 }): WeeklyReport {
-  const dishes = mealPatterns(input.entries, input.now);
+  const mealsLogged = input.entries.filter((entry) => entry.kind === 'food').length;
+  // Once the first report is unlocked one meal is enough to list; before that it still needs a repeat.
+  const dishes = mealPatterns(input.entries, input.now, mealsLogged >= REPORT_MIN_MEALS ? 1 : MIN_MEAL_TIMES);
   const watch = [...dishes.watch, ...triggerPatterns(input.entries, input.now)]
     .sort((a, b) => b.withSymptoms / b.times - a.withSymptoms / a.times || b.times - a.times)
     .slice(0, MAX_MEAL_ROWS);
   const sat = dishes.sat;
   const whenText = whenSentence(symptomsByTime(input.weekEntries));
-  const mealsLogged = input.entries.filter((entry) => entry.kind === 'food').length;
   return {
     watch,
     sat,
@@ -78,6 +80,6 @@ export function buildWeeklyReport(input: {
   };
 }
 
-/** "2 of 3" for a food symptoms followed, "3 times" for one that sat well. */
+/** "2 of 3" for a food symptoms followed, "3 times" (or "Once") for one that sat well. */
 export const watchCount = (pattern: MealPattern) => `${pattern.withSymptoms} of ${pattern.times}`;
-export const satCount = (pattern: MealPattern) => `${pattern.times} times`;
+export const satCount = (pattern: MealPattern) => (pattern.times === 1 ? 'Once' : `${pattern.times} times`);
