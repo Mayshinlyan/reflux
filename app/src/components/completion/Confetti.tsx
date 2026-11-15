@@ -85,7 +85,7 @@ function ConfettiPiece({
           ? undefined
           : ZoomIn.delay(index * 15)
               .springify()
-              .damping(12)
+              .damping(20)
       }
       style={[styles.piece, { left: `${(piece.x / FRAME) * 100}%`, top: piece.y - anchor }]}>
       {/* The pop-in sits on the outer view, the fall on this one and the tilt on the inner one: each animation gets its own view so none overwrites another. */}
