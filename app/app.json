@@ -55,8 +55,8 @@
       [
         "expo-audio",
         {
-          "microphonePermission": false,
-          "recordAudioAndroid": false,
+          "microphonePermission": "Bellie listens to you say what you ate or how you feel. The recording is sent to be understood and is not kept.",
+          "recordAudioAndroid": true,
           "enableBackgroundPlayback": false
         }
       ],

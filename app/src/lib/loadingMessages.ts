@@ -39,7 +39,15 @@ const FRIDGE_MESSAGES = [
   'Almost there…',
 ] as const;
 
-export type LoadingSource = 'text' | 'photo' | 'correction' | 'recipes' | 'fridge';
+/** Shown on the voice log while Bellie works out what was said (Figma 45c). */
+const VOICE_MESSAGES = [
+  'Listening back…',
+  'Working out what you said…',
+  'Sorting food from how you feel…',
+  'Almost there…',
+] as const;
+
+export type LoadingSource = 'text' | 'photo' | 'correction' | 'recipes' | 'fridge' | 'voice';
 
 const MESSAGES: Record<LoadingSource, readonly string[]> = {
   text: TEXT_MESSAGES,
@@ -47,6 +55,7 @@ const MESSAGES: Record<LoadingSource, readonly string[]> = {
   correction: CORRECTION_MESSAGES,
   recipes: RECIPE_MESSAGES,
   fridge: FRIDGE_MESSAGES,
+  voice: VOICE_MESSAGES,
 };
 
 /** Reassuring progress lines, so a wait feels like work is happening. Stays on the last one. */
