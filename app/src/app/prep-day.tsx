@@ -237,7 +237,6 @@ export default function PrepDayScreen() {
                 <TickRow
                   key={step.key}
                   label={step.text}
-                  caption={step.caption}
                   checked={ticked.has(step.key)}
                   shape="circle"
                   divider={index > 0}

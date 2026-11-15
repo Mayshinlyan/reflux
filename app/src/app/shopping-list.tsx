@@ -1,8 +1,8 @@
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect } from 'expo-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, type ScrollViewInstance, Share, StyleSheet, View } from 'react-native';
 
 import { AddRow } from '@/components/AddRow';
 import { AppText } from '@/components/AppText';
@@ -35,11 +35,18 @@ export default function ShoppingListScreen() {
     plan ? getPlanChecks(db, plan.id) : { prep: new Set<string>(), shop: new Set<string>(), own: [] },
   );
   const [adding, setAdding] = useState(false);
+  const scroll = useRef<ScrollViewInstance>(null);
   const [draft, setDraft] = useState('');
   const [haveOpen, setHaveOpen] = useState(false);
   // Bumped when the screen comes back into view (after scanning the fridge), so the list is worked out again.
   const [, setSeen] = useState(0);
   useFocusEffect(useCallback(() => setSeen((n) => n + 1), []));
+  // Opening the field brings the end of the list into view, once the keyboard has slid up.
+  useEffect(() => {
+    if (!adding) return;
+    const timer = setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 300);
+    return () => clearTimeout(timer);
+  }, [adding]);
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
   // Worked out on every render (a few reads and some adding): coming back from the fridge re-renders it.
@@ -96,8 +103,11 @@ export default function ShoppingListScreen() {
   return (
     <Screen>
       <ScrollView
+        ref={scroll}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        // iOS lifts the content above the keyboard; the effect above scrolls the field into view.
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <TopBarButton icon={ChevronLeft} label="Back" onPress={goBack} />
@@ -123,23 +133,6 @@ export default function ShoppingListScreen() {
             </AppText>
             <ChevronRight size={20} color={colors.honeyInk} strokeWidth={2} />
           </Pressable>
-        )}
-
-        {/* At the top, so the keyboard that opens for it never covers it. */}
-        {adding ? (
-          <TextField
-            label="Add an item"
-            hideLabel
-            placeholder="Add an item"
-            value={draft}
-            onChangeText={setDraft}
-            onSubmitEditing={add}
-            returnKeyType="done"
-            autoFocus
-            card
-          />
-        ) : (
-          <AddRow label="Add an item" onPress={() => setAdding(true)} />
         )}
 
         {list.aisles.length === 0 && <AppText color="inkSoft">You have everything this plan needs.</AppText>}
@@ -179,6 +172,22 @@ export default function ShoppingListScreen() {
             </View>
             <ChevronRight size={20} color={colors.inkMuted} strokeWidth={2} />
           </Pressable>
+        )}
+        {/* At the very bottom, after the aisles. The scroll view makes room for the keyboard and scrolls here. */}
+        {adding ? (
+          <TextField
+            label="Add an item"
+            hideLabel
+            placeholder="Add an item"
+            value={draft}
+            onChangeText={setDraft}
+            onSubmitEditing={add}
+            returnKeyType="done"
+            autoFocus
+            card
+          />
+        ) : (
+          <AddRow label="Add an item" onPress={() => setAdding(true)} />
         )}
       </ScrollView>
 

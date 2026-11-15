@@ -149,14 +149,15 @@ describe('the prep day sections', () => {
       'Chicken bowls',
       'Finish together',
     ]);
-    expect(sections[0]!.steps.map((step) => `${step.text} (${step.caption})`)).toEqual([
-      'Heat the oven (Both dishes)',
-      'Poach the chicken (Chicken bowls)',
+    // Steps are plain: the dish names are not repeated under them.
+    expect(sections[0]!.steps).toEqual([
+      { key: `${sig}:s0`, text: 'Heat the oven' },
+      { key: `${sig}:s1`, text: 'Poach the chicken' },
     ]);
     expect(sections[1]!.meta).toBe('Eat it the day it is cooked');
     expect(sections[2]!.meta).toBe('Keeps 4 days');
     expect(sections[2]!.steps.map((step) => step.text)).toEqual(['Roast the carrots', 'Toss with the sauce']);
-    expect(sections[3]!.steps[0]!.caption).toBe('Both dishes');
+    expect(sections[3]!.steps[0]!.text).toBe('Pack and label');
   });
 
   it('skips a dish with nothing of its own left, and keeps step keys unique', () => {
