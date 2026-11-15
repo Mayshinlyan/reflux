@@ -94,24 +94,26 @@ export default function WeeklyReportScreen() {
             {(loaded.report.watch.length > 0 || loaded.report.sat.length > 0) && (
               <View
                 style={[styles.card, styles.foods, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+                {loaded.report.sat.length > 0 && (
+                  <MealSection
+                    label="Foods that sat well"
+                    state="calm"
+                    rows={loaded.report.sat}
+                    count={satCount}
+                    spoken={(meal) =>
+                      `${meal.name}, eaten ${meal.times === 1 ? 'once' : `${meal.times} times`}, no symptoms after`
+                    }
+                  />
+                )}
                 {loaded.report.watch.length > 0 && (
                   <MealSection
-                    label="Worth watching"
+                    label="Foods that didn't sit well"
                     state="some"
                     rows={loaded.report.watch}
                     count={watchCount}
                     spoken={(meal) =>
-                      `${meal.name}, symptoms after ${meal.withSymptoms} of ${meal.times} times`
+                      `${meal.name}, symptoms after ${meal.withSymptoms} of ${meal.times} ${meal.times === 1 ? 'time' : 'times'}`
                     }
-                  />
-                )}
-                {loaded.report.sat.length > 0 && (
-                  <MealSection
-                    label="Sat well"
-                    state="calm"
-                    rows={loaded.report.sat}
-                    count={satCount}
-                    spoken={(meal) => `${meal.name}, eaten ${meal.times} times, no symptoms after`}
                   />
                 )}
               </View>

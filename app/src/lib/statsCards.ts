@@ -113,10 +113,10 @@ function symptomsFollow(meal: Extract<TimelineEntry, { kind: 'food' }>, entries:
 }
 
 /**
- * Meals eaten at least twice in the period, split by whether symptoms were logged after them. A meal with no
+ * Meals eaten at least `minTimes` (twice by default) in the period, split by whether symptoms were logged after them. A meal with no
  * symptoms after it only counts once the window has passed, since there may still be some on the way.
  */
-export function mealPatterns(entries: readonly TimelineEntry[], now: Date) {
+export function mealPatterns(entries: readonly TimelineEntry[], now: Date, minTimes = MIN_MEAL_TIMES) {
   const groups = new Map<string, MealPattern>();
   for (const entry of entries) {
     if (entry.kind !== 'food') continue;
@@ -132,11 +132,11 @@ export function mealPatterns(entries: readonly TimelineEntry[], now: Date) {
   }
   const all = [...groups.values()];
   const sat = all
-    .filter((meal) => meal.withSymptoms === 0 && meal.times >= MIN_MEAL_TIMES)
+    .filter((meal) => meal.withSymptoms === 0 && meal.times >= minTimes)
     .sort((a, b) => b.times - a.times || a.name.localeCompare(b.name))
     .slice(0, MAX_MEAL_ROWS);
   const watch = all
-    .filter((meal) => meal.withSymptoms >= MIN_MEAL_TIMES)
+    .filter((meal) => meal.withSymptoms >= minTimes)
     .sort((a, b) => b.withSymptoms / b.times - a.withSymptoms / a.times || b.times - a.times)
     .slice(0, MAX_MEAL_ROWS);
   return { sat, watch };
