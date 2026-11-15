@@ -12,11 +12,11 @@ import { FixFoodSheet, FixSymptomSheet } from '@/components/voice/VoiceFixSheets
 import { VoiceListening } from '@/components/voice/VoiceListening';
 import { VoiceProblem } from '@/components/voice/VoiceProblem';
 import { COMMON_FOODS } from '@/constants/commonFoods';
-import type { LoggedSymptomKey } from '@/constants/symptomItems';
+import { customSymptomLabel, isCustomSymptom, type LoggedSymptomKey } from '@/constants/symptomItems';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { createUncheckedMeal, listRecentMealNames } from '@/db/repositories/food';
 import { listSavedFoods } from '@/db/repositories/savedFoods';
-import { listSavedSymptoms } from '@/db/repositories/savedSymptoms';
+import { createSavedSymptom, listSavedSymptoms } from '@/db/repositories/savedSymptoms';
 import { createSymptomLog } from '@/db/repositories/symptoms';
 import { playChing } from '@/lib/ching';
 import { friendlyMessages } from '@/lib/errors';
@@ -253,6 +253,15 @@ export default function LogVoiceScreen() {
       setSaving(false);
       Alert.alert("Couldn't save", friendlyMessages.INTERNAL);
       return;
+    }
+    // A symptom the person said in their own words joins "My symptoms", like one typed with a "+" chip, so it is
+    // offered next time. The log is already saved, so a failure here only means it won't be offered.
+    for (const key of symptoms.filter(isCustomSymptom)) {
+      try {
+        createSavedSymptom(db, customSymptomLabel(key), 'symptom');
+      } catch (error) {
+        logger.error('createSavedSymptom', error);
+      }
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     playChing();

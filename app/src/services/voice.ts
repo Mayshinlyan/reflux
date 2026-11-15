@@ -4,9 +4,12 @@ import { File } from 'expo-file-system';
 import {
   cleanCustomSymptom,
   CUSTOM_PREFIX,
+  customSymptomLabel,
+  isCustomSymptom,
   type LoggedSymptomKey,
   RETIRED_SYMPTOM_KEYS,
   SYMPTOM_KEYS,
+  symptomKeyFromText,
 } from '@/constants/symptomItems';
 import { AppError } from '@/lib/errors';
 import { currentTimeZone } from '@/lib/time';
@@ -50,8 +53,15 @@ const MAX_FOOD_LENGTH = 40;
 
 const capitalise = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-/** The relay's answer as the app's own kinds: built-in symptom keys stay keys, anything else is the person's own symptom. */
-export function toHeard(result: { foods: string[]; symptoms: string[]; at: string | null }): VoiceHeard {
+/**
+ * The relay's answer as the app's own kinds. A built-in symptom (its key, or its label in any capitals) stays a
+ * built-in key. Anything else is the person's own symptom: spelled as the one they already saved when it matches
+ * that (any capitals), so "hiccup" never sits beside a saved "Hiccup", and otherwise capitalised.
+ */
+export function toHeard(
+  result: { foods: string[]; symptoms: string[]; at: string | null },
+  ownSymptoms: readonly string[] = [],
+): VoiceHeard {
   const foods = result.foods
     .map((food) => capitalise(Array.from(food.trim()).slice(0, MAX_FOOD_LENGTH).join('').trim()))
     .filter((food, index, all) => food.length > 0 && all.indexOf(food) === index)
@@ -61,9 +71,15 @@ export function toHeard(result: { foods: string[]; symptoms: string[]; at: strin
   for (const spoken of result.symptoms) {
     const text = spoken.trim().toLowerCase();
     const builtIn = SYMPTOM_KEYS.find((key) => key === text && !RETIRED_SYMPTOM_KEYS.includes(key));
-    const clean = capitalise(cleanCustomSymptom(spoken));
-    const key: LoggedSymptomKey | null = builtIn ?? (clean ? `${CUSTOM_PREFIX}${clean}` : null);
-    if (key && !symptoms.includes(key)) symptoms.push(key);
+    const typed = builtIn ? null : symptomKeyFromText(spoken);
+    let key: LoggedSymptomKey | null = builtIn ?? typed;
+    if (key && isCustomSymptom(key)) {
+      const label = customSymptomLabel(key);
+      const saved = ownSymptoms.find((name) => name.trim().toLowerCase() === label.toLowerCase());
+      key = `${CUSTOM_PREFIX}${saved ? cleanCustomSymptom(saved) : capitalise(label)}`;
+    }
+    const lower = key?.toLowerCase();
+    if (key && !symptoms.some((item) => item.toLowerCase() === lower)) symptoms.push(key);
   }
 
   const parsed = result.at ? new Date(result.at) : null;
@@ -122,7 +138,7 @@ export async function understand(
       error instanceof AppError && error.code === 'INPUT_REJECTED' ? 'nothing' : 'offline',
     );
   }
-  const heard = toHeard(result);
+  const heard = toHeard(result, words.symptoms);
   if (heard.foods.length === 0 && heard.symptoms.length === 0) throw new VoiceError('nothing');
   return heard;
 }

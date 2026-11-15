@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import LogVoiceScreen from '@/app/log/voice';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { listDiaryFoodLogs } from '@/db/repositories/food';
+import { createSavedSymptom, listSavedSymptoms } from '@/db/repositories/savedSymptoms';
 import { listSymptomLogs } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 import { AppError } from '@/lib/errors';
@@ -160,6 +161,19 @@ describe('Log voice screen', () => {
 
     const [log] = listSymptomLogs(mockDb, ALL_TIME);
     expect(log?.items.map((item) => item.key)).toEqual(['custom:Hiccups']);
+    // It joins My symptoms, so it is offered next time; a built-in one is not added.
+    expect(listSavedSymptoms(mockDb, 'symptom').map((row) => row.name)).toEqual(['Hiccups']);
+  });
+
+  it("keeps the person's saved spelling and does not save a symptom twice", async () => {
+    createSavedSymptom(mockDb, 'Hic-ups', 'symptom');
+    mockFetch.mockResolvedValue({ ...HEARD, foods: [], symptoms: ['hic-ups', 'heartburn'] });
+    await speakAndConfirm();
+
+    expect(screen.getByRole('button', { name: 'Hic-ups' })).toBeTruthy();
+    await press('Save');
+
+    expect(listSavedSymptoms(mockDb, 'symptom').map((row) => row.name)).toEqual(['Hic-ups']);
   });
 
   it('fixes a symptom by typing, with the matching symptoms listed below', async () => {

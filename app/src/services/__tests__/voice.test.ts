@@ -25,6 +25,26 @@ describe('toHeard', () => {
     expect(heard.at?.toISOString()).toBe('2026-11-14T04:00:00.000Z');
   });
 
+  it('knows a built-in symptom by its label, in any capitals', () => {
+    const heard = toHeard({ foods: [], symptoms: ['hoarse voice', 'LUMP IN THROAT', 'Heartburn'], at: null });
+
+    expect(heard.symptoms).toEqual(['hoarseness', 'lump', 'heartburn']);
+  });
+
+  it('spells a symptom the way the person already saved it, whatever the capitals', () => {
+    const heard = toHeard({ foods: [], symptoms: ['hiccups', 'HICCUPS', 'dry mouth'], at: null }, [
+      'Hiccups',
+      'Sore gums',
+    ]);
+
+    // The two hiccups are one symptom, in the saved spelling; a new one is capitalised.
+    expect(heard.symptoms).toEqual(['custom:Hiccups', 'custom:Dry mouth']);
+  });
+
+  it('skips a blank symptom', () => {
+    expect(toHeard({ foods: [], symptoms: ['  ', ''], at: null }).symptoms).toEqual([]);
+  });
+
   it('turns a retired symptom into the person own words and a bad time into now', () => {
     const heard = toHeard({ foods: [], symptoms: ['sleep'], at: 'not a time' });
 
