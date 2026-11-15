@@ -184,6 +184,68 @@ export function recipeIdeasJsonSchema() {
   return schema as { type: 'object'; [key: string]: unknown };
 }
 
+/** Cook once: one prep day, every meal reheated from it. Cook daily: no prep day, every meal cooked that day. */
+export const PLAN_MODES = ['once', 'daily'] as const;
+export const PLAN_SLOTS = ['breakfast', 'lunch', 'dinner'] as const;
+
+/** A calendar day as the app writes it: YYYY-MM-DD, in the person's own time zone. */
+const dayKey = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+/**
+ * What a week plan is built from (POST /v1/meal-plan): the choices on the set-up sheet, what the person is managing,
+ * and food names only. Never symptom logs, notes, photos or the person's name. Unknown fields are rejected.
+ * `slots` are the meals still to plan (a day and a meal each); `keep` holds the dishes the person locked, which stay
+ * as they are and are planned around.
+ */
+export const mealPlanBodySchema = z
+  .strictObject({
+    mode: z.enum(PLAN_MODES),
+    slots: z
+      .array(z.strictObject({ day: dayKey, slot: z.enum(PLAN_SLOTS) }))
+      .min(1)
+      .max(21),
+    keep: z.array(label(60)).max(21).optional(),
+    cuisines: z.array(z.enum(CUISINES)).min(1).max(4),
+    /** Cook once only: how long the person has for the prep session, in minutes. */
+    prepMinutes: z.number().int().min(30).max(240).optional(),
+    serves: z.number().int().min(1).max(6),
+    conditions: conditionsSchema.optional(),
+    /** What the person's saved fridge holds (food names), when "Use my fridge" is on. */
+    fridge: z.array(label(40)).max(40).optional(),
+    favorites: z.array(label(60)).max(15).optional(),
+    triggers: z.array(label(60)).max(20).optional(),
+    /** Foods they never eat (an allergy, a diet). A hard rule, checked again on the way back. */
+    avoid: z.array(label(60)).max(30).optional(),
+  })
+  .refine((body) => new Set(body.slots.map((s) => `${s.day}|${s.slot}`)).size === body.slots.length, {
+    message: 'duplicate slots',
+  });
+
+export type MealPlanInput = z.infer<typeof mealPlanBodySchema>;
+
+/** A dish in the plan: a recipe, plus how many days after cooking it still keeps in the fridge (0 = eat it the day it is cooked). */
+const planDishSchema = recipeSchema.extend({
+  id: z.string().min(1).max(8),
+  keepsDays: z.number().int().min(0).max(7),
+});
+
+export const mealPlanSchema = z.strictObject({
+  dishes: z.array(planDishSchema).min(1).max(14),
+  meals: z
+    .array(z.strictObject({ day: dayKey, slot: z.enum(PLAN_SLOTS), dish: z.string().min(1).max(8) }))
+    .min(1)
+    .max(21),
+});
+
+export type MealPlan = z.infer<typeof mealPlanSchema>;
+export type PlanDish = z.infer<typeof planDishSchema>;
+
+/** JSON Schema handed to Claude as the plan tool's input schema. */
+export function mealPlanJsonSchema() {
+  const { $schema: _ignored, ...schema } = z.toJSONSchema(mealPlanSchema) as Record<string, unknown>;
+  return schema as { type: 'object'; [key: string]: unknown };
+}
+
 /** The food names Claude finds in one to three fridge photos. Empty when nothing edible could be made out. */
 export const fridgeScanSchema = z.strictObject({ items: z.array(label(40)).max(40) });
 
