@@ -16,6 +16,11 @@ import {
   MEAL_PLAN_TOOL_NAME,
   mealPlanUserMessage,
 } from '../prompts/mealPlanPrompt.js';
+import {
+  PREP_PLAN_SYSTEM_PROMPT,
+  PREP_PLAN_TOOL_NAME,
+  prepPlanUserMessage,
+} from '../prompts/prepPlanPrompt.js';
 import { RECIPE_SYSTEM_PROMPT, RECIPE_TOOL_NAME, recipeUserMessage } from '../prompts/recipePrompt.js';
 import {
   fridgeScanJsonSchema,
@@ -24,6 +29,8 @@ import {
   mealAnalysisJsonSchema,
   type MealPlanInput,
   mealPlanJsonSchema,
+  type PrepPlanInput,
+  prepPlanJsonSchema,
   type Portion,
   type RecipeIdeasInput,
   recipeIdeasJsonSchema,
@@ -63,6 +70,8 @@ export interface ClaudeService {
   recipes(input: RecipeIdeasInput): Promise<ClaudeResult>;
   /** A week of meals (dishes plus which meal each one covers) that go easy on the person's belly (the Kitchen planner). */
   mealPlan(input: MealPlanInput): Promise<ClaudeResult>;
+  /** One efficient prep session for all the dishes of a cook-once plan (the Kitchen's prep day). */
+  prepPlan(input: PrepPlanInput): Promise<ClaudeResult>;
   /** The food names in one to three sanitized fridge photos (the Kitchen's "My fridge"). */
   fridge(input: { jpegs: Buffer[] }): Promise<ClaudeResult>;
   /** The foods, symptoms and time in a spoken log's transcript. */
@@ -78,6 +87,9 @@ const RECIPE_TIMEOUT_MS = 60_000;
 // A week of dishes (up to 14 full recipes) is the longest answer we ask for. Two attempts at 80 s stay inside Cloud Run's 180 s.
 const MEAL_PLAN_MAX_TOKENS = 10_000;
 const MEAL_PLAN_TIMEOUT_MS = 80_000;
+// Up to eight dishes in, a short ordered list out; two attempts at 50 s stay well inside Cloud Run's 180 s.
+const PREP_PLAN_MAX_TOKENS = 3000;
+const PREP_PLAN_TIMEOUT_MS = 50_000;
 // Up to three photos in, a list of names out: longer than a meal check, much shorter than recipes.
 const FRIDGE_TIMEOUT_MS = 45_000;
 const TIMEOUT_MS = 30_000;
@@ -133,6 +145,7 @@ export function createClaudeService(options: {
   const insightSchema = insightJsonSchema();
   const recipeSchema = recipeIdeasJsonSchema();
   const mealPlanSchema = mealPlanJsonSchema();
+  const prepPlanSchema = prepPlanJsonSchema();
   const fridgeSchema = fridgeScanJsonSchema();
   const voiceSchema = voiceExtractJsonSchema();
 
@@ -254,6 +267,18 @@ export function createClaudeService(options: {
         timeoutMs: MEAL_PLAN_TIMEOUT_MS,
       });
     },
+    prepPlan(input) {
+      return call({
+        system: PREP_PLAN_SYSTEM_PROMPT,
+        toolName: PREP_PLAN_TOOL_NAME,
+        toolDescription:
+          "Report the shared steps, each dish's own steps and the finishing steps. Call exactly once.",
+        inputSchema: prepPlanSchema,
+        content: [{ type: 'text', text: prepPlanUserMessage(input) }],
+        maxTokens: PREP_PLAN_MAX_TOKENS,
+        timeoutMs: PREP_PLAN_TIMEOUT_MS,
+      });
+    },
     fridge(input) {
       return call({
         system: FRIDGE_SYSTEM_PROMPT,
@@ -322,6 +347,9 @@ export function createUnavailableClaudeService(model = DEFAULT_MODEL): ClaudeSer
       throw new HttpError('SERVICE_BUSY');
     },
     async mealPlan() {
+      throw new HttpError('SERVICE_BUSY');
+    },
+    async prepPlan() {
       throw new HttpError('SERVICE_BUSY');
     },
     async fridge() {

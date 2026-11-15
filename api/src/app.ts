@@ -12,6 +12,7 @@ import { fridgeRoutes } from './routes/fridge.routes.js';
 import { healthRoutes } from './routes/health.routes.js';
 import { insightRoutes } from './routes/insight.routes.js';
 import { mealPlanRoutes } from './routes/mealPlan.routes.js';
+import { prepPlanRoutes } from './routes/prepPlan.routes.js';
 import { recipeRoutes } from './routes/recipes.routes.js';
 import { voiceRoutes } from './routes/voice.routes.js';
 import type { SpeechToText } from './services/speechToText.js';
@@ -37,6 +38,7 @@ export function createApp({ env, logger, verifier, rateLimitStore, claude, feedb
   app.use(insightRoutes({ env, verifier, rateLimitStore, claude }));
   app.use(recipeRoutes({ env, verifier, rateLimitStore, claude }));
   app.use(mealPlanRoutes({ env, verifier, rateLimitStore, claude }));
+  app.use(prepPlanRoutes({ env, verifier, rateLimitStore, claude }));
   app.use(fridgeRoutes({ env, verifier, rateLimitStore, claude }));
   app.use(voiceRoutes({ env, verifier, rateLimitStore, claude, speech }));
   app.use(feedbackRoutes({ env, verifier, rateLimitStore, feedbackStore }));

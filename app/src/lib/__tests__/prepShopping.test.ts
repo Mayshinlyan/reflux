@@ -1,7 +1,7 @@
 import type { StoredMeal } from '@/db/repositories/mealPlans';
 import type { PlanDish } from '@/types/mealPlan';
 
-import { aboutHours, prepDay, prepDayName, prepDishes, prepSteps, prepSummary, storingLines } from '../prep';
+import { aboutHours, prepDay, prepDayName, prepDishes, prepSummary, storingLines } from '../prep';
 import { aisleOf, buildShoppingList, parseIngredient, shoppingSummary, shoppingText } from '../shopping';
 
 const dish = (id: string, title: string, over: Partial<PlanDish> = {}): PlanDish => ({
@@ -45,20 +45,6 @@ describe('prep day', () => {
     expect(dishes.map((entry) => entry.dish.title)).toEqual(['Congee', 'Chicken bowls']);
     expect(dishes[0]!.meals).toHaveLength(1);
     expect(dishes[1]!.meals).toHaveLength(2);
-  });
-
-  it('turns the dishes into steps with stable keys, ending with packing', () => {
-    const steps = prepSteps(prepDishes([meal('2026-11-16', bowls), meal('2026-11-17', congee)]));
-
-    expect(steps.map((step) => step.text)).toEqual([
-      'Simmer the base.',
-      'Poach the chicken.',
-      'Shred it.',
-      'Cool everything, then pack and label',
-    ]);
-    expect(steps.map((step) => step.key)).toEqual(['b:0', 'a:0', 'a:1', 'pack']);
-    expect(steps[3]!.caption).toBe('All dishes');
-    expect(prepSteps([])).toEqual([]);
   });
 
   it('cooks the day before the first meal that is eaten', () => {

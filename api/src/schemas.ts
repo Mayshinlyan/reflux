@@ -246,6 +246,68 @@ export function mealPlanJsonSchema() {
   return schema as { type: 'object'; [key: string]: unknown };
 }
 
+/**
+ * What a prep session is planned from (POST /v1/prep-plan): the dishes of the week's plan, each with its own recipe,
+ * and nothing else. Food and cooking text only; never symptoms, notes or the person's name. `meals` is how many
+ * meals are eaten from the dish. Unknown fields are rejected.
+ */
+export const prepPlanBodySchema = z
+  .strictObject({
+    dishes: z
+      .array(
+        z.strictObject({
+          id: z.string().min(1).max(8),
+          title: label(60),
+          minutes: z.number().int().min(1).max(240),
+          keepsDays: z.number().int().min(0).max(7),
+          meals: z.number().int().min(1).max(21),
+          ingredients: z.array(label(120)).min(1).max(20),
+          steps: z.array(label(240)).min(1).max(12),
+        }),
+      )
+      .min(1)
+      .max(8),
+    /** The time the person has for the session, in minutes. */
+    prepMinutes: z.number().int().min(30).max(240).optional(),
+  })
+  .refine((body) => new Set(body.dishes.map((dish) => dish.id)).size === body.dishes.length, {
+    message: 'duplicate dish ids',
+  });
+
+export type PrepPlanInput = z.infer<typeof prepPlanBodySchema>;
+
+/** A step that serves several dishes (`feeds` holds their ids). */
+const prepStepSchema = z.strictObject({
+  text: z.string().min(1).max(160),
+  feeds: z.array(z.string().min(1).max(8)).min(1).max(8),
+});
+
+/**
+ * One efficient cooking session for all the dishes at once: `start` is the work they share, in the order to do it,
+ * `dishes` is what is left for each dish on its own, in the order to do it, and `finish` is cooling and packing.
+ */
+export const prepPlanSchema = z.strictObject({
+  start: z.array(prepStepSchema).max(8),
+  dishes: z
+    .array(
+      z.strictObject({
+        dish: z.string().min(1).max(8),
+        steps: z.array(z.string().min(1).max(160)).max(7),
+      }),
+    )
+    .min(1)
+    .max(8),
+  finish: z.array(prepStepSchema).max(4),
+});
+
+export type PrepPlan = z.infer<typeof prepPlanSchema>;
+
+/** JSON Schema handed to Claude as the prep tool's input schema. */
+export function prepPlanJsonSchema() {
+  const { $schema: _ignored, ...schema } = z.toJSONSchema(prepPlanSchema) as Record<string, unknown>;
+  return schema as { type: 'object'; [key: string]: unknown };
+}
+
 /** The food names Claude finds in one to three fridge photos. Empty when nothing edible could be made out. */
 export const fridgeScanSchema = z.strictObject({ items: z.array(label(40)).max(40) });
 

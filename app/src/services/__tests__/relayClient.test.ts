@@ -14,6 +14,7 @@ import {
   analyzeFood,
   fetchInsight,
   fetchMealPlan,
+  fetchPrepPlan,
   fetchRecipeIdeas,
   scanFridge,
   sendFeedback,
@@ -549,6 +550,63 @@ describe('fetchMealPlan', () => {
     fetchMock.mockRejectedValue(new DOMException('aborted', 'AbortError'));
 
     await expect(fetchMealPlan(request, controller.signal)).rejects.toThrow('aborted');
+  });
+});
+
+describe('fetchPrepPlan', () => {
+  const request = {
+    dishes: [
+      {
+        id: 'd1',
+        title: 'Chicken bowls',
+        minutes: 60,
+        keepsDays: 4,
+        meals: 3,
+        ingredients: ['2 cups rice'],
+        steps: ['Cook the rice.'],
+      },
+    ],
+    prepMinutes: 120,
+  };
+  const answer = {
+    start: [{ text: 'Heat the oven', feeds: ['d1'] }],
+    dishes: [{ dish: 'd1', steps: ['Roast it'] }],
+    finish: [{ text: 'Pack and label', feeds: ['d1'] }],
+  };
+
+  it('posts the dishes as JSON with the bearer token, and returns just the steps', async () => {
+    fetchMock.mockReturnValue(json(200, { ...answer, meta: { model: 'm', promptVersion: 'prep-v1' } }));
+
+    await expect(fetchPrepPlan(request)).resolves.toEqual(answer);
+
+    const [url, init] = fetchMock.mock.calls.at(-1)!;
+    expect(String(url)).toMatch(/\/v1\/prep-plan$/);
+    expect(init.method).toBe('POST');
+    expect(init.headers.Authorization).toBe('Bearer test-token');
+    expect(JSON.parse(init.body)).toEqual(request);
+  });
+
+  it('maps a relay error to its code', async () => {
+    fetchMock.mockReturnValue(json(429, { error: { code: 'RATE_LIMITED', requestId: 'r1' } }));
+
+    await expect(fetchPrepPlan(request)).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+  });
+
+  it.each([
+    ['no dishes', { ...answer, dishes: [] }],
+    ['a step without text', { ...answer, start: [{ text: '', feeds: [] }] }],
+    ['the wrong shape', { steps: [] }],
+  ])('reports AI_INVALID_OUTPUT for %s', async (_name, body) => {
+    fetchMock.mockReturnValue(json(200, body));
+
+    await expect(fetchPrepPlan(request)).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
+  });
+
+  it('reports OFFLINE when the request fails and the phone has no connection', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Network request failed'));
+    (getNetworkStateAsync as jest.Mock).mockResolvedValueOnce({ isConnected: false });
+
+    await expect(fetchPrepPlan(request)).rejects.toMatchObject({ code: 'OFFLINE' });
   });
 });
 

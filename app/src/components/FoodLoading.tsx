@@ -11,13 +11,15 @@ type Props = {
   source: LoadingSource;
   /** Shown as a small preview while a photo is being looked at. */
   photoUri?: string;
+  /** A quieter line under the changing words (how long it takes). */
+  note?: string;
 };
 
 /**
  * The wait while the relay works: a little pot that bobs and steams, with reassuring lines that
  * change every few seconds. Motion stops (the pot and the words stay) when reduced motion is on.
  */
-export function FoodLoading({ source, photoUri }: Props) {
+export function FoodLoading({ source, photoUri, note }: Props) {
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -40,6 +42,11 @@ export function FoodLoading({ source, photoUri }: Props) {
       <AppText color="inkSoft" style={styles.message}>
         {message}
       </AppText>
+      {note ? (
+        <AppText variant="caption" color="inkMuted" style={styles.message}>
+          {note}
+        </AppText>
+      ) : null}
     </View>
   );
 }

@@ -322,6 +322,24 @@ export const planChecks = sqliteTable(
   ],
 );
 
+/**
+ * The prep session the relay worked out for a plan's dishes (the prep day's "Start together" and one block per dish).
+ * `signature` fingerprints the dishes it was made for, so it is only used while they are unchanged.
+ */
+export const planPrep = sqliteTable(
+  'plan_prep',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    planId: integer('plan_id')
+      .notNull()
+      .references(() => mealPlans.id, { onDelete: 'cascade' }),
+    signature: text('signature').notNull(),
+    result: text('result', { mode: 'json' }).notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('plan_prep_plan_uq').on(t.planId)],
+);
+
 /** Key/value settings. Values are JSON-encoded; see repositories/settings.ts for keys and defaults. */
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),

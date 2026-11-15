@@ -28,27 +28,6 @@ export function prepDishes(meals: readonly StoredMeal[], from?: string): PrepDis
   return [...byId.values()].sort((a, b) => b.dish.minutes - a.dish.minutes);
 }
 
-export type PrepStep = {
-  /** Stays the same while the plan does, so a ticked step stays ticked. */
-  key: string;
-  text: string;
-  /** Which dish it is for, or "All dishes". */
-  caption: string;
-};
-
-export const PACK_KEY = 'pack';
-
-/** Every dish's steps in the order they are listed, then one step to cool, pack and label. */
-export function prepSteps(dishes: readonly PrepDish[]): PrepStep[] {
-  const steps: PrepStep[] = dishes.flatMap(({ dish }) =>
-    dish.steps.map((text, index) => ({ key: `${dish.id}:${index}`, text, caption: dish.title })),
-  );
-  if (steps.length > 0) {
-    steps.push({ key: PACK_KEY, text: 'Cool everything, then pack and label', caption: 'All dishes' });
-  }
-  return steps;
-}
-
 /** The day to cook: the day before the first meal that is eaten. */
 export function prepDay(meals: readonly StoredMeal[], weekStart: string, from?: string): string {
   const first = eatenMeals(meals, from)[0]?.day ?? weekStart;

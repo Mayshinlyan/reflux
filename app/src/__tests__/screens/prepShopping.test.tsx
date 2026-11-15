@@ -8,11 +8,16 @@ import { createTestDb } from '@/db/__tests__/testDb';
 import { replaceFridge } from '@/db/repositories/fridgeItems';
 import { createPlan, getCurrentPlan } from '@/db/repositories/mealPlans';
 import { getPlanChecks } from '@/db/repositories/planChecks';
+import { getPrepPlan, savePrepPlan } from '@/db/repositories/planPrep';
 import { getSetting } from '@/db/repositories/settings';
 import { fridgeItems } from '@/db/schema';
 import type { AppDb } from '@/db/types';
+import { AppError } from '@/lib/errors';
 import { todayKey } from '@/lib/kitchen';
 import { addDays } from '@/lib/localDay';
+import { prepDishes } from '@/lib/prep';
+import { prepSignature } from '@/lib/prepPlan';
+import { fetchPrepPlan } from '@/services/relayClient';
 import { cancelPrepReminder, schedulePrepReminder } from '@/services/reminders';
 import type { PlanDish } from '@/types/mealPlan';
 
@@ -25,6 +30,7 @@ jest.mock('@/db/DatabaseProvider', () => ({
   useDb: () => mockDb,
   useSettings: () => ({ settings: {}, reload: jest.fn(), update: jest.fn() }),
 }));
+jest.mock('@/services/relayClient', () => ({ fetchPrepPlan: jest.fn() }));
 jest.mock('@/services/reminders', () => ({
   schedulePrepReminder: jest.fn(),
   cancelPrepReminder: jest.fn(() => Promise.resolve()),
@@ -62,6 +68,17 @@ jest.mock('expo-router', () => ({
 }));
 
 const schedule = schedulePrepReminder as jest.Mock;
+const prepFetch = fetchPrepPlan as jest.Mock;
+
+/** What the relay returns for the two dishes of savedPlan: Chicken bowls is d1, Congee d2. */
+const lined = {
+  start: [{ text: 'Heat the oven to 425 F', feeds: ['d1', 'd2'] }],
+  dishes: [
+    { dish: 'd1', steps: ['Roast the carrots'] },
+    { dish: 'd2', steps: ['Simmer the base'] },
+  ],
+  finish: [{ text: 'Cool everything, then pack and label', feeds: ['d1', 'd2'] }],
+};
 
 const dish = (id: string, title: string, over: Partial<PlanDish> = {}): PlanDish => ({
   id,
@@ -102,38 +119,110 @@ beforeEach(() => {
   mockPush.mockClear();
   mockBack.mockClear();
   schedule.mockReset();
+  prepFetch.mockReset();
+  prepFetch.mockResolvedValue(lined);
   (cancelPrepReminder as jest.Mock).mockClear();
 });
 afterEach(() => closeDb());
 
 describe('Prep day', () => {
-  it('lists the steps with their dish, the storing advice and the reminder switch', async () => {
+  it('lines every dish up at once: shared steps first, then each dish under its title', async () => {
     savedPlan();
     await render(<PrepDayScreen />);
 
+    expect(await screen.findByRole('header', { name: 'Start together' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Prep day' })).toBeTruthy();
     expect(screen.getByText('2 dishes, about 2 hours')).toBeTruthy();
-    expect(screen.getByRole('checkbox', { name: 'Cook the rice., Chicken bowls' })).toBeTruthy();
-    expect(screen.getByRole('checkbox', { name: 'Simmer the base., Congee' })).toBeTruthy();
-    expect(
-      screen.getByRole('checkbox', { name: 'Cool everything, then pack and label, All dishes' }),
-    ).toBeTruthy();
-    expect(screen.getByText('Storing it')).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Chicken bowls' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Congee' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Finish together' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Heat the oven to 425 F, Both dishes' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Roast the carrots' })).toBeTruthy();
     expect(screen.getByText('Fridge: Chicken bowls.')).toBeTruthy();
     expect(screen.getByText('Freezer: Congee.')).toBeTruthy();
     expect(screen.getByText('At 10:00 am')).toBeTruthy();
+
+    expect(prepFetch).toHaveBeenCalledTimes(1);
+    const sent = prepFetch.mock.calls[0]![0] as { dishes: { id: string; title: string }[] };
+    expect(sent.dishes.map((dish) => `${dish.id}:${dish.title}`)).toEqual(['d1:Chicken bowls', 'd2:Congee']);
+  });
+
+  it('shows the pot while the steps are lined up the first time', async () => {
+    savedPlan();
+    let finish: (value: unknown) => void = () => {};
+    prepFetch.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    await render(<PrepDayScreen />);
+
+    expect(screen.getByText('Bellie is lining up your prep…')).toBeTruthy();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    finish(lined);
+    expect(await screen.findByRole('header', { name: 'Start together' })).toBeTruthy();
+  });
+
+  it('uses the saved session, so a later visit does not ask again', async () => {
+    const plan = savedPlan();
+    savePrepPlan(mockDb, plan.id, prepSignature(prepDishes(plan.meals, today)), lined);
+    await render(<PrepDayScreen />);
+
+    expect(screen.getByRole('header', { name: 'Start together' })).toBeTruthy();
+    expect(prepFetch).not.toHaveBeenCalled();
+  });
+
+  it('keeps the session it was given, for the next visit', async () => {
+    const plan = savedPlan();
+    await render(<PrepDayScreen />);
+    await screen.findByRole('header', { name: 'Start together' });
+
+    expect(getPrepPlan(mockDb, plan.id, prepSignature(prepDishes(plan.meals, today)))).toEqual(lined);
+  });
+
+  it('lists each dish on its own when the steps cannot be lined up, and Try again asks once more', async () => {
+    savedPlan();
+    prepFetch.mockRejectedValueOnce(new AppError('AI_TIMEOUT'));
+    await render(<PrepDayScreen />);
+
+    expect(await screen.findByText(/each dish is listed on its own/)).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Chicken bowls' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Cook the rice.' })).toBeTruthy();
+    expect(screen.queryByRole('header', { name: 'Start together' })).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Try lining up the steps again' }));
+    expect(await screen.findByRole('header', { name: 'Start together' })).toBeTruthy();
+    expect(prepFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('refuses an answer that leaves a dish out, and falls back', async () => {
+    savedPlan();
+    prepFetch.mockResolvedValue({ ...lined, dishes: lined.dishes.slice(0, 1) });
+    await render(<PrepDayScreen />);
+
+    expect(await screen.findByText(/each dish is listed on its own/)).toBeTruthy();
+  });
+
+  it('does not ask the relay for a single dish', async () => {
+    createPlan(mockDb, {
+      weekStart: today,
+      choices: { ...DEFAULT_PLAN_CHOICES, mode: 'once' },
+      meals: [{ day: firstMeal, slot: 'dinner', dish: dish('a', 'Chicken bowls') }],
+    });
+    await render(<PrepDayScreen />);
+
+    expect(screen.getByRole('header', { name: 'Chicken bowls' })).toBeTruthy();
+    expect(prepFetch).not.toHaveBeenCalled();
   });
 
   it('ticks a step and keeps it ticked', async () => {
     const plan = savedPlan();
     await render(<PrepDayScreen />);
 
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Cook the rice., Chicken bowls' }));
+    await fireEvent.press(await screen.findByRole('checkbox', { name: 'Roast the carrots' }));
 
-    expect(
-      screen.getByRole('checkbox', { name: 'Cook the rice., Chicken bowls' }).props.accessibilityState
-        .checked,
-    ).toBe(true);
-    expect([...getPlanChecks(mockDb, plan.id).prep]).toEqual(['a:0']);
+    expect(screen.getByRole('checkbox', { name: 'Roast the carrots' }).props.accessibilityState.checked).toBe(
+      true,
+    );
+    const ticks = [...getPlanChecks(mockDb, plan.id).prep];
+    expect(ticks).toHaveLength(1);
+    expect(ticks[0]).toMatch(/:d:a:0$/);
   });
 
   it('sets the reminder for the day before the first meal and remembers the plan', async () => {
@@ -141,7 +230,7 @@ describe('Prep day', () => {
     schedule.mockResolvedValue('scheduled');
     await render(<PrepDayScreen />);
 
-    await fireEvent.press(screen.getByRole('switch', { name: /^Remind me on / }));
+    await fireEvent.press(await screen.findByRole('switch', { name: /^Remind me on / }));
 
     await waitFor(() => expect(getSetting(mockDb, 'prepReminderPlan')).toBe(plan.id));
     expect(schedule).toHaveBeenCalledWith(addDays(firstMeal, -1));
@@ -152,7 +241,7 @@ describe('Prep day', () => {
     schedule.mockResolvedValue('denied');
     await render(<PrepDayScreen />);
 
-    await fireEvent.press(screen.getByRole('switch', { name: /^Remind me on / }));
+    await fireEvent.press(await screen.findByRole('switch', { name: /^Remind me on / }));
 
     expect(await screen.findByText(/Allow notifications/)).toBeTruthy();
     expect(getSetting(mockDb, 'prepReminderPlan')).toBeNull();
