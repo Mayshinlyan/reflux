@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '@/components/AppText';
 import { HomeBellie } from '@/components/HomeBellie';
 import { LateMealBadge } from '@/components/LateMealBadge';
+import { PlannedMealCard } from '@/components/kitchen/PlannedMealCard';
+import { SwapOfferSheet } from '@/components/kitchen/SwapOfferSheet';
 import { ReminderPromptSheet } from '@/components/ReminderPromptSheet';
 import { ReportRow } from '@/components/ReportRow';
 import { Screen } from '@/components/Screen';
@@ -16,6 +18,7 @@ import { WeekStrip } from '@/components/WeekStrip';
 import { useSettings } from '@/db/DatabaseProvider';
 import { useDeleteEntry } from '@/hooks/useDeleteEntry';
 import { useInsight } from '@/hooks/useInsight';
+import { usePlanToday } from '@/hooks/usePlanToday';
 import { useReminderPrompt } from '@/hooks/useReminderPrompt';
 import { useTodayData } from '@/hooks/useTodayData';
 import { useReportStatus } from '@/hooks/useWeeklyReport';
@@ -25,6 +28,7 @@ import { notifyEntriesChanged } from '@/lib/entriesChanged';
 import { buildInsightRequest } from '@/lib/insight';
 import { openLogArch, useLogArch } from '@/lib/logArch';
 import { isLateMeal } from '@/lib/mealTiming';
+import { triggerName } from '@/lib/planToday';
 import { isChecking } from '@/services/pendingChecks';
 import { space } from '@/theme';
 
@@ -52,6 +56,8 @@ export default function TodayScreen() {
   const reminder = useReminderPrompt();
   // Whether a finished week's report is waiting, and how many meals the first one still needs.
   const report = useReportStatus();
+  // The next meal of the week plan, when they chose to be offered it, and the "felt off" swap offer.
+  const planned = usePlanToday();
   // Today reloads on this signal, so a delete (and its Undo) shows at once.
   const deleteEntry = useDeleteEntry(notifyEntriesChanged);
   const now = new Date();
@@ -112,6 +118,14 @@ export default function TodayScreen() {
           />
         )}
 
+        {planned.card && (
+          <PlannedMealCard
+            meal={planned.card}
+            onLog={() => planned.logIt(planned.card!)}
+            onNotToday={() => planned.notToday(planned.card!)}
+          />
+        )}
+
         {!empty && (
           <View style={styles.today}>
             <View style={styles.sectionHeader}>
@@ -151,6 +165,13 @@ export default function TodayScreen() {
           </View>
         )}
       </ScrollView>
+      <SwapOfferSheet
+        key={planned.offer?.meal.id ?? 'none'}
+        offer={planned.offer}
+        trigger={planned.offer ? triggerName(planned.offer.meal) : ''}
+        onSwap={(note) => planned.offer && planned.swapNext(planned.offer, note)}
+        onNotNow={() => planned.offer && planned.closeOffer(planned.offer)}
+      />
       <ReminderPromptSheet
         visible={reminder.visible}
         onHide={reminder.hide}

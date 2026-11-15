@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import {
   Bell,
+  CalendarDays,
   ChevronLeft,
   Clock,
   Compass,
@@ -38,7 +39,7 @@ import { deleteAllPhotos } from '@/services/photoStore';
 import { askForReminders, cancelAllCheckIns } from '@/services/reminders';
 import { space } from '@/theme';
 
-type Sheet = 'bedtime' | 'window' | 'reminder' | 'summaries' | 'privacy' | 'feedback' | null;
+type Sheet = 'bedtime' | 'window' | 'reminder' | 'summaries' | 'planned' | 'privacy' | 'feedback' | null;
 
 const WINDOWS = LATE_MEAL_WINDOW_OPTIONS.map((minutes) => ({
   value: String(minutes),
@@ -180,6 +181,12 @@ export default function SettingsScreen() {
           value={settings.summariesEnabled ? 'On' : 'Off'}
           onPress={() => setSheet('summaries')}
         />
+        <SettingsRow
+          icon={CalendarDays}
+          label="Log plan meals"
+          value={settings.offerPlannedMeals ? 'On' : 'Off'}
+          onPress={() => setSheet('planned')}
+        />
 
         <SectionTitle>About</SectionTitle>
         <SettingsRow
@@ -273,6 +280,16 @@ export default function SettingsScreen() {
         options={SUMMARIES}
         value={settings.summariesEnabled ? ON : OFF}
         onChoose={(choice) => persist(() => update('summariesEnabled', choice === ON), 'saveSummaries')}
+        onClose={closeSheet}
+        saveFailed={saveFailed}
+      />
+      <OptionSheet
+        visible={sheet === 'planned'}
+        variant="cards"
+        title="Log plan meals"
+        options={SUMMARIES}
+        value={settings.offerPlannedMeals ? ON : OFF}
+        onChoose={(choice) => persist(() => update('offerPlannedMeals', choice === ON), 'savePlannedOffer')}
         onClose={closeSheet}
         saveFailed={saveFailed}
       />

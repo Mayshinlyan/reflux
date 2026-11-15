@@ -43,11 +43,23 @@ import { dishFromRecipe } from '@/lib/planDish';
 import { prepDishes, prepSummary } from '@/lib/prep';
 import { buildShoppingList, shoppingSummary } from '@/lib/shopping';
 import { setRecipeDraft } from '@/lib/recipeDraft';
+import { planWeekResult } from '@/lib/weekResult';
 import { fetchMealPlan, fetchRecipeIdeas } from '@/services/relayClient';
 import { cancelPrepReminder } from '@/services/reminders';
 import { space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
 import { slotLabel } from '@/constants/mealPlan';
+
+/** The dishes of the current plan that sat well, from the diary; none if it cannot be read. */
+function keptDishes(db: AppDb): string[] {
+  try {
+    const old = getCurrentPlan(db);
+    return old ? planWeekResult(db, old).wellTitles : [];
+  } catch (error) {
+    logger.error('keptDishes', error);
+    return [];
+  }
+}
 
 type Status = 'loading' | 'ready' | 'error';
 
@@ -71,13 +83,16 @@ function dropPrepReminder(db: AppDb): void {
 export default function PlanScreen() {
   const db = useDb();
   const colors = useColors();
-  const { make } = useLocalSearchParams<{ make?: string }>();
+  const { make, swap, repeat } = useLocalSearchParams<{ make?: string; swap?: string; repeat?: string }>();
   const kind = make === 'new' ? 'new' : null;
   const [plan, setPlan] = useState<StoredPlan | null>(() => getCurrentPlan(db));
   const [status, setStatus] = useState<Status>(kind ? 'loading' : 'ready');
   const [errorCode, setErrorCode] = useState<ErrorCode | 'EMPTY'>('INTERNAL');
   const [picked, setPicked] = useState<string | null>(null);
-  const [swapping, setSwapping] = useState<StoredMeal | null>(null);
+  // `?swap=<meal id>` (Today's "Felt off?" offer) opens the swap sheet for that meal straight away.
+  const [swapping, setSwapping] = useState<StoredMeal | null>(() =>
+    swap ? (getCurrentPlan(db)?.meals.find((meal) => meal.id === Number(swap)) ?? null) : null,
+  );
   const running = useRef<AbortController | null>(null);
   const started = useRef(false);
   // Whether a plan was asked for here, so a failed try can be tried again.
@@ -117,7 +132,8 @@ export default function PlanScreen() {
       const request = buildPlanRequest(db, {
         choices,
         slots,
-        keep: [],
+        // "Repeat what worked": the dishes that sat well last week are kept, and the rest is planned around them.
+        keep: repeat === '1' ? keptDishes(db) : [],
         serves: getSetting(db, 'kitchenServes'),
         conditions: getSetting(db, 'conditions'),
       });
@@ -139,7 +155,7 @@ export default function PlanScreen() {
       // Done: from here on the screen may refresh itself when it comes back into view.
       if (running.current === controller) running.current = null;
     }
-  }, [db]);
+  }, [db, repeat]);
 
   useEffect(() => {
     if (kind && !started.current) {

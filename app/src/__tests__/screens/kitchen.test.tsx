@@ -5,7 +5,9 @@ import { DEFAULT_PLAN_CHOICES } from '@/constants/mealPlan';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createAvoidFood } from '@/db/repositories/avoidFoods';
 import { replaceFridge } from '@/db/repositories/fridgeItems';
-import { createPlan, setMealSkipped } from '@/db/repositories/mealPlans';
+import { createFoodLog } from '@/db/repositories/food';
+import { createPlan, markMealLogOffered, setMealSkipped } from '@/db/repositories/mealPlans';
+import { createSymptomLog } from '@/db/repositories/symptoms';
 import { saveRecipe } from '@/db/repositories/savedRecipes';
 import { getSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';
@@ -393,8 +395,87 @@ describe('Kitchen with a plan for this week', () => {
     });
     await render(<KitchenScreen />);
 
-    expect(screen.getByText('Plan your week')).toBeTruthy();
+    expect(screen.getByText('A new week is coming')).toBeTruthy();
+    expect(screen.getByText('Plan next week')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Plan my week' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Repeat what worked' })).toBeNull();
     expect(screen.queryByText('This week')).toBeNull();
+  });
+});
+
+describe('Kitchen: next week', () => {
+  const today = todayKey();
+  const weekStart = addDays(today, -7);
+  const lastWeek = (tapped: boolean) => {
+    const plan = createPlan(mockDb, {
+      weekStart,
+      choices: DEFAULT_PLAN_CHOICES,
+      meals: [
+        { day: weekStart, slot: 'dinner' as const, dish: dish('d1', 'Miso salmon') },
+        { day: addDays(weekStart, 1), slot: 'dinner' as const, dish: dish('d2', 'Chicken bowls') },
+      ],
+    });
+    if (tapped)
+      markMealLogOffered(mockDb, plan.meals[0]!.id, new Date(`${weekStart}T17:00:00`).toISOString());
+    return plan;
+  };
+  const ate = (loggedAt: string) =>
+    createFoodLog(mockDb, {
+      loggedAt,
+      entryType: 'diary',
+      source: 'text',
+      inputText: 'Miso salmon',
+      analysis: {
+        isFood: true,
+        mealName: 'Miso salmon',
+        items: [],
+        overall: { verdict: 'ok', confidence: 'medium', reasoning: 'Because.' },
+      },
+      meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
+    });
+  const at = (hour: number) => new Date(`${weekStart}T${String(hour).padStart(2, '0')}:00:00`).toISOString();
+
+  it('offers to repeat what sat well, and opens the plan page to keep those dishes', async () => {
+    lastWeek(true);
+    ate(at(18));
+    await render(<KitchenScreen />);
+
+    expect(screen.getByText('The meal you logged sat well. Keep those and plan the rest.')).toBeTruthy();
+    await press('Repeat what worked');
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/plan', params: { make: 'new', repeat: '1' } });
+  });
+
+  it('Start over opens the set-up sheet instead', async () => {
+    lastWeek(true);
+    ate(at(18));
+    await render(<KitchenScreen />);
+
+    await press('Start over');
+
+    expect(screen.getByRole('header', { name: 'Plan your week' })).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('does not offer to repeat a week where every logged meal was followed by a symptom', async () => {
+    lastWeek(true);
+    ate(at(18));
+    createSymptomLog(mockDb, { items: [{ key: 'heartburn' }], loggedAt: at(20) });
+    await render(<KitchenScreen />);
+
+    expect(screen.queryByRole('button', { name: 'Repeat what worked' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Plan my week' })).toBeTruthy();
+  });
+
+  it('shows this week as well, under the card, while its last days are still going', async () => {
+    createPlan(mockDb, {
+      weekStart: addDays(today, -5),
+      choices: DEFAULT_PLAN_CHOICES,
+      meals: [{ day: today, slot: 'dinner' as const, dish: dish('d1', 'Miso salmon') }],
+    });
+    await render(<KitchenScreen />);
+
+    expect(screen.getByText('Plan next week')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Dinner, Miso salmon' })).toBeTruthy();
   });
 });
