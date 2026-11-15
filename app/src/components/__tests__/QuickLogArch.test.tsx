@@ -13,10 +13,10 @@ describe('QuickLogArch', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  it('fans out food, symptom and medication', async () => {
+  it('fans out food, symptom, tell me and medication', async () => {
     await render(arch(true, jest.fn()));
 
-    for (const name of ['Food', 'How I feel', 'Medication']) {
+    for (const name of ['Food', 'How I feel', 'Tell me', 'Medication']) {
       expect(screen.getByRole('button', { name, hidden: true })).toBeTruthy();
     }
   });
@@ -75,5 +75,14 @@ describe('QuickLogArch', () => {
     await fireEvent.press(food());
 
     expect(onPick).toHaveBeenCalledWith('food');
+  });
+
+  it('opens the voice log from Tell me', async () => {
+    const onPick = jest.fn();
+    await render(arch(true, jest.fn(), onPick));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Tell me', hidden: true }));
+
+    expect(onPick).toHaveBeenCalledWith('voice');
   });
 });

@@ -295,3 +295,65 @@ export async function sendFeedback(message: string, signal?: AbortSignal): Promi
   }
   if (!response.ok) throw await toAppError(response, id);
 }
+
+/** Hearing, then thinking: the relay turns the audio into words and the words into foods, symptoms and a time. */
+const VOICE_TIMEOUT_MS = 60_000;
+
+/** What the phone tells the relay beside the audio: its clock and the person's own words (see the relay's voiceContextSchema). */
+export type VoiceRequestContext = { now: string; tz: string; foods: string[]; symptoms: string[] };
+
+/** What the relay heard. Symptoms are built-in keys or the person's own words; `at` is null for "just now". */
+export type VoiceResult = { transcript: string; foods: string[]; symptoms: string[]; at: string | null };
+
+const isStringList = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+/**
+ * Sends one recording (m4a) with the phone's clock and the person's own food and symptom names, and gets back what
+ * was said. The relay holds the audio only for the call and never keeps it. Throws an AppError like `analyzeFood`.
+ */
+export async function fetchVoiceLog(
+  audioUri: string,
+  context: VoiceRequestContext,
+  signal?: AbortSignal,
+): Promise<VoiceResult> {
+  const id = requestId();
+  const token = await tokenFor(id);
+  const timeout = AbortSignal.timeout(VOICE_TIMEOUT_MS);
+  let response: Response;
+  try {
+    const form = new FormData();
+    // Same Blob-like File as a meal photo (see analyzeFood).
+    form.append('audio', photoPart(audioUri, id));
+    form.append('context', JSON.stringify(context));
+    response = await fetch(`${relayBaseUrl()}/v1/voice-log`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'X-Request-Id': id },
+      body: form,
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+  } catch (error) {
+    if (signal?.aborted || error instanceof AppError) throw error;
+    if (!timeout.aborted && (await isOffline())) throw new AppError('OFFLINE', id);
+    throw new AppError(timeout.aborted ? 'AI_TIMEOUT' : 'NETWORK', id);
+  }
+
+  if (!response.ok) throw await toAppError(response, id);
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new AppError('AI_INVALID_OUTPUT', id);
+  }
+  const heard = body as Partial<Record<keyof VoiceResult, unknown>> | null;
+  const { transcript, foods, symptoms, at } = heard ?? {};
+  if (
+    typeof transcript !== 'string' ||
+    !isStringList(foods) ||
+    !isStringList(symptoms) ||
+    !(at === null || typeof at === 'string')
+  ) {
+    throw new AppError('AI_INVALID_OUTPUT', id);
+  }
+  return { transcript, foods, symptoms, at };
+}

@@ -1,3 +1,4 @@
+import { Mic, type LucideIcon } from 'lucide-react-native';
 import { type ReactNode, useEffect } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
@@ -12,19 +13,38 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { LOG_KINDS, type LogKind } from '@/lib/logKinds';
-import { shadow, useColors } from '@/theme';
+import { type ColorToken, shadow, useColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { LOG_CENTRE_BELOW_BAR_TOP, tabBarHeight } from './FloatingTabBar';
 
 export type { LogKind };
 
-/** Where each button sits on the arch, in degrees around the Log button. */
-const ANGLE: Record<LogKind, number> = { food: 140, symptoms: 90, medication: 40 };
-const ITEMS = LOG_KINDS.map((item) => ({ ...item, angle: ANGLE[item.kind] }));
+/** The arch adds "Tell me" (speak it) to the three things that can be logged. */
+export type ArchKind = LogKind | 'voice';
+
+type ArchEntry = { kind: ArchKind; label: string; icon: LucideIcon; tint: ColorToken; iconColor: ColorToken };
+
+/** Figma 45a: Food, How I feel, Tell me, Medication, left to right. "Tell me" is a white bubble with an olive mic. */
+const VOICE_ITEM: ArchEntry = {
+  kind: 'voice',
+  label: 'Tell me',
+  icon: Mic,
+  tint: 'surface',
+  iconColor: 'sageInk',
+};
+const KIND_ITEMS: ArchEntry[] = LOG_KINDS.map((item) => ({ ...item, iconColor: 'ink' }));
+const [FOOD_ITEM, SYMPTOMS_ITEM, MEDICATION_ITEM] = KIND_ITEMS as [ArchEntry, ArchEntry, ArchEntry];
+
+/** Where each button sits on the arch, in degrees around the Log button: the outer two low, the inner two higher. */
+const ANGLE: Record<ArchKind, number> = { food: 143.5, symptoms: 106, voice: 74, medication: 36.5 };
+const ITEMS = [FOOD_ITEM, SYMPTOMS_ITEM, VOICE_ITEM, MEDICATION_ITEM].map((item) => ({
+  ...item,
+  angle: ANGLE[item.kind],
+}));
 
 /** The arch's radius around the Log button's centre, and the size of each round button on it. */
-const RADIUS = 128;
+const RADIUS = 138;
 const BUTTON = 56;
 const LABEL_WIDTH = 96;
 /** Same dim as the bottom sheets. */
@@ -39,14 +59,14 @@ type Props = {
   bottomInset: number;
   /** Open or closing. The arch stays mounted while it closes, and tells `onClosed` once it is gone. */
   open: boolean;
-  onPick: (kind: LogKind) => void;
+  onPick: (kind: ArchKind) => void;
   onClose: () => void;
   /** The close animation has finished, so the arch can be unmounted. */
   onClosed: () => void;
 };
 
 /**
- * Figma "02d": tapping Log fans three round buttons (food, symptom, medication) in an arch above it, over a
+ * Figma "02d" and "45a": tapping Log fans four round buttons (food, symptom, tell me, medication) in an arch above it, over a
  * dimmed screen. Rendered under the tab bar, so the bar and its close button stay visible and tappable. Opening and
  * closing are one spring that runs forwards and back from wherever it is, so tapping Log again mid-way reverses it.
  */
@@ -83,7 +103,7 @@ export function QuickLogArch({ bottomInset, open, onPick, onClose, onClosed }: P
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
-      {ITEMS.map(({ kind, label, icon: Icon, tint, angle }) => {
+      {ITEMS.map(({ kind, label, icon: Icon, tint, iconColor, angle }) => {
         const rad = (angle * Math.PI) / 180;
         const dx = RADIUS * Math.cos(rad);
         const dy = RADIUS * Math.sin(rad);
@@ -104,7 +124,7 @@ export function QuickLogArch({ bottomInset, open, onPick, onClose, onClosed }: P
                 styles.button,
                 { backgroundColor: colors[tint], boxShadow: shadow.softLift, opacity: pressed ? 0.85 : 1 },
               ]}>
-              <Icon size={24} color={colors.ink} strokeWidth={2} />
+              <Icon size={24} color={colors[iconColor]} strokeWidth={2} />
             </Pressable>
             {/* Absolute, so the button's own position is exact whatever the label's height. */}
             <AppText variant="label" color="bg" style={styles.label}>
