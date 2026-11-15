@@ -1,7 +1,13 @@
 import { DEFAULT_PLAN_CHOICES } from '@/constants/mealPlan';
 
 import { deleteAllData } from '../repositories/data';
-import { createPlan, deletePlan } from '../repositories/mealPlans';
+import {
+  createPlan,
+  deletePlan,
+  getCurrentPlan,
+  markMealLogOffered,
+  swapMeal,
+} from '../repositories/mealPlans';
 import { addOwnItem, getPlanChecks, setChecked } from '../repositories/planChecks';
 import { getPrepPlan, savePrepPlan } from '../repositories/planPrep';
 import { DEFAULT_SETTINGS, getSetting, setSetting } from '../repositories/settings';
@@ -116,5 +122,32 @@ describe('the saved prep session', () => {
 
     deleteAllData(db);
     expect(db.select().from(planPrep).all()).toHaveLength(0);
+  });
+});
+
+describe('offering planned meals on Today', () => {
+  it('is off until chosen, and only takes a switch', () => {
+    expect(getSetting(db, 'offerPlannedMeals')).toBe(false);
+    setSetting(db, 'offerPlannedMeals', true);
+    expect(getSetting(db, 'offerPlannedMeals')).toBe(true);
+    expect(() => setSetting(db, 'offerPlannedMeals', 'yes' as unknown as boolean)).toThrow();
+  });
+
+  it('remembers the meal the swap offer was last shown for, and only a meal id', () => {
+    expect(getSetting(db, 'swapOfferMeal')).toBeNull();
+    setSetting(db, 'swapOfferMeal', 4);
+    expect(getSetting(db, 'swapOfferMeal')).toBe(4);
+    expect(() => setSetting(db, 'swapOfferMeal', 0)).toThrow();
+  });
+
+  it('notes when "Log it" was tapped, and forgets it when the meal is swapped', () => {
+    const plan = newPlan();
+    const meal = plan.meals[0]!;
+    expect(meal.loggedAt).toBeNull();
+    markMealLogOffered(db, meal.id, '2026-11-16T18:00:00.000Z');
+    expect(getCurrentPlan(db)?.meals[0]?.loggedAt).toBe('2026-11-16T18:00:00.000Z');
+
+    swapMeal(db, meal.id, { ...meal.dish, id: 's1', title: 'Soup' });
+    expect(getCurrentPlan(db)?.meals[0]?.loggedAt).toBeNull();
   });
 });

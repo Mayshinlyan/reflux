@@ -4,11 +4,13 @@ import PlanScreen from '@/app/plan';
 import { DEFAULT_PLAN_CHOICES } from '@/constants/mealPlan';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createAvoidFood } from '@/db/repositories/avoidFoods';
-import { createPlan, getCurrentPlan } from '@/db/repositories/mealPlans';
+import { createFoodLog } from '@/db/repositories/food';
+import { createPlan, getCurrentPlan, markMealLogOffered } from '@/db/repositories/mealPlans';
 import { getSetting, setSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';
 import { AppError } from '@/lib/errors';
 import { todayKey } from '@/lib/kitchen';
+import { addDays } from '@/lib/localDay';
 import { planSlots, planWeekStart } from '@/lib/mealPlan';
 import { getRecipeDraft, setRecipeDraft } from '@/lib/recipeDraft';
 import { fetchMealPlan, fetchRecipeIdeas } from '@/services/relayClient';
@@ -173,6 +175,43 @@ describe('Plan: making a plan', () => {
       conditions: ['acid_reflux'],
       avoid: ['pork'],
     });
+  });
+
+  it('keeps the dishes that sat well when asked to repeat what worked', async () => {
+    const lastWeekStart = addDays(today, -7);
+    const old = createPlan(mockDb, {
+      weekStart: lastWeekStart,
+      choices: DEFAULT_PLAN_CHOICES,
+      meals: [{ day: lastWeekStart, slot: 'dinner', dish: dish('d9', 'Miso salmon') }],
+    });
+    markMealLogOffered(mockDb, old.meals[0]!.id, new Date(`${lastWeekStart}T17:00:00`).toISOString());
+    createFoodLog(mockDb, {
+      loggedAt: new Date(`${lastWeekStart}T18:00:00`).toISOString(),
+      entryType: 'diary',
+      source: 'text',
+      inputText: 'Miso salmon',
+      analysis: {
+        isFood: true,
+        mealName: 'Miso salmon',
+        items: [],
+        overall: { verdict: 'ok', confidence: 'medium', reasoning: 'Because.' },
+      },
+      meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
+    });
+    mockParams = { make: 'new', repeat: '1' };
+    planFetch.mockImplementation(answerWith('Chicken bowls'));
+    await render(<PlanScreen />);
+
+    await screen.findByRole('header', { name: 'Review the meal plan' });
+    expect(planFetch.mock.calls[0]![0].keep).toEqual(['Miso salmon']);
+  });
+
+  it('keeps nothing when it is not asked to repeat', async () => {
+    planFetch.mockImplementation(answerWith('Chicken bowls'));
+    await render(<PlanScreen />);
+
+    await screen.findByRole('header', { name: 'Review the meal plan' });
+    expect(planFetch.mock.calls[0]![0].keep).toBeUndefined();
   });
 
   it('keeps the plan on the phone, and says how many meals and dishes to prep', async () => {
@@ -346,6 +385,24 @@ describe('Plan: swapping a meal', () => {
     expect(swapped?.dish.title).toBe('Chicken congee');
     expect(screen.getByText('Chicken congee')).toBeTruthy();
     expect(screen.queryByText('Miso salmon')).toBeNull();
+  });
+
+  it("opens straight on the meal named by ?swap, as Today's felt-off offer asks", async () => {
+    const plan = savedPlan();
+    mockParams = { swap: String(plan.meals[1]!.id) };
+    ideasFetch.mockResolvedValue([recipe('Baked cod'), recipe('Chicken congee'), recipe('Tofu stir fry')]);
+    await render(<PlanScreen />);
+
+    expect(await screen.findByRole('header', { name: /^Swap .* dinner$/ })).toBeTruthy();
+    expect(await screen.findByText('Baked cod')).toBeTruthy();
+  });
+
+  it('ignores a ?swap that names no meal of the plan', async () => {
+    savedPlan();
+    mockParams = { swap: '9999' };
+    await render(<PlanScreen />);
+
+    expect(screen.queryByRole('header', { name: /^Swap / })).toBeNull();
   });
 
   it('says it could not find another dish, and tries again', async () => {

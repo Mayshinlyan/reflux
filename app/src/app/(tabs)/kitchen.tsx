@@ -27,7 +27,9 @@ import { todayKey } from '@/lib/kitchen';
 import { addDays } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
 import { planWeek, planSummary } from '@/lib/mealPlan';
+import { weekLine } from '@/lib/planToday';
 import { setRecipeDraft } from '@/lib/recipeDraft';
+import { planWeekResult, weekIsEnding } from '@/lib/weekResult';
 import { cardEdge, radius, space, useColors } from '@/theme';
 
 /**
@@ -47,6 +49,8 @@ export default function KitchenScreen() {
   const [plan, setPlan] = useState<StoredPlan | null>(null);
   const [savedCount, setSavedCount] = useState(0);
   const [skipped, setSkipped] = useState<string[]>([]);
+  // How the plan's week went once it is ending: planned meals logged, and the dishes that sat well.
+  const [result, setResult] = useState<{ logged: number; well: number; wellTitles: string[] } | null>(null);
   const [fridge, setFridge] = useState<{ count: number; updatedAt: string | null }>({
     count: 0,
     updatedAt: null,
@@ -59,7 +63,9 @@ export default function KitchenScreen() {
 
   const reload = useCallback(() => {
     try {
-      setPlan(getCurrentPlan(db));
+      const latest = getCurrentPlan(db);
+      setPlan(latest);
+      setResult(latest && weekIsEnding(latest, todayKey()) ? planWeekResult(db, latest) : null);
       setSavedCount(listSavedRecipes(db).length);
       setSkipped(listAvoidFoods(db).map((food) => food.name));
       setFridge({ count: listFridgeItems(db).length, updatedAt: fridgeUpdatedAt(db) });
@@ -72,6 +78,8 @@ export default function KitchenScreen() {
   const today = todayKey();
   // A plan is "this week" until its Sunday has passed; after that the Kitchen asks for a new one.
   const current = plan && today <= addDays(plan.weekStart, 6) ? plan : null;
+  // From Saturday on, the next week is offered (Figma "meal planning flow" H), above what is left of this one.
+  const ending = plan !== null && weekIsEnding(plan, today);
 
   const openAsk = () => {
     afterClose.current = null;
@@ -93,6 +101,7 @@ export default function KitchenScreen() {
     afterClose.current = 'fridge';
     setAsking(false);
   };
+  const repeatWhatWorked = () => router.push({ pathname: '/plan', params: { make: 'new', repeat: '1' } });
   const dismissed = () => {
     const next = afterClose.current;
     afterClose.current = null;
@@ -114,6 +123,34 @@ export default function KitchenScreen() {
   const startsLater = current !== null && today < current.weekStart;
   const dayName = current ? (planWeek(current.weekStart).find((day) => day.key === today)?.name ?? '') : '';
 
+  const repeat = ending && result !== null && result.wellTitles.length > 0 ? result : null;
+  // The card that asks for a week: "Plan your week" with no plan, "Plan next week" once this one is ending.
+  const askCard = (
+    <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+      <View style={styles.cardTop}>
+        <View style={styles.cardText}>
+          <AppText variant="displaySmall">{ending ? 'Plan next week' : 'Plan your week'}</AppText>
+          <AppText variant="subtitle" color="inkSoft">
+            {repeat
+              ? weekLine(repeat.logged, repeat.well)
+              : 'Meals that go easy on your belly, made from what you have.'}
+          </AppText>
+        </View>
+        <Belly mood="happy" size={120} />
+      </View>
+      <View ref={planTarget} style={styles.cardButtons}>
+        {repeat ? (
+          <>
+            <Button label="Repeat what worked" onPress={repeatWhatWorked} />
+            <Button label="Start over" variant="secondary" onPress={openAsk} />
+          </>
+        ) : (
+          <Button label="Plan my week" onPress={openAsk} />
+        )}
+      </View>
+    </View>
+  );
+
   return (
     <Screen edges={['top', 'left', 'right']}>
       <ScrollView
@@ -128,12 +165,19 @@ export default function KitchenScreen() {
             Kitchen
           </AppText>
           <AppText variant="voiceSmall" color="inkSoft">
-            {current ? (startsLater ? 'Next week' : 'This week') : 'What shall we cook?'}
+            {ending
+              ? 'A new week is coming'
+              : current
+                ? startsLater
+                  ? 'Next week'
+                  : 'This week'
+                : 'What shall we cook?'}
           </AppText>
         </View>
 
         {current ? (
           <>
+            {ending && askCard}
             {!startsLater && <TodayPlanCard dayName={dayName} meals={todayMeals} onOpen={openMeal} />}
             <PlanWeekStrip
               days={planWeek(current.weekStart)}
@@ -172,20 +216,7 @@ export default function KitchenScreen() {
           </>
         ) : (
           <>
-            <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
-              <View style={styles.cardTop}>
-                <View style={styles.cardText}>
-                  <AppText variant="displaySmall">Plan your week</AppText>
-                  <AppText variant="subtitle" color="inkSoft">
-                    Meals that go easy on your belly, made from what you have.
-                  </AppText>
-                </View>
-                <Belly mood="happy" size={120} />
-              </View>
-              <View ref={planTarget}>
-                <Button label="Plan my week" onPress={openAsk} />
-              </View>
-            </View>
+            {askCard}
 
             <ListRow
               icon={<Bookmark size={20} color={colors.sageInk} strokeWidth={2} />}
@@ -233,6 +264,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, padding: space.s4, paddingHorizontal: space.s3, gap: space.s3 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: space.s2 },
   cardText: { flex: 1, gap: space.s1 },
+  cardButtons: { gap: space.s1_5 },
   pills: { flexDirection: 'row', gap: space.s2 },
   fill: { flex: 1 },
   section: { gap: space.s1_5 },

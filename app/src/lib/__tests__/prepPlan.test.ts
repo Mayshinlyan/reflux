@@ -34,6 +34,7 @@ const meal = (day: string, d: PlanDish): StoredMeal => ({
   dish: d,
   locked: false,
   skipped: false,
+  loggedAt: null,
 });
 
 const bowls = dish('a', 'Chicken bowls', { minutes: 60, keepsDays: 4 });
