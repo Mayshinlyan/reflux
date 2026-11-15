@@ -183,7 +183,7 @@ export default function SettingsScreen() {
         />
         <SettingsRow
           icon={CalendarDays}
-          label="Offer to log planned meals"
+          label="Log plan meals"
           value={settings.offerPlannedMeals ? 'On' : 'Off'}
           onPress={() => setSheet('planned')}
         />
@@ -286,9 +286,7 @@ export default function SettingsScreen() {
       <OptionSheet
         visible={sheet === 'planned'}
         variant="cards"
-        title="Offer to log planned meals"
-        note="On Today, Bellie shows the next meal from your week plan and asks if you ate it."
-        footnote="It only asks. A meal is added to your diary only when you tap Log it and save it."
+        title="Log plan meals"
         options={SUMMARIES}
         value={settings.offerPlannedMeals ? ON : OFF}
         onChoose={(choice) => persist(() => update('offerPlannedMeals', choice === ON), 'savePlannedOffer')}

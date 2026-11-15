@@ -23,7 +23,7 @@ const NONE: State = { card: null, offer: null };
 
 /**
  * What Today shows from the week plan: the next planned meal, and (after a planned meal was logged and a symptom
- * followed) an offer to swap a later one. Nothing at all unless "Offer to log planned meals" is on, and nothing here
+ * followed) an offer to swap a later one. Nothing at all unless "Log plan meals" is on in Settings, and nothing here
  * ever writes to the diary: "Log it" only opens the log with the dish typed in.
  */
 export function usePlanToday() {

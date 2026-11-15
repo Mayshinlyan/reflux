@@ -75,7 +75,7 @@ export type Settings = {
   planChoices: PlanChoices;
   /** The id of the plan whose prep day they asked a reminder for (Figma "meal planning flow" E2); null = none. */
   prepReminderPlan: number | null;
-  /** Whether Today offers the next planned meal with "Log it" (Figma "meal planning flow" G2). Off until chosen; it only asks. */
+  /** Whether Today offers the next planned meal with "Log it" (Figma "meal planning flow" G2). On unless turned off in Settings; it only asks. */
   offerPlannedMeals: boolean;
   /** The planned meal the "Felt off?" swap offer was last shown for, so it asks once; null = none. */
   swapOfferMeal: number | null;
@@ -116,7 +116,7 @@ export const DEFAULT_SETTINGS: Settings = {
   kitchenIdeas: null,
   planChoices: DEFAULT_PLAN_CHOICES,
   prepReminderPlan: null,
-  offerPlannedMeals: false,
+  offerPlannedMeals: true,
   swapOfferMeal: null,
   commitGoal: null,
   giftsSeen: [],

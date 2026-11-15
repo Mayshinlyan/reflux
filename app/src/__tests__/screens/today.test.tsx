@@ -575,7 +575,7 @@ describe("Today: the week plan's next meal", () => {
       ],
     });
 
-  it('is not shown unless they chose to be offered planned meals', async () => {
+  it('is not shown when Log plan meals is turned off', async () => {
     makePlan();
     await render(<TodayScreen />);
 

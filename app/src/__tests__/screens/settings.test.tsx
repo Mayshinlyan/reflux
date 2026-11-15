@@ -112,7 +112,7 @@ describe('Settings', () => {
       .getAllByRole('button')
       .map((button) => button.props.accessibilityLabel)
       .filter((label) =>
-        /^(Bedtime|Late-meal|Check-in|Bellie|Offer|Condition|Favorite|Medications|Symptoms|My |Replay|Send|Privacy|Delete)/.test(
+        /^(Bedtime|Late-meal|Check-in|Bellie|Log plan|Condition|Favorite|Medications|Symptoms|My |Replay|Send|Privacy|Delete)/.test(
           label ?? '',
         ),
       );
@@ -121,7 +121,7 @@ describe('Settings', () => {
       'Late-meal window, 3 hours',
       'Check-in reminder, Off',
       "Bellie's summaries, On",
-      'Offer to log planned meals, Off',
+      'Log plan meals, On',
       'Replay app tour',
       'Send feedback',
       'Privacy and disclaimer',
@@ -235,23 +235,23 @@ describe("Settings: Bellie's summaries", () => {
   });
 });
 
-describe('Settings: offer to log planned meals', () => {
-  it('is off until chosen, and says it only asks', async () => {
+describe('Settings: log plan meals', () => {
+  it('is on until turned off, with no extra text', async () => {
     await render(<SettingsScreen />);
-    await press('button', 'Offer to log planned meals, Off');
+    await press('button', 'Log plan meals, On');
 
     expect(screen.getAllByRole('radio').map((o) => o.props.accessibilityLabel)).toEqual(['On', 'Off']);
-    expect(screen.getByText(/only when you tap Log it and save it/)).toBeTruthy();
+    expect(screen.queryByText(/only asks|tap Log it/)).toBeNull();
   });
 
-  it('saves On, shows it, and closes the list', async () => {
+  it('saves Off, shows it, and closes the list', async () => {
     await render(<SettingsScreen />);
-    await press('button', 'Offer to log planned meals, Off');
+    await press('button', 'Log plan meals, On');
 
-    await press('radio', 'On');
+    await press('radio', 'Off');
 
-    expect(getSetting(mockDb, 'offerPlannedMeals')).toBe(true);
-    expect(screen.getByRole('button', { name: 'Offer to log planned meals, On' })).toBeTruthy();
+    expect(getSetting(mockDb, 'offerPlannedMeals')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Log plan meals, Off' })).toBeTruthy();
     expect(screen.queryAllByRole('radio')).toHaveLength(0);
   });
 });

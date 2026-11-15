@@ -126,10 +126,10 @@ describe('the saved prep session', () => {
 });
 
 describe('offering planned meals on Today', () => {
-  it('is off until chosen, and only takes a switch', () => {
-    expect(getSetting(db, 'offerPlannedMeals')).toBe(false);
-    setSetting(db, 'offerPlannedMeals', true);
+  it('is on until turned off, and only takes a switch', () => {
     expect(getSetting(db, 'offerPlannedMeals')).toBe(true);
+    setSetting(db, 'offerPlannedMeals', false);
+    expect(getSetting(db, 'offerPlannedMeals')).toBe(false);
     expect(() => setSetting(db, 'offerPlannedMeals', 'yes' as unknown as boolean)).toThrow();
   });
 
