@@ -5,7 +5,14 @@ import type { TriggerCategory } from '@/types/analysis';
 
 import { triggerPatterns } from '../statsCards';
 import type { TimelineEntry } from '../timeline';
-import { buildWeeklyReport, lastFullWeek, REPORT_MIN_MEALS, whenSentence } from '../weeklyReport';
+import {
+  buildWeeklyReport,
+  lastFullWeek,
+  REPORT_MIN_MEALS,
+  satCount,
+  watchCount,
+  whenSentence,
+} from '../weeklyReport';
 
 const meal = (id: number, name: string, at: string, triggers: TriggerCategory[] = []) =>
   ({
@@ -95,6 +102,35 @@ describe('buildWeeklyReport', () => {
     expect(report.whenText).toBe('Mostly in the evening, after 6pm.');
   });
 
+  it('lists a food eaten once, good or not, once the first report is unlocked', () => {
+    const entries = [
+      meal(1, 'Rice and chicken', '2026-10-04T12:00:00.000Z'),
+      meal(2, 'Fried dumplings', '2026-10-05T19:00:00.000Z'),
+      symptom(3, '2026-10-05T21:00:00.000Z'),
+      meal(4, 'Toast', '2026-10-06T08:00:00.000Z'),
+      meal(5, 'Soup', '2026-10-06T12:00:00.000Z'),
+      meal(6, 'Pasta', '2026-10-06T18:00:00.000Z'),
+    ];
+    const report = buildWeeklyReport({ entries, weekEntries: entries, now: LATER });
+
+    expect(report.watch).toEqual([{ name: 'Fried dumplings', times: 1, withSymptoms: 1 }]);
+    expect(report.sat.map((food) => food.name)).toContain('Rice and chicken');
+  });
+
+  it('still needs a repeat before that, so the first few meals never decide anything', () => {
+    const entries = [meal(1, 'Rice and chicken', '2026-10-04T12:00:00.000Z')];
+    const report = buildWeeklyReport({ entries, weekEntries: entries, now: LATER });
+
+    expect(report.sat).toEqual([]);
+    expect(report.hasContent).toBe(false);
+  });
+
+  it('words the counts, with Once for a single meal', () => {
+    expect(satCount({ name: 'Rice', times: 1, withSymptoms: 0 })).toBe('Once');
+    expect(satCount({ name: 'Rice', times: 3, withSymptoms: 0 })).toBe('3 times');
+    expect(watchCount({ name: 'Tacos', times: 1, withSymptoms: 1 })).toBe('1 of 1');
+  });
+
   it('says how many more meals it needs, down to none', () => {
     const some = [meal(1, 'Toast', '2026-10-04T08:00:00.000Z'), meal(2, 'Rice', '2026-10-05T08:00:00.000Z')];
     expect(buildWeeklyReport({ entries: some, weekEntries: some, now: LATER }).mealsNeeded).toBe(
@@ -110,11 +146,9 @@ describe('buildWeeklyReport', () => {
     expect(buildWeeklyReport({ entries: enough, weekEntries: enough, now: LATER }).mealsNeeded).toBe(0);
   });
 
-  it('has nothing to show for a week with no repeats and no symptoms', () => {
-    const entries = [
-      meal(1, 'Toast', '2026-10-04T08:00:00.000Z'),
-      meal(2, 'Rice', '2026-10-05T08:00:00.000Z'),
-    ];
+  it('has nothing to show while the only meals are too recent to judge and no symptoms came', () => {
+    const recent = new Date(LATER.getTime() - 60 * 60 * 1000).toISOString();
+    const entries = [meal(1, 'Toast', recent)];
     expect(buildWeeklyReport({ entries, weekEntries: entries, now: LATER }).hasContent).toBe(false);
   });
 

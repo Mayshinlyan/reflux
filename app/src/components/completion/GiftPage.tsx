@@ -67,7 +67,7 @@ function ReportGift({ onReport, onDone }: { onReport: () => void; onDone: () => 
       action={{ label: 'See my report', onPress: onReport }}
       quiet={{ label: 'Later', onPress: onDone }}>
       <Animated.View
-        entering={reduceMotion ? undefined : ZoomIn.springify().damping(12)}
+        entering={reduceMotion ? undefined : ZoomIn.springify().damping(20)}
         style={[styles.preview, { backgroundColor: colors.surface, ...cardEdge(colors) }]}
         importantForAccessibility="no-hide-descendants">
         <AppText variant="displaySmall">Your week with Bellie</AppText>

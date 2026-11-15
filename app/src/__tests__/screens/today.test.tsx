@@ -347,8 +347,7 @@ describe('Today: the weekly report', () => {
     expect(screen.queryByRole('button', { name: /^Your week with Bellie/ })).toBeNull();
   });
 
-  it('leaves the row out when the last week had nothing to say', async () => {
-    seedHistory();
+  it('leaves the row out when there is nothing from the last week', async () => {
     await render(<TodayScreen />);
 
     expect(screen.queryByRole('button', { name: /^Your week with Bellie/ })).toBeNull();

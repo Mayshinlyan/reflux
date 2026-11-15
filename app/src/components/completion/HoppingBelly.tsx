@@ -42,7 +42,7 @@ export function HoppingBelly({ size = 168, hop = false, forceItem, shadow = fals
     if (!hop || reduceMotion) return;
     lift.value = withDelay(
       60,
-      withSequence(withTiming(-28, { duration: 180 }), withSpring(0, { damping: 6, stiffness: 220 })),
+      withSequence(withTiming(-28, { duration: 180 }), withSpring(0, { damping: 14, stiffness: 220 })),
     );
   }, [hop, reduceMotion, lift]);
 
