@@ -151,6 +151,9 @@ export default function PlanScreen() {
         logger.error('makeMealPlan', error);
         setErrorCode(error instanceof AppError ? error.code : 'INTERNAL');
         setStatus('error');
+      } finally {
+        // Done: from here on the screen may refresh itself when it comes back into view.
+        if (running.current === controller) running.current = null;
       }
     },
     [db],

@@ -52,7 +52,9 @@ export function prepSteps(dishes: readonly PrepDish[]): PrepStep[] {
 /** The day to cook: the day before the first meal that is eaten. */
 export function prepDay(meals: readonly StoredMeal[], weekStart: string, from?: string): string {
   const first = eatenMeals(meals, from)[0]?.day ?? weekStart;
-  return addDays(first, -1);
+  const before = addDays(first, -1);
+  // With the first meal today, the cooking is today: there is no day before it left.
+  return from !== undefined && before < from ? from : before;
 }
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

@@ -5,13 +5,14 @@ import { DEFAULT_PLAN_CHOICES } from '@/constants/mealPlan';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createAvoidFood } from '@/db/repositories/avoidFoods';
 import { createPlan, getCurrentPlan, setMealLocked, setMealSkipped } from '@/db/repositories/mealPlans';
-import { setSetting } from '@/db/repositories/settings';
+import { getSetting, setSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';
 import { AppError } from '@/lib/errors';
 import { todayKey } from '@/lib/kitchen';
 import { planSlots, planWeekStart } from '@/lib/mealPlan';
 import { getRecipeDraft, setRecipeDraft } from '@/lib/recipeDraft';
 import { fetchMealPlan, fetchRecipeIdeas } from '@/services/relayClient';
+import { cancelPrepReminder } from '@/services/reminders';
 import type { MealPlanRequest, PlanDish } from '@/types/mealPlan';
 import type { Recipe } from '@/types/recipe';
 
@@ -248,6 +249,17 @@ describe('Plan: the review', () => {
 
     expect(screen.queryByRole('button', { name: /^Prep day/ })).toBeNull();
     expect(screen.getByRole('button', { name: /^Shopping list/ })).toBeTruthy();
+  });
+
+  it('drops the prep reminder when the plan is started over', async () => {
+    const plan = savedPlan();
+    setSetting(mockDb, 'prepReminderPlan', plan.id);
+    await render(<PlanScreen />);
+
+    await press('Start over');
+
+    expect(getSetting(mockDb, 'prepReminderPlan')).toBeNull();
+    expect(cancelPrepReminder).toHaveBeenCalled();
   });
 
   it('locks a meal and unlocks it again', async () => {

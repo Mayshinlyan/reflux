@@ -83,6 +83,7 @@ describe('prep day', () => {
 
     expect(prepDishes(meals, '2026-11-17').map((entry) => entry.dish.title)).toEqual(['Congee']);
     expect(prepDay(meals, '2026-11-16', '2026-11-17')).toBe('2026-11-17');
+    expect(prepDay([meal('2026-11-17', bowls)], '2026-11-16', '2026-11-17')).toBe('2026-11-17');
   });
 
   it('says about how long it takes', () => {
