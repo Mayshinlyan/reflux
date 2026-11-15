@@ -132,6 +132,38 @@ describe('Recipe', () => {
   });
 });
 
+describe('Recipe: a meal of the week plan', () => {
+  it('adds a meal-prep card for a cook-once dish: portions, how long it keeps, how to reheat', async () => {
+    setRecipeDraft({ recipe, cuisine: 'korean', prep: { keepsDays: 4, mode: 'once' } });
+    await render(<RecipeScreen />);
+
+    expect(screen.getByRole('header', { name: 'Meal prep' })).toBeTruthy();
+    expect(screen.getByText('Makes 2 portions')).toBeTruthy();
+    expect(screen.getByText('Keeps 4 days in the fridge')).toBeTruthy();
+    expect(screen.getByText(/^Reheat until steaming hot/)).toBeTruthy();
+  });
+
+  it('says a dish with no keeping time is best eaten the day it is cooked', async () => {
+    setRecipeDraft({ recipe, cuisine: 'korean', prep: { keepsDays: 0, mode: 'once' } });
+    await render(<RecipeScreen />);
+
+    expect(screen.getByText('Best eaten the day it is cooked')).toBeTruthy();
+  });
+
+  it('has no meal-prep card for cook daily', async () => {
+    setRecipeDraft({ recipe, cuisine: 'korean', prep: { keepsDays: 0, mode: 'daily' } });
+    await render(<RecipeScreen />);
+
+    expect(screen.queryByRole('header', { name: 'Meal prep' })).toBeNull();
+  });
+
+  it('has no meal-prep card for a recipe that is not from a plan', async () => {
+    await render(<RecipeScreen />);
+
+    expect(screen.queryByRole('header', { name: 'Meal prep' })).toBeNull();
+  });
+});
+
 describe('Recipe: the ingredients open and close', () => {
   it('start open, close from the header to one line, and open again', async () => {
     await render(<RecipeScreen />);

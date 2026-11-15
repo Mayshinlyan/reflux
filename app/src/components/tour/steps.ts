@@ -1,7 +1,7 @@
 import type { TabKey } from '@/components/FloatingTabBar';
 
 /** Views that register themselves as a spotlight target (see `useTourTarget`): Bellie on Today, two on Kitchen, two rows on Profile and the row of gifts on Customize Bellie. */
-export type TourViewId = 'bellie' | 'aiIdeas' | 'fridge' | 'aboutYou' | 'customize' | 'giftRow';
+export type TourViewId = 'bellie' | 'plan' | 'fridge' | 'aboutYou' | 'customize' | 'giftRow';
 
 export type TourTarget = { kind: 'view'; id: TourViewId } | { kind: 'tab'; key: TabKey };
 
@@ -25,7 +25,7 @@ export type TourStep = {
 
 /**
  * Figma row 43 "App tour" (G18 for the last five): eleven steps, each with its own screen behind it. Bellie and the +
- * button on Today, then History, Kitchen (the tab, the AI Ideas pill, My fridge) and Profile. Profile goes on to its
+ * button on Today, then History, Kitchen (the tab, Plan my week, My fridge) and Profile. Profile goes on to its
  * two pages: the About you row and then the page itself, the Customize Bellie row and then the page. It ends back on Today.
  */
 export const TOUR_STEPS: readonly TourStep[] = [
@@ -59,18 +59,18 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'kitchen',
     title: 'Kitchen',
-    body: 'Recipe ideas that go easy on your belly, made from what you like and what is in your fridge.',
+    body: 'Plan a week of meals that go easy on your belly, made from what you like and what is in your fridge.',
     screen: 'kitchen',
     target: { kind: 'tab', key: 'kitchen' },
     pad: 6,
     radius: 22,
   },
   {
-    id: 'aiIdeas',
-    title: 'AI Ideas',
-    body: 'Tap for new recipe ideas when you are not sure what to eat.',
+    id: 'plan',
+    title: 'Plan my week',
+    body: 'Tap to plan a week of meals when you are not sure what to eat.',
     screen: 'kitchen',
-    target: { kind: 'view', id: 'aiIdeas' },
+    target: { kind: 'view', id: 'plan' },
     pad: 0,
     radius: 28,
   },

@@ -86,21 +86,16 @@ type Choices = {
   shown?: readonly string[];
 };
 
-/**
- * What to send for a round of ideas: the sheet's choices, the condition, and food names only. The favorites,
- * the foods that were logged as a trigger and the "Foods to avoid" list come from the phone's own lists. Never
- * symptoms, notes, photos or the person's name. Empty lists are left out.
- */
-export function buildRecipeRequest(db: AppDb, choices: Choices): RecipeRequest {
-  const request: RecipeRequest = { cuisine: choices.cuisine, time: choices.time, serves: choices.serves };
-  const conditions = choices.conditions.filter(
-    (key): key is Exclude<ConditionKey, 'unsure'> => key !== 'unsure',
-  );
-  if (conditions.length > 0) request.conditions = conditions;
+/** The lists that go with every Kitchen request, each empty when there is nothing to say. */
+export type FoodLists = { fridge: string[]; favorites: string[]; triggers: string[]; avoid: string[] };
 
-  const lists = {
-    want: uniqueNames(choices.want, 10),
-    fridge: choices.useFridge
+/**
+ * The phone's own lists as food names: what the fridge holds (only when asked), the favorites, the foods logged as a
+ * trigger and the "Foods to avoid" list. Never symptoms, notes, photos or the person's name.
+ */
+export function foodLists(db: AppDb, options: { useFridge?: boolean }): FoodLists {
+  return {
+    fridge: options.useFridge
       ? uniqueNames(
           listFridgeItems(db).map((item) => item.name),
           MAX_FRIDGE_ITEMS,
@@ -115,6 +110,30 @@ export function buildRecipeRequest(db: AppDb, choices: Choices): RecipeRequest {
       listAvoidFoods(db).map((food) => food.name),
       MAX_AVOID,
     ),
+  };
+}
+
+/** The conditions to send: `unsure` says nothing, so it is left out. */
+export function sendableConditions(conditions: readonly ConditionKey[]): Exclude<ConditionKey, 'unsure'>[] {
+  return conditions.filter((key): key is Exclude<ConditionKey, 'unsure'> => key !== 'unsure');
+}
+
+/** Names tidied for a request (see `uniqueNames`). */
+export const requestNames = uniqueNames;
+
+/**
+ * What to send for a round of ideas: the sheet's choices, the condition, and food names only. The favorites,
+ * the foods that were logged as a trigger and the "Foods to avoid" list come from the phone's own lists. Never
+ * symptoms, notes, photos or the person's name. Empty lists are left out.
+ */
+export function buildRecipeRequest(db: AppDb, choices: Choices): RecipeRequest {
+  const request: RecipeRequest = { cuisine: choices.cuisine, time: choices.time, serves: choices.serves };
+  const conditions = sendableConditions(choices.conditions);
+  if (conditions.length > 0) request.conditions = conditions;
+
+  const lists = {
+    want: uniqueNames(choices.want, 10),
+    ...foodLists(db, { useFridge: choices.useFridge }),
     shown: uniqueNames(choices.shown ?? [], MAX_SHOWN),
   };
   for (const [key, list] of Object.entries(lists) as [keyof typeof lists, string[]][]) {

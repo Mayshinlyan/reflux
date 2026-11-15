@@ -21,6 +21,11 @@ const envSchema = z
      * "Try again" after a failure without the relay refusing first. Its own counter, so it never uses up meal checks.
      */
     PER_USER_DAILY_RECIPE_LIMIT: z.coerce.number().int().positive().default(15),
+    /**
+     * Week plans per person per day (each is the longest answer we ask for). The app asks once to make a plan and
+     * once per redo, so this leaves room for a few redos and a "Try again" after a failure. Its own counter.
+     */
+    PER_USER_DAILY_PLAN_LIMIT: z.coerce.number().int().positive().default(8),
     /** Fridge scans (one to three photos each) per person per day. Its own counter; each scan is an image call. */
     PER_USER_DAILY_FRIDGE_LIMIT: z.coerce.number().int().positive().default(5),
     /** Spoken logs per person per day. Its own counter; each one is a speech call plus an AI call. */

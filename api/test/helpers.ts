@@ -6,7 +6,7 @@ import { type FeedbackStore, InMemoryFeedbackStore } from '../src/lib/feedbackSt
 import { createLogger } from '../src/lib/logger.js';
 import { InMemoryRateLimitStore, type RateLimitStore } from '../src/lib/rateLimitStore.js';
 import type { SpeechToText } from '../src/services/speechToText.js';
-import type { InsightInput, RecipeIdeasInput, VoiceContext } from '../src/schemas.js';
+import type { InsightInput, MealPlanInput, RecipeIdeasInput, VoiceContext } from '../src/schemas.js';
 import type { ClaudeInput, ClaudeResult, ClaudeService } from '../src/services/claudeService.js';
 import type { TokenVerifier } from '../src/services/tokenVerifier.js';
 
@@ -96,6 +96,39 @@ export const goodRecipes = {
   ],
 };
 
+/** A cook-once plan: two dishes covering three meals (the miso salmon only on the first day, where it keeps). */
+export const goodPlan = {
+  dishes: [
+    {
+      id: 'd1',
+      title: 'Gochujang chicken bowls',
+      minutes: 60,
+      serves: 4,
+      why: 'Lean chicken and soft rice, with the chili cut right back.',
+      tip: 'Reheat until just warm.',
+      keepsDays: 4,
+      ingredients: ['1 1/2 lb chicken thighs', '2 cups rice', '1 tbsp mild gochujang'],
+      steps: ['Cook the rice.', 'Poach the chicken.', 'Shred it and mix with the sauce.'],
+    },
+    {
+      id: 'd2',
+      title: 'Miso salmon with rice',
+      minutes: 30,
+      serves: 2,
+      why: 'Baked fish and rice are gentle, and miso adds flavor without heat.',
+      tip: '',
+      keepsDays: 1,
+      ingredients: ['2 salmon fillets (4 oz each)', '1 tbsp miso', '1 cup cooked rice'],
+      steps: ['Spread the miso on the salmon.', 'Bake for 12 minutes.', 'Serve over the rice.'],
+    },
+  ],
+  meals: [
+    { day: '2026-11-16', slot: 'lunch', dish: 'd1' },
+    { day: '2026-11-16', slot: 'dinner', dish: 'd2' },
+    { day: '2026-11-17', slot: 'lunch', dish: 'd1' },
+  ],
+};
+
 const telemetry = {
   model: 'claude-test-model',
   latencyMs: 12,
@@ -114,10 +147,12 @@ export function fakeClaude(
   respondFridge: (input: { jpegs: Buffer[] }) => unknown | Promise<unknown> = () => goodFridge,
   respondVoice: (input: { transcript: string; context: VoiceContext }) => unknown | Promise<unknown> = () =>
     goodVoice,
+  respondPlan: (input: MealPlanInput) => unknown | Promise<unknown> = () => goodPlan,
 ) {
   const calls: ClaudeInput[] = [];
   const insightCalls: InsightInput[] = [];
   const recipeCalls: RecipeIdeasInput[] = [];
+  const planCalls: MealPlanInput[] = [];
   const fridgeCalls: { jpegs: Buffer[] }[] = [];
   const voiceCalls: { transcript: string; context: VoiceContext }[] = [];
   const service: ClaudeService = {
@@ -134,6 +169,10 @@ export function fakeClaude(
       recipeCalls.push(input);
       return { raw: await respondRecipes(input), telemetry };
     },
+    async mealPlan(input): Promise<ClaudeResult> {
+      planCalls.push(input);
+      return { raw: await respondPlan(input), telemetry };
+    },
     async fridge(input): Promise<ClaudeResult> {
       fridgeCalls.push(input);
       return { raw: await respondFridge(input), telemetry };
@@ -143,7 +182,7 @@ export function fakeClaude(
       return { raw: await respondVoice(input), telemetry };
     },
   };
-  return { service, calls, insightCalls, recipeCalls, fridgeCalls, voiceCalls };
+  return { service, calls, insightCalls, recipeCalls, planCalls, fridgeCalls, voiceCalls };
 }
 
 /** A speech service that "hears" fixed words and remembers what it was given. */

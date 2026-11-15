@@ -252,6 +252,54 @@ export const savedRecipes = sqliteTable(
   ],
 );
 
+/**
+ * A week plan from the Kitchen. `choices` are the set-up choices it was made from (so a redo starts from them). The
+ * newest plan is the current one. A plan is an intention: nothing in it is ever written to the food diary by itself.
+ */
+export const mealPlans = sqliteTable(
+  'meal_plans',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** The Monday ("YYYY-MM-DD") of the week the plan is for. */
+    weekStart: text('week_start').notNull(),
+    mode: text('mode', { enum: ['once', 'daily'] }).notNull(),
+    choices: text('choices', { mode: 'json' }).notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index('meal_plans_created_idx').on(t.createdAt),
+    check('meal_plans_mode_check', sql`${t.mode} in ('once', 'daily')`),
+  ],
+);
+
+/**
+ * One meal of a plan: a day and a slot, with the dish it is made from (`recipe` is the whole dish, so the plan works
+ * with no connection). `locked` keeps it when the plan is redone; `skipped` means eating out that meal.
+ */
+export const plannedMeals = sqliteTable(
+  'planned_meals',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    planId: integer('plan_id')
+      .notNull()
+      .references(() => mealPlans.id, { onDelete: 'cascade' }),
+    /** A local "YYYY-MM-DD". */
+    day: text('day').notNull(),
+    slot: text('slot', { enum: ['breakfast', 'lunch', 'dinner'] }).notNull(),
+    /** Meals that share a dish (cook once) share this id, so the prep day can group them. */
+    dishId: text('dish_id').notNull(),
+    recipe: text('recipe', { mode: 'json' }).notNull(),
+    locked: integer('locked', { mode: 'boolean' }).notNull().default(false),
+    skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('planned_meals_slot_uq').on(t.planId, t.day, t.slot),
+    index('planned_meals_day_idx').on(t.day),
+    check('planned_meals_slot_check', sql`${t.slot} in ('breakfast', 'lunch', 'dinner')`),
+  ],
+);
+
 /** Key/value settings. Values are JSON-encoded; see repositories/settings.ts for keys and defaults. */
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
@@ -267,4 +315,6 @@ export type SavedSymptom = typeof savedSymptoms.$inferSelect;
 export type AvoidFood = typeof avoidFoods.$inferSelect;
 export type FridgeItem = typeof fridgeItems.$inferSelect;
 export type SavedRecipe = typeof savedRecipes.$inferSelect;
+export type MealPlan = typeof mealPlans.$inferSelect;
+export type PlannedMeal = typeof plannedMeals.$inferSelect;
 export type MedicationLog = typeof medicationLogs.$inferSelect;

@@ -7,9 +7,11 @@ import type { ConditionKey } from '@/constants/conditions';
 import { relayBaseUrl } from '@/lib/config';
 import { AppError, isRelayErrorCode } from '@/lib/errors';
 import { isInsight } from '@/lib/insight';
+import { isMealPlanResult, pickPlanDish } from '@/lib/planDish';
 import { isRecipeIdeas, pickRecipe } from '@/lib/recipe';
 import type { AnalysisMeta, MealAnalysis, Portion } from '@/types/analysis';
 import type { Insight, InsightRequest } from '@/types/insight';
+import type { MealPlanRequest, MealPlanResult } from '@/types/mealPlan';
 import type { Recipe, RecipeRequest } from '@/types/recipe';
 
 import { getIdToken } from './firebase';
@@ -218,6 +220,47 @@ export async function fetchRecipeIdeas(request: RecipeRequest, signal?: AbortSig
   if (!isRecipeIdeas(body)) throw new AppError('AI_INVALID_OUTPUT', id);
   // Only the fields we show, so nothing else the relay adds (like `meta`) is kept.
   return body.recipes.map(pickRecipe);
+}
+
+// A week of dishes is the longest answer the relay is asked for: it waits up to 80 s for one attempt and may retry, so
+// the phone waits for both attempts and a little more (Cloud Run's own limit is 180 s).
+const PLAN_TIMEOUT_MS = 170_000;
+
+/**
+ * Asks the relay to plan a week of meals (the Kitchen planner). The request carries the set-up choices, the condition
+ * and food names only (see `MealPlanRequest`). Throws an AppError like `analyzeFood`; the planner then offers Try again.
+ */
+export async function fetchMealPlan(request: MealPlanRequest, signal?: AbortSignal): Promise<MealPlanResult> {
+  const id = requestId();
+  const token = await tokenFor(id);
+  const timeout = AbortSignal.timeout(PLAN_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${relayBaseUrl()}/v1/meal-plan`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'X-Request-Id': id, 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (!timeout.aborted && (await isOffline())) throw new AppError('OFFLINE', id);
+    throw new AppError(timeout.aborted ? 'AI_TIMEOUT' : 'NETWORK', id);
+  }
+
+  if (!response.ok) throw await toAppError(response, id);
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new AppError('AI_INVALID_OUTPUT', id);
+  }
+  if (!isMealPlanResult(body)) throw new AppError('AI_INVALID_OUTPUT', id);
+  // Only the fields we show, so nothing else the relay adds (like `meta`) is kept.
+  return {
+    dishes: body.dishes.map(pickPlanDish),
+    meals: body.meals.map(({ day, slot, dish }) => ({ day, slot, dish })),
+  };
 }
 
 // Up to three photos go up and the relay waits up to 45 s for the AI, so the phone waits a little longer.

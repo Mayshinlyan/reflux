@@ -7,9 +7,17 @@ import type { InsightRequest } from '@/types/insight';
 
 import { getNetworkStateAsync } from 'expo-network';
 
+import type { MealPlanRequest } from '@/types/mealPlan';
 import type { RecipeRequest } from '@/types/recipe';
 
-import { analyzeFood, fetchInsight, fetchRecipeIdeas, scanFridge, sendFeedback } from '../relayClient';
+import {
+  analyzeFood,
+  fetchInsight,
+  fetchMealPlan,
+  fetchRecipeIdeas,
+  scanFridge,
+  sendFeedback,
+} from '../relayClient';
 import { getIdToken } from '../firebase';
 
 // A stand-in with the parts of an expo-file-system File that Expo's multipart encoder uses.
@@ -464,6 +472,83 @@ describe('fetchRecipeIdeas', () => {
     fetchMock.mockRejectedValue(new DOMException('aborted', 'AbortError'));
 
     await expect(fetchRecipeIdeas(request, controller.signal)).rejects.toThrow('aborted');
+  });
+});
+
+describe('fetchMealPlan', () => {
+  const request: MealPlanRequest = {
+    mode: 'once',
+    slots: [
+      { day: '2026-11-16', slot: 'lunch' },
+      { day: '2026-11-16', slot: 'dinner' },
+    ],
+    cuisines: ['korean'],
+    prepMinutes: 120,
+    serves: 2,
+    avoid: ['Peanuts'],
+  };
+  const dish = {
+    id: 'd1',
+    title: 'Gochujang chicken bowls',
+    minutes: 60,
+    serves: 4,
+    why: 'Lean chicken and soft rice.',
+    tip: '',
+    keepsDays: 4,
+    ingredients: ['1 1/2 lb chicken thighs', '2 cups rice'],
+    steps: ['Cook the rice.', 'Poach the chicken.'],
+  };
+  const meals = [
+    { day: '2026-11-16', slot: 'lunch', dish: 'd1' },
+    { day: '2026-11-16', slot: 'dinner', dish: 'd1' },
+  ];
+
+  it('posts the request as JSON with the bearer token, and returns just the dishes and meals', async () => {
+    fetchMock.mockReturnValue(
+      json(200, { dishes: [{ ...dish, extra: 'x' }], meals, meta: { model: 'm', promptVersion: 'plan-v1' } }),
+    );
+
+    await expect(fetchMealPlan(request)).resolves.toEqual({ dishes: [dish], meals });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://relay.test/v1/meal-plan');
+    expect(init.method).toBe('POST');
+    expect(init.headers.Authorization).toBe('Bearer test-token');
+    expect(init.headers['Content-Type']).toBe('application/json');
+    expect(JSON.parse(init.body)).toEqual(request);
+  });
+
+  it('maps a relay error to its code', async () => {
+    fetchMock.mockReturnValue(json(429, { error: { code: 'RATE_LIMITED', requestId: 'r1' } }));
+
+    await expect(fetchMealPlan(request)).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+  });
+
+  it.each([
+    ['no dishes', { dishes: [], meals }],
+    ['no meals', { dishes: [dish], meals: [] }],
+    ['a meal pointing at a missing dish', { dishes: [dish], meals: [{ ...meals[0], dish: 'd9' }] }],
+    ['a dish without keepsDays', { dishes: [{ ...dish, keepsDays: undefined }], meals }],
+    ['no dishes field', { meal: 'x' }],
+  ])('reports AI_INVALID_OUTPUT for %s', async (_name, body) => {
+    fetchMock.mockReturnValue(json(200, body));
+
+    await expect(fetchMealPlan(request)).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
+  });
+
+  it('reports OFFLINE when the request fails and the phone has no connection', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Network request failed'));
+    (getNetworkStateAsync as jest.Mock).mockResolvedValueOnce({ isConnected: false });
+
+    await expect(fetchMealPlan(request)).rejects.toMatchObject({ code: 'OFFLINE' });
+  });
+
+  it('rethrows the caller abort untouched', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    fetchMock.mockRejectedValue(new DOMException('aborted', 'AbortError'));
+
+    await expect(fetchMealPlan(request, controller.signal)).rejects.toThrow('aborted');
   });
 });
 

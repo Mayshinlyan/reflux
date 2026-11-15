@@ -5,12 +5,15 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Clock,
+  Flame,
   Leaf,
   Lightbulb,
   Refrigerator,
   ShoppingBag,
   ThumbsDown,
   ThumbsUp,
+  Users,
 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -39,12 +42,12 @@ import { friendlyMessages } from '@/lib/errors';
 import { inFridge } from '@/lib/fridge';
 import { logger } from '@/lib/logger';
 import { recipeMeta } from '@/lib/recipe';
-import { getRecipeDraft } from '@/lib/recipeDraft';
+import { getRecipeDraft, type RecipePrep } from '@/lib/recipeDraft';
 import { lookFor } from '@/lib/recipeLook';
 import { cardEdge, fontFamily, minTouchTarget, radius, space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
 
-type Shown = { recipe: Recipe; cuisine: CuisineKey; saved: StoredRecipe | null };
+type Shown = { recipe: Recipe; cuisine: CuisineKey; saved: StoredRecipe | null; prep?: RecipePrep };
 
 /** One card in the steps row: the video link (always first), then each step. */
 type StepItem = { kind: 'video' } | { kind: 'step'; text: string; index: number };
@@ -77,7 +80,7 @@ export default function RecipeScreen() {
     );
   }
 
-  const { recipe, cuisine, saved } = shown;
+  const { recipe, cuisine, saved, prep } = shown;
   // Two plain lists under their own headers (Figma 41a, 41b): what the fridge has, and what to buy. With an empty
   // fridge nothing is "in your fridge", so the whole list sits under "To buy".
   const haveItems: string[] = [];
@@ -135,6 +138,9 @@ export default function RecipeScreen() {
             {recipeMeta(recipe)}
           </AppText>
         </View>
+
+        {/* A meal of a cook-once week plan: how many portions it makes and how long it keeps (Figma "meal planning flow" E1). */}
+        {prep?.mode === 'once' && <MealPrepCard servings={recipe.serves} keepsDays={prep.keepsDays} />}
 
         {/* One white card, dark titles on white: coloured text on a coloured box was hard to read (Figma 29e). */}
         <View style={[styles.card, styles.whyCard, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
@@ -308,6 +314,37 @@ function IngredientGroup({
   );
 }
 
+/** "Meal prep": the portions a cook-once dish makes, how long it keeps in the fridge and how to reheat it. */
+function MealPrepCard({ servings, keepsDays }: { servings: number; keepsDays: number }) {
+  const colors = useColors();
+  const lines: { icon: typeof Users; text: string }[] = [
+    { icon: Users, text: `Makes ${servings} ${servings === 1 ? 'portion' : 'portions'}` },
+    {
+      icon: Clock,
+      text:
+        keepsDays > 0
+          ? `Keeps ${keepsDays} ${keepsDays === 1 ? 'day' : 'days'} in the fridge`
+          : 'Best eaten the day it is cooked',
+    },
+    { icon: Flame, text: 'Reheat until steaming hot, then let it cool a little before you eat' },
+  ];
+  return (
+    <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+      <AppText variant="section" accessibilityRole="header">
+        Meal prep
+      </AppText>
+      {lines.map(({ icon: Icon, text }) => (
+        <View key={text} style={styles.prepLine}>
+          <Icon size={20} color={colors.inkSoft} strokeWidth={2} />
+          <AppText color="inkSoft" style={styles.fill}>
+            {text}
+          </AppText>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 /** The saved fridge's food names; none when it is empty or cannot be read (the page then shows no ticks). */
 function fridgeNames(db: AppDb): string[] {
   try {
@@ -331,6 +368,7 @@ function load(db: AppDb, savedParam: string | undefined): Shown | null {
       recipe: draft.recipe,
       cuisine: draft.cuisine,
       saved: findSavedRecipe(db, draft.recipe.title, draft.cuisine),
+      prep: draft.prep,
     };
   } catch (error) {
     logger.error('loadRecipe', error);
@@ -410,6 +448,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   bullet: { width: 8, textAlign: 'center' },
+  prepLine: { flexDirection: 'row', alignItems: 'flex-start', gap: space.s1 + 4, paddingTop: space.s1 },
   actions: { flexDirection: 'row', gap: space.s1 + 4 },
   rate: { flexDirection: 'row', alignItems: 'center', gap: space.s1 + 4 },
   thumb: {
