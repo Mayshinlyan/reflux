@@ -3,8 +3,9 @@ import { DEFAULT_PLAN_CHOICES } from '@/constants/mealPlan';
 import { deleteAllData } from '../repositories/data';
 import { createPlan, deletePlan } from '../repositories/mealPlans';
 import { addOwnItem, getPlanChecks, setChecked } from '../repositories/planChecks';
+import { getPrepPlan, savePrepPlan } from '../repositories/planPrep';
 import { DEFAULT_SETTINGS, getSetting, setSetting } from '../repositories/settings';
-import { planChecks } from '../schema';
+import { planChecks, planPrep } from '../schema';
 import type { AppDb } from '../types';
 import { createTestDb } from './testDb';
 
@@ -86,5 +87,34 @@ describe('plan checks', () => {
     setSetting(db, 'prepReminderPlan', 3);
     expect(getSetting(db, 'prepReminderPlan')).toBe(3);
     expect(() => setSetting(db, 'prepReminderPlan', 0)).toThrow();
+  });
+});
+
+describe('the saved prep session', () => {
+  const result = {
+    start: [{ text: 'Heat the oven', feeds: ['d1'] }],
+    dishes: [{ dish: 'd1', steps: ['Roast it'] }],
+    finish: [],
+  };
+
+  it('is kept for a plan and only used while its signature matches', () => {
+    const plan = newPlan();
+    expect(getPrepPlan(db, plan.id, 'sig1')).toBeNull();
+
+    savePrepPlan(db, plan.id, 'sig1', result);
+    expect(getPrepPlan(db, plan.id, 'sig1')).toEqual(result);
+    expect(getPrepPlan(db, plan.id, 'sig2')).toBeNull();
+  });
+
+  it('is replaced by a newer one, and goes with the plan and with delete all data', () => {
+    const plan = newPlan();
+    savePrepPlan(db, plan.id, 'sig1', result);
+    savePrepPlan(db, plan.id, 'sig2', { ...result, finish: [{ text: 'Pack it', feeds: ['d1'] }] });
+    expect(db.select().from(planPrep).all()).toHaveLength(1);
+    expect(getPrepPlan(db, plan.id, 'sig1')).toBeNull();
+    expect(getPrepPlan(db, plan.id, 'sig2')?.finish).toHaveLength(1);
+
+    deleteAllData(db);
+    expect(db.select().from(planPrep).all()).toHaveLength(0);
   });
 });

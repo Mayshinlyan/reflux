@@ -1,5 +1,6 @@
 import type { StoredMeal } from '@/db/repositories/mealPlans';
 
+import { buyAmount, needOf } from './buyAmount';
 import { inFridge } from './fridge';
 import { eatenMeals } from './prep';
 
@@ -56,6 +57,16 @@ const UNITS: Record<string, { unit: string; plural?: string }> = {
   bottle: { unit: 'bottle', plural: 'bottles' },
   bag: { unit: 'bag', plural: 'bags' },
   pinch: { unit: 'pinch', plural: 'pinches' },
+  inch: { unit: 'inch' },
+  pint: { unit: 'pint', plural: 'pints' },
+  stick: { unit: 'stick', plural: 'sticks' },
+  handful: { unit: 'handful', plural: 'handfuls' },
+  sprig: { unit: 'sprig', plural: 'sprigs' },
+  sprigs: { unit: 'sprig', plural: 'sprigs' },
+  package: { unit: 'package', plural: 'packages' },
+  packages: { unit: 'package', plural: 'packages' },
+  pkg: { unit: 'package', plural: 'packages' },
+  packet: { unit: 'package', plural: 'packages' },
 };
 
 /** Words that describe how a thing is cut or cooked, not what it is. */
@@ -76,7 +87,31 @@ const DESCRIPTORS = new Set([
   'skinless',
   'ripe',
   'whole',
+  'thin',
+  'thinly',
+  'thick',
+  'finely',
+  'roughly',
+  'coarsely',
+  'matchstick',
+  'matchsticks',
+  'julienned',
+  'crushed',
+  'halved',
+  'quartered',
+  'trimmed',
+  'rinsed',
+  'drained',
+  'optional',
+  'packed',
+  'heaping',
+  'toasted',
+  'piece',
+  'pieces',
 ]);
+
+/** Where the name ends and the cooking instructions begin: "chicken thighs cut into pieces", "butter or oil". */
+const NAME_ENDS = /\s(?:into|for|to|plus|about|divided|such)\b.*$/;
 
 /** Pantry basics that are assumed to be at home. */
 const STAPLES = new Set([
@@ -117,6 +152,7 @@ const PROTEIN = [
   'tempeh',
   'fillet',
   'steak',
+  'prosciutto',
   'sausage',
   'halibut',
   'tilapia',
@@ -155,6 +191,10 @@ const PRODUCE = [
   'dill',
   'pear',
   'berry',
+  'strawberry',
+  'blueberry',
+  'raspberry',
+  'blackberry',
   'melon',
   'pea',
   'sprout',
@@ -173,18 +213,39 @@ const PRODUCE = [
   'papaya',
   'orange',
   'daikon',
+  'pineapple',
+  'watermelon',
+  'cantaloupe',
+  'honeydew',
+  'arugula',
+  'shallot',
+  'parsnip',
+  'jalapeno',
+  'pomegranate',
+  'grape',
+  'peach',
+  'plum',
+  'kiwi',
 ];
 
 type Parsed = { name: string; qty: number | null; unit: string | null };
 
 function readNumber(text: string): { qty: number; rest: string } | null {
-  const match = /^(\d+(?:\.\d+)?)?(?:\s*(\d+)\/(\d+)|\s*([½¼¾⅓⅔]))?/.exec(text);
-  if (!match || match[0].trim() === '') return null;
-  let qty = match[1] ? Number(match[1]) : 0;
-  if (match[2] && match[3] && Number(match[3]) !== 0) qty += Number(match[2]) / Number(match[3]);
-  if (match[4]) qty += FRACTIONS[match[4]] ?? 0;
-  if (qty === 0) return null;
-  return { qty, rest: text.slice(match[0].length).trim() };
+  const forms: [RegExp, (m: RegExpExecArray) => number][] = [
+    [/^(\d+)\s+(\d+)\/(\d+)/, (m) => Number(m[1]) + Number(m[2]) / Number(m[3])],
+    [/^(\d+)\/(\d+)/, (m) => Number(m[1]) / Number(m[2])],
+    [/^(\d+(?:\.\d+)?)\s*([½¼¾⅓⅔])/, (m) => Number(m[1]) + (FRACTIONS[m[2]!] ?? 0)],
+    [/^([½¼¾⅓⅔])/, (m) => FRACTIONS[m[1]!] ?? 0],
+    [/^(\d+(?:\.\d+)?)/, (m) => Number(m[1])],
+  ];
+  for (const [pattern, value] of forms) {
+    const match = pattern.exec(text);
+    if (!match) continue;
+    const qty = value(match);
+    if (!Number.isFinite(qty) || qty <= 0) return null;
+    return { qty, rest: text.slice(match[0].length).trim() };
+  }
+  return null;
 }
 
 /** "1 1/2 cups cooked rice, rinsed" becomes 1.5, "cup", "rice". A line with no amount keeps only its name. */
@@ -192,6 +253,7 @@ export function parseIngredient(line: string): Parsed {
   let text = line
     .toLowerCase()
     .replace(/\([^)]*\)/g, ' ')
+    .replace(/^(?:juice|zest) of\s+/, '')
     .split(',')[0]!
     .trim();
   let qty: number | null = null;
@@ -216,8 +278,20 @@ export function parseIngredient(line: string): Parsed {
     words.shift();
   }
   if (words[0] === 'of') words.shift();
-  const kept = words.filter((word) => !DESCRIPTORS.has(word));
-  return { name: (kept.length > 0 ? kept : words).join(' ').trim(), qty, unit };
+  const plain = words
+    .join(' ')
+    .replace(/\b(?:thick|thin|center)[- ]cut\b/g, ' ')
+    .replace(/\scut\s+(?:in|up)\b.*$/, '')
+    .replace(NAME_ENDS, '')
+    .split(/\s+/)
+    .filter(Boolean);
+  let kept = plain.filter((word) => !DESCRIPTORS.has(word));
+  if (kept.length === 0) kept = plain;
+  // "cilantro leaves", "thyme sprigs": the herb is what is bought (but a bay leaf is a bay leaf).
+  const last = kept[kept.length - 1];
+  if (kept.length > 1 && last && /^(?:leaves|sprigs?)$/.test(last) && kept[kept.length - 2] !== 'bay')
+    kept.pop();
+  return { name: kept.join(' ').trim(), qty, unit };
 }
 
 function singular(word: string): string {
@@ -231,38 +305,18 @@ const keyOf = (name: string) => name.split(' ').map(singular).join(' ');
 
 function hasWord(name: string, words: readonly string[]): boolean {
   const tokens = ` ${keyOf(name)} `;
-  return words.some((word) => tokens.includes(` ${word} `) || (word.length > 3 && tokens.includes(word)));
+  // Whole words only: "sage" is not in "sausage", nor "egg" in "eggplant".
+  return words.some((word) => tokens.includes(` ${word} `));
 }
 
 /** The aisle for a name, by its words. Anything unknown is pantry. */
 export function aisleOf(name: string): Aisle {
-  if (hasWord(name, PANTRY_WORDS)) return 'Pantry';
+  if (hasWord(name, PANTRY_WORDS) || hasWord(name, ['peanut butter', 'almond butter', 'nut butter']))
+    return 'Pantry';
   if (hasWord(name, PROTEIN)) return 'Protein';
   if (hasWord(name, DAIRY)) return 'Dairy and eggs';
   if (hasWord(name, PRODUCE)) return 'Produce';
   return 'Pantry';
-}
-
-function niceNumber(value: number): string {
-  const whole = Math.floor(value + 1e-9);
-  const part = value - whole;
-  const fractions: [number, string][] = [
-    [0.25, '1/4'],
-    [1 / 3, '1/3'],
-    [0.5, '1/2'],
-    [2 / 3, '2/3'],
-    [0.75, '3/4'],
-  ];
-  const near = fractions.find(([n]) => Math.abs(part - n) < 0.04);
-  if (part < 0.04) return String(whole);
-  if (near) return whole > 0 ? `${whole} ${near[1]}` : near[1];
-  return String(Math.round(value * 10) / 10);
-}
-
-function amountText(qty: number, unit: string | null): string {
-  if (!unit) return niceNumber(qty);
-  const word = qty > 1 ? (Object.values(UNITS).find((entry) => entry.unit === unit)?.plural ?? unit) : unit;
-  return `${niceNumber(qty)} ${word}`;
 }
 
 const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -319,7 +373,7 @@ export function buildShoppingList(
       have.push(sentence(total.name));
       continue;
     }
-    const amount = [...total.amounts].map(([unit, qty]) => amountText(qty, unit)).join(' + ');
+    const amount = buyAmount((words) => hasWord(total.name, words), needOf(total.amounts));
     const aisle = aisleOf(total.name);
     groups.set(aisle, [...(groups.get(aisle) ?? []), { key, name: sentence(total.name), amount }]);
   }

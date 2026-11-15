@@ -11,7 +11,9 @@ import { isMealPlanResult, pickPlanDish } from '@/lib/planDish';
 import { isRecipeIdeas, pickRecipe } from '@/lib/recipe';
 import type { AnalysisMeta, MealAnalysis, Portion } from '@/types/analysis';
 import type { Insight, InsightRequest } from '@/types/insight';
+import { isPrepPlanResult } from '@/lib/prepPlan';
 import type { MealPlanRequest, MealPlanResult } from '@/types/mealPlan';
+import type { PrepPlanRequest, PrepPlanResult } from '@/types/prepPlan';
 import type { Recipe, RecipeRequest } from '@/types/recipe';
 
 import { getIdToken } from './firebase';
@@ -260,6 +262,48 @@ export async function fetchMealPlan(request: MealPlanRequest, signal?: AbortSign
   return {
     dishes: body.dishes.map(pickPlanDish),
     meals: body.meals.map(({ day, slot, dish }) => ({ day, slot, dish })),
+  };
+}
+
+// One prep session for up to eight dishes: the relay waits up to 50 s for an attempt and may retry once.
+const PREP_TIMEOUT_MS = 110_000;
+
+/**
+ * Asks the relay to put the dishes of a cook-once plan into one efficient prep session. The request carries the dishes'
+ * recipes only (see `PrepPlanRequest`). Throws an AppError like `analyzeFood`.
+ */
+export async function fetchPrepPlan(request: PrepPlanRequest, signal?: AbortSignal): Promise<PrepPlanResult> {
+  const id = requestId();
+  const token = await tokenFor(id);
+  const timeout = AbortSignal.timeout(PREP_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${relayBaseUrl()}/v1/prep-plan`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'X-Request-Id': id, 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (!timeout.aborted && (await isOffline())) throw new AppError('OFFLINE', id);
+    throw new AppError(timeout.aborted ? 'AI_TIMEOUT' : 'NETWORK', id);
+  }
+
+  if (!response.ok) throw await toAppError(response, id);
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new AppError('AI_INVALID_OUTPUT', id);
+  }
+  if (!isPrepPlanResult(body)) throw new AppError('AI_INVALID_OUTPUT', id);
+  // Only the fields we use, so nothing else the relay adds (like `meta`) is kept.
+  const { start, dishes, finish } = body;
+  return {
+    start: start.map(({ text, feeds }) => ({ text, feeds })),
+    dishes: dishes.map(({ dish, steps }) => ({ dish, steps })),
+    finish: finish.map(({ text, feeds }) => ({ text, feeds })),
   };
 }
 

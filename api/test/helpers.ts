@@ -6,7 +6,13 @@ import { type FeedbackStore, InMemoryFeedbackStore } from '../src/lib/feedbackSt
 import { createLogger } from '../src/lib/logger.js';
 import { InMemoryRateLimitStore, type RateLimitStore } from '../src/lib/rateLimitStore.js';
 import type { SpeechToText } from '../src/services/speechToText.js';
-import type { InsightInput, MealPlanInput, RecipeIdeasInput, VoiceContext } from '../src/schemas.js';
+import type {
+  InsightInput,
+  MealPlanInput,
+  PrepPlanInput,
+  RecipeIdeasInput,
+  VoiceContext,
+} from '../src/schemas.js';
 import type { ClaudeInput, ClaudeResult, ClaudeService } from '../src/services/claudeService.js';
 import type { TokenVerifier } from '../src/services/tokenVerifier.js';
 
@@ -129,6 +135,19 @@ export const goodPlan = {
   ],
 };
 
+/** A prep session for goodPlan's two dishes: oven first for both, then each dish's own steps. */
+export const goodPrep = {
+  start: [
+    { text: 'Heat the oven to 425 F', feeds: ['d1', 'd2'] },
+    { text: 'Cook one big pot of rice', feeds: ['d1', 'd2'] },
+  ],
+  dishes: [
+    { dish: 'd1', steps: ['Poach the chicken, then shred it', 'Toss it with the sauce'] },
+    { dish: 'd2', steps: ['Spread the miso on the salmon', 'Bake for 12 minutes'] },
+  ],
+  finish: [{ text: 'Cool everything, then pack and label', feeds: ['d1', 'd2'] }],
+};
+
 const telemetry = {
   model: 'claude-test-model',
   latencyMs: 12,
@@ -148,11 +167,13 @@ export function fakeClaude(
   respondVoice: (input: { transcript: string; context: VoiceContext }) => unknown | Promise<unknown> = () =>
     goodVoice,
   respondPlan: (input: MealPlanInput) => unknown | Promise<unknown> = () => goodPlan,
+  respondPrep: (input: PrepPlanInput) => unknown | Promise<unknown> = () => goodPrep,
 ) {
   const calls: ClaudeInput[] = [];
   const insightCalls: InsightInput[] = [];
   const recipeCalls: RecipeIdeasInput[] = [];
   const planCalls: MealPlanInput[] = [];
+  const prepCalls: PrepPlanInput[] = [];
   const fridgeCalls: { jpegs: Buffer[] }[] = [];
   const voiceCalls: { transcript: string; context: VoiceContext }[] = [];
   const service: ClaudeService = {
@@ -173,6 +194,10 @@ export function fakeClaude(
       planCalls.push(input);
       return { raw: await respondPlan(input), telemetry };
     },
+    async prepPlan(input): Promise<ClaudeResult> {
+      prepCalls.push(input);
+      return { raw: await respondPrep(input), telemetry };
+    },
     async fridge(input): Promise<ClaudeResult> {
       fridgeCalls.push(input);
       return { raw: await respondFridge(input), telemetry };
@@ -182,7 +207,7 @@ export function fakeClaude(
       return { raw: await respondVoice(input), telemetry };
     },
   };
-  return { service, calls, insightCalls, recipeCalls, planCalls, fridgeCalls, voiceCalls };
+  return { service, calls, insightCalls, recipeCalls, planCalls, prepCalls, fridgeCalls, voiceCalls };
 }
 
 /** A speech service that "hears" fixed words and remembers what it was given. */

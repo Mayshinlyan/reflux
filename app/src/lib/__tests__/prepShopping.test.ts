@@ -1,7 +1,7 @@
 import type { StoredMeal } from '@/db/repositories/mealPlans';
 import type { PlanDish } from '@/types/mealPlan';
 
-import { aboutHours, prepDay, prepDayName, prepDishes, prepSteps, prepSummary, storingLines } from '../prep';
+import { aboutHours, prepDay, prepDayName, prepDishes, prepSummary, storingLines } from '../prep';
 import { aisleOf, buildShoppingList, parseIngredient, shoppingSummary, shoppingText } from '../shopping';
 
 const dish = (id: string, title: string, over: Partial<PlanDish> = {}): PlanDish => ({
@@ -45,20 +45,6 @@ describe('prep day', () => {
     expect(dishes.map((entry) => entry.dish.title)).toEqual(['Congee', 'Chicken bowls']);
     expect(dishes[0]!.meals).toHaveLength(1);
     expect(dishes[1]!.meals).toHaveLength(2);
-  });
-
-  it('turns the dishes into steps with stable keys, ending with packing', () => {
-    const steps = prepSteps(prepDishes([meal('2026-11-16', bowls), meal('2026-11-17', congee)]));
-
-    expect(steps.map((step) => step.text)).toEqual([
-      'Simmer the base.',
-      'Poach the chicken.',
-      'Shred it.',
-      'Cool everything, then pack and label',
-    ]);
-    expect(steps.map((step) => step.key)).toEqual(['b:0', 'a:0', 'a:1', 'pack']);
-    expect(steps[3]!.caption).toBe('All dishes');
-    expect(prepSteps([])).toEqual([]);
   });
 
   it('cooks the day before the first meal that is eaten', () => {
@@ -138,7 +124,7 @@ describe('shopping list', () => {
     expect(list.aisles.map((aisle) => aisle.name)).toEqual(['Produce', 'Protein', 'Pantry']);
     expect(list.aisles[0]!.items).toEqual([{ key: 'zucchini', name: 'Zucchini', amount: '4' }]);
     expect(list.aisles[1]!.items[0]).toMatchObject({ name: 'Chicken thighs', amount: '2 lb' });
-    expect(list.aisles[2]!.items[0]).toMatchObject({ name: 'Rice', amount: '4 cups' });
+    expect(list.aisles[2]!.items[0]).toMatchObject({ name: 'Rice', amount: '1 bag' });
     expect(list.have).toEqual(['Carrots', 'Olive oil', 'Salt']);
     expect(list.toBuy).toBe(3);
     expect(shoppingSummary(list)).toBe('3 to buy, 3 you already have');
@@ -163,10 +149,119 @@ describe('shopping list', () => {
     expect(list.have).toEqual(['Chicken thighs']);
   });
 
-  it('keeps different units of one thing on one line', () => {
-    const sauce = dish('s', 'Rice', { ingredients: ['1 cup rice', '2 tbsp rice'] });
-    const list = buildShoppingList([meal('2026-11-16', sauce)], []);
-    expect(list.aisles[0]!.items[0]!.amount).toBe('1 cup + 2 tbsp');
+  it('lists what can be bought, not what the recipe uses', () => {
+    const lines = [
+      '2 tbsp chopped cilantro',
+      '2 tbsp thin ginger matchsticks',
+      '3 tbsp fish sauce',
+      '1 tsp fish sauce',
+      '3 eggs',
+      '3 cloves garlic, minced',
+      '6 cups chicken broth',
+      '1.2 lb salmon fillets',
+      '2 cans chickpeas',
+      '1 tsp ground cumin',
+      '2 tbsp miso paste',
+      '1 cup rice',
+      '2 tbsp rice',
+    ];
+    const list = buildShoppingList([meal('2026-11-16', dish('x', 'Everything', { ingredients: lines }))], []);
+    const amounts = Object.fromEntries(
+      list.aisles.flatMap((aisle) => aisle.items.map((item) => [item.name, item.amount])),
+    );
+
+    expect(amounts).toMatchObject({
+      Cilantro: '1 bunch',
+      Ginger: '1 piece',
+      'Fish sauce': '1 bottle',
+      Eggs: '1 dozen',
+      Garlic: '1 head',
+      'Chicken broth': '2 cartons',
+      'Salmon fillets': '1.5 lb',
+      Chickpeas: '2 cans',
+      'Ground cumin': '1 jar',
+      'Miso paste': '1 jar',
+      Rice: '1 bag',
+    });
+  });
+
+  it('does not mistake one ingredient for another', () => {
+    const lines = [
+      '8 oz egg noodles',
+      '1 tsp garlic powder',
+      '1 tsp ground ginger',
+      '2 tbsp ginger paste',
+      '3 heads garlic',
+      '1 lb italian sausage',
+      '1 tsp peppermint extract',
+      '1 cup steel cut oats',
+      '4 slices thick cut bacon',
+      '4 sprigs thyme',
+      '1 package rice noodles',
+      '1/2 cup tahini',
+      '1/2 cup greek yogurt',
+      '1/4 cup cilantro leaves',
+      '1/2 lb tofu',
+      '1 eggplant',
+      '1 cup coconut milk',
+      '1 cup almond butter',
+      '2 cups lemon juice',
+    ];
+    const list = buildShoppingList([meal('2026-11-16', dish('y', 'Odds', { ingredients: lines }))], []);
+    const amounts = Object.fromEntries(
+      list.aisles.flatMap((aisle) => aisle.items.map((item) => [item.name, item.amount])),
+    );
+
+    expect(amounts).toMatchObject({
+      'Egg noodles': '1 pack',
+      'Garlic powder': '1 jar',
+      'Ground ginger': '1 jar',
+      'Ginger paste': '1 jar',
+      Garlic: '3 heads',
+      'Italian sausage': '1 lb',
+      'Peppermint extract': '1 bottle',
+      'Steel cut oats': '1 bag',
+      Bacon: '1 pack',
+      Thyme: '1 bunch',
+      'Rice noodles': '1 pack',
+      Tahini: '1 jar',
+      'Greek yogurt': '1 tub',
+      Cilantro: '1 bunch',
+      Tofu: '1 block',
+      Eggplant: '1',
+      'Coconut milk': '1 can',
+      'Almond butter': '1 jar',
+      'Lemon juice': '1 bottle',
+    });
+  });
+
+  it('puts compound foods in the right aisle and reads unit words and "juice of"', () => {
+    expect(aisleOf('pineapple')).toBe('Produce');
+    expect(aisleOf('watermelon')).toBe('Produce');
+    expect(aisleOf('arugula')).toBe('Produce');
+    expect(aisleOf('prosciutto')).toBe('Protein');
+    expect(aisleOf('peanut butter')).toBe('Pantry');
+
+    const lines = [
+      '1 inch piece ginger',
+      '1 pint cherry tomatoes',
+      'juice of 1 lemon',
+      '1 spaghetti squash',
+      '1 cup spaghetti sauce',
+      '4 oz cream cheese',
+    ];
+    const list = buildShoppingList([meal('2026-11-16', dish('z', 'More', { ingredients: lines }))], []);
+    const amounts = Object.fromEntries(
+      list.aisles.flatMap((aisle) => aisle.items.map((item) => [item.name, item.amount])),
+    );
+    expect(amounts).toMatchObject({
+      Ginger: '1 piece',
+      'Cherry tomatoes': '1',
+      Lemon: '1',
+      'Spaghetti squash': '1',
+      'Spaghetti sauce': '1 bottle',
+      'Cream cheese': '1 pack',
+    });
   });
 
   it('adds what was typed in, and leaves ticked things out of the shared text', () => {

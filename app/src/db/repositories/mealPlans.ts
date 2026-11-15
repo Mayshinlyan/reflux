@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 
 import {
   isPlanChoices,
@@ -117,51 +117,15 @@ function getPlanById(db: AppDb, id: number): StoredPlan | null {
   };
 }
 
-/**
- * Redoing a plan: every meal from `fromDay` on that is neither locked nor skipped is removed, and `meals` (the new
- * answer for exactly those slots) takes their place. Locked and skipped meals, and days before `fromDay` (already
- * eaten), stay as they are. The plan's choices are updated too.
- */
-export function redoPlan(
-  db: AppDb,
-  planId: number,
-  choices: PlanChoices,
-  fromDay: string,
-  meals: readonly NewMeal[],
-): StoredPlan | null {
-  db.transaction((tx) => {
-    tx.delete(plannedMeals)
-      .where(
-        and(
-          eq(plannedMeals.planId, planId),
-          gte(plannedMeals.day, fromDay),
-          eq(plannedMeals.locked, false),
-          eq(plannedMeals.skipped, false),
-        ),
-      )
-      .run();
-    insertMeals(tx as unknown as AppDb, planId, meals);
-    tx.update(mealPlans)
-      .set({ mode: choices.mode, choices, updatedAt: nowIso() })
-      .where(eq(mealPlans.id, planId))
-      .run();
-  });
-  return getPlanById(db, planId);
-}
-
-export function setMealLocked(db: AppDb, mealId: number, locked: boolean): void {
-  db.update(plannedMeals).set({ locked, updatedAt: nowIso() }).where(eq(plannedMeals.id, mealId)).run();
-}
-
-/** Eating out that meal: it stays in the plan, skipped, and a redo leaves it alone. */
+/** Eating out that meal: it stays in the plan, skipped, and is left out of the prep day and the shopping list. */
 export function setMealSkipped(db: AppDb, mealId: number, skipped: boolean): void {
   db.update(plannedMeals).set({ skipped, updatedAt: nowIso() }).where(eq(plannedMeals.id, mealId)).run();
 }
 
-/** Swapping a meal for another dish: the person chose it, so it is locked and a redo keeps it. */
+/** Swapping a meal for another dish. */
 export function swapMeal(db: AppDb, mealId: number, dish: PlanDish): void {
   db.update(plannedMeals)
-    .set({ dishId: dish.id, recipe: pickPlanDish(dish), locked: true, skipped: false, updatedAt: nowIso() })
+    .set({ dishId: dish.id, recipe: pickPlanDish(dish), skipped: false, updatedAt: nowIso() })
     .where(eq(plannedMeals.id, mealId))
     .run();
 }

@@ -6,7 +6,7 @@ import { weekdayOf } from './mealPlan';
 
 /**
  * The meals that are eaten (not "eating out"), which are the only ones the prep day and the list shop for. With `from`
- * (today), days already gone are left out too: a plan redone mid-week keeps the locked meals already eaten.
+ * (today), days already gone are left out too: a week that has started has meals behind it.
  */
 export function eatenMeals<T extends { skipped: boolean; day: string }>(
   meals: readonly T[],
@@ -26,27 +26,6 @@ export function prepDishes(meals: readonly StoredMeal[], from?: string): PrepDis
     else byId.set(meal.dishId, { dish: meal.dish, meals: [meal] });
   }
   return [...byId.values()].sort((a, b) => b.dish.minutes - a.dish.minutes);
-}
-
-export type PrepStep = {
-  /** Stays the same while the plan does, so a ticked step stays ticked. */
-  key: string;
-  text: string;
-  /** Which dish it is for, or "All dishes". */
-  caption: string;
-};
-
-export const PACK_KEY = 'pack';
-
-/** Every dish's steps in the order they are listed, then one step to cool, pack and label. */
-export function prepSteps(dishes: readonly PrepDish[]): PrepStep[] {
-  const steps: PrepStep[] = dishes.flatMap(({ dish }) =>
-    dish.steps.map((text, index) => ({ key: `${dish.id}:${index}`, text, caption: dish.title })),
-  );
-  if (steps.length > 0) {
-    steps.push({ key: PACK_KEY, text: 'Cool everything, then pack and label', caption: 'All dishes' });
-  }
-  return steps;
 }
 
 /** The day to cook: the day before the first meal that is eaten. */

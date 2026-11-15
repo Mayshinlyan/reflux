@@ -4,7 +4,7 @@ import PlanScreen from '@/app/plan';
 import { DEFAULT_PLAN_CHOICES } from '@/constants/mealPlan';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createAvoidFood } from '@/db/repositories/avoidFoods';
-import { createPlan, getCurrentPlan, setMealLocked, setMealSkipped } from '@/db/repositories/mealPlans';
+import { createPlan, getCurrentPlan } from '@/db/repositories/mealPlans';
 import { getSetting, setSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';
 import { AppError } from '@/lib/errors';
@@ -128,7 +128,7 @@ describe('Plan: making a plan', () => {
     mockParams = { make: 'new' };
   });
 
-  it('shows Bellie and the shape of the week while it waits, then the plan', async () => {
+  it('shows the steaming pot and the shape of the week while it waits, then the plan', async () => {
     let finish: (value: unknown) => void = () => {};
     planFetch.mockImplementation(
       (request: MealPlanRequest) =>
@@ -229,6 +229,17 @@ describe('Plan: the review', () => {
     expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
   });
 
+  it('keeps each meal to Swap and Skip: no Lock and no Redo', async () => {
+    savedPlan();
+    await render(<PlanScreen />);
+
+    expect(screen.getAllByRole('button', { name: 'Swap' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Skip' }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /^Lock/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Redo/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Start over' })).toBeTruthy();
+  });
+
   it('opens the prep day and the shopping list from two rows under the days', async () => {
     savedPlan();
     await render(<PlanScreen />);
@@ -260,20 +271,6 @@ describe('Plan: the review', () => {
 
     expect(getSetting(mockDb, 'prepReminderPlan')).toBeNull();
     expect(cancelPrepReminder).toHaveBeenCalled();
-  });
-
-  it('locks a meal and unlocks it again', async () => {
-    const plan = savedPlan();
-    await render(<PlanScreen />);
-
-    const lockButtons = screen.getAllByRole('button', { name: 'Lock' });
-    await fireEvent.press(lockButtons[0]!);
-
-    expect(screen.getByRole('button', { name: 'Locked' })).toBeTruthy();
-    expect(getCurrentPlan(mockDb)?.meals.find((meal) => meal.id === plan.meals[0]!.id)?.locked).toBe(true);
-
-    await press('Locked');
-    expect(screen.queryByRole('button', { name: 'Locked' })).toBeNull();
   });
 
   it('skips a meal (eating out), dims it, and adds it back', async () => {
@@ -327,74 +324,8 @@ describe('Plan: the review', () => {
   });
 });
 
-describe('Plan: redo', () => {
-  it('plans again only the meals that are not locked or skipped, around the locked ones', async () => {
-    const plan = savedPlan();
-    setMealLocked(mockDb, plan.meals[0]!.id, true);
-    planFetch.mockImplementation(async (request: MealPlanRequest) => ({
-      dishes: [dish('n1', 'Baked cod')],
-      meals: request.slots.map((slot) => ({ day: slot.day, slot: slot.slot, dish: 'n1' })),
-    }));
-    await render(<PlanScreen />);
-
-    await press('Redo the meals that are not locked');
-
-    await waitFor(() => expect(planFetch).toHaveBeenCalledTimes(1));
-    const request = planFetch.mock.calls[0]![0] as MealPlanRequest;
-    expect(request.keep).toEqual(['Chicken bowls']);
-    expect(request.slots.some((slot) => slot.day === today && slot.slot === 'lunch')).toBe(false);
-    expect(request.slots).toContainEqual({ day: today, slot: 'dinner' });
-
-    await waitFor(() => expect(screen.getByText('Baked cod')).toBeTruthy());
-    expect(screen.getByText('Chicken bowls')).toBeTruthy();
-    expect(screen.queryByText('Miso salmon')).toBeNull();
-  });
-
-  it('has nothing to redo when every meal is locked or skipped', async () => {
-    const plan = savedPlan();
-    setMealLocked(mockDb, plan.meals[0]!.id, true);
-    setMealSkipped(mockDb, plan.meals[1]!.id, true);
-    await render(<PlanScreen />);
-
-    expect(screen.queryByRole('button', { name: 'Redo the meals that are not locked' })).toBeNull();
-  });
-
-  it('retries the redo, not a new plan, when a redo started from the review fails', async () => {
-    const plan = savedPlan();
-    setMealLocked(mockDb, plan.meals[0]!.id, true);
-    planFetch
-      .mockRejectedValueOnce(new AppError('AI_TIMEOUT'))
-      .mockImplementationOnce(answerWith('Baked cod'));
-    await render(<PlanScreen />);
-
-    await press('Redo the meals that are not locked');
-    expect(await screen.findByText('That took longer than expected. Try again in a moment.')).toBeTruthy();
-    await press('Try again');
-
-    await waitFor(() => expect(screen.getByText('Baked cod')).toBeTruthy());
-    expect(planFetch).toHaveBeenCalledTimes(2);
-    expect((planFetch.mock.calls[1]![0] as MealPlanRequest).keep).toEqual(['Chicken bowls']);
-    const current = getCurrentPlan(mockDb);
-    expect(current?.id).toBe(plan.id);
-    expect(current?.meals.find((meal) => meal.locked)?.dish.title).toBe('Chicken bowls');
-  });
-
-  it('keeps the old plan when a redo fails', async () => {
-    savedPlan();
-    planFetch.mockRejectedValue(new AppError('NETWORK'));
-    mockParams = { make: 'redo' };
-    await render(<PlanScreen />);
-
-    expect(await screen.findByText('Check your connection and try again.')).toBeTruthy();
-    expect(getCurrentPlan(mockDb)?.meals.map((meal) => meal.dish.title)).toEqual([
-      'Chicken bowls',
-      'Miso salmon',
-    ]);
-  });
-});
-
 describe('Plan: swapping a meal', () => {
-  it('lists three other dishes and swaps the meal for the one picked, which stays locked', async () => {
+  it('lists three other dishes and swaps the meal for the one picked', async () => {
     savedPlan();
     ideasFetch.mockResolvedValue([recipe('Baked cod'), recipe('Chicken congee'), recipe('Tofu stir fry')]);
     await render(<PlanScreen />);
@@ -413,7 +344,6 @@ describe('Plan: swapping a meal', () => {
     await waitFor(() => expect(screen.queryByRole('header', { name: /^Swap / })).toBeNull());
     const swapped = getCurrentPlan(mockDb)?.meals.find((meal) => meal.slot === 'dinner');
     expect(swapped?.dish.title).toBe('Chicken congee');
-    expect(swapped?.locked).toBe(true);
     expect(screen.getByText('Chicken congee')).toBeTruthy();
     expect(screen.queryByText('Miso salmon')).toBeNull();
   });

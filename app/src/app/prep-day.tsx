@@ -1,11 +1,12 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { ChevronLeft, Snowflake } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { FoodLoading } from '@/components/FoodLoading';
 import { TickRow } from '@/components/kitchen/TickRow';
 import { Screen } from '@/components/Screen';
 import { Toggle } from '@/components/Toggle';
@@ -13,30 +14,88 @@ import { TopBarButton } from '@/components/TopBar';
 import { useDb } from '@/db/DatabaseProvider';
 import { getCurrentPlan } from '@/db/repositories/mealPlans';
 import { getPlanChecks, setChecked } from '@/db/repositories/planChecks';
+import { getPrepPlan, savePrepPlan } from '@/db/repositories/planPrep';
 import { getSetting, setSetting } from '@/db/repositories/settings';
+import { AppError } from '@/lib/errors';
 import { todayKey } from '@/lib/kitchen';
 import { logger } from '@/lib/logger';
-import { prepDay, prepDayName, prepDishes, prepSteps, prepSummary, storingLines } from '@/lib/prep';
+import { prepDay, prepDayName, prepDishes, prepSummary, storingLines } from '@/lib/prep';
+import { buildPrepRequest, prepAliases, prepFitsDishes, prepSections, prepSignature } from '@/lib/prepPlan';
+import { fetchPrepPlan } from '@/services/relayClient';
 import { cancelPrepReminder, schedulePrepReminder } from '@/services/reminders';
 import { cardEdge, radius, space, useColors } from '@/theme';
+import type { PrepPlanResult } from '@/types/prepPlan';
+
+type Status = 'loading' | 'ready' | 'failed';
 
 /**
- * The prep day of a cook-once plan (Figma "meal planning flow" E2): every dish's steps in the order to do them, each
- * ticked off as it is done, where to store the dishes, and a switch to be reminded that morning. Opened from the plan.
+ * The prep day of a cook-once plan (Figma "meal planning flow" E2b and E2c). The relay sees every dish at once and
+ * puts them into one efficient session: "Start together" (what the dishes share), each dish's own steps under its
+ * title, and "Finish together". The first time it is opened, the pot loader shows while that is worked out; it is
+ * kept, and made again only if the dishes change. If it cannot be made, each dish is listed on its own. Steps tick
+ * off as they are done, and a switch asks for a reminder on the cooking day.
  */
 export default function PrepDayScreen() {
   const db = useDb();
   const colors = useColors();
+  const today = todayKey();
   const plan = useMemo(() => getCurrentPlan(db), [db]);
+  const dishes = useMemo(() => (plan ? prepDishes(plan.meals, today) : []), [plan, today]);
+  const aliases = useMemo(() => prepAliases(dishes), [dishes]);
+  const signature = useMemo(() => prepSignature(dishes), [dishes]);
+
+  const [result, setResult] = useState<PrepPlanResult | null>(() =>
+    plan && dishes.length > 0 ? getPrepPlan(db, plan.id, signature) : null,
+  );
+  // One dish has nothing to share, so it never asks the relay.
+  const [status, setStatus] = useState<Status>(() =>
+    result || dishes.length < 2 || !plan ? 'ready' : 'loading',
+  );
   const [ticked, setTicked] = useState<Set<string>>(() =>
     plan ? getPlanChecks(db, plan.id).prep : new Set(),
   );
   const [remind, setRemind] = useState(() => !!plan && getSetting(db, 'prepReminderPlan') === plan.id);
   const [note, setNote] = useState('');
+  const running = useRef<AbortController | null>(null);
+  const started = useRef(false);
+
+  const planId = plan?.id;
+  const prepMinutes = plan?.choices.prepMinutes ?? 120;
+
+  const load = useCallback(async () => {
+    if (planId === undefined) return;
+    const controller = new AbortController();
+    running.current = controller;
+    setStatus('loading');
+    try {
+      const answer = await fetchPrepPlan(buildPrepRequest(dishes, prepMinutes), controller.signal);
+      if (controller.signal.aborted) return;
+      if (!prepFitsDishes(answer, aliases)) throw new AppError('AI_INVALID_OUTPUT');
+      savePrepPlan(db, planId, signature, answer);
+      setResult(answer);
+      setStatus('ready');
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      logger.error('prepPlan', error);
+      setStatus('failed');
+    }
+  }, [aliases, db, dishes, planId, prepMinutes, signature]);
+
+  useEffect(() => {
+    if (status === 'loading' && !started.current) {
+      started.current = true;
+      void load();
+    }
+    return () => {
+      running.current?.abort();
+      // So a remount (strict mode) asks again instead of waiting on an answer that was cancelled.
+      started.current = false;
+    };
+    // Only the first ask: later ones come from "Try again".
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
-  const today = todayKey();
-  const dishes = plan ? prepDishes(plan.meals, today) : [];
 
   if (!plan || plan.mode !== 'once' || dishes.length === 0) {
     return (
@@ -56,7 +115,33 @@ export default function PrepDayScreen() {
 
   const cookDay = prepDay(plan.meals, plan.weekStart, today);
   const dayName = prepDayName(cookDay);
-  const steps = prepSteps(dishes);
+  const summary = prepSummary(dishes, plan.choices.prepMinutes);
+
+  if (status === 'loading') {
+    return (
+      <Screen>
+        <View style={styles.headerRow}>
+          <TopBarButton icon={ChevronLeft} label="Back" onPress={goBack} />
+          <View style={styles.titleBlock}>
+            <AppText variant="display" accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit>
+              Prep day
+            </AppText>
+            <AppText variant="voiceSmall" color="inkSoft">
+              {summary}
+            </AppText>
+          </View>
+        </View>
+        <View style={styles.loading}>
+          <FoodLoading
+            source="prep"
+            note="Planning the quickest order for all your dishes. About 15 seconds, and only the first time."
+          />
+        </View>
+      </Screen>
+    );
+  }
+
+  const sections = prepSections(dishes, signature, status === 'ready' ? result : null, aliases);
   const storing = storingLines(dishes, cookDay);
 
   const toggle = (key: string) => {
@@ -84,15 +169,15 @@ export default function PrepDayScreen() {
         setRemind(false);
         return;
       }
-      const result = await schedulePrepReminder(cookDay);
-      if (result === 'scheduled') {
+      const outcome = await schedulePrepReminder(cookDay);
+      if (outcome === 'scheduled') {
         setSetting(db, 'prepReminderPlan', plan.id);
         setRemind(true);
       } else {
         setNote(
-          result === 'denied'
+          outcome === 'denied'
             ? 'Allow notifications for this app in your phone settings to get a reminder.'
-            : result === 'past'
+            : outcome === 'past'
               ? 'That time has already passed.'
               : 'The reminder could not be set. Try again.',
         );
@@ -109,27 +194,59 @@ export default function PrepDayScreen() {
           <TopBarButton icon={ChevronLeft} label="Back" onPress={goBack} />
           <View style={styles.titleBlock}>
             <AppText variant="display" accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit>
-              {dayName} prep
+              Prep day
             </AppText>
             <AppText variant="voiceSmall" color="inkSoft">
-              {prepSummary(dishes, plan.choices.prepMinutes)}
+              {summary}
             </AppText>
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
-          {steps.map((step, index) => (
-            <TickRow
-              key={step.key}
-              label={step.text}
-              caption={step.caption}
-              checked={ticked.has(step.key)}
-              shape="circle"
-              divider={index > 0}
-              onToggle={() => toggle(step.key)}
-            />
-          ))}
-        </View>
+        {status === 'failed' && (
+          <View style={[styles.notice, { backgroundColor: colors.honeyTint }]}>
+            <AppText color="inkSoft">
+              The steps could not be lined up, so each dish is listed on its own.
+            </AppText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Try lining up the steps again"
+              onPress={() => void load()}
+              hitSlop={8}
+              style={styles.link}>
+              <AppText variant="bodyEm" style={styles.underline}>
+                Try again
+              </AppText>
+            </Pressable>
+          </View>
+        )}
+
+        {sections.map((section) => (
+          <View key={section.key} style={styles.section}>
+            <View style={styles.sectionHead}>
+              <AppText variant="displaySmall" accessibilityRole="header">
+                {section.title}
+              </AppText>
+              {section.meta ? (
+                <AppText variant="caption" color="inkMuted">
+                  {section.meta}
+                </AppText>
+              ) : null}
+            </View>
+            <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+              {section.steps.map((step, index) => (
+                <TickRow
+                  key={step.key}
+                  label={step.text}
+                  caption={step.caption}
+                  checked={ticked.has(step.key)}
+                  shape="circle"
+                  divider={index > 0}
+                  onToggle={() => toggle(step.key)}
+                />
+              ))}
+            </View>
+          </View>
+        ))}
 
         {storing.length > 0 && (
           <View style={[styles.storing, { backgroundColor: colors.honeyTint }]}>
@@ -178,7 +295,13 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: space.s2, marginBottom: space.s1 },
   titleBlock: { flex: 1, gap: 4 },
   content: { gap: space.s3, paddingBottom: space.s3 },
+  loading: { flex: 1, justifyContent: 'center', paddingBottom: 72 },
   empty: { marginTop: space.s1 },
+  notice: { borderRadius: radius.lg, padding: space.s2, gap: space.s1 },
+  link: { minHeight: 44, justifyContent: 'center' },
+  underline: { textDecorationLine: 'underline' },
+  section: { gap: space.s1_5 },
+  sectionHead: { gap: 2 },
   card: { borderRadius: radius.lg, paddingHorizontal: space.s2, paddingVertical: space.s1 },
   storing: { borderRadius: radius.lg, padding: space.s2, gap: space.s1 },
   storingTitle: { flexDirection: 'row', alignItems: 'center', gap: space.s1 },

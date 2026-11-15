@@ -47,7 +47,15 @@ const VOICE_MESSAGES = [
   'Almost there…',
 ] as const;
 
-export type LoadingSource = 'text' | 'photo' | 'correction' | 'recipes' | 'fridge' | 'voice';
+/** Shown on the prep day while the dishes are put into one cooking session (Figma E2c). */
+const PREP_MESSAGES = [
+  'Bellie is lining up your prep…',
+  'Finding what the dishes share…',
+  'Putting the steps in order…',
+  'Almost there…',
+] as const;
+
+export type LoadingSource = 'text' | 'photo' | 'correction' | 'recipes' | 'fridge' | 'voice' | 'prep';
 
 const MESSAGES: Record<LoadingSource, readonly string[]> = {
   text: TEXT_MESSAGES,
@@ -56,6 +64,7 @@ const MESSAGES: Record<LoadingSource, readonly string[]> = {
   recipes: RECIPE_MESSAGES,
   fridge: FRIDGE_MESSAGES,
   voice: VOICE_MESSAGES,
+  prep: PREP_MESSAGES,
 };
 
 /** Reassuring progress lines, so a wait feels like work is happening. Stays on the last one. */

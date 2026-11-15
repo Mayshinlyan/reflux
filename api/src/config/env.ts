@@ -26,6 +26,7 @@ const envSchema = z
      * once per redo, so this leaves room for a few redos and a "Try again" after a failure. Its own counter.
      */
     PER_USER_DAILY_PLAN_LIMIT: z.coerce.number().int().positive().default(8),
+    PER_USER_DAILY_PREP_LIMIT: z.coerce.number().int().positive().default(20),
     /** Fridge scans (one to three photos each) per person per day. Its own counter; each scan is an image call. */
     PER_USER_DAILY_FRIDGE_LIMIT: z.coerce.number().int().positive().default(5),
     /** Spoken logs per person per day. Its own counter; each one is a speech call plus an AI call. */

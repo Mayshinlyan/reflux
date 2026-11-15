@@ -18,10 +18,8 @@ import {
   createPlan,
   deletePlan,
   getCurrentPlan,
-  redoPlan,
   type StoredMeal,
   type StoredPlan,
-  setMealLocked,
   setMealSkipped,
   swapMeal,
 } from '@/db/repositories/mealPlans';
@@ -65,17 +63,16 @@ function dropPrepReminder(db: AppDb): void {
 }
 
 /**
- * The week plan (Figma "meal planning flow" C and D). Opened with `make=new` it asks the relay for a plan from the
- * set-up choices, with `make=redo` it plans again every meal that is not locked or skipped, and with neither it just
- * shows the current plan. While it waits it shows Bellie and the shape of the week; when it is ready, the week on top,
- * the picked day's meals below (swap, lock, skip each), and a way to redo or start over. A plan is an intention: nothing
- * here ever writes to the food diary.
+ * The week plan (Figma "meal planning flow" C and D3). Opened with `make=new` it asks the relay for a plan from the
+ * set-up choices, and with nothing it just shows the current plan. While it waits it shows the steaming pot and the
+ * shape of the week; when it is ready, the week on top, the picked day's meals below (swap or skip each), the prep day
+ * and shopping list, and a way to start over. A plan is an intention: nothing here ever writes to the food diary.
  */
 export default function PlanScreen() {
   const db = useDb();
   const colors = useColors();
   const { make } = useLocalSearchParams<{ make?: string }>();
-  const kind = make === 'new' || make === 'redo' ? make : null;
+  const kind = make === 'new' ? 'new' : null;
   const [plan, setPlan] = useState<StoredPlan | null>(() => getCurrentPlan(db));
   const [status, setStatus] = useState<Status>(kind ? 'loading' : 'ready');
   const [errorCode, setErrorCode] = useState<ErrorCode | 'EMPTY'>('INTERNAL');
@@ -83,8 +80,8 @@ export default function PlanScreen() {
   const [swapping, setSwapping] = useState<StoredMeal | null>(null);
   const running = useRef<AbortController | null>(null);
   const started = useRef(false);
-  // What was last asked, so Try again repeats that (a failed redo must not become a new plan).
-  const [lastAction, setLastAction] = useState<'new' | 'redo' | null>(kind);
+  // Whether a plan was asked for here, so a failed try can be tried again.
+  const [tried, setTried] = useState(kind !== null);
 
   const refresh = useCallback(() => {
     try {
@@ -101,68 +98,53 @@ export default function PlanScreen() {
     }, [refresh]),
   );
 
-  const generate = useCallback(
-    async (what: 'new' | 'redo') => {
-      const controller = new AbortController();
-      running.current = controller;
-      setLastAction(what);
-      setStatus('loading');
-      try {
-        const today = todayKey();
-        const current = what === 'redo' ? getCurrentPlan(db) : null;
-        const choices = current ? current.choices : getSetting(db, 'planChoices');
-        const weekStart = current ? current.weekStart : planWeekStart(today);
-        const taken = new Set(
-          (current?.meals ?? []).filter((m) => m.locked || m.skipped).map((m) => `${m.day}|${m.slot}`),
-        );
-        const slots = planSlots(choices, weekStart, today).filter(
-          (slot) => !taken.has(`${slot.day}|${slot.slot}`),
-        );
-        if (slots.length === 0) {
-          // A redo with every meal locked or skipped has nothing to do; a new plan with no days left cannot be made.
-          if (current) {
-            setStatus('ready');
-            return;
-          }
-          setErrorCode('EMPTY');
-          setStatus('error');
-          return;
-        }
-        const request = buildPlanRequest(db, {
-          choices,
-          slots,
-          keep: (current?.meals ?? []).filter((m) => m.locked && !m.skipped).map((m) => m.dish.title),
-          serves: getSetting(db, 'kitchenServes'),
-          conditions: getSetting(db, 'conditions'),
-        });
-        const result = await fetchMealPlan(request, controller.signal);
-        if (controller.signal.aborted) return;
-        const meals = mealsFromResult(result, slots);
-        if (!meals) throw new AppError('AI_INVALID_OUTPUT');
-        const saved = current
-          ? redoPlan(db, current.id, choices, today, meals)
-          : createPlan(db, { weekStart, choices, meals });
-        dropPrepReminder(db);
-        setPlan(saved);
-        setPicked(null);
-        setStatus('ready');
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        logger.error('makeMealPlan', error);
-        setErrorCode(error instanceof AppError ? error.code : 'INTERNAL');
+  const generate = useCallback(async () => {
+    const controller = new AbortController();
+    running.current = controller;
+    setTried(true);
+    setStatus('loading');
+    try {
+      const today = todayKey();
+      const choices = getSetting(db, 'planChoices');
+      const weekStart = planWeekStart(today);
+      const slots = planSlots(choices, weekStart, today);
+      if (slots.length === 0) {
+        // No days left this week to plan.
+        setErrorCode('EMPTY');
         setStatus('error');
-      } finally {
-        // Done: from here on the screen may refresh itself when it comes back into view.
-        if (running.current === controller) running.current = null;
+        return;
       }
-    },
-    [db],
-  );
+      const request = buildPlanRequest(db, {
+        choices,
+        slots,
+        keep: [],
+        serves: getSetting(db, 'kitchenServes'),
+        conditions: getSetting(db, 'conditions'),
+      });
+      const result = await fetchMealPlan(request, controller.signal);
+      if (controller.signal.aborted) return;
+      const meals = mealsFromResult(result, slots);
+      if (!meals) throw new AppError('AI_INVALID_OUTPUT');
+      const saved = createPlan(db, { weekStart, choices, meals });
+      dropPrepReminder(db);
+      setPlan(saved);
+      setPicked(null);
+      setStatus('ready');
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      logger.error('makeMealPlan', error);
+      setErrorCode(error instanceof AppError ? error.code : 'INTERNAL');
+      setStatus('error');
+    } finally {
+      // Done: from here on the screen may refresh itself when it comes back into view.
+      if (running.current === controller) running.current = null;
+    }
+  }, [db]);
 
   useEffect(() => {
     if (kind && !started.current) {
       started.current = true;
-      void generate(kind);
+      void generate();
     }
     return () => {
       running.current?.abort();
@@ -248,7 +230,10 @@ export default function PlanScreen() {
               Planning around what you can eat
             </AppText>
           </View>
-          <PlanSkeleton />
+          {/* Centred on the screen, a little above the middle of what is left (Figma C2). */}
+          <View style={styles.loadingBlock}>
+            <PlanSkeleton />
+          </View>
         </ScrollView>
       </Screen>
     );
@@ -273,9 +258,7 @@ export default function PlanScreen() {
           </AppText>
         </View>
         <View style={styles.errorButtons}>
-          {lastAction && errorCode !== 'EMPTY' && (
-            <Button label="Try again" onPress={() => void generate(lastAction)} />
-          )}
+          {tried && errorCode !== 'EMPTY' && <Button label="Try again" onPress={() => void generate()} />}
           <Button label="Close" variant="secondary" onPress={goBack} />
         </View>
       </Screen>
@@ -290,7 +273,6 @@ export default function PlanScreen() {
     getPlanChecks(db, plan.id).own,
     today,
   );
-  const unlocked = plan.meals.some((meal) => !meal.locked && !meal.skipped && meal.day >= today);
 
   return (
     <Screen>
@@ -321,11 +303,9 @@ export default function PlanScreen() {
                 key={meal.id}
                 slot={meal.slot}
                 dish={meal.dish}
-                locked={meal.locked}
                 skipped={meal.skipped}
                 onOpen={() => open(meal)}
                 onSwap={() => setSwapping(meal)}
-                onToggleLock={() => guard('lockMeal', () => setMealLocked(db, meal.id, !meal.locked))}
                 onToggleSkip={() => guard('skipMeal', () => setMealSkipped(db, meal.id, !meal.skipped))}
               />
             ))
@@ -350,18 +330,6 @@ export default function PlanScreen() {
         </View>
 
         <View style={styles.links}>
-          {unlocked && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Redo the meals that are not locked"
-              onPress={() => void generate('redo')}
-              hitSlop={8}
-              style={styles.link}>
-              <AppText variant="bodyEm" style={styles.underline}>
-                Redo the meals that are not locked
-              </AppText>
-            </Pressable>
-          )}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Start over"
@@ -403,7 +371,8 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: space.s2, marginBottom: space.s1 },
   titleBlock: { flex: 1, gap: 4 },
   content: { gap: space.s3, paddingBottom: space.s3 },
-  loading: { gap: space.s4, paddingBottom: space.s4 },
+  loading: { flexGrow: 1, gap: space.s2, paddingBottom: space.s4 },
+  loadingBlock: { flexGrow: 1, justifyContent: 'center', paddingBottom: 72 },
   heading: { gap: space.s1, marginBottom: space.s2 },
   day: { gap: space.s1_5 },
   rows: { gap: space.s1 },

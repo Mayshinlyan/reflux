@@ -95,7 +95,10 @@ export default function ShoppingListScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <TopBarButton icon={ChevronLeft} label="Back" onPress={goBack} />
           <View style={styles.titleBlock}>
@@ -122,6 +125,23 @@ export default function ShoppingListScreen() {
           </Pressable>
         )}
 
+        {/* At the top, so the keyboard that opens for it never covers it. */}
+        {adding ? (
+          <TextField
+            label="Add an item"
+            hideLabel
+            placeholder="Add an item"
+            value={draft}
+            onChangeText={setDraft}
+            onSubmitEditing={add}
+            returnKeyType="done"
+            autoFocus
+            card
+          />
+        ) : (
+          <AddRow label="Add an item" onPress={() => setAdding(true)} />
+        )}
+
         {list.aisles.length === 0 && <AppText color="inkSoft">You have everything this plan needs.</AppText>}
 
         {list.aisles.map((aisle) => (
@@ -144,21 +164,6 @@ export default function ShoppingListScreen() {
             </View>
           </View>
         ))}
-
-        {adding ? (
-          <TextField
-            label="Add an item"
-            hideLabel
-            placeholder="Add an item"
-            value={draft}
-            onChangeText={setDraft}
-            onSubmitEditing={add}
-            returnKeyType="done"
-            card
-          />
-        ) : (
-          <AddRow label="Add an item" onPress={() => setAdding(true)} />
-        )}
 
         {list.have.length > 0 && (
           <Pressable

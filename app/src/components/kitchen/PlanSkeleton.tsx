@@ -1,14 +1,14 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
-import { Belly } from '@/components/Belly';
+import { PotLoader } from '@/components/PotLoader';
 import { cardEdge, radius, space, useColors } from '@/theme';
 
 const DAYS = 7;
 const CARDS = 3;
 
 /**
- * While the plan is being made (Figma "meal planning flow" C): Bellie, a green "Planning your week" badge, and the
+ * While the plan is being made (Figma "meal planning flow" C2): the steaming pot (the same loader as a meal check), a green "Planning your week" badge, and the
  * shape of the week to come, a row of seven circles and three meal cards, in the soft tan the app uses for skeletons.
  * It is the same idea as the skeleton on a meal check, so a wait feels honest rather than blank.
  */
@@ -18,7 +18,7 @@ export function PlanSkeleton() {
   return (
     <View style={styles.wrap} accessibilityRole="progressbar" accessibilityLabel="Planning your week">
       <View style={styles.top}>
-        <Belly mood="happy" size={96} />
+        <PotLoader />
         <View style={[styles.badge, { backgroundColor: colors.sageTint }]}>
           <AppText variant="label" color="sageInk">
             Planning your week

@@ -253,7 +253,7 @@ export const savedRecipes = sqliteTable(
 );
 
 /**
- * A week plan from the Kitchen. `choices` are the set-up choices it was made from (so a redo starts from them). The
+ * A week plan from the Kitchen. `choices` are the set-up choices it was made from (so the set-up sheet opens as it was). The
  * newest plan is the current one. A plan is an intention: nothing in it is ever written to the food diary by itself.
  */
 export const mealPlans = sqliteTable(
@@ -274,7 +274,7 @@ export const mealPlans = sqliteTable(
 
 /**
  * One meal of a plan: a day and a slot, with the dish it is made from (`recipe` is the whole dish, so the plan works
- * with no connection). `locked` keeps it when the plan is redone; `skipped` means eating out that meal.
+ * with no connection). `skipped` means eating out that meal (`locked` is no longer used; it stays so older plans still read).
  */
 export const plannedMeals = sqliteTable(
   'planned_meals',
@@ -320,6 +320,24 @@ export const planChecks = sqliteTable(
     uniqueIndex('plan_checks_uq').on(t.planId, t.kind, t.key),
     check('plan_checks_kind_check', sql`${t.kind} in ('prep', 'shop', 'own')`),
   ],
+);
+
+/**
+ * The prep session the relay worked out for a plan's dishes (the prep day's "Start together" and one block per dish).
+ * `signature` fingerprints the dishes it was made for, so it is only used while they are unchanged.
+ */
+export const planPrep = sqliteTable(
+  'plan_prep',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    planId: integer('plan_id')
+      .notNull()
+      .references(() => mealPlans.id, { onDelete: 'cascade' }),
+    signature: text('signature').notNull(),
+    result: text('result', { mode: 'json' }).notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('plan_prep_plan_uq').on(t.planId)],
 );
 
 /** Key/value settings. Values are JSON-encoded; see repositories/settings.ts for keys and defaults. */
