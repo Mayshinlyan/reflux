@@ -1,19 +1,18 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import KitchenScreen from '@/app/(tabs)/kitchen';
+import { DEFAULT_PLAN_CHOICES } from '@/constants/mealPlan';
 import { createTestDb } from '@/db/__tests__/testDb';
-import * as avoidFoodsRepo from '@/db/repositories/avoidFoods';
 import { createAvoidFood } from '@/db/repositories/avoidFoods';
-import { createSavedFood } from '@/db/repositories/savedFoods';
 import { replaceFridge } from '@/db/repositories/fridgeItems';
+import { createPlan, setMealSkipped } from '@/db/repositories/mealPlans';
 import { saveRecipe } from '@/db/repositories/savedRecipes';
-import { getSetting, setSetting } from '@/db/repositories/settings';
-import { fridgeItems } from '@/db/schema';
+import { getSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';
-import { AppError } from '@/lib/errors';
 import { todayKey } from '@/lib/kitchen';
+import { addDays } from '@/lib/localDay';
 import { getRecipeDraft, setRecipeDraft } from '@/lib/recipeDraft';
-import { fetchRecipeIdeas } from '@/services/relayClient';
+import type { PlanDish } from '@/types/mealPlan';
 import type { Recipe } from '@/types/recipe';
 
 let mockDb: AppDb;
@@ -45,7 +44,8 @@ jest.mock('@/db/DatabaseProvider', () => ({
     };
   },
 }));
-jest.mock('@/services/relayClient', () => ({ fetchRecipeIdeas: jest.fn() }));
+// The Feedback button on this page imports the relay client, which loads Firebase; the Kitchen itself calls nothing.
+jest.mock('@/services/relayClient', () => ({ sendFeedback: jest.fn() }));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -97,8 +97,6 @@ jest.mock('expo-router', () => ({
   useFocusEffect: (effect: () => void) => require('react').useEffect(effect, [effect]),
 }));
 
-const fetchIdeas = fetchRecipeIdeas as jest.Mock;
-
 const recipe = (title: string): Recipe => ({
   title,
   minutes: 20,
@@ -108,637 +106,295 @@ const recipe = (title: string): Recipe => ({
   ingredients: ['1 cup rice', '2 eggs'],
   steps: ['Cook the rice.', 'Add the eggs.'],
 });
-const ideas = [recipe('Kimchi egg fried rice'), recipe('Tofu soondubu stew'), recipe('Miso salmon bowl')];
+const dish = (id: string, title: string): PlanDish => ({ ...recipe(title), id, keepsDays: 3 });
 
-/** The sheet's Get ideas button; the card on the page has one with the same name, listed first. */
-const sheetGetIdeas = () => screen.getAllByRole('button', { name: 'Get ideas' })[1]!;
-const press = async (name: string) => fireEvent.press(screen.getByRole('button', { name }));
-
-/** Opens the sheet and asks for ideas with whatever is chosen. */
-async function ask() {
-  await fireEvent.press(screen.getByRole('button', { name: 'Get ideas' }));
-  await fireEvent.press(sheetGetIdeas());
-}
+const press = async (name: string | RegExp) => fireEvent.press(screen.getByRole('button', { name }));
+const tick = async (name: string) => fireEvent.press(screen.getByRole('checkbox', { name }));
 
 beforeEach(() => {
   const { db, sqlite } = createTestDb();
   mockDb = db;
   closeDb = () => sqlite.close();
   mockPush.mockClear();
-  fetchIdeas.mockReset();
   setRecipeDraft(null);
 });
 afterEach(() => closeDb());
 
-describe('Kitchen', () => {
-  it('has its title and a Cook something card, with no saved list, when nothing is saved', async () => {
+describe('Kitchen with no plan', () => {
+  it('has its title, one Plan your week card with one button, and the saved and fridge rows', async () => {
     await render(<KitchenScreen />);
 
     expect(screen.getByRole('header', { name: 'Kitchen' })).toBeTruthy();
     expect(screen.getByText('What shall we cook?')).toBeTruthy();
-    expect(screen.getByText('Cook something')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Get ideas' })).toBeTruthy();
-    expect(screen.queryByText('Saved recipes')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Saved recipes' })).toBeNull();
+    expect(screen.getByText('Plan your week')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Plan my week' })).toBeTruthy();
+    expect(screen.getByText('0 recipes')).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'My fridge' })).toBeTruthy();
+    // The recipe ideas are gone: planning is the way in.
+    expect(screen.queryByText(/AI Ideas/)).toBeNull();
+    expect(screen.queryByText('Get ideas')).toBeNull();
   });
 
-  it('shows saved recipes as cards in place of Cook something, and opens one by its id', async () => {
-    const saved = saveRecipe(mockDb, recipe('Miso salmon bowl'), 'japanese');
-    await render(<KitchenScreen />);
-
-    expect(screen.queryByText('Cook something')).toBeNull();
-    expect(screen.queryByRole('header', { name: 'Saved recipes' })).toBeNull();
-    await press('Miso salmon bowl, 20 min · serves 2');
-
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/recipe', params: { saved: String(saved.id) } });
-  });
-
-  it('opens the full saved list from the Saved button', async () => {
+  it('counts the saved recipes and opens the list', async () => {
     saveRecipe(mockDb, recipe('Miso salmon bowl'), 'japanese');
     await render(<KitchenScreen />);
 
-    await press('Saved recipes');
+    expect(screen.getByText('1 recipe')).toBeTruthy();
+    await press('Saved recipes, 1 recipe');
 
     expect(mockPush).toHaveBeenCalledWith('/saved-recipes');
   });
-});
 
-describe('Kitchen: the choices sheet', () => {
-  it('opens on the last choices, with the cuisine as a strip of tiles', async () => {
-    setSetting(mockDb, 'kitchenCuisine', 'thai');
-    setSetting(mockDb, 'kitchenTime', '20');
-    setSetting(mockDb, 'kitchenServes', 4);
-    await render(<KitchenScreen />);
-    await press('Get ideas');
-
-    expect(screen.getByText('What are you craving?')).toBeTruthy();
-    expect(screen.getByRole('radio', { name: 'Thai' }).props.accessibilityState).toMatchObject({
-      checked: true,
-    });
-    expect(screen.getByRole('radio', { name: 'Any' }).props.accessibilityState).toMatchObject({
-      checked: false,
-    });
-    expect(screen.getByRole('tab', { name: '20 min' }).props.accessibilityState).toMatchObject({
-      selected: true,
-    });
-    expect(screen.getByLabelText('4 servings')).toBeTruthy();
-  });
-
-  it('lists the cuisines A to Z with Any first, and tapping a tile picks it', async () => {
-    await render(<KitchenScreen />);
-    await press('Get ideas');
-
-    const strip = within(screen.getByLabelText('Cuisine'));
-    expect(strip.getAllByRole('radio').map((radio) => radio.props.accessibilityLabel)).toEqual([
-      'Any',
-      'Chinese',
-      'Indian',
-      'Italian',
-      'Japanese',
-      'Korean',
-      'Mediterranean',
-      'Mexican',
-      'Thai',
-      'Vietnamese',
-    ]);
-
-    await fireEvent.press(strip.getByRole('radio', { name: 'Korean' }));
-
-    expect(strip.getByRole('radio', { name: 'Korean' }).props.accessibilityState).toMatchObject({
-      checked: true,
-    });
-    expect(strip.getByRole('radio', { name: 'Any' }).props.accessibilityState).toMatchObject({
-      checked: false,
-    });
-  });
-
-  it('puts every choice back to its default with Clear all', async () => {
-    setSetting(mockDb, 'kitchenCuisine', 'thai');
-    setSetting(mockDb, 'kitchenTime', '20');
-    setSetting(mockDb, 'kitchenServes', 4);
-    await render(<KitchenScreen />);
-    await press('Get ideas');
-    await fireEvent.changeText(screen.getByLabelText('Ingredients to use'), 'rice');
-
-    await press('Clear all');
-
-    expect(screen.getByRole('radio', { name: 'Any' }).props.accessibilityState).toMatchObject({
-      checked: true,
-    });
-    expect(screen.getByRole('tab', { name: '40 min' }).props.accessibilityState).toMatchObject({
-      selected: true,
-    });
-    expect(screen.getByLabelText('2 servings')).toBeTruthy();
-    expect(screen.getByLabelText('Ingredients to use').props.value).toBe('');
-  });
-
-  it('steps the servings between 1 and 6', async () => {
-    setSetting(mockDb, 'kitchenServes', 5);
-    await render(<KitchenScreen />);
-    await press('Get ideas');
-
-    await press('More servings');
-    expect(screen.getByLabelText('6 servings')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'More servings' })).toBeDisabled();
-    for (let i = 0; i < 5; i += 1) await press('Fewer servings');
-    expect(screen.getByLabelText('1 servings')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Fewer servings' })).toBeDisabled();
-  });
-
-  it('says what it skips from the Foods to avoid list', async () => {
-    for (const name of ['Peanuts', 'Pork', 'Shellfish', 'Raw onion']) createAvoidFood(mockDb, name);
-    await render(<KitchenScreen />);
-    await press('Get ideas');
-
-    expect(screen.getByText('Skips peanuts, pork and 2 more foods to avoid.')).toBeTruthy();
-  });
-
-  it('says nothing about skipping when the list is empty', async () => {
-    await render(<KitchenScreen />);
-    await press('Get ideas');
-
-    expect(screen.queryByText(/^Skips/)).toBeNull();
-  });
-});
-
-describe('Kitchen: getting ideas', () => {
-  it('asks the relay with the choices and the phone’s lists, shows three cards, and counts the round', async () => {
-    createSavedFood(mockDb, 'Oatmeal with banana');
-    createAvoidFood(mockDb, 'Peanuts');
-    setSetting(mockDb, 'conditions', ['acid_reflux']);
-    fetchIdeas.mockResolvedValue(ideas);
-    await render(<KitchenScreen />);
-    await press('Get ideas');
-    await fireEvent.press(screen.getByRole('radio', { name: 'Korean' }));
-    await fireEvent.press(screen.getByRole('tab', { name: '20 min' }));
-    await fireEvent.changeText(screen.getByLabelText('Ingredients to use'), 'rice, spinach');
-
-    await fireEvent.press(sheetGetIdeas());
-
-    await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
-    expect(fetchIdeas).toHaveBeenCalledTimes(1);
-    expect(fetchIdeas.mock.calls[0]?.[0]).toEqual({
-      cuisine: 'korean',
-      time: '20',
-      serves: 2,
-      conditions: ['acid_reflux'],
-      want: ['rice', 'spinach'],
-      favorites: ['Oatmeal with banana'],
-      avoid: ['Peanuts'],
-    });
-    expect(screen.getByText('Korean recipe ideas')).toBeTruthy();
-    expect(screen.getByText('Tofu soondubu stew')).toBeTruthy();
-    expect(screen.getByText('Miso salmon bowl')).toBeTruthy();
-    expect(getSetting(mockDb, 'kitchenRounds')).toEqual({ day: todayKey(), count: 1 });
-    // The choices are kept for next time.
-    expect(getSetting(mockDb, 'kitchenCuisine')).toBe('korean');
-    expect(getSetting(mockDb, 'kitchenTime')).toBe('20');
-  });
-
-  it('asks for nothing when the choices sheet is closed without Get ideas', async () => {
-    await render(<KitchenScreen />);
-    await press('Get ideas');
-
-    await press('Close');
-
-    expect(fetchIdeas).not.toHaveBeenCalled();
-    expect(screen.queryByText('Bellie is cooking up ideas…')).toBeNull();
-  });
-
-  it('titles the waiting sheet by cuisine, as recipe ideas, and a plain Any as recipe ideas for you', async () => {
-    fetchIdeas.mockReturnValue(new Promise(() => {}));
-    setSetting(mockDb, 'kitchenCuisine', 'korean');
-    await render(<KitchenScreen />);
-    await ask();
-
-    expect(screen.getByRole('header', { name: 'Korean recipe ideas' })).toBeTruthy();
-  });
-
-  it('titles the sheet "Recipe ideas for you" when the cuisine is Any', async () => {
-    fetchIdeas.mockReturnValue(new Promise(() => {}));
-    await render(<KitchenScreen />);
-    await ask();
-
-    expect(screen.getByRole('header', { name: 'Recipe ideas for you' })).toBeTruthy();
-  });
-
-  const artsShown = () =>
-    screen
-      .getAllByTestId(/^recipe-art-/, { includeHiddenElements: true })
-      .map((art) => art.props.testID as string);
-
-  it('gives each of the three ideas its own picture', async () => {
-    fetchIdeas.mockResolvedValue(ideas);
-    await render(<KitchenScreen />);
-    await ask();
-    await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
-
-    const arts = artsShown();
-
-    expect(arts).toHaveLength(3);
-    expect(new Set(arts).size).toBe(3);
-  });
-
-  it('starts the next round on a different picture, and keeps the three different', async () => {
-    fetchIdeas
-      .mockResolvedValueOnce(ideas)
-      .mockResolvedValueOnce([
-        recipe('Chicken congee'),
-        recipe('Steamed fish'),
-        recipe('Ginger noodle soup'),
-      ]);
-    await render(<KitchenScreen />);
-    await ask();
-    await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
-    const first = artsShown();
-
-    await press('Generate more');
-    await waitFor(() => expect(screen.getByText('Chicken congee')).toBeTruthy());
-    const second = artsShown();
-
-    expect(new Set(second).size).toBe(3);
-    expect(second[0]).not.toBe(first[0]);
-  });
-
-  it('carries the picture it was shown with to the saved list', async () => {
-    saveRecipe(mockDb, { ...recipe('Miso salmon bowl'), look: 4 }, 'japanese');
+  it('opens the fridge from its row', async () => {
     await render(<KitchenScreen />);
 
-    expect(screen.getByRole('button', { name: 'Miso salmon bowl, 20 min · serves 2' })).toBeTruthy();
-  });
-
-  it('shows the wait with the pot loader and a Stop button', async () => {
-    fetchIdeas.mockReturnValue(new Promise(() => {}));
-    await render(<KitchenScreen />);
-    await ask();
-
-    expect(screen.getByText('Bellie is cooking up ideas…')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Stop' })).toBeTruthy();
-  });
-
-  it('stops without an error, and the round does not count', async () => {
-    let signal: AbortSignal | undefined;
-    fetchIdeas.mockImplementation((_request: unknown, abort?: AbortSignal) => {
-      signal = abort;
-      return new Promise(() => {});
-    });
-    await render(<KitchenScreen />);
-    await ask();
-
-    await press('Stop');
-
-    expect(signal?.aborted).toBe(true);
-    expect(screen.queryByText("Couldn't get ideas")).toBeNull();
-    expect(getSetting(mockDb, 'kitchenRounds').count).toBe(0);
-  });
-
-  it('fails closed: if the Foods to avoid list cannot be read it asks for nothing, and says it could not get ideas', async () => {
-    const spy = jest.spyOn(avoidFoodsRepo, 'listAvoidFoods').mockImplementation(() => {
-      throw new Error('db down');
-    });
-    try {
-      await render(<KitchenScreen />);
-      await ask();
-
-      await waitFor(() => expect(screen.getByText("Couldn't get ideas")).toBeTruthy());
-      expect(fetchIdeas).not.toHaveBeenCalled();
-      expect(getSetting(mockDb, 'kitchenRounds').count).toBe(0);
-    } finally {
-      spy.mockRestore();
-    }
-  });
-
-  it('says it could not get ideas, never counts the round, and tries again', async () => {
-    setSetting(mockDb, 'kitchenCuisine', 'korean');
-    fetchIdeas.mockRejectedValueOnce(new AppError('NETWORK')).mockResolvedValueOnce(ideas);
-    await render(<KitchenScreen />);
-    await ask();
-
-    await waitFor(() => expect(screen.getByText("Couldn't get ideas")).toBeTruthy());
-    // A failed round has no ideas to name, so the sheet is titled plainly, not by the cuisine that was asked for.
-    expect(screen.getByRole('header', { name: 'Recipe ideas' })).toBeTruthy();
-    expect(screen.queryByText('Korean recipe ideas')).toBeNull();
-    expect(screen.getByText(/Check your connection and try again\./)).toBeTruthy();
-    // No small print about the day's count, and no second button: Try again is the one thing to do, and the X closes.
-    expect(screen.queryByText(/doesn't count/)).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Not now' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
-    expect(getSetting(mockDb, 'kitchenRounds').count).toBe(0);
-
-    await press('Try again');
-
-    await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
-    expect(fetchIdeas).toHaveBeenCalledTimes(2);
-    expect(getSetting(mockDb, 'kitchenRounds').count).toBe(1);
-  });
-
-  it('asks for more with the dishes already shown, so they are new ones, and counts that round too', async () => {
-    fetchIdeas
-      .mockResolvedValueOnce(ideas)
-      .mockResolvedValueOnce([
-        recipe('Chicken congee'),
-        recipe('Steamed fish'),
-        recipe('Ginger noodle soup'),
-      ]);
-    await render(<KitchenScreen />);
-    await ask();
-    await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
-
-    await press('Generate more');
-
-    await waitFor(() => expect(screen.getByText('Chicken congee')).toBeTruthy());
-    expect(fetchIdeas.mock.calls[1]?.[0].shown).toEqual([
-      'Kimchi egg fried rice',
-      'Tofu soondubu stew',
-      'Miso salmon bowl',
-    ]);
-    expect(getSetting(mockDb, 'kitchenRounds').count).toBe(2);
-  });
-
-  it('opens a recipe once the sheet has closed, holding it for the recipe page', async () => {
-    fetchIdeas.mockResolvedValue(ideas);
-    await render(<KitchenScreen />);
-    await ask();
-    await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
-
-    await fireEvent.press(screen.getAllByRole('button', { name: 'Use this recipe' })[1]!);
-
-    expect(getRecipeDraft()?.recipe.title).toBe('Tofu soondubu stew');
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/recipe'));
-  });
-});
-
-describe('Kitchen: Feedback', () => {
-  it('has a Feedback button at the lower right that opens the feedback sheet', async () => {
-    await render(<KitchenScreen />);
-
-    expect(screen.queryByRole('header', { name: 'Tell us what you think' })).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: 'Feedback' }));
-
-    expect(screen.getByRole('header', { name: 'Tell us what you think' })).toBeTruthy();
-  });
-});
-
-describe('Kitchen: AI Ideas', () => {
-  it('has no AI Ideas button before any ideas were made', async () => {
-    await render(<KitchenScreen />);
-
-    expect(screen.queryByRole('button', { name: /^AI Ideas/ })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Get ideas' })).toBeTruthy();
-  });
-
-  it('keeps the round after the sheet is closed, and AI Ideas (3) brings the same three back', async () => {
-    fetchIdeas.mockResolvedValue(ideas);
-    await render(<KitchenScreen />);
-    await ask();
-    await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
-
-    await press('Close');
-    expect(screen.getByRole('button', { name: 'New ideas' })).toBeTruthy();
-    await press('AI Ideas, 3');
-
-    expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy();
-    expect(screen.getByText('Tofu soondubu stew')).toBeTruthy();
-    expect(screen.getByText('Miso salmon bowl')).toBeTruthy();
-    // Looking back asks nothing of the AI and does not count as a round.
-    expect(fetchIdeas).toHaveBeenCalledTimes(1);
-    expect(getSetting(mockDb, 'kitchenRounds').count).toBe(1);
-  });
-
-  it('shows the last round after the app was restarted', async () => {
-    setSetting(mockDb, 'kitchenIdeas', { cuisine: 'korean', recipes: ideas });
-    await render(<KitchenScreen />);
-
-    await press('AI Ideas, 3');
-
-    expect(screen.getByText('Korean recipe ideas')).toBeTruthy();
-    expect(screen.getByText('Miso salmon bowl')).toBeTruthy();
-  });
-
-  it('can still ask for more from the ideas it brought back', async () => {
-    setSetting(mockDb, 'kitchenIdeas', { cuisine: 'korean', recipes: ideas });
-    fetchIdeas.mockResolvedValue([recipe('Chicken congee')]);
-    await render(<KitchenScreen />);
-    await press('AI Ideas, 3');
-
-    await press('Generate more');
-
-    await waitFor(() => expect(screen.getByText('Chicken congee')).toBeTruthy());
-    expect(fetchIdeas.mock.calls[0]?.[0]).toMatchObject({
-      cuisine: 'korean',
-      shown: ['Kimchi egg fried rice', 'Tofu soondubu stew', 'Miso salmon bowl'],
-    });
-    expect(getSetting(mockDb, 'kitchenIdeas')?.recipes[0]?.title).toBe('Chicken congee');
-  });
-
-  it('does not keep a failed round', async () => {
-    fetchIdeas.mockRejectedValue(new AppError('NETWORK'));
-    await render(<KitchenScreen />);
-    await ask();
-
-    await waitFor(() => expect(screen.getByText("Couldn't get ideas")).toBeTruthy());
-    expect(getSetting(mockDb, 'kitchenIdeas')).toBeNull();
-  });
-
-  it('is still there when the kitchen is closed for the day', async () => {
-    setSetting(mockDb, 'kitchenRounds', { day: todayKey(), count: 10 });
-    setSetting(mockDb, 'kitchenIdeas', { cuisine: 'korean', recipes: ideas });
-    await render(<KitchenScreen />);
-
-    expect(screen.getByRole('button', { name: 'Back tomorrow' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'AI Ideas, 3' })).toBeEnabled();
-  });
-});
-
-describe('Kitchen: AI Ideas next to the saved recipes', () => {
-  beforeEach(() => void saveRecipe(mockDb, recipe('Miso salmon bowl'), 'japanese'));
-
-  it('starts fresh with no count, and a tap opens the choices sheet', async () => {
-    await render(<KitchenScreen />);
-
-    expect(screen.getByRole('button', { name: 'AI Ideas' })).toBeEnabled();
-    await press('AI Ideas');
-
-    expect(screen.getByText('What are you craving?')).toBeTruthy();
-  });
-
-  it('shows the count once ideas are made, and starts fresh again after they were looked at', async () => {
-    fetchIdeas.mockResolvedValue(ideas);
-    await render(<KitchenScreen />);
-    await press('AI Ideas');
-    await fireEvent.press(screen.getByRole('button', { name: 'Get ideas' }));
-    await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
-
-    await press('Close');
-    expect(screen.getByRole('button', { name: 'AI Ideas, 3' })).toBeTruthy();
-    // The first look brings the same three back for free.
-    await press('AI Ideas, 3');
-    expect(fetchIdeas).toHaveBeenCalledTimes(1);
-    await press('Close');
-
-    expect(screen.getByRole('button', { name: 'AI Ideas' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'AI Ideas, 3' })).toBeNull();
-    expect(getSetting(mockDb, 'kitchenIdeas')?.seen).toBe(true);
-    // Next tap asks for a fresh round instead.
-    await press('AI Ideas');
-    expect(screen.getByText('What are you craving?')).toBeTruthy();
-  });
-
-  it('counts again when a new round is made', async () => {
-    setSetting(mockDb, 'kitchenIdeas', { cuisine: 'korean', recipes: ideas, seen: true });
-    fetchIdeas.mockResolvedValue([recipe('Chicken congee'), recipe('Ginger soup')]);
-    await render(<KitchenScreen />);
-    expect(screen.getByRole('button', { name: 'AI Ideas' })).toBeTruthy();
-    await press('AI Ideas');
-    await fireEvent.press(screen.getByRole('button', { name: 'Get ideas' }));
-    await waitFor(() => expect(screen.getByText('Chicken congee')).toBeTruthy());
-
-    await press('Close');
-
-    expect(screen.getByRole('button', { name: 'AI Ideas, 2' })).toBeTruthy();
-  });
-
-  it('says Back tomorrow, disabled, when the kitchen is closed and nothing is waiting', async () => {
-    setSetting(mockDb, 'kitchenRounds', { day: todayKey(), count: 10 });
-    await render(<KitchenScreen />);
-
-    expect(screen.getByRole('button', { name: 'Back tomorrow' })).toBeDisabled();
-  });
-});
-
-describe('Kitchen: the daily limit', () => {
-  it('closes the kitchen after 10 rounds today, with the button disabled', async () => {
-    setSetting(mockDb, 'kitchenRounds', { day: todayKey(), count: 10 });
-    await render(<KitchenScreen />);
-
-    expect(screen.getByText('Kitchen is closed')).toBeTruthy();
-    expect(screen.getByText('Bellie is back with fresh ideas tomorrow.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Back tomorrow' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Get ideas' })).toBeNull();
-  });
-
-  it('opens again on a new day', async () => {
-    setSetting(mockDb, 'kitchenRounds', { day: '2020-01-01', count: 10 });
-    await render(<KitchenScreen />);
-
-    expect(screen.getByText('Cook something')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Get ideas' })).toBeEnabled();
-  });
-
-  it('stops offering more once the last round of the day is used', async () => {
-    setSetting(mockDb, 'kitchenRounds', { day: todayKey(), count: 9 });
-    fetchIdeas.mockResolvedValue(ideas);
-    await render(<KitchenScreen />);
-    await ask();
-
-    await waitFor(() => expect(screen.getByText('Kimchi egg fried rice')).toBeTruthy());
-
-    expect(screen.queryByRole('button', { name: 'Generate more' })).toBeNull();
-    expect(screen.getByText(/That's today's ideas/)).toBeTruthy();
-    await act(async () => {});
-  });
-
-  it('tells you the kitchen is closed when the relay says the day’s allowance is used', async () => {
-    fetchIdeas.mockRejectedValue(new AppError('RATE_LIMITED'));
-    await render(<KitchenScreen />);
-    await ask();
-
-    await waitFor(() => expect(screen.getByText('Kitchen is closed')).toBeTruthy());
-    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
-  });
-});
-
-describe('Kitchen: My fridge', () => {
-  const daysAgoIso = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-
-  it('invites you to add a fridge when there is none, and opens My fridge', async () => {
-    await render(<KitchenScreen />);
-
-    expect(screen.getByRole('header', { name: 'My fridge' })).toBeTruthy();
-    expect(screen.getByText('Add your fridge')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: /^My fridge, Add your fridge/ }));
+    await press(/^My fridge, /);
 
     expect(mockPush).toHaveBeenCalledWith('/fridge');
   });
+});
 
-  it('shows how many things and when it was updated', async () => {
-    replaceFridge(mockDb, ['eggs', 'rice', 'kimchi']);
+describe('Kitchen: the set-up sheet', () => {
+  it('opens on the last choices: every day, lunch and dinner, any cuisine, cook once for two hours', async () => {
     await render(<KitchenScreen />);
+    await press('Plan my week');
 
-    expect(screen.getByText('3 items')).toBeTruthy();
-    expect(screen.getByText('Updated today')).toBeTruthy();
-    expect(screen.queryByText('Update your fridge?')).toBeNull();
+    expect(screen.getByRole('header', { name: 'Plan your week' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Monday' }).props.accessibilityState.checked).toBe(true);
+    expect(screen.getByRole('checkbox', { name: 'Sunday' }).props.accessibilityState.checked).toBe(true);
+    expect(screen.getByRole('checkbox', { name: 'Lunch' }).props.accessibilityState.checked).toBe(true);
+    expect(screen.getByRole('checkbox', { name: 'Dinner' }).props.accessibilityState.checked).toBe(true);
+    expect(screen.getByRole('checkbox', { name: 'Breakfast' }).props.accessibilityState.checked).toBe(false);
+    expect(screen.getByRole('button', { name: 'Cuisine, Any' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Cook once' }).props.accessibilityState.selected).toBe(true);
+    expect(screen.getByRole('tab', { name: '2 hrs' }).props.accessibilityState.selected).toBe(true);
   });
 
-  it('asks "Update your fridge?" once it is a week old', async () => {
+  it('hides the prep time for cook daily', async () => {
+    await render(<KitchenScreen />);
+    await press('Plan my week');
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Cook daily' }));
+
+    expect(screen.queryByText('Prep time')).toBeNull();
+    expect(screen.queryByRole('tab', { name: '2 hrs' })).toBeNull();
+  });
+
+  it('turns a day off, but never the last one', async () => {
+    await render(<KitchenScreen />);
+    await press('Plan my week');
+
+    await tick('Friday');
+    expect(screen.getByRole('checkbox', { name: 'Friday' }).props.accessibilityState.checked).toBe(false);
+
+    for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday', 'Sunday']) await tick(day);
+    expect(screen.getByRole('checkbox', { name: 'Sunday' }).props.accessibilityState.checked).toBe(true);
+  });
+
+  it('keeps at least one meal', async () => {
+    await render(<KitchenScreen />);
+    await press('Plan my week');
+
+    await tick('Lunch');
+    await tick('Dinner');
+
+    expect(screen.getByRole('checkbox', { name: 'Dinner' }).props.accessibilityState.checked).toBe(true);
+  });
+
+  it('picks cuisines from a list: Any stands alone, up to four, and unticking the last falls back to Any', async () => {
+    await render(<KitchenScreen />);
+    await press('Plan my week');
+    await press('Cuisine, Any');
+
+    await tick('Korean');
+    expect(screen.getByRole('button', { name: 'Cuisine, Korean' })).toBeTruthy();
+    await tick('Thai');
+    expect(screen.getByRole('button', { name: 'Cuisine, Korean +1' })).toBeTruthy();
+    await tick('Italian');
+    await tick('Mexican');
+    await tick('Indian'); // a fifth is ignored
+    expect(screen.getByRole('button', { name: 'Cuisine, Korean +3' })).toBeTruthy();
+
+    await tick('Any');
+    expect(screen.getByRole('button', { name: 'Cuisine, Any' })).toBeTruthy();
+
+    await tick('Korean');
+    await tick('Korean');
+    expect(screen.getByRole('button', { name: 'Cuisine, Any' })).toBeTruthy();
+  });
+
+  it('says what it skips from the Foods to avoid list', async () => {
+    createAvoidFood(mockDb, 'peanuts');
+    createAvoidFood(mockDb, 'Pork');
+    createAvoidFood(mockDb, 'raw onion');
+    await render(<KitchenScreen />);
+    await press('Plan my week');
+
+    expect(screen.getByText('Skips peanuts, pork and 1 more food to avoid. Gentle on reflux.')).toBeTruthy();
+  });
+
+  it('only says it is gentle on reflux when nothing is avoided', async () => {
+    await render(<KitchenScreen />);
+    await press('Plan my week');
+
+    expect(screen.getByText('Gentle on reflux.')).toBeTruthy();
+  });
+
+  it('keeps the choices and opens the plan page once the sheet has closed', async () => {
+    await render(<KitchenScreen />);
+    await press('Plan my week');
+    await tick('Friday');
+    await tick('Breakfast');
+    await press('Cuisine, Any');
+    await tick('Korean');
+    await fireEvent.press(screen.getByRole('tab', { name: 'Cook daily' }));
+
+    await press('Make my plan');
+
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith({ pathname: '/plan', params: { make: 'new' } }),
+    );
+    expect(getSetting(mockDb, 'planChoices')).toEqual({
+      weekdays: [1, 2, 3, 4, 6, 0],
+      meals: ['breakfast', 'lunch', 'dinner'],
+      cuisines: ['korean'],
+      mode: 'daily',
+      prepMinutes: 120,
+      useFridge: false,
+    });
+  });
+
+  it('opens on those choices next time', async () => {
+    await render(<KitchenScreen />);
+    await press('Plan my week');
+    await fireEvent.press(screen.getByRole('tab', { name: 'Cook daily' }));
+    await press('Make my plan');
+    await waitFor(() => expect(mockPush).toHaveBeenCalled());
+
+    await press('Plan my week');
+
+    expect(screen.getByRole('tab', { name: 'Cook daily' }).props.accessibilityState.selected).toBe(true);
+  });
+
+  it('asks nothing of the plan page when the sheet is closed without Make my plan', async () => {
+    await render(<KitchenScreen />);
+    await press('Plan my week');
+
+    await press('Close');
+
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('turns the fridge switch off and sends that choice', async () => {
     replaceFridge(mockDb, ['eggs', 'rice']);
-    mockDb
-      .update(fridgeItems)
-      .set({ createdAt: daysAgoIso(9) })
-      .run();
     await render(<KitchenScreen />);
+    await press('Plan my week');
 
-    expect(screen.getByText('Update your fridge?')).toBeTruthy();
-    expect(screen.queryByText(/^Updated /)).toBeNull();
+    expect(screen.getByText(/^2 items, updated /)).toBeTruthy();
+    await fireEvent.press(screen.getByRole('switch', { name: 'Use my fridge' }));
+    await press('Make my plan');
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalled());
+    expect(getSetting(mockDb, 'planChoices').useFridge).toBe(false);
   });
 
-  it('says "Fridge is empty" with an Add items link in the sheet instead of a switch', async () => {
+  it('says "Fridge is empty" with an Add items link instead of a switch, and opens the fridge once closed', async () => {
     await render(<KitchenScreen />);
-    await press('Get ideas');
+    await press('Plan my week');
 
     expect(screen.queryByRole('switch', { name: 'Use my fridge' })).toBeNull();
-    expect(screen.getByText('Fridge is empty')).toBeTruthy();
-    expect(screen.getByText('Add items')).toBeTruthy();
-  });
-
-  it('opens the fridge screen from "Add items" once the sheet has closed', async () => {
-    await render(<KitchenScreen />);
-    await press('Get ideas');
-    mockPush.mockClear();
-
     await press('Fridge is empty. Add items');
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/fridge'));
-    expect(fetchIdeas).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalledWith({ pathname: '/plan', params: { make: 'new' } });
+  });
+});
+
+describe('Kitchen with a plan for this week', () => {
+  const today = todayKey();
+  const meals = (day: string) => [
+    { day, slot: 'lunch' as const, dish: dish('d1', 'Chicken bowls') },
+    { day, slot: 'dinner' as const, dish: dish('d2', 'Miso salmon') },
+    { day: addDays(day, 1), slot: 'dinner' as const, dish: dish('d2', 'Miso salmon') },
+  ];
+
+  it("shows this week, today's meals, the summary and a way into the plan", async () => {
+    createPlan(mockDb, { weekStart: today, choices: DEFAULT_PLAN_CHOICES, meals: meals(today) });
+    await render(<KitchenScreen />);
+
+    expect(screen.getByText('This week')).toBeTruthy();
+    expect(screen.queryByText('Plan your week')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Lunch, Chicken bowls' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Dinner, Miso salmon' })).toBeTruthy();
+    expect(screen.getByText('3 meals, 2 dishes to prep')).toBeTruthy();
+
+    await press(/^Meal plan, /);
+    expect(mockPush).toHaveBeenCalledWith('/plan');
   });
 
-  it('sends the fridge with the request when the switch is on', async () => {
-    replaceFridge(mockDb, ['eggs', 'rice']);
-    fetchIdeas.mockResolvedValue(ideas);
+  it('opens a meal as a recipe, with its meal-prep details held for the recipe page', async () => {
+    createPlan(mockDb, { weekStart: today, choices: DEFAULT_PLAN_CHOICES, meals: meals(today) });
     await render(<KitchenScreen />);
-    await press('Get ideas');
 
-    expect(screen.getByRole('switch', { name: 'Use my fridge' }).props.accessibilityState).toMatchObject({
-      checked: true,
+    await press('Lunch, Chicken bowls');
+
+    expect(mockPush).toHaveBeenCalledWith('/recipe');
+    expect(getRecipeDraft()?.recipe.title).toBe('Chicken bowls');
+    expect(getRecipeDraft()?.prep).toEqual({ keepsDays: 3, mode: 'once' });
+  });
+
+  it('leaves out a meal that is skipped (eating out)', async () => {
+    const plan = createPlan(mockDb, { weekStart: today, choices: DEFAULT_PLAN_CHOICES, meals: meals(today) });
+    setMealSkipped(mockDb, plan.meals[0]!.id, true);
+    await render(<KitchenScreen />);
+
+    expect(screen.queryByRole('button', { name: 'Lunch, Chicken bowls' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Dinner, Miso salmon' })).toBeTruthy();
+    expect(screen.getByText('2 meals, 1 dish to prep')).toBeTruthy();
+  });
+
+  it('says so when nothing is planned for today', async () => {
+    createPlan(mockDb, { weekStart: today, choices: DEFAULT_PLAN_CHOICES, meals: meals(addDays(today, 3)) });
+    await render(<KitchenScreen />);
+
+    expect(screen.getByText('Nothing planned today.')).toBeTruthy();
+  });
+
+  it('says Next week, with no Today card, for a plan that starts after today', async () => {
+    createPlan(mockDb, {
+      weekStart: addDays(today, 2),
+      choices: DEFAULT_PLAN_CHOICES,
+      meals: meals(addDays(today, 2)),
     });
-    await fireEvent.press(sheetGetIdeas());
+    await render(<KitchenScreen />);
 
-    await waitFor(() => expect(fetchIdeas).toHaveBeenCalled());
-    expect(fetchIdeas.mock.calls[0]?.[0]).toMatchObject({ fridge: ['eggs', 'rice'] });
-    await act(async () => {});
+    expect(screen.getByText('Next week')).toBeTruthy();
+    expect(screen.queryByText('This week')).toBeNull();
+    expect(screen.queryByRole('header', { name: 'Today' })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Meal plan, / })).toBeTruthy();
   });
 
-  it('leaves the fridge out when the switch is off, and remembers that next time', async () => {
-    replaceFridge(mockDb, ['eggs', 'rice']);
-    fetchIdeas.mockResolvedValue(ideas);
+  it('opens Saved and My fridge from the two pills', async () => {
+    createPlan(mockDb, { weekStart: today, choices: DEFAULT_PLAN_CHOICES, meals: meals(today) });
     await render(<KitchenScreen />);
-    await press('Get ideas');
-    await fireEvent.press(screen.getByRole('switch', { name: 'Use my fridge' }));
-    await fireEvent.press(sheetGetIdeas());
 
-    await waitFor(() => expect(fetchIdeas).toHaveBeenCalled());
-    expect(fetchIdeas.mock.calls[0]?.[0]).not.toHaveProperty('fridge');
-    expect(getSetting(mockDb, 'kitchenUseFridge')).toBe(false);
-    await act(async () => {});
+    await press('Saved recipes');
+    await press('My fridge');
+
+    expect(mockPush).toHaveBeenCalledWith('/saved-recipes');
+    expect(mockPush).toHaveBeenCalledWith('/fridge');
   });
 
-  it('does not forget a "yes" because the fridge was empty for a while', async () => {
-    fetchIdeas.mockResolvedValue(ideas);
+  it('asks for a new plan once the plan’s week is over', async () => {
+    createPlan(mockDb, {
+      weekStart: addDays(today, -7),
+      choices: DEFAULT_PLAN_CHOICES,
+      meals: meals(addDays(today, -7)),
+    });
     await render(<KitchenScreen />);
-    await ask();
 
-    await waitFor(() => expect(fetchIdeas).toHaveBeenCalled());
-    expect(getSetting(mockDb, 'kitchenUseFridge')).toBe(true);
-    await act(async () => {});
+    expect(screen.getByText('Plan your week')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Plan my week' })).toBeTruthy();
+    expect(screen.queryByText('This week')).toBeNull();
   });
 });

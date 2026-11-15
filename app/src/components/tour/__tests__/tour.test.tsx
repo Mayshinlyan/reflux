@@ -40,7 +40,7 @@ function Screen() {
   const { begin, replay } = useTour();
   // The views the screens let the tour spotlight.
   const bellie = useTourTarget('bellie');
-  const aiIdeas = useTourTarget('aiIdeas');
+  const plan = useTourTarget('plan');
   const fridge = useTourTarget('fridge');
   const aboutYou = useTourTarget('aboutYou');
   const customize = useTourTarget('customize');
@@ -48,7 +48,7 @@ function Screen() {
   return (
     <>
       <View ref={bellie} />
-      <View ref={aiIdeas} />
+      <View ref={plan} />
       <View ref={fridge} />
       <View ref={aboutYou} />
       <View ref={customize} />
@@ -139,7 +139,7 @@ describe('App tour', () => {
     expect(mockNavigate).toHaveBeenLastCalledWith('/history');
     await fireEvent.press(screen.getByLabelText('Next'));
     await fireEvent.press(screen.getByLabelText('Next'));
-    expect(await screen.findByText('AI Ideas')).toBeTruthy();
+    expect(await screen.findByText('Plan my week')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Next'));
     expect(await screen.findByText('My fridge')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Next'));

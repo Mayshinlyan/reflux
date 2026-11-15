@@ -10,6 +10,7 @@ import {
   MIN_SERVES,
   type RecipeTime,
 } from '@/constants/cuisines';
+import { DEFAULT_PLAN_CHOICES, isPlanChoices, type PlanChoices } from '@/constants/mealPlan';
 import { RETIRED_SYMPTOM_KEYS, SYMPTOM_KEYS, type SymptomKey } from '@/constants/symptomItems';
 import { type ItemKey, isValidWorn } from '@/lib/bellieItems';
 import { type BellieStage, isBellieStage } from '@/lib/bellieStage';
@@ -70,6 +71,8 @@ export type Settings = {
    * `seen` is set once the ideas sheet was opened and closed again, so the count on "AI Ideas" starts over (Figma 38).
    */
   kitchenIdeas: { cuisine: CuisineKey; recipes: Recipe[]; seen?: boolean } | null;
+  /** The meal planner's set-up sheet as it was left (Figma "meal planning flow" B), so it opens prefilled. */
+  planChoices: PlanChoices;
   /** The check-in days they committed to reaching (the completion flow's goal screen, Figma G3); null = not picked. */
   commitGoal: 7 | 14 | 30 | null;
   /** The check-in day milestones whose gift was already opened, so each shows once. */
@@ -105,6 +108,7 @@ export const DEFAULT_SETTINGS: Settings = {
   kitchenUseFridge: true,
   kitchenRounds: { day: '', count: 0 },
   kitchenIdeas: null,
+  planChoices: DEFAULT_PLAN_CHOICES,
   commitGoal: null,
   giftsSeen: [],
   bellieHat: false,
@@ -183,6 +187,9 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
     if (typeof rounds?.day !== 'string' || !Number.isInteger(rounds.count) || rounds.count < 0) {
       throw new Error('kitchenRounds must be a day and a count');
     }
+  }
+  if (key === 'planChoices' && !isPlanChoices(value)) {
+    throw new Error('planChoices must be days, meals, cuisines, a mode, a prep time and a fridge switch');
   }
   if (key === 'commitGoal' && value !== null && ![7, 14, 30].includes(value as number)) {
     throw new Error('commitGoal must be null, 7, 14 or 30');
