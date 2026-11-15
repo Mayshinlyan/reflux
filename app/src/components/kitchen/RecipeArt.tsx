@@ -10,6 +10,8 @@ type Props = {
   height: number;
   /** Width in points; omit to fill the parent. */
   width?: number;
+  /** No rounded corners, for a picture that fills the top of a card (the card rounds it). */
+  square?: boolean;
 };
 
 /**
@@ -17,7 +19,7 @@ type Props = {
  * soup pot, a plate, a mug or a noodle bowl, each on its own colour. Every shape is a plain View, so it is crisp at
  * any size. It is decoration, so a screen reader skips it.
  */
-export function RecipeArt({ look, height, width }: Props) {
+export function RecipeArt({ look, height, width, square = false }: Props) {
   const colors = useColors();
   const safe = isLook(look) ? look : 0;
   const bs = Math.round(height * 0.57);
@@ -184,7 +186,11 @@ export function RecipeArt({ look, height, width }: Props) {
       accessible={false}
       importantForAccessibility="no-hide-descendants"
       accessibilityElementsHidden
-      style={[styles.box, { height, width, backgroundColor: colors[LOOKS[safe]!.tint] }]}>
+      style={[
+        styles.box,
+        square && styles.square,
+        { height, width, backgroundColor: colors[LOOKS[safe]!.tint] },
+      ]}>
       {shapes}
     </View>
   );
@@ -192,5 +198,6 @@ export function RecipeArt({ look, height, width }: Props) {
 
 const styles = StyleSheet.create({
   box: { borderRadius: radius.md, overflow: 'hidden' },
+  square: { borderRadius: 0 },
   belly: { position: 'absolute', left: '50%', alignItems: 'center' },
 });
