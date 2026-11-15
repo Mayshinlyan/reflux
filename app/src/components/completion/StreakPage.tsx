@@ -31,7 +31,7 @@ export function StreakPage({ summary, onContinue }: { summary: CheckInSummary; o
       action={{ label: 'Continue', onPress: onContinue }}
       top>
       <Animated.View
-        entering={reduceMotion ? undefined : ZoomIn.springify().damping(12)}
+        entering={reduceMotion ? undefined : ZoomIn.springify().damping(20)}
         style={[styles.disc, { backgroundColor: colors.sageTint }]}
         accessible
         accessibilityLabel={head.big ? `${head.big} ${head.title}` : head.title}>

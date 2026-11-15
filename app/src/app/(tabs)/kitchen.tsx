@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { Bookmark } from 'lucide-react-native';
+import { Bookmark, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -288,7 +288,7 @@ export default function KitchenScreen() {
               </View>
               <View ref={ideasTarget} style={styles.fill}>
                 <PillButton
-                  icon={<Belly mood="happy" size={28} />}
+                  icon={<Sparkles size={24} color={colors.ink} strokeWidth={2} />}
                   label={backTomorrow ? 'Back tomorrow' : 'AI Ideas'}
                   count={waiting}
                   disabled={backTomorrow}
