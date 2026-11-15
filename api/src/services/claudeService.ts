@@ -10,6 +10,7 @@ import {
 } from '../prompts/foodAnalysisPrompt.js';
 import { FRIDGE_SYSTEM_PROMPT, FRIDGE_TOOL_NAME, FRIDGE_USER_MESSAGE } from '../prompts/fridgePrompt.js';
 import { INSIGHT_SYSTEM_PROMPT, INSIGHT_TOOL_NAME, insightUserMessage } from '../prompts/insightPrompt.js';
+import { VOICE_SYSTEM_PROMPT, VOICE_TOOL_NAME, voiceUserMessage } from '../prompts/voicePrompt.js';
 import { RECIPE_SYSTEM_PROMPT, RECIPE_TOOL_NAME, recipeUserMessage } from '../prompts/recipePrompt.js';
 import {
   fridgeScanJsonSchema,
@@ -19,6 +20,8 @@ import {
   type Portion,
   type RecipeIdeasInput,
   recipeIdeasJsonSchema,
+  type VoiceContext,
+  voiceExtractJsonSchema,
 } from '../schemas.js';
 
 export type ClaudeInput =
@@ -53,6 +56,8 @@ export interface ClaudeService {
   recipes(input: RecipeIdeasInput): Promise<ClaudeResult>;
   /** The food names in one to three sanitized fridge photos (the Kitchen's "My fridge"). */
   fridge(input: { jpegs: Buffer[] }): Promise<ClaudeResult>;
+  /** The foods, symptoms and time in a spoken log's transcript. */
+  voiceLog(input: { transcript: string; context: VoiceContext }): Promise<ClaudeResult>;
 }
 
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -116,6 +121,7 @@ export function createClaudeService(options: {
   const insightSchema = insightJsonSchema();
   const recipeSchema = recipeIdeasJsonSchema();
   const fridgeSchema = fridgeScanJsonSchema();
+  const voiceSchema = voiceExtractJsonSchema();
 
   async function call({
     system,
@@ -240,6 +246,15 @@ export function createClaudeService(options: {
         timeoutMs: FRIDGE_TIMEOUT_MS,
       });
     },
+    voiceLog(input) {
+      return call({
+        system: VOICE_SYSTEM_PROMPT,
+        toolName: VOICE_TOOL_NAME,
+        toolDescription: 'Report the foods, symptoms and time in what the person said. Call exactly once.',
+        inputSchema: voiceSchema,
+        content: [{ type: 'text', text: voiceUserMessage(input.transcript, input.context) }],
+      });
+    },
   };
 }
 
@@ -283,6 +298,9 @@ export function createUnavailableClaudeService(model = DEFAULT_MODEL): ClaudeSer
       throw new HttpError('SERVICE_BUSY');
     },
     async fridge() {
+      throw new HttpError('SERVICE_BUSY');
+    },
+    async voiceLog() {
       throw new HttpError('SERVICE_BUSY');
     },
   };

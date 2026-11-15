@@ -11,6 +11,7 @@ import {
   createClaudeService,
   createUnavailableClaudeService,
 } from './services/claudeService.js';
+import { createOpenAiCompatibleSpeech, createUnavailableSpeech } from './services/speechToText.js';
 import { createFirebaseTokenVerifier } from './services/tokenVerifier.js';
 
 const env = loadEnv();
@@ -35,7 +36,12 @@ const claude = anthropic
   ? createClaudeService({ client: anthropic.client, model: env.ANTHROPIC_MODEL })
   : createUnavailableClaudeService(env.ANTHROPIC_MODEL);
 
-const server = createApp({ env, logger, verifier, rateLimitStore, claude, feedbackStore }).listen(
+const speech = env.STT_API_KEY
+  ? createOpenAiCompatibleSpeech({ baseUrl: env.STT_BASE_URL, apiKey: env.STT_API_KEY, model: env.STT_MODEL })
+  : createUnavailableSpeech();
+if (!env.STT_API_KEY) logger.warn('No STT_API_KEY is set; spoken logs will report SERVICE_BUSY');
+
+const server = createApp({ env, logger, verifier, rateLimitStore, claude, feedbackStore, speech }).listen(
   env.PORT,
   () => {
     logger.info(

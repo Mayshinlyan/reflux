@@ -5,7 +5,8 @@ import { type Env, loadEnv } from '../src/config/env.js';
 import { type FeedbackStore, InMemoryFeedbackStore } from '../src/lib/feedbackStore.js';
 import { createLogger } from '../src/lib/logger.js';
 import { InMemoryRateLimitStore, type RateLimitStore } from '../src/lib/rateLimitStore.js';
-import type { InsightInput, RecipeIdeasInput } from '../src/schemas.js';
+import type { SpeechToText } from '../src/services/speechToText.js';
+import type { InsightInput, RecipeIdeasInput, VoiceContext } from '../src/schemas.js';
 import type { ClaudeInput, ClaudeResult, ClaudeService } from '../src/services/claudeService.js';
 import type { TokenVerifier } from '../src/services/tokenVerifier.js';
 
@@ -53,6 +54,12 @@ export const goodInsight = {
   bellieLine: 'Easy on the spice tonight?',
   summary: 'Spicy tacos late, then heartburn. Chili and tomato keep showing up.',
   tips: ['Have spicy food earlier in the day.', 'Try a milder salsa.'],
+};
+
+export const goodVoice = {
+  foods: ['Pasta', 'Glass of wine'],
+  symptoms: ['heartburn'],
+  at: '2026-11-13T20:00:00-08:00',
 };
 
 export const goodFridge = { items: ['Eggs', 'rice', 'Kimchi  ', 'eggs', 'spinach'] };
@@ -105,11 +112,14 @@ export function fakeClaude(
   respondInsight: (input: InsightInput) => unknown | Promise<unknown> = () => goodInsight,
   respondRecipes: (input: RecipeIdeasInput) => unknown | Promise<unknown> = () => goodRecipes,
   respondFridge: (input: { jpegs: Buffer[] }) => unknown | Promise<unknown> = () => goodFridge,
+  respondVoice: (input: { transcript: string; context: VoiceContext }) => unknown | Promise<unknown> = () =>
+    goodVoice,
 ) {
   const calls: ClaudeInput[] = [];
   const insightCalls: InsightInput[] = [];
   const recipeCalls: RecipeIdeasInput[] = [];
   const fridgeCalls: { jpegs: Buffer[] }[] = [];
+  const voiceCalls: { transcript: string; context: VoiceContext }[] = [];
   const service: ClaudeService = {
     model: 'claude-test-model',
     async analyze(input): Promise<ClaudeResult> {
@@ -128,8 +138,24 @@ export function fakeClaude(
       fridgeCalls.push(input);
       return { raw: await respondFridge(input), telemetry };
     },
+    async voiceLog(input): Promise<ClaudeResult> {
+      voiceCalls.push(input);
+      return { raw: await respondVoice(input), telemetry };
+    },
   };
-  return { service, calls, insightCalls, recipeCalls, fridgeCalls };
+  return { service, calls, insightCalls, recipeCalls, fridgeCalls, voiceCalls };
+}
+
+/** A speech service that "hears" fixed words and remembers what it was given. */
+export function fakeSpeech(words = 'I had pasta and a glass of wine around eight and my chest is burning') {
+  const calls: { bytes: number; mimeType: string; hint: string }[] = [];
+  const service: SpeechToText = {
+    async transcribe(audio, mimeType, hint) {
+      calls.push({ bytes: audio.length, mimeType, hint });
+      return words;
+    },
+  };
+  return { service, calls };
 }
 
 export function testApp(
@@ -139,6 +165,7 @@ export function testApp(
     rateLimitStore?: RateLimitStore;
     verifier?: TokenVerifier;
     feedbackStore?: FeedbackStore;
+    speech?: SpeechToText;
   } = {},
 ) {
   const env = loadEnv({ NODE_ENV: 'test', ...overrides });
@@ -152,6 +179,7 @@ export function testApp(
     rateLimitStore: deps.rateLimitStore ?? new InMemoryRateLimitStore(),
     claude: deps.claude ?? claude.service,
     feedbackStore: deps.feedbackStore ?? feedbackStore,
+    speech: deps.speech ?? fakeSpeech().service,
   });
   return { app, logs, claudeCalls: claude.calls, feedback: feedbackStore.entries };
 }

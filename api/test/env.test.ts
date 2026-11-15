@@ -42,6 +42,12 @@ describe('loadEnv', () => {
     });
   });
 
+  it('starts without a speech key, even when the deploy passes it empty', () => {
+    expect(loadEnv({ STT_API_KEY: '' }).STT_API_KEY).toBeUndefined();
+    expect(loadEnv({}).STT_API_KEY).toBeUndefined();
+    expect(loadEnv({ STT_API_KEY: 'k' }).STT_API_KEY).toBe('k');
+  });
+
   it('asks for the organization id when a federation rule id is set', () => {
     expect(() => loadEnv({ ANTHROPIC_FEDERATION_RULE_ID: 'fdrl_x' })).toThrow(/ANTHROPIC_ORGANIZATION_ID/);
   });

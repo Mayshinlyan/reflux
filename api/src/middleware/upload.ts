@@ -29,3 +29,18 @@ export function upload(req: Request, res: Response, next: NextFunction) {
   if (!req.is('multipart/form-data')) return next();
   parser(req, res, next);
 }
+
+/** A spoken log is about a minute of compressed audio; this leaves room for a long ramble. */
+export const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
+
+const audioParser = multer({
+  storage: multer.memoryStorage(), // audio never touches disk
+  // One `audio` file and one `context` text field, nothing else.
+  limits: { fileSize: MAX_AUDIO_BYTES, files: 1, fields: 1, fieldSize: 16 * 1024, parts: 2 },
+}).single('audio');
+
+/** The spoken log: parses a multipart body of one `audio` file and a `context` field. */
+export function uploadAudio(req: Request, res: Response, next: NextFunction) {
+  if (!req.is('multipart/form-data')) return next();
+  audioParser(req, res, next);
+}
