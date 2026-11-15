@@ -1,4 +1,4 @@
-import { Leaf, Lock, Shuffle, X } from 'lucide-react-native';
+import { Leaf, Shuffle, X } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -10,29 +10,18 @@ import type { PlanDish } from '@/types/mealPlan';
 type Props = {
   slot: PlanSlot;
   dish: PlanDish;
-  locked: boolean;
   skipped: boolean;
   /** Opens the dish as a recipe page. */
   onOpen: () => void;
   onSwap: () => void;
-  onToggleLock: () => void;
   onToggleSkip: () => void;
 };
 
 /**
- * One meal of the plan (Figma "meal planning flow" D): its slot, the dish, a line on why it fits, and three quiet
- * actions. A locked meal is kept when the plan is redone. A skipped meal (eating out) is dimmed and a redo leaves it.
+ * One meal of the plan (Figma "meal planning flow" D3): its slot, the dish, a line on why it fits, and two quiet
+ * actions. A skipped meal (eating out) is dimmed, reads "Eating out", and is left out of the prep day and shopping list.
  */
-export function PlanMealCard({
-  slot,
-  dish,
-  locked,
-  skipped,
-  onOpen,
-  onSwap,
-  onToggleLock,
-  onToggleSkip,
-}: Props) {
+export function PlanMealCard({ slot, dish, skipped, onOpen, onSwap, onToggleSkip }: Props) {
   const colors = useColors();
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
@@ -61,9 +50,6 @@ export function PlanMealCard({
       </Pressable>
       <View style={styles.actions}>
         {!skipped && <Action icon={Shuffle} label="Swap" onPress={onSwap} />}
-        {!skipped && (
-          <Action icon={Lock} label={locked ? 'Locked' : 'Lock'} active={locked} onPress={onToggleLock} />
-        )}
         <Action icon={X} label={skipped ? 'Add back' : 'Skip'} onPress={onToggleSkip} />
       </View>
     </View>

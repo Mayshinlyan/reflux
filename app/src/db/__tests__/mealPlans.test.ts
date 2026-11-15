@@ -8,8 +8,6 @@ import {
   getCurrentPlan,
   getMeal,
   type NewMeal,
-  redoPlan,
-  setMealLocked,
   setMealSkipped,
   swapMeal,
 } from '../repositories/mealPlans';
@@ -101,42 +99,7 @@ describe('meal plans', () => {
     ).toThrow();
   });
 
-  it('keeps locked and skipped meals when the plan is redone, and replaces the rest', () => {
-    const plan = createPlan(db, { weekStart: '2026-11-16', choices: DEFAULT_PLAN_CHOICES, meals });
-    const [lunch, dinner, nextDinner] = plan.meals;
-    setMealLocked(db, lunch!.id, true);
-    setMealSkipped(db, nextDinner!.id, true);
-
-    const redone = redoPlan(db, plan.id, { ...DEFAULT_PLAN_CHOICES, mode: 'daily' }, '2026-11-16', [
-      { day: '2026-11-16', slot: 'dinner', dish: dish('d7', 'Baked cod', 0) },
-    ]);
-
-    expect(redone?.mode).toBe('daily');
-    expect(
-      redone?.meals.map((meal) => `${meal.slot}:${meal.dish.title}:${meal.locked}:${meal.skipped}`),
-    ).toEqual([
-      'lunch:Chicken bowls:true:false',
-      'dinner:Baked cod:false:false',
-      'dinner:Miso salmon:false:true',
-    ]);
-    expect(getMeal(db, dinner!.id)).toBeNull();
-  });
-
-  it('leaves days before the redo day alone', () => {
-    const plan = createPlan(db, { weekStart: '2026-11-16', choices: DEFAULT_PLAN_CHOICES, meals });
-
-    const redone = redoPlan(db, plan.id, DEFAULT_PLAN_CHOICES, '2026-11-17', [
-      { day: '2026-11-17', slot: 'dinner', dish: dish('d8', 'Chicken congee') },
-    ]);
-
-    expect(redone?.meals.map((meal) => `${meal.day} ${meal.slot} ${meal.dish.title}`)).toEqual([
-      '2026-11-16 lunch Chicken bowls',
-      '2026-11-16 dinner Miso salmon',
-      '2026-11-17 dinner Chicken congee',
-    ]);
-  });
-
-  it('swaps a meal for another dish and locks it', () => {
+  it('swaps a meal for another dish', () => {
     const plan = createPlan(db, { weekStart: '2026-11-16', choices: DEFAULT_PLAN_CHOICES, meals });
     const first = plan.meals[0]!;
     setMealSkipped(db, first.id, true);
@@ -146,7 +109,6 @@ describe('meal plans', () => {
     const swapped = getMeal(db, first.id);
     expect(swapped?.dish.title).toBe('Tofu stir fry');
     expect(swapped?.dishId).toBe('s1');
-    expect(swapped?.locked).toBe(true);
     expect(swapped?.skipped).toBe(false);
   });
 

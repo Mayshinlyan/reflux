@@ -6,7 +6,7 @@ import { weekdayOf } from './mealPlan';
 
 /**
  * The meals that are eaten (not "eating out"), which are the only ones the prep day and the list shop for. With `from`
- * (today), days already gone are left out too: a plan redone mid-week keeps the locked meals already eaten.
+ * (today), days already gone are left out too: a week that has started has meals behind it.
  */
 export function eatenMeals<T extends { skipped: boolean; day: string }>(
   meals: readonly T[],

@@ -21,7 +21,7 @@ export type MealPlanRequest = {
   mode: PlanMode;
   /** The meals still to plan: a day ("YYYY-MM-DD") and a slot each. */
   slots: { day: string; slot: PlanSlot }[];
-  /** Titles of the dishes the person locked: kept as they are, planned around. */
+  /** Titles of dishes to keep and plan around. The app sends none today; the relay still accepts them. */
   keep?: string[];
   cuisines: CuisineKey[];
   prepMinutes?: number;

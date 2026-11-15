@@ -253,7 +253,7 @@ export const savedRecipes = sqliteTable(
 );
 
 /**
- * A week plan from the Kitchen. `choices` are the set-up choices it was made from (so a redo starts from them). The
+ * A week plan from the Kitchen. `choices` are the set-up choices it was made from (so the set-up sheet opens as it was). The
  * newest plan is the current one. A plan is an intention: nothing in it is ever written to the food diary by itself.
  */
 export const mealPlans = sqliteTable(
@@ -274,7 +274,7 @@ export const mealPlans = sqliteTable(
 
 /**
  * One meal of a plan: a day and a slot, with the dish it is made from (`recipe` is the whole dish, so the plan works
- * with no connection). `locked` keeps it when the plan is redone; `skipped` means eating out that meal.
+ * with no connection). `skipped` means eating out that meal (`locked` is no longer used; it stays so older plans still read).
  */
 export const plannedMeals = sqliteTable(
   'planned_meals',
