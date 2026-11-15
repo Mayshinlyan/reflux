@@ -30,7 +30,8 @@ const envSchema = z
      * Whisper, OpenAI, or our own). Without a key, spoken logs report busy. The key is a secret; never logged.
      */
     STT_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
-    STT_API_KEY: z.string().min(1).optional(),
+    // The deploy passes it even when the secret is unset (an empty string), which must not stop the relay starting.
+    STT_API_KEY: optionalId,
     STT_MODEL: z.string().min(1).default('whisper-1'),
     /** Feedback messages per person per day; no AI cost, so it never counts toward the AI breaker above. */
     PER_USER_DAILY_FEEDBACK_LIMIT: z.coerce.number().int().positive().default(5),
