@@ -23,21 +23,24 @@ import { friendlyMessages } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { dayToLoggedAt } from '@/lib/mealTime';
 import { currentTimeZone } from '@/lib/time';
-import type { VoiceHeard } from '@/lib/voiceParse';
 import { checkPendingMeals } from '@/services/pendingChecks';
 import { scheduleCheckIn } from '@/services/reminders';
+import { useVoiceRecorder } from '@/services/useVoiceRecorder';
 import {
+  discardRecording,
   isVoiceProblem,
-  type Listening,
   requestMicrophone,
-  startListening,
   understand,
   VoiceError,
+  type VoiceHeard,
   type VoiceProblem as Problem,
 } from '@/services/voice';
 import { space } from '@/theme';
 
 type Phase = 'listening' | 'working' | 'confirm' | 'problem';
+
+/** A recording stops by itself after this long, so a phone left running can't send an hour of audio. */
+const MAX_RECORDING_MS = 120_000;
 
 /** How long the wave takes to follow a change in loudness, so it moves smoothly instead of flickering. */
 const LEVEL_SMOOTHING_MS = 90;
@@ -48,8 +51,8 @@ const capitalise = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
  * "Tell me" (Figma 45a to 45j): speak what you ate or how you feel, then check what Bellie heard before it is
  * saved. Listening (45b) -> working it out (45c, the app's own pot loader) -> "Did I get that?" (45d), where each
  * chip opens a sheet to fix it (45h to 45j). A mic that is off, silence or no signal each get their own screen
- * (45e to 45g). The speech itself is a stand-in for now (see `services/voice.ts`); `?demo=permission|nothing|offline`
- * shows a problem screen on purpose. `?date=` (a day tapped in Today's week strip) starts the time on that day.
+ * (45e to 45g). The recording goes to the relay, which hears it and works out the foods, symptoms and time (see
+ * `services/voice.ts`); `?demo=permission|nothing|offline` shows a problem screen on purpose. `?date=` (a day tapped in Today's week strip) starts the time on that day.
  */
 export default function LogVoiceScreen() {
   const db = useDb();
@@ -59,7 +62,6 @@ export default function LogVoiceScreen() {
 
   const [phase, setPhase] = useState<Phase>('listening');
   const [problem, setProblem] = useState<Problem>('nothing');
-  const [words, setWords] = useState('');
   const [heard, setHeard] = useState<VoiceHeard>({ foods: [], symptoms: [], at: null });
   const [foodSheet, setFoodSheet] = useState<{ index: number; open: boolean } | null>(null);
   const [symptomSheet, setSymptomSheet] = useState<{ key: LoggedSymptomKey; open: boolean } | null>(null);
@@ -67,8 +69,12 @@ export default function LogVoiceScreen() {
   const [saving, setSaving] = useState(false);
   /** How loud the voice is, 0 to 1, smoothed: the wave's height. */
   const level = useSharedValue(0);
-  const listening = useRef<Listening | null>(null);
-  const transcript = useRef('');
+  const recorder = useVoiceRecorder();
+  /** The recording once it has ended, kept so "Try again" after no signal sends the same audio. */
+  const audioUri = useRef<string | null>(null);
+  const limitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The latest `done`, for the recording limit's timer. */
+  const finishRef = useRef<() => void>(() => {});
   const alive = useRef(true);
 
   const sources = useMemo(() => {
@@ -99,11 +105,22 @@ export default function LogVoiceScreen() {
     setPhase('problem');
   }, []);
 
+  const clearLimit = useCallback(() => {
+    if (limitTimer.current) clearTimeout(limitTimer.current);
+    limitTimer.current = null;
+  }, []);
+
+  /** Deletes the recording from the phone: it is only kept while "Try again" might still need it. */
+  const dropAudio = useCallback(() => {
+    discardRecording(audioUri.current);
+    audioUri.current = null;
+  }, []);
+
   /** Asks for the mic and starts listening from scratch. */
   const begin = useCallback(async () => {
-    listening.current?.cancel();
-    transcript.current = '';
-    setWords('');
+    recorder.cancel();
+    clearLimit();
+    dropAudio();
     setPhase('listening');
     try {
       await requestMicrophone(demo);
@@ -112,30 +129,37 @@ export default function LogVoiceScreen() {
       return;
     }
     if (!alive.current) return;
-    // A second "Talk again" during the permission check must not leave two listeners running.
-    listening.current?.cancel();
     level.set(0);
-    listening.current = startListening(
-      {
-        // The words are only kept, not shown, while listening; they appear after Done.
-        onWords: (heardSoFar) => {
-          transcript.current = heardSoFar;
-        },
-        onLevel: (loudness) => {
-          level.set(withTiming(loudness, { duration: LEVEL_SMOOTHING_MS }));
-        },
-      },
-      demo,
-    );
+    try {
+      await recorder.start((loudness) => {
+        level.set(withTiming(loudness, { duration: LEVEL_SMOOTHING_MS }));
+      });
+    } catch (error) {
+      fail(error);
+      return;
+    }
+    if (!alive.current) {
+      recorder.cancel();
+      return;
+    }
+    // A second "Talk again" while this one was opening must not leave two limit timers running.
+    clearLimit();
+    limitTimer.current = setTimeout(() => finishRef.current(), MAX_RECORDING_MS);
     // A light tap says the microphone is open.
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-  }, [demo, fail, level]);
+  }, [clearLimit, demo, dropAudio, fail, level, recorder]);
 
-  /** Works out what was said. Kept apart so "Try again" after no signal reuses the same words. */
+  /** Sends the recording and works out what was said. Kept apart so "Try again" after no signal reuses the same audio. */
   const work = useCallback(async () => {
     setPhase('working');
     try {
-      const result = await understand(transcript.current, demo);
+      const result = await understand(
+        audioUri.current,
+        { foods: [...sources.saved.map((food) => food.name), ...sources.recent], symptoms: ownSymptoms },
+        demo,
+      );
+      // Understood: the recording is no longer needed anywhere.
+      dropAudio();
       if (!alive.current) return;
       const day = params.date ? dayToLoggedAt(params.date, new Date()) : null;
       setHeard({ ...result, at: result.at ?? day });
@@ -143,7 +167,7 @@ export default function LogVoiceScreen() {
     } catch (error) {
       fail(error);
     }
-  }, [demo, fail, params.date]);
+  }, [demo, dropAudio, fail, ownSymptoms, params.date, sources]);
 
   useEffect(() => {
     alive.current = true;
@@ -151,29 +175,37 @@ export default function LogVoiceScreen() {
     void begin();
     return () => {
       alive.current = false;
-      listening.current?.cancel();
+      clearLimit();
+      recorder.cancel();
+      dropAudio();
     };
-  }, [begin]);
+  }, [begin, clearLimit, dropAudio, recorder]);
 
   const done = () => {
     // A fast double tap must not start the work twice.
     if (phase !== 'listening') return;
-    const text = listening.current?.stop() ?? transcript.current;
-    transcript.current = text;
-    setWords(text);
-    if (!text.trim()) {
-      fail(new VoiceError('nothing'));
-      return;
-    }
-    void work();
+    clearLimit();
+    setPhase('working');
+    void (async () => {
+      try {
+        audioUri.current = await recorder.stop();
+      } catch (error) {
+        fail(error);
+        return;
+      }
+      if (alive.current) void work();
+    })();
   };
+  useEffect(() => {
+    finishRef.current = done;
+  });
 
   const typeInstead = () => router.replace('/log/food');
 
   const problemAction = () => {
     if (problem === 'permission') {
       void Linking.openSettings();
-    } else if (problem === 'offline' && transcript.current.trim()) {
+    } else if (problem === 'offline' && audioUri.current) {
       void work();
     } else {
       void begin();
@@ -253,7 +285,7 @@ export default function LogVoiceScreen() {
     <Screen style={styles.screen}>
       <BackHeader close />
       {(phase === 'listening' || phase === 'working') && (
-        <VoiceListening phase={phase} level={level} words={words} onDone={done} onTypeInstead={typeInstead} />
+        <VoiceListening phase={phase} level={level} onDone={done} onTypeInstead={typeInstead} />
       )}
       {phase === 'problem' && (
         <VoiceProblem problem={problem} onAction={problemAction} onTypeInstead={typeInstead} />

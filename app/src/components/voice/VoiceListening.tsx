@@ -4,28 +4,26 @@ import { StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { FoodLoading } from '@/components/FoodLoading';
-import { space, typography } from '@/theme';
+import { space } from '@/theme';
 
 import { TypeInstead } from './TypeInstead';
 import { VoiceWave } from './VoiceWave';
 
 type Props = {
-  /** Listening: the wave moves with the voice, and no words show. Working: the words appear, as Bellie sorts them out. */
+  /** Listening: the wave moves with the voice, and no words show. Working: the pot loader, while Bellie hears and sorts it out. */
   phase: 'listening' | 'working';
   /** How loud the voice is, 0 to 1; drives the wave. */
   level: SharedValue<number>;
-  /** What was heard, shown only once listening has ended. */
-  words: string;
   onDone: () => void;
   onTypeInstead: () => void;
 };
 
 /**
  * Figma 45b and 45c. Listening is a wave that moves with your voice, "Done" and "Type instead"; the words are not
- * shown while you talk (a live transcript flickers and invites fixing as you go). Working shows the words you said and
- * the app's own steaming-pot loader, unchanged.
+ * shown while you talk (a live transcript flickers and invites fixing as you go). Working is the app's own
+ * steaming-pot loader, unchanged.
  */
-export function VoiceListening({ phase, level, words, onDone, onTypeInstead }: Props) {
+export function VoiceListening({ phase, level, onDone, onTypeInstead }: Props) {
   const listening = phase === 'listening';
   return (
     <>
@@ -37,16 +35,7 @@ export function VoiceListening({ phase, level, words, onDone, onTypeInstead }: P
           {listening ? 'Say what you ate or how you feel.' : 'Just a moment.'}
         </AppText>
         <View style={styles.middle}>
-          {listening ? (
-            <VoiceWave level={level} onPress={onDone} />
-          ) : (
-            <>
-              <FoodLoading source="voice" />
-              <AppText color="inkSoft" style={[styles.centre, styles.words]}>
-                {words ? `“${words}”` : ''}
-              </AppText>
-            </>
-          )}
+          {listening ? <VoiceWave level={level} onPress={onDone} /> : <FoodLoading source="voice" />}
         </View>
       </View>
       {listening && (
@@ -63,7 +52,6 @@ const styles = StyleSheet.create({
   body: { flex: 1, paddingTop: space.s3, gap: space.s1 },
   centre: { textAlign: 'center' },
   // The wave (or the loader and the words) sits in the middle of whatever room is left, so the gaps above and below match.
-  middle: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.s2 },
-  words: { ...typography.lead, paddingHorizontal: space.s3 },
+  middle: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   footer: { paddingTop: space.s2, paddingBottom: space.s1, gap: space.s1 },
 });
