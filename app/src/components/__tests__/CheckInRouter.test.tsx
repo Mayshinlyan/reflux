@@ -97,6 +97,18 @@ describe('CheckInRouter', () => {
   });
 });
 
+describe('CheckInRouter: the week plan notification', () => {
+  it('opens the new plan when "Your week is ready" is tapped', async () => {
+    mocked.useLastNotificationResponse.mockReturnValue(reminder(TAP, { plan: true }));
+    await render(<CheckInRouter />);
+    await act(async () => {
+      jest.advanceTimersByTime(10);
+    });
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith('/plan');
+  });
+});
+
 describe('CheckInRouter: the weekly notification', () => {
   beforeEach(() => {
     mocked.useLastNotificationResponse.mockReturnValue(null);

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import KitchenScreen from '@/app/(tabs)/kitchen';
 import { DEFAULT_PLAN_CHOICES, isPlanChoices } from '@/constants/mealPlan';
@@ -6,17 +6,20 @@ import { createTestDb } from '@/db/__tests__/testDb';
 import { createAvoidFood } from '@/db/repositories/avoidFoods';
 import { replaceFridge } from '@/db/repositories/fridgeItems';
 import { createFoodLog } from '@/db/repositories/food';
-import { createPlan, markMealLogOffered, setMealSkipped } from '@/db/repositories/mealPlans';
+import { createPlan, getCurrentPlan, markMealLogOffered, setMealSkipped } from '@/db/repositories/mealPlans';
 import { setChecked } from '@/db/repositories/planChecks';
 import { createSymptomLog } from '@/db/repositories/symptoms';
 import { saveRecipe } from '@/db/repositories/savedRecipes';
-import { getSetting } from '@/db/repositories/settings';
+import { getSetting, setSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';
 import { todayKey } from '@/lib/kitchen';
 import { addDays } from '@/lib/localDay';
 import { planWeek } from '@/lib/mealPlan';
 import { getRecipeDraft, setRecipeDraft } from '@/lib/recipeDraft';
-import type { PlanDish } from '@/types/mealPlan';
+import { AppError } from '@/lib/errors';
+import { resetPlanJob, startPlanJob } from '@/services/planJob';
+import { fetchMealPlan } from '@/services/relayClient';
+import type { MealPlanRequest, PlanDish } from '@/types/mealPlan';
 import type { Recipe } from '@/types/recipe';
 
 let mockDb: AppDb;
@@ -49,7 +52,11 @@ jest.mock('@/db/DatabaseProvider', () => ({
   },
 }));
 // The Feedback button on this page imports the relay client, which loads Firebase; the Kitchen itself calls nothing.
-jest.mock('@/services/relayClient', () => ({ sendFeedback: jest.fn() }));
+jest.mock('@/services/relayClient', () => ({
+  sendFeedback: jest.fn(),
+  fetchMealPlan: jest.fn(),
+  fetchPrepPlan: jest.fn(),
+}));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -123,38 +130,39 @@ beforeEach(() => {
   closeDb = () => sqlite.close();
   mockPush.mockClear();
   setRecipeDraft(null);
+  resetPlanJob();
+  (fetchMealPlan as jest.Mock).mockReset();
 });
 afterEach(() => closeDb());
 
 describe('Kitchen with no plan', () => {
-  it('has its title, one Plan your week card with one button, and the saved and fridge rows', async () => {
+  it('has its title, one Plan your week card with one button, and the Saved recipes and My fridge pills', async () => {
     await render(<KitchenScreen />);
 
     expect(screen.getByRole('header', { name: 'Kitchen' })).toBeTruthy();
     expect(screen.getByText('What shall we cook?')).toBeTruthy();
     expect(screen.getByText('Plan your week')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Plan my week' })).toBeTruthy();
-    expect(screen.getByText('0 recipes')).toBeTruthy();
-    expect(screen.getByRole('header', { name: 'My fridge' })).toBeTruthy();
+    expect(screen.getByText('Saved recipes')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'My fridge' })).toBeTruthy();
     // The recipe ideas are gone: planning is the way in.
     expect(screen.queryByText(/AI Ideas/)).toBeNull();
     expect(screen.queryByText('Get ideas')).toBeNull();
   });
 
-  it('counts the saved recipes and opens the list', async () => {
+  it('opens the saved recipes from its pill', async () => {
     saveRecipe(mockDb, recipe('Miso salmon bowl'), 'japanese');
     await render(<KitchenScreen />);
 
-    expect(screen.getByText('1 recipe')).toBeTruthy();
-    await press('Saved recipes, 1 recipe');
+    await press('Saved recipes');
 
     expect(mockPush).toHaveBeenCalledWith('/saved-recipes');
   });
 
-  it('opens the fridge from its row', async () => {
+  it('opens the fridge from its pill', async () => {
     await render(<KitchenScreen />);
 
-    await press(/^My fridge, /);
+    await press('My fridge');
 
     expect(mockPush).toHaveBeenCalledWith('/fridge');
   });
@@ -289,9 +297,11 @@ describe('Kitchen: the set-up sheet', () => {
 
     expect(screen.getByRole('button', { name: 'Prep day, Saturday' })).toBeTruthy();
     await press('Make my plan');
-    await waitFor(() => expect(mockPush).toHaveBeenCalled());
+    await waitFor(() => expect(fetchMealPlan).toHaveBeenCalled());
     expect(getSetting(mockDb, 'planChoices').prepDay).toBe(6);
 
+    // The plan is being made; forget that job so the Kitchen asks again.
+    await act(async () => resetPlanJob());
     await press('Plan my week');
     expect(screen.getByRole('button', { name: 'Prep day, Saturday' })).toBeTruthy();
   });
@@ -306,7 +316,8 @@ describe('Kitchen: the set-up sheet', () => {
     expect(screen.getByRole('button', { name: 'Prep day, Sunday' })).toBeTruthy();
   });
 
-  it('keeps the choices and opens the plan page once the sheet has closed', async () => {
+  it('keeps the choices and starts planning, staying on the Kitchen, once the sheet has closed', async () => {
+    (fetchMealPlan as jest.Mock).mockImplementation(() => new Promise(() => {}));
     await render(<KitchenScreen />);
     await press('Plan my week');
     await tick('Friday');
@@ -316,9 +327,9 @@ describe('Kitchen: the set-up sheet', () => {
 
     await press('Make my plan');
 
-    await waitFor(() =>
-      expect(mockPush).toHaveBeenCalledWith({ pathname: '/plan', params: { make: 'new' } }),
-    );
+    expect(await screen.findByRole('button', { name: 'Planning your week' })).toBeTruthy();
+    expect(fetchMealPlan).toHaveBeenCalledTimes(1);
+    expect(mockPush).not.toHaveBeenCalled();
     expect(getSetting(mockDb, 'planChoices')).toEqual({
       weekdays: [0, 1, 2, 3, 4, 6],
       meals: ['breakfast', 'lunch', 'dinner'],
@@ -335,8 +346,9 @@ describe('Kitchen: the set-up sheet', () => {
     await press('Plan my week');
     await fireEvent.press(screen.getByRole('tab', { name: 'Cook daily' }));
     await press('Make my plan');
-    await waitFor(() => expect(mockPush).toHaveBeenCalled());
+    await waitFor(() => expect(fetchMealPlan).toHaveBeenCalled());
 
+    await act(async () => resetPlanJob());
     await press('Plan my week');
 
     expect(screen.getByRole('tab', { name: 'Cook daily' }).props.accessibilityState.selected).toBe(true);
@@ -360,7 +372,7 @@ describe('Kitchen: the set-up sheet', () => {
     await fireEvent.press(screen.getByRole('switch', { name: 'Use my fridge' }));
     await press('Make my plan');
 
-    await waitFor(() => expect(mockPush).toHaveBeenCalled());
+    await waitFor(() => expect(fetchMealPlan).toHaveBeenCalled());
     expect(getSetting(mockDb, 'planChoices').useFridge).toBe(false);
   });
 
@@ -551,7 +563,8 @@ describe('Kitchen: next week', () => {
     });
   const at = (hour: number) => new Date(`${weekStart}T${String(hour).padStart(2, '0')}:00:00`).toISOString();
 
-  it('offers to repeat what sat well, and opens the plan page to keep those dishes', async () => {
+  it('offers to repeat what sat well, and starts planning around those dishes without leaving', async () => {
+    (fetchMealPlan as jest.Mock).mockImplementation(() => new Promise(() => {}));
     lastWeek(true);
     ate(at(18));
     await render(<KitchenScreen />);
@@ -559,7 +572,9 @@ describe('Kitchen: next week', () => {
     expect(screen.getByText('The meal you logged sat well. Keep those and plan the rest.')).toBeTruthy();
     await press('Repeat what worked');
 
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/plan', params: { make: 'new', repeat: '1' } });
+    expect(await screen.findByRole('button', { name: 'Planning your week' })).toBeTruthy();
+    expect((fetchMealPlan as jest.Mock).mock.calls[0]![0].keep).toEqual(['Miso salmon']);
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('Start over opens the set-up sheet instead', async () => {
@@ -593,5 +608,103 @@ describe('Kitchen: next week', () => {
 
     expect(screen.getByText('Plan next week')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Dinner, Miso salmon' })).toBeTruthy();
+  });
+});
+
+describe('Kitchen while the week is being planned', () => {
+  const planFetch = fetchMealPlan as jest.Mock;
+  const answer = async (request: MealPlanRequest) => ({
+    dishes: [dish('d1', 'Chicken bowls')],
+    meals: request.slots.map((slot) => ({ day: slot.day, slot: slot.slot, dish: 'd1' })),
+  });
+
+  it('shows Planning your week in place of the plan card, then the plan once it is ready', async () => {
+    let finish: () => void = () => {};
+    planFetch.mockImplementation(
+      (request: MealPlanRequest) =>
+        new Promise((resolve) => {
+          finish = () => resolve(answer(request));
+        }),
+    );
+    await act(async () => {
+      startPlanJob(mockDb, { repeat: false });
+    });
+    await render(<KitchenScreen />);
+
+    expect(screen.getByRole('button', { name: 'Planning your week' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Plan my week' })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Saved recipes/ })).toBeTruthy();
+    expect(screen.getByText('My fridge')).toBeTruthy();
+
+    await act(async () => {
+      finish();
+    });
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Planning your week' })).toBeNull());
+    // Made, but not looked over yet: the green banner, not the week.
+    expect(screen.getByRole('button', { name: /^Review your meal plan/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Edit plan' })).toBeNull();
+    expect(screen.queryByRole('tablist')).toBeNull();
+  });
+
+  it('opens the waiting page when the planning card is tapped', async () => {
+    planFetch.mockImplementation(() => new Promise(() => {}));
+    await act(async () => {
+      startPlanJob(mockDb, { repeat: false });
+    });
+    await render(<KitchenScreen />);
+
+    await press('Planning your week');
+
+    expect(mockPush).toHaveBeenCalledWith('/plan');
+  });
+
+  it('says planning is taking too long, with a Try again link that asks again', async () => {
+    planFetch.mockRejectedValueOnce(new AppError('AI_TIMEOUT')).mockImplementation(answer);
+    await act(async () => {
+      startPlanJob(mockDb, { repeat: false });
+    });
+    await render(<KitchenScreen />);
+
+    expect(await screen.findByText('Planning is taking too long')).toBeTruthy();
+    expect(screen.queryByLabelText('Planning your week')).toBeNull();
+
+    await press('Try again');
+
+    await waitFor(() => expect(screen.queryByText('Planning is taking too long')).toBeNull());
+    expect(planFetch).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole('button', { name: /^Review your meal plan/ })).toBeTruthy();
+  });
+
+  it('shows the green review banner with the two pills, and opens the plan from it', async () => {
+    createPlan(mockDb, {
+      weekStart: todayKey(),
+      choices: DEFAULT_PLAN_CHOICES,
+      meals: [{ day: todayKey(), slot: 'lunch', dish: dish('d1', 'Chicken bowls') }],
+    });
+    setSetting(mockDb, 'reviewPlan', getCurrentPlan(mockDb)!.id);
+    await render(<KitchenScreen />);
+
+    expect(
+      screen.getByRole('button', { name: 'Review your meal plan, 1 meal, 1 dish to prep' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Saved recipes' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'My fridge' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Chicken bowls' })).toBeNull();
+
+    await press(/^Review your meal plan/);
+    expect(mockPush).toHaveBeenCalledWith('/plan');
+  });
+
+  it('shows the week again once the plan has been reviewed', async () => {
+    createPlan(mockDb, {
+      weekStart: todayKey(),
+      choices: DEFAULT_PLAN_CHOICES,
+      meals: [{ day: todayKey(), slot: 'lunch', dish: dish('d1', 'Chicken bowls') }],
+    });
+    await render(<KitchenScreen />);
+
+    expect(screen.queryByRole('button', { name: /^Review your meal plan/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Edit plan' })).toBeTruthy();
   });
 });

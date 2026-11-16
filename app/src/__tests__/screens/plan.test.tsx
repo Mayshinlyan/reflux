@@ -14,6 +14,7 @@ import { addDays } from '@/lib/localDay';
 import { planSlots, planWeekStart, weekdayOf } from '@/lib/mealPlan';
 import { getRecipeDraft, setRecipeDraft } from '@/lib/recipeDraft';
 import { fetchMealPlan, fetchRecipeIdeas } from '@/services/relayClient';
+import { getPlanJob, resetPlanJob, startPlanJob } from '@/services/planJob';
 import { cancelPrepReminder } from '@/services/reminders';
 import type { MealPlanRequest, PlanDish } from '@/types/mealPlan';
 import type { Recipe } from '@/types/recipe';
@@ -28,7 +29,11 @@ jest.mock('@/db/DatabaseProvider', () => ({
   useDb: () => mockDb,
   useSettings: () => ({ settings: {}, reload: jest.fn(), update: jest.fn() }),
 }));
-jest.mock('@/services/relayClient', () => ({ fetchMealPlan: jest.fn(), fetchRecipeIdeas: jest.fn() }));
+jest.mock('@/services/relayClient', () => ({
+  fetchMealPlan: jest.fn(),
+  fetchPrepPlan: jest.fn(),
+  fetchRecipeIdeas: jest.fn(),
+}));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -75,7 +80,11 @@ jest.mock('expo-router', () => ({
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('react').useEffect(effect, [effect]),
 }));
-jest.mock('@/services/reminders', () => ({ cancelPrepReminder: jest.fn(() => Promise.resolve()) }));
+jest.mock('@/services/reminders', () => ({
+  cancelPrepReminder: jest.fn(() => Promise.resolve()),
+  askForReminders: jest.fn(() => Promise.resolve(true)),
+  notifyPlanReady: jest.fn(() => Promise.resolve()),
+}));
 
 const planFetch = fetchMealPlan as jest.Mock;
 const ideasFetch = fetchRecipeIdeas as jest.Mock;
@@ -122,6 +131,7 @@ beforeEach(() => {
   planFetch.mockReset();
   ideasFetch.mockReset();
   setRecipeDraft(null);
+  resetPlanJob();
 });
 afterEach(() => closeDb());
 
@@ -140,14 +150,16 @@ describe('Plan: making a plan', () => {
     );
     await render(<PlanScreen />);
 
-    expect(screen.getByText('Planning around what you can eat')).toBeTruthy();
+    expect(
+      screen.getByText('Usually about a minute. Feel free to leave; I will tell you when it is ready.'),
+    ).toBeTruthy();
     expect(screen.getByLabelText('Planning your week')).toBeTruthy();
 
     await waitFor(() => expect(planFetch).toHaveBeenCalledTimes(1));
     finish(undefined);
 
     expect(await screen.findByRole('header', { name: 'Review the meal plan' })).toBeTruthy();
-    expect(screen.queryByText('Planning around what you can eat')).toBeNull();
+    expect(screen.queryByText(/Usually about a minute/)).toBeNull();
     expect(screen.getAllByText('Chicken bowls').length).toBeGreaterThan(0);
   });
 
@@ -204,6 +216,53 @@ describe('Plan: making a plan', () => {
 
     await screen.findByRole('header', { name: 'Review the meal plan' });
     expect(planFetch.mock.calls[0]![0].keep).toEqual(['Miso salmon']);
+  });
+
+  it('keeps planning after the page is left, and the plan is there when it comes back', async () => {
+    let finish: () => void = () => {};
+    planFetch.mockImplementation(
+      (request: MealPlanRequest) =>
+        new Promise((resolve) => {
+          finish = () => resolve(answerWith('Chicken bowls')(request));
+        }),
+    );
+    const first = await render(<PlanScreen />);
+    await waitFor(() => expect(planFetch).toHaveBeenCalledTimes(1));
+
+    // They leave: the page goes away, and the plan is made all the same.
+    first.unmount();
+    mockParams = {};
+    finish();
+    await waitFor(() => expect(getCurrentPlan(mockDb)).not.toBeNull());
+    expect(planFetch).toHaveBeenCalledTimes(1);
+
+    await render(<PlanScreen />);
+    expect(screen.getByRole('header', { name: 'Review the meal plan' })).toBeTruthy();
+  });
+
+  it('does not show an old failure when it is opened again, only the new wait', async () => {
+    planFetch.mockRejectedValueOnce(new AppError('AI_TIMEOUT'));
+    startPlanJob(mockDb, { repeat: false });
+    await waitFor(() => expect(getPlanJob().status).toBe('failed'));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    planFetch.mockImplementation(() => new Promise(() => {}));
+    await render(<PlanScreen />);
+
+    expect(screen.getByText(/Usually about a minute/)).toBeTruthy();
+    expect(screen.queryByText('That took longer than expected. Try again in a moment.')).toBeNull();
+  });
+
+  it('says Start my week for a plan not yet looked over, and clears the review banner when pressed', async () => {
+    planFetch.mockImplementation(answerWith('Chicken bowls'));
+    await render(<PlanScreen />);
+
+    await screen.findByRole('header', { name: 'Review the meal plan' });
+    expect(getSetting(mockDb, 'reviewPlan')).toBe(getCurrentPlan(mockDb)!.id);
+    await press('Start my week');
+
+    expect(getSetting(mockDb, 'reviewPlan')).toBeNull();
+    expect(mockBack).toHaveBeenCalled();
   });
 
   it('keeps nothing when it is not asked to repeat', async () => {
@@ -369,6 +428,15 @@ describe('Plan: the review', () => {
     await render(<PlanScreen />);
 
     expect(screen.getByText('There is no plan yet. Make one from the Kitchen.')).toBeTruthy();
+  });
+
+  it('says Start my week when opened from the Kitchen banner, with no new plan being made', async () => {
+    const plan = savedPlan();
+    setSetting(mockDb, 'reviewPlan', plan.id);
+    await render(<PlanScreen />);
+
+    expect(screen.getByRole('button', { name: 'Start my week' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
   });
 
   it('goes back from Done', async () => {

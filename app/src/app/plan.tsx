@@ -15,7 +15,6 @@ import { Screen } from '@/components/Screen';
 import { TopBarButton } from '@/components/TopBar';
 import { useDb } from '@/db/DatabaseProvider';
 import {
-  createPlan,
   deletePlan,
   getCurrentPlan,
   type StoredMeal,
@@ -26,60 +25,34 @@ import {
 import { listFridgeItems } from '@/db/repositories/fridgeItems';
 import { getPlanChecks } from '@/db/repositories/planChecks';
 import { getSetting, setSetting } from '@/db/repositories/settings';
-import type { AppDb } from '@/db/types';
-import { AppError, type ErrorCode } from '@/lib/errors';
+import { type ErrorCode } from '@/lib/errors';
 import { buildRecipeRequest, todayKey } from '@/lib/kitchen';
 import { ideasErrorMessage } from '@/lib/kitchenCopy';
 import { logger } from '@/lib/logger';
-import {
-  buildPlanRequest,
-  mealsFromResult,
-  planSlots,
-  planSummary,
-  planWeek,
-  planWeekStart,
-  prepDateFor,
-} from '@/lib/mealPlan';
+import { planSummary, planWeek, prepDateFor } from '@/lib/mealPlan';
 import { dishFromRecipe } from '@/lib/planDish';
 import { prepDishes, prepSummary } from '@/lib/prep';
 import { buildShoppingList, shoppingSummary } from '@/lib/shopping';
 import { setRecipeDraft } from '@/lib/recipeDraft';
-import { planWeekResult } from '@/lib/weekResult';
-import { fetchMealPlan, fetchRecipeIdeas } from '@/services/relayClient';
-import { cancelPrepReminder } from '@/services/reminders';
+import {
+  dropPrepReminder,
+  planHasDays,
+  retryPlanJob,
+  startPlanJob,
+  usePlanJob,
+  watchPlanJob,
+} from '@/services/planJob';
+import { fetchRecipeIdeas } from '@/services/relayClient';
 import { space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
 import { prepWeekday, slotLabel } from '@/constants/mealPlan';
 
-/** The dishes of the current plan that sat well, from the diary; none if it cannot be read. */
-function keptDishes(db: AppDb): string[] {
-  try {
-    const old = getCurrentPlan(db);
-    return old ? planWeekResult(db, old).wellTitles : [];
-  } catch (error) {
-    logger.error('keptDishes', error);
-    return [];
-  }
-}
-
-type Status = 'loading' | 'ready' | 'error';
-
-/** The prep day moves (or goes) with the plan, so a reminder for the old one is dropped; it can be turned on again. */
-function dropPrepReminder(db: AppDb): void {
-  try {
-    if (getSetting(db, 'prepReminderPlan') === null) return;
-    setSetting(db, 'prepReminderPlan', null);
-    void cancelPrepReminder();
-  } catch (error) {
-    logger.error('dropPrepReminder', error);
-  }
-}
-
 /**
- * The week plan (Figma "meal planning flow" C and D3). Opened with `make=new` it asks the relay for a plan from the
- * set-up choices, and with nothing it just shows the current plan. While it waits it shows the steaming pot and the
- * shape of the week; when it is ready, the week on top, the picked day's meals below (swap or skip each), the prep day
- * and shopping list, and a way to start over. A plan is an intention: nothing here ever writes to the food diary.
+ * The week plan (Figma "meal planning flow" C3 and D3). Opened with `make=new` it starts the plan job (see
+ * `services/planJob.ts`), and with nothing it just shows the current plan. While the job runs it shows the steaming
+ * pot and the shape of the week, and says they can leave: the job goes on without this page and a notification says
+ * when it is ready. When it is, the week on top, the picked day's meals below (swap or skip each), the prep day and
+ * shopping list, and a way to start over. A plan is an intention: nothing here ever writes to the food diary.
  */
 export default function PlanScreen() {
   const db = useDb();
@@ -87,17 +60,21 @@ export default function PlanScreen() {
   const { make, swap, repeat } = useLocalSearchParams<{ make?: string; swap?: string; repeat?: string }>();
   const kind = make === 'new' ? 'new' : null;
   const [plan, setPlan] = useState<StoredPlan | null>(() => getCurrentPlan(db));
-  const [status, setStatus] = useState<Status>(kind ? 'loading' : 'ready');
-  const [errorCode, setErrorCode] = useState<ErrorCode | 'EMPTY'>('INTERNAL');
+  const job = usePlanJob();
+  // Nothing left to plan is answered at once, before any job starts.
+  const [empty] = useState(() => kind !== null && !planHasDays(db));
+  // A job that ended before this page asked for one is not this page's answer.
+  const [baseline] = useState(job.finishedAt);
+  // A failure from before this page opened is not its answer; the page starts its own job at once.
+  const [openedAt] = useState(() => Date.now());
+  const oldFailure = job.status === 'failed' && job.failedAt < openedAt;
+  const [seenFinish, setSeenFinish] = useState(job.finishedAt);
   const [picked, setPicked] = useState<string | null>(null);
   // `?swap=<meal id>` (Today's "Felt off?" offer) opens the swap sheet for that meal straight away.
   const [swapping, setSwapping] = useState<StoredMeal | null>(() =>
     swap ? (getCurrentPlan(db)?.meals.find((meal) => meal.id === Number(swap)) ?? null) : null,
   );
-  const running = useRef<AbortController | null>(null);
   const started = useRef(false);
-  // Whether a plan was asked for here, so a failed try can be tried again.
-  const [tried, setTried] = useState(kind !== null);
 
   const refresh = useCallback(() => {
     try {
@@ -110,67 +87,50 @@ export default function PlanScreen() {
   // Back from the shopping list, whose own items change the summary.
   useFocusEffect(
     useCallback(() => {
-      if (!running.current) refresh();
-    }, [refresh]),
+      if (job.status !== 'running') refresh();
+    }, [refresh, job.status]),
   );
 
-  const generate = useCallback(async () => {
-    const controller = new AbortController();
-    running.current = controller;
-    setTried(true);
-    setStatus('loading');
-    try {
-      const today = todayKey();
-      const choices = getSetting(db, 'planChoices');
-      const weekStart = planWeekStart(today);
-      const slots = planSlots(choices, weekStart, today);
-      if (slots.length === 0) {
-        // No days left this week to plan.
-        setErrorCode('EMPTY');
-        setStatus('error');
-        return;
-      }
-      const request = buildPlanRequest(db, {
-        choices,
-        slots,
-        // "Repeat what worked": the dishes that sat well last week are kept, and the rest is planned around them.
-        keep: repeat === '1' ? keptDishes(db) : [],
-        serves: getSetting(db, 'kitchenServes'),
-        conditions: getSetting(db, 'conditions'),
-      });
-      const result = await fetchMealPlan(request, controller.signal);
-      if (controller.signal.aborted) return;
-      const meals = mealsFromResult(result, slots);
-      if (!meals) throw new AppError('AI_INVALID_OUTPUT');
-      const saved = createPlan(db, { weekStart, choices, meals });
-      dropPrepReminder(db);
-      setPlan(saved);
-      setPicked(null);
-      setStatus('ready');
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      logger.error('makeMealPlan', error);
-      setErrorCode(error instanceof AppError ? error.code : 'INTERNAL');
-      setStatus('error');
-    } finally {
-      // Done: from here on the screen may refresh itself when it comes back into view.
-      if (running.current === controller) running.current = null;
-    }
-  }, [db, repeat]);
+  // The page being open is what tells the job not to send a notification.
+  useEffect(() => watchPlanJob(), []);
 
   useEffect(() => {
-    if (kind && !started.current) {
+    if (kind && !empty && !started.current) {
       started.current = true;
-      void generate();
+      startPlanJob(db, { repeat: repeat === '1' });
     }
-    return () => {
-      running.current?.abort();
-      // So a remount (strict mode) asks again instead of waiting on an answer that was cancelled.
-      started.current = false;
-    };
-  }, [kind, generate]);
+  }, [kind, empty, db, repeat]);
+
+  // A plan was saved, here or while this page was closed: read it.
+  if (seenFinish !== job.finishedAt) {
+    setSeenFinish(job.finishedAt);
+    setPicked(null);
+    try {
+      setPlan(getCurrentPlan(db));
+    } catch (error) {
+      logger.error('loadMealPlan', error);
+    }
+  }
+
+  const waiting =
+    job.status === 'running' ||
+    (kind !== null && !empty && oldFailure) ||
+    (kind !== null && !empty && job.status === 'idle' && job.finishedAt === baseline);
+  const failed = empty || (kind !== null && job.status === 'failed' && !oldFailure);
+  const errorCode: ErrorCode | 'EMPTY' = empty ? 'EMPTY' : (job.errorCode ?? 'INTERNAL');
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
+
+  // A plan that was just made is looked over here once; "Start my week" is what tells the Kitchen to show the week.
+  const toReview = plan !== null && getSetting(db, 'reviewPlan') === plan.id;
+  const startWeek = () => {
+    try {
+      if (toReview) setSetting(db, 'reviewPlan', null);
+    } catch (error) {
+      logger.error('startWeek', error);
+    }
+    goBack();
+  };
 
   const days = plan ? planWeek(plan.weekStart) : [];
   const byDay = new Map<string, StoredMeal[]>();
@@ -232,7 +192,7 @@ export default function PlanScreen() {
     goBack();
   };
 
-  if (status === 'loading') {
+  if (waiting) {
     return (
       <Screen>
         <View style={styles.headerRow}>
@@ -244,7 +204,7 @@ export default function PlanScreen() {
               Your week
             </AppText>
             <AppText variant="voiceSmall" color="inkSoft">
-              Planning around what you can eat
+              Usually about a minute. Feel free to leave; I will tell you when it is ready.
             </AppText>
           </View>
           {/* Centred on the screen, a little above the middle of what is left (Figma C2). */}
@@ -256,7 +216,7 @@ export default function PlanScreen() {
     );
   }
 
-  if (status === 'error' || !plan) {
+  if (failed || !plan) {
     return (
       <Screen>
         <View style={styles.headerRow}>
@@ -267,7 +227,7 @@ export default function PlanScreen() {
             Your week
           </AppText>
           <AppText color="inkSoft">
-            {!plan && status !== 'error'
+            {!plan && !failed
               ? 'There is no plan yet. Make one from the Kitchen.'
               : errorCode === 'EMPTY'
                 ? 'There are no days left to plan after your prep day. Pick other days or an earlier prep day, and try again.'
@@ -275,7 +235,9 @@ export default function PlanScreen() {
           </AppText>
         </View>
         <View style={styles.errorButtons}>
-          {tried && errorCode !== 'EMPTY' && <Button label="Try again" onPress={() => void generate()} />}
+          {kind !== null && errorCode !== 'EMPTY' && failed && (
+            <Button label="Try again" onPress={() => void retryPlanJob(db)} />
+          )}
           <Button label="Close" variant="secondary" onPress={goBack} />
         </View>
       </Screen>
@@ -367,7 +329,7 @@ export default function PlanScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.bg }]}>
-        <Button label={kind ? 'Start my week' : 'Done'} onPress={goBack} />
+        <Button label={toReview ? 'Start my week' : 'Done'} onPress={startWeek} />
       </View>
 
       <SwapSheet

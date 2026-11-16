@@ -75,6 +75,8 @@ export type Settings = {
   planChoices: PlanChoices;
   /** The id of the plan whose prep day they asked a reminder for (Figma "meal planning flow" E2); null = none. */
   prepReminderPlan: number | null;
+  /** The id of a plan that was just made and not yet reviewed (the Kitchen's green "Review your meal plan" banner); null = none. */
+  reviewPlan: number | null;
   /** Whether Today offers the next planned meal with "Log it" (Figma "meal planning flow" G2). On unless turned off in Settings; it only asks. */
   offerPlannedMeals: boolean;
   /** The planned meal the "Felt off?" swap offer was last shown for, so it asks once; null = none. */
@@ -116,6 +118,7 @@ export const DEFAULT_SETTINGS: Settings = {
   kitchenIdeas: null,
   planChoices: DEFAULT_PLAN_CHOICES,
   prepReminderPlan: null,
+  reviewPlan: null,
   offerPlannedMeals: true,
   swapOfferMeal: null,
   commitGoal: null,
@@ -202,6 +205,9 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
   }
   if (key === 'prepReminderPlan' && value !== null && !(Number.isInteger(value) && (value as number) > 0)) {
     throw new Error('prepReminderPlan must be null or a plan id');
+  }
+  if (key === 'reviewPlan' && value !== null && !(Number.isInteger(value) && (value as number) > 0)) {
+    throw new Error('reviewPlan must be null or a plan id');
   }
   if (key === 'offerPlannedMeals' && typeof value !== 'boolean') {
     throw new Error('offerPlannedMeals must be true or false');

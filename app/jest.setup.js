@@ -1,6 +1,6 @@
 // expo-notifications' native module can't load in Jest. Reminders are allowed by default; tests that care override it.
 jest.mock('expo-notifications', () => ({
-  SchedulableTriggerInputTypes: { DATE: 'date', WEEKLY: 'weekly' },
+  SchedulableTriggerInputTypes: { DATE: 'date', WEEKLY: 'weekly', TIME_INTERVAL: 'timeInterval' },
   AndroidImportance: { DEFAULT: 3 },
   DEFAULT_ACTION_IDENTIFIER: 'expo.modules.notifications.actions.DEFAULT',
   setNotificationHandler: jest.fn(),
