@@ -136,34 +136,33 @@ beforeEach(() => {
 afterEach(() => closeDb());
 
 describe('Kitchen with no plan', () => {
-  it('has its title, one Plan your week card with one button, and the saved and fridge rows', async () => {
+  it('has its title, one Plan your week card with one button, and the Saved recipes and My fridge pills', async () => {
     await render(<KitchenScreen />);
 
     expect(screen.getByRole('header', { name: 'Kitchen' })).toBeTruthy();
     expect(screen.getByText('What shall we cook?')).toBeTruthy();
     expect(screen.getByText('Plan your week')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Plan my week' })).toBeTruthy();
-    expect(screen.getByText('0 recipes')).toBeTruthy();
-    expect(screen.getByRole('header', { name: 'My fridge' })).toBeTruthy();
+    expect(screen.getByText('Saved recipes')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'My fridge' })).toBeTruthy();
     // The recipe ideas are gone: planning is the way in.
     expect(screen.queryByText(/AI Ideas/)).toBeNull();
     expect(screen.queryByText('Get ideas')).toBeNull();
   });
 
-  it('counts the saved recipes and opens the list', async () => {
+  it('opens the saved recipes from its pill', async () => {
     saveRecipe(mockDb, recipe('Miso salmon bowl'), 'japanese');
     await render(<KitchenScreen />);
 
-    expect(screen.getByText('1 recipe')).toBeTruthy();
-    await press('Saved recipes, 1 recipe');
+    await press('Saved recipes');
 
     expect(mockPush).toHaveBeenCalledWith('/saved-recipes');
   });
 
-  it('opens the fridge from its row', async () => {
+  it('opens the fridge from its pill', async () => {
     await render(<KitchenScreen />);
 
-    await press(/^My fridge, /);
+    await press('My fridge');
 
     expect(mockPush).toHaveBeenCalledWith('/fridge');
   });

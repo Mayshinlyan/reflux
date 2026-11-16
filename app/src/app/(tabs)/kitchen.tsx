@@ -9,7 +9,6 @@ import { Belly } from '@/components/Belly';
 import { Button } from '@/components/Button';
 import { FeedbackButton, feedbackButtonClearance } from '@/components/FeedbackButton';
 import { tabBarClearance } from '@/components/FloatingTabBar';
-import { FridgeRow } from '@/components/kitchen/FridgeRow';
 import { ListRow } from '@/components/kitchen/ListRow';
 import { PillButton } from '@/components/kitchen/PillButton';
 import { PlanningCard } from '@/components/kitchen/PlanningCard';
@@ -24,7 +23,6 @@ import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { fridgeUpdatedAt, listFridgeItems } from '@/db/repositories/fridgeItems';
 import { getCurrentPlan, type StoredMeal, type StoredPlan } from '@/db/repositories/mealPlans';
 import { getPlanChecks } from '@/db/repositories/planChecks';
-import { listSavedRecipes } from '@/db/repositories/savedRecipes';
 import { getSetting } from '@/db/repositories/settings';
 import { todayKey } from '@/lib/kitchen';
 import { addDays } from '@/lib/localDay';
@@ -55,7 +53,6 @@ export default function KitchenScreen() {
   const planTarget = useTourTarget('plan');
   const fridgeTarget = useTourTarget('fridge');
   const [plan, setPlan] = useState<StoredPlan | null>(null);
-  const [savedCount, setSavedCount] = useState(0);
   // How the plan's week went once it is ending: planned meals logged, and the dishes that sat well.
   const [result, setResult] = useState<{ logged: number; well: number; wellTitles: string[] } | null>(null);
   // What the shopping row says, and whether the prep day was marked done (the banner goes then).
@@ -84,7 +81,6 @@ export default function KitchenScreen() {
         setPicked(null);
       }
       setResult(latest && weekIsEnding(latest, todayKey()) ? planWeekResult(db, latest) : null);
-      setSavedCount(listSavedRecipes(db).length);
       const fridgeItems = listFridgeItems(db);
       setFridge({ count: fridgeItems.length, updatedAt: fridgeUpdatedAt(db) });
       // The shopping row and the prep banner: if they cannot be worked out, the rest of the page still shows.
@@ -219,13 +215,13 @@ export default function KitchenScreen() {
     </View>
   );
 
-  // Saved and My fridge, last on the page whenever there is a plan, or one being made (Figma F2, F3, F4).
+  // Saved recipes and My fridge, always last on the page (Figma A, F2, F3, F4, H).
   const pills = (
     <View style={styles.pills}>
       <View style={styles.fill}>
         <PillButton
           icon={<Bookmark size={24} color={colors.ink} strokeWidth={2} />}
-          label="Saved"
+          label="Saved recipes"
           accessibilityLabel="Saved recipes"
           accessibilityHint="Opens the list of your saved recipes"
           onPress={() => router.push('/saved-recipes')}
@@ -332,26 +328,7 @@ export default function KitchenScreen() {
         ) : (
           <>
             {askCard}
-
-            <ListRow
-              icon={<Bookmark size={20} color={colors.sageInk} strokeWidth={2} />}
-              title="Saved recipes"
-              subtitle={savedCount === 1 ? '1 recipe' : `${savedCount} recipes`}
-              onPress={() => router.push('/saved-recipes')}
-            />
-
-            <View style={styles.section}>
-              <AppText variant="section" accessibilityRole="header">
-                My fridge
-              </AppText>
-              <View ref={fridgeTarget}>
-                <FridgeRow
-                  count={fridge.count}
-                  updatedAt={fridge.updatedAt}
-                  onPress={() => router.push('/fridge')}
-                />
-              </View>
-            </View>
+            {pills}
           </>
         )}
       </ScrollView>
@@ -381,5 +358,4 @@ const styles = StyleSheet.create({
   cardButtons: { gap: space.s1_5 },
   pills: { flexDirection: 'row', gap: space.s2 },
   fill: { flex: 1 },
-  section: { gap: space.s1_5 },
 });
