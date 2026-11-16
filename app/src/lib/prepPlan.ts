@@ -81,7 +81,7 @@ export function prepFitsDishes(result: PrepPlanResult, aliases: ReadonlyMap<stri
   return [...result.start, ...result.finish].every((step) => step.feeds.every((id) => aliases.has(id)));
 }
 
-export type PrepStepView = { key: string; text: string; caption?: string };
+export type PrepStepView = { key: string; text: string };
 export type PrepSection = { key: string; title: string; meta?: string; steps: PrepStepView[] };
 
 /** "Keeps 4 days", "Keeps 1 day", or "Eat it the day it is cooked". */
@@ -91,8 +91,8 @@ export function keepsLine(days: number): string {
 }
 
 /**
- * The prep day as sections to show. With the relay's session: "Start together" (what the dishes share, each step
- * saying which dishes it serves), one section per dish under its own title, then "Finish together". Without it (one
+ * The prep day as sections to show. With the relay's session: "Start together" (what the dishes share, plain
+ * steps with no dish names under them), one section per dish under its own title, then "Finish together". Without it (one
  * dish, or the relay could not be reached): each dish's own steps under its title and one step to cool and pack.
  * Step keys carry the signature, so a changed plan starts with nothing ticked.
  */
@@ -103,15 +103,6 @@ export function prepSections(
   aliases: ReadonlyMap<string, string>,
 ): PrepSection[] {
   const byId = new Map(dishes.map((entry) => [entry.dish.id, entry]));
-  const total = dishes.length;
-  const feeds = (ids: readonly string[]): string => {
-    const known = [...new Set(ids.map((alias) => aliases.get(alias)).filter((id): id is string => !!id))];
-    if (known.length >= total) return total === 2 ? 'Both dishes' : `All ${total} dishes`;
-    return known
-      .map((id) => byId.get(id)?.dish.title ?? '')
-      .filter(Boolean)
-      .join(', ');
-  };
 
   if (!result) {
     const sections: PrepSection[] = dishes.map(({ dish }) => ({
@@ -124,13 +115,7 @@ export function prepSections(
       sections.push({
         key: `${signature}:fb:finish`,
         title: 'Finish together',
-        steps: [
-          {
-            key: `${signature}:fb:pack`,
-            text: 'Cool everything, then pack and label',
-            caption: 'All dishes',
-          },
-        ],
+        steps: [{ key: `${signature}:fb:pack`, text: 'Cool everything, then pack and label' }],
       });
     }
     return sections;
@@ -145,7 +130,6 @@ export function prepSections(
       steps: result.start.map((step, index) => ({
         key: `${signature}:s${index}`,
         text: step.text,
-        caption: feeds(step.feeds),
       })),
     });
   }
@@ -167,7 +151,6 @@ export function prepSections(
       steps: result.finish.map((step, index) => ({
         key: `${signature}:f${index}`,
         text: step.text,
-        caption: feeds(step.feeds),
       })),
     });
   }
