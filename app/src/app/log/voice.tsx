@@ -200,7 +200,9 @@ export default function LogVoiceScreen() {
     finishRef.current = done;
   });
 
-  const typeInstead = () => router.replace('/log/food');
+  // Same place as Type on the arch: Food with its Food / How I feel / Medication tabs, for the same day.
+  const typeInstead = () =>
+    router.replace(params.date ? { pathname: '/log/type', params: { date: params.date } } : '/log/type');
 
   const problemAction = () => {
     if (problem === 'permission') {
