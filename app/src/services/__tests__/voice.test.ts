@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/errors';
 
 import { fetchVoiceLog } from '../relayClient';
-import { localIso, toHeard, understand, VoiceError } from '../voice';
+import { localIso, mealTitle, toHeard, understand, VoiceError } from '../voice';
 
 jest.mock('expo-audio', () => ({
   getRecordingPermissionsAsync: jest.fn(),
@@ -20,9 +20,75 @@ describe('toHeard', () => {
       at: '2026-11-13T20:00:00-08:00',
     });
 
-    expect(heard.foods).toEqual(['Pasta', 'Glass of wine']);
+    // A relay from before meals: one list of foods and one time become one meal with no label.
+    expect(heard.meals).toEqual([
+      { label: null, foods: ['Pasta', 'Glass of wine'], at: new Date('2026-11-14T04:00:00.000Z') },
+    ]);
     expect(heard.symptoms).toEqual(['heartburn', 'custom:Hiccups']);
-    expect(heard.at?.toISOString()).toBe('2026-11-14T04:00:00.000Z');
+    // With a meal, the symptoms take no time of their own.
+    expect(heard.at).toBeNull();
+  });
+
+  it('keeps each meal with its own label, foods and time', () => {
+    const heard = toHeard({
+      foods: ['ignored'],
+      symptoms: [],
+      at: null,
+      meals: [
+        { label: 'lunch', foods: ['chicken salad', 'iced tea'], at: '2026-11-13T12:30:00-08:00' },
+        { label: 'snack', foods: ['granola bar'], at: '2026-11-13T15:45:00-08:00' },
+        { label: 'dinner', foods: ['pasta', 'Iced tea'], at: '2026-11-13T19:00:00-08:00' },
+      ],
+    });
+
+    expect(heard.meals.map((meal) => meal.label)).toEqual(['lunch', 'snack', 'dinner']);
+    expect(heard.meals.map((meal) => meal.foods)).toEqual([
+      ['Chicken salad', 'Iced tea'],
+      ['Granola bar'],
+      ['Pasta', 'Iced tea'],
+    ]);
+    expect(heard.meals.map((meal) => meal.at?.toISOString())).toEqual([
+      '2026-11-13T20:30:00.000Z',
+      '2026-11-13T23:45:00.000Z',
+      '2026-11-14T03:00:00.000Z',
+    ]);
+  });
+
+  it('drops a meal with no foods, an unknown label, and meals beyond five', () => {
+    const heard = toHeard({
+      foods: [],
+      symptoms: [],
+      at: null,
+      meals: [
+        { label: 'brunch', foods: ['eggs'], at: null },
+        { label: 'lunch', foods: ['  '], at: null },
+        ...Array.from({ length: 6 }, (_, index) => ({ label: 'snack', foods: [`food ${index}`], at: null })),
+      ],
+    });
+
+    expect(heard.meals[0]).toEqual({ label: null, foods: ['Eggs'], at: null });
+    expect(heard.meals.every((meal) => meal.foods.length > 0)).toBe(true);
+    expect(heard.meals.length).toBeLessThanOrEqual(5);
+  });
+
+  it('uses the symptoms time only when nothing was eaten', () => {
+    const symptomsOnly = toHeard({ foods: [], symptoms: ['heartburn'], at: '2026-11-13T08:00:00-08:00' });
+    expect(symptomsOnly.meals).toEqual([]);
+    expect(symptomsOnly.at?.toISOString()).toBe('2026-11-13T16:00:00.000Z');
+
+    const withMeal = toHeard({
+      foods: [],
+      symptoms: ['heartburn'],
+      at: '2026-11-13T08:00:00-08:00',
+      meals: [{ label: 'dinner', foods: ['pasta'], at: null }],
+    });
+    expect(withMeal.at).toBeNull();
+  });
+
+  it('titles a meal by the label, or Food when it has none', () => {
+    expect(mealTitle({ label: 'dinner' })).toBe('Dinner');
+    expect(mealTitle({ label: 'snack' })).toBe('Snack');
+    expect(mealTitle({ label: null })).toBe('Food');
   });
 
   it('knows a built-in symptom by its label, in any capitals', () => {
@@ -72,11 +138,32 @@ describe('understand', () => {
 
     const heard = await understand('file:///voice.m4a', WORDS);
 
-    expect(heard.foods).toEqual(['Toast']);
+    expect(heard.meals.map((meal) => meal.foods)).toEqual([['Toast']]);
     const [uri, context] = mockFetch.mock.calls[0] ?? [];
     expect(uri).toBe('file:///voice.m4a');
     expect(context).toMatchObject({ foods: ['Oatmeal'], symptoms: ['Heartburn'] });
     expect(context?.now).toMatch(/[+-]\d{2}:\d{2}$/);
+  });
+
+  it('returns each meal the relay sorted, each at its own time', async () => {
+    mockFetch.mockResolvedValue({
+      transcript: 'lunch was a salad and dinner was pasta',
+      foods: ['Salad', 'Pasta'],
+      symptoms: [],
+      at: '2026-11-13T19:00:00-08:00',
+      meals: [
+        { label: 'lunch', foods: ['Salad'], at: '2026-11-13T12:30:00-08:00' },
+        { label: 'dinner', foods: ['Pasta'], at: '2026-11-13T19:00:00-08:00' },
+      ],
+    });
+
+    const heard = await understand('file:///voice.m4a', WORDS);
+
+    expect(heard.meals.map((meal) => [meal.label, meal.foods])).toEqual([
+      ['lunch', ['Salad']],
+      ['dinner', ['Pasta']],
+    ]);
+    expect(heard.meals[0]?.at?.getTime()).toBeLessThan(heard.meals[1]?.at?.getTime() ?? 0);
   });
 
   it('says nothing was heard when there is no food or symptom, or no recording', async () => {

@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 
-import { voiceUserMessage } from '../src/prompts/voicePrompt.js';
+import { VOICE_SYSTEM_PROMPT, voiceUserMessage } from '../src/prompts/voicePrompt.js';
 import { createOpenAiCompatibleSpeech } from '../src/services/speechToText.js';
 import { fakeClaude, fakeSpeech, goodVoice, testApp, VALID_TOKEN } from './helpers.js';
 
@@ -50,8 +50,12 @@ describe('POST /v1/voice-log', () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
       transcript: 'I had pasta and a glass of wine around eight and my chest is burning',
-      ...goodVoice,
-      meta: { promptVersion: 'voice-v1' },
+      meals: goodVoice.meals,
+      symptoms: goodVoice.symptoms,
+      // The older single list and time, for app builds from before meals.
+      foods: ['Pasta', 'Glass of wine'],
+      at: '2026-11-13T20:00:00-08:00',
+      meta: { promptVersion: 'voice-v2' },
     });
     expect(speech.calls[0]).toMatchObject({ mimeType: 'audio/mp4', hint: 'Oatmeal, Heartburn' });
     expect(claude.voiceCalls[0]?.context.tz).toBe('America/Los_Angeles');
@@ -63,16 +67,102 @@ describe('POST /v1/voice-log', () => {
     const res = await send(app);
 
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ transcript: '', foods: [], symptoms: [], at: null });
+    expect(res.body).toMatchObject({ transcript: '', meals: [], foods: [], symptoms: [], at: null });
     expect(claude.voiceCalls).toHaveLength(0);
   });
 
   it('treats a time in the future as now', async () => {
-    const { claude } = claudeSaying(() => ({ ...goodVoice, at: '2026-11-14T20:00:00-08:00' }));
+    const future = '2026-11-14T20:00:00-08:00';
+    const { claude } = claudeSaying(() => ({
+      ...goodVoice,
+      meals: [{ ...goodVoice.meals[0]!, at: future }],
+    }));
     const { app } = testApp({}, { claude: claude.service });
     const res = await send(app);
 
+    expect(res.body.meals[0].at).toBeNull();
     expect(res.body.at).toBeNull();
+  });
+
+  describe('meals at their own times', () => {
+    const lunchDinnerSnack = {
+      meals: [
+        { label: 'lunch', foods: ['Chicken salad', 'Iced tea'], at: '2026-11-13T12:30:00-08:00' },
+        { label: 'snack', foods: ['Granola bar'], at: '2026-11-13T15:45:00-08:00' },
+        { label: 'dinner', foods: ['Pasta', 'Iced tea'], at: '2026-11-13T19:00:00-08:00' },
+      ],
+      symptoms: [],
+      at: null,
+    };
+
+    it('keeps each meal with its label, foods and time, in the order said', async () => {
+      const { claude } = claudeSaying(() => lunchDinnerSnack);
+      const { app } = testApp({}, { claude: claude.service });
+      const res = await send(app);
+
+      expect(res.status).toBe(200);
+      expect(res.body.meals).toEqual(lunchDinnerSnack.meals);
+    });
+
+    it('still gives older apps one list of foods (each once) and the latest time', async () => {
+      const { claude } = claudeSaying(() => lunchDinnerSnack);
+      const { app } = testApp({}, { claude: claude.service });
+      const res = await send(app);
+
+      expect(res.body.foods).toEqual(['Chicken salad', 'Iced tea', 'Granola bar', 'Pasta']);
+      expect(res.body.at).toBe('2026-11-13T19:00:00-08:00');
+    });
+
+    it('drops only the meal whose time is in the future, not the others', async () => {
+      const mixed = {
+        ...lunchDinnerSnack,
+        meals: [
+          lunchDinnerSnack.meals[0]!,
+          { ...lunchDinnerSnack.meals[2]!, at: '2026-11-14T19:00:00-08:00' },
+        ],
+      };
+      const { claude } = claudeSaying(() => mixed);
+      const { app } = testApp({}, { claude: claude.service });
+      const res = await send(app);
+
+      expect(res.body.meals.map((meal: { at: string | null }) => meal.at)).toEqual([
+        '2026-11-13T12:30:00-08:00',
+        null,
+      ]);
+    });
+
+    it('lets a meal have no label, and no time, when the person gave neither', async () => {
+      const unnamed = { meals: [{ label: null, foods: ['Toast'], at: null }], symptoms: [], at: null };
+      const { claude } = claudeSaying(() => unnamed);
+      const { app } = testApp({}, { claude: claude.service });
+      const res = await send(app);
+
+      expect(res.body.meals).toEqual(unnamed.meals);
+      expect(res.body.at).toBeNull();
+    });
+
+    it('uses the symptoms time when no meal was said', async () => {
+      const symptomsOnly = { meals: [], symptoms: ['heartburn'], at: '2026-11-13T08:00:00-08:00' };
+      const { claude } = claudeSaying(() => symptomsOnly);
+      const { app } = testApp({}, { claude: claude.service });
+      const res = await send(app);
+
+      expect(res.body).toMatchObject({ meals: [], foods: [], symptoms: ['heartburn'], at: symptomsOnly.at });
+    });
+
+    it('rejects an off-schema meal (an unknown label, or a meal with no foods)', async () => {
+      for (const bad of [
+        { label: 'brunch', foods: ['Eggs'], at: null },
+        { label: 'lunch', foods: [], at: null },
+      ]) {
+        const { claude } = claudeSaying(() => ({ meals: [bad], symptoms: [], at: null }));
+        const { app } = testApp({}, { claude: claude.service });
+        const res = await send(app);
+
+        expect(res.status).toBe(502);
+        expect(res.body.error.code).toBe('AI_INVALID_OUTPUT');
+      }
+    });
   });
 
   it('rejects a missing file, a wrong type and a bad context', async () => {
@@ -127,6 +217,13 @@ describe('POST /v1/voice-log', () => {
 });
 
 describe('voice prompt and speech provider', () => {
+  it('tells the model to sort foods into meals, each with its own time, and gives the usual meal times', () => {
+    expect(VOICE_SYSTEM_PROMPT).toContain('one entry per meal');
+    expect(VOICE_SYSTEM_PROMPT).toContain('breakfast 8:00, lunch 12:30, dinner 19:00');
+    expect(VOICE_SYSTEM_PROMPT).toContain('"between lunch and dinner" is halfway between');
+    expect(VOICE_SYSTEM_PROMPT).toContain('"around 3 pm" is 15:00');
+  });
+
   it('puts the clock, the known words and the transcript in delimited data', () => {
     const message = voiceUserMessage('I had toast', context);
     expect(message).toContain('Now: 2026-11-13T21:30:00-08:00');

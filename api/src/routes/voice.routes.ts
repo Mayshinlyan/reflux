@@ -14,6 +14,7 @@ import {
   voiceContextSchema,
   type VoiceExtract,
   voiceExtractSchema,
+  type VoiceMeal,
 } from '../schemas.js';
 import { isAudioType, type SpeechToText } from '../services/speechToText.js';
 import type { AnalyzeDeps } from './analyze.routes.js';
@@ -22,6 +23,28 @@ import type { AnalyzeDeps } from './analyze.routes.js';
 function killSwitch(enabled: boolean) {
   return (_req: Request, _res: Response, next: NextFunction) =>
     next(enabled ? undefined : new HttpError('SERVICE_BUSY'));
+}
+
+/** Every food from every meal, once each (any capitals), at most as many as the old single list held. */
+function flatFoods(meals: readonly VoiceMeal[]): string[] {
+  const seen = new Set<string>();
+  const foods: string[] = [];
+  for (const food of meals.flatMap((meal) => meal.foods)) {
+    const key = food.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    foods.push(food);
+  }
+  return foods.slice(0, 8);
+}
+
+/** The latest time any meal was given, or null when none had one (so "just now"). */
+function latestTime(meals: readonly VoiceMeal[]): string | null {
+  const times = meals.flatMap((meal) => (meal.at ? [meal.at] : []));
+  return times.reduce<string | null>(
+    (latest, at) => (latest === null || Date.parse(at) > Date.parse(latest) ? at : latest),
+    null,
+  );
 }
 
 const MAX_ATTEMPTS = 2;
@@ -105,18 +128,24 @@ export function voiceRoutes({
         const heard = sanitizeFoodText(
           await speech.transcribe(file.buffer, file.mimetype, hintFor(context)),
         ).slice(0, MAX_TRANSCRIPT_CHARS);
-        const nothing: VoiceExtract = { foods: [], symptoms: [], at: null };
+        const nothing: VoiceExtract = { meals: [], symptoms: [], at: null };
         const extract =
           heard.length < MIN_TRANSCRIPT_CHARS
             ? nothing
             : await extractWithRetry(heard, context, res.locals.log);
 
-        const future = extract.at && Date.parse(extract.at) > Date.parse(context.now) + FUTURE_SLACK_MS;
+        const notInFuture = (at: string | null) =>
+          at && Date.parse(at) > Date.parse(context.now) + FUTURE_SLACK_MS ? null : at;
+        const meals = extract.meals.map((meal) => ({ ...meal, at: notInFuture(meal.at) }));
+        const symptomsAt = notInFuture(extract.at);
         res.json({
           transcript: heard,
-          foods: extract.foods,
+          // Each meal with its own time: what the app shows and saves.
+          meals,
           symptoms: extract.symptoms,
-          at: future ? null : extract.at,
+          // The older single list and time, for app builds from before meals: every food, and the latest meal's time.
+          foods: flatFoods(meals),
+          at: meals.length > 0 ? latestTime(meals) : symptomsAt,
           meta: { model: claude.model, promptVersion: VOICE_PROMPT_VERSION, sttModel: env.STT_MODEL },
         });
       } catch (error) {

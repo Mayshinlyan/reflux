@@ -389,11 +389,34 @@ const VOICE_TIMEOUT_MS = 60_000;
 /** What the phone tells the relay beside the audio: its clock and the person's own words (see the relay's voiceContextSchema). */
 export type VoiceRequestContext = { now: string; tz: string; foods: string[]; symptoms: string[] };
 
-/** What the relay heard. Symptoms are built-in keys or the person's own words; `at` is null for "just now". */
-export type VoiceResult = { transcript: string; foods: string[]; symptoms: string[]; at: string | null };
+/** One meal the relay heard: the meal the person named (or null), what was in it, and when (null = "just now"). */
+export type VoiceMealResult = { label: string | null; foods: string[]; at: string | null };
+
+/**
+ * What the relay heard. Symptoms are built-in keys or the person's own words. `meals` is each meal with its own
+ * time; it is missing from a relay that predates meals, which only has the single `foods` list and `at` (null for
+ * "just now").
+ */
+export type VoiceResult = {
+  transcript: string;
+  foods: string[];
+  symptoms: string[];
+  at: string | null;
+  meals?: VoiceMealResult[];
+};
 
 const isStringList = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+const isVoiceMeal = (value: unknown): value is VoiceMealResult => {
+  if (typeof value !== 'object' || value === null) return false;
+  const { label, foods, at } = value as Record<string, unknown>;
+  return (
+    (label === null || typeof label === 'string') &&
+    isStringList(foods) &&
+    (at === null || typeof at === 'string')
+  );
+};
 
 /**
  * Sends one recording (m4a) with the phone's clock and the person's own food and symptom names, and gets back what
@@ -433,14 +456,16 @@ export async function fetchVoiceLog(
     throw new AppError('AI_INVALID_OUTPUT', id);
   }
   const heard = body as Partial<Record<keyof VoiceResult, unknown>> | null;
-  const { transcript, foods, symptoms, at } = heard ?? {};
+  const { transcript, foods, symptoms, at, meals } = heard ?? {};
   if (
     typeof transcript !== 'string' ||
     !isStringList(foods) ||
     !isStringList(symptoms) ||
-    !(at === null || typeof at === 'string')
+    !(at === null || typeof at === 'string') ||
+    // A relay from before meals does not send `meals`; one that does must send them well formed.
+    !(meals === undefined || (Array.isArray(meals) && meals.every(isVoiceMeal)))
   ) {
     throw new AppError('AI_INVALID_OUTPUT', id);
   }
-  return { transcript, foods, symptoms, at };
+  return { transcript, foods, symptoms, at, ...(meals === undefined ? {} : { meals }) };
 }

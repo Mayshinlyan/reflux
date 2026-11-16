@@ -393,11 +393,28 @@ export const voiceContextSchema = z.strictObject({
 
 export type VoiceContext = z.infer<typeof voiceContextSchema>;
 
-/** What Claude pulls out of the transcript. A symptom is a built-in key, or the person's own words (max 40). */
+/** The meal names a person can say. Anything that is not one of the three main meals is a snack. */
+export const VOICE_MEAL_LABELS = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
+
+/** One meal heard in a spoken log: what the person called it, what was in it and when it was eaten. */
+export const voiceMealSchema = z.strictObject({
+  /** The meal they named ("lunch", "a snack"); null when they named none. */
+  label: z.enum(VOICE_MEAL_LABELS).nullable(),
+  foods: z.array(z.string().min(1).max(60)).min(1).max(8),
+  /** When this meal was eaten, as an ISO time with offset; null means "just now". */
+  at: z.iso.datetime({ offset: true }).nullable(),
+});
+
+export type VoiceMeal = z.infer<typeof voiceMealSchema>;
+
+/**
+ * What Claude pulls out of the transcript: the meals (each with its own time), then the symptoms. A symptom is a
+ * built-in key, or the person's own words (max 40).
+ */
 export const voiceExtractSchema = z.strictObject({
-  foods: z.array(z.string().min(1).max(60)).max(8),
+  meals: z.array(voiceMealSchema).max(5),
   symptoms: z.array(z.string().min(1).max(40)).max(6),
-  /** When the food was eaten, as an ISO time with offset; null means "just now". */
+  /** When the symptoms were felt, as an ISO time with offset; null means "just now". Only used when no meal was said. */
   at: z.iso.datetime({ offset: true }).nullable(),
 });
 

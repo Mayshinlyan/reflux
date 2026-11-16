@@ -47,6 +47,13 @@ const LEVEL_SMOOTHING_MS = 90;
 
 const capitalise = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
+/** The item with the latest `when` (the last one, on a tie), or undefined for none. */
+const latestOf = <T extends { when: Date }>(items: readonly T[]): T | undefined =>
+  items.reduce<T | undefined>(
+    (best, item) => (best === undefined || item.when.getTime() >= best.when.getTime() ? item : best),
+    undefined,
+  );
+
 /**
  * "Tell me" (Figma 45a to 45j): speak what you ate or how you feel, then check what Bellie heard before it is
  * saved. Listening (45b) -> working it out (45c, the app's own pot loader) -> "Did I get that?" (45d), where each
@@ -62,10 +69,12 @@ export default function LogVoiceScreen() {
 
   const [phase, setPhase] = useState<Phase>('listening');
   const [problem, setProblem] = useState<Problem>('nothing');
-  const [heard, setHeard] = useState<VoiceHeard>({ foods: [], symptoms: [], at: null });
-  const [foodSheet, setFoodSheet] = useState<{ index: number; open: boolean } | null>(null);
+  const [heard, setHeard] = useState<VoiceHeard>({ meals: [], symptoms: [], at: null });
+  const [foodSheet, setFoodSheet] = useState<{ meal: number; index: number; open: boolean } | null>(null);
   const [symptomSheet, setSymptomSheet] = useState<{ key: LoggedSymptomKey; open: boolean } | null>(null);
   const [timeOpen, setTimeOpen] = useState(false);
+  /** Whose time the time sheet is changing: a meal (its index), or null for the symptoms' own time. */
+  const [timeMeal, setTimeMeal] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   /** How loud the voice is, 0 to 1, smoothed: the wave's height. */
   const level = useSharedValue(0);
@@ -162,7 +171,12 @@ export default function LogVoiceScreen() {
       dropAudio();
       if (!alive.current) return;
       const day = params.date ? dayToLoggedAt(params.date, new Date()) : null;
-      setHeard({ ...result, at: result.at ?? day });
+      // A day tapped in the week strip stands in for any time the person did not give.
+      setHeard({
+        meals: result.meals.map((meal) => ({ ...meal, at: meal.at ?? day })),
+        symptoms: result.symptoms,
+        at: result.at ?? day,
+      });
       setPhase('confirm');
     } catch (error) {
       fail(error);
@@ -212,42 +226,58 @@ export default function LogVoiceScreen() {
     }
   };
 
-  const pickTime = () => {
+  /** Sets one meal's time, or (null) the symptoms' own time. */
+  const setTimeFor = (meal: number | null, picked: Date) =>
+    setHeard((current) =>
+      meal === null
+        ? { ...current, at: picked }
+        : {
+            ...current,
+            meals: current.meals.map((item, index) => (index === meal ? { ...item, at: picked } : item)),
+          },
+    );
+
+  const pickTime = (meal: number | null) => {
+    setTimeMeal(meal);
     if (Platform.OS === 'android')
-      pickTimeAndroid(heard.at ?? new Date(), (picked) =>
-        setHeard((current) => ({ ...current, at: picked })),
+      pickTimeAndroid((meal === null ? heard.at : heard.meals[meal]?.at) ?? new Date(), (picked) =>
+        setTimeFor(meal, picked),
       );
     else setTimeOpen(true);
   };
 
   /**
-   * Saves what was confirmed: the foods as one meal (no verdict yet; the check follows in the background, like
-   * "Just log it"), and the symptoms, linked to that meal. The time chip is when the meal was eaten; symptoms
-   * said alongside a meal are happening now, so they take their own time.
+   * Saves what was confirmed: each meal as its own diary meal at its own time (no verdict yet; the check follows
+   * in the background, like "Just log it"), and the symptoms, linked to the latest of those meals. Symptoms said
+   * alongside a meal are happening now, so they take their own time. All of it is saved together or not at all,
+   * so a failure never leaves lunch saved without dinner.
    */
   const save = () => {
     if (saving) return;
-    const { foods, symptoms, at } = heard;
-    if (foods.length === 0 && symptoms.length === 0) return;
+    const { meals, symptoms, at } = heard;
+    if (meals.length === 0 && symptoms.length === 0) return;
     setSaving(true);
-    const when = at ?? new Date();
-    let mealId: number | undefined;
+    const savedMeals: { id: number; name: string; when: Date }[] = [];
     let symptomsId: number | undefined;
     try {
-      if (foods.length > 0) {
-        mealId = createUncheckedMeal(db, {
-          source: 'text',
-          inputText: foods.join(', '),
-          loggedAt: when.toISOString(),
-        });
-      }
-      if (symptoms.length > 0) {
-        symptomsId = createSymptomLog(db, {
-          items: symptoms.map((key) => ({ key })),
-          foodLogId: mealId,
-          ...(foods.length === 0 && at ? { loggedAt: at.toISOString(), tz: currentTimeZone() } : {}),
-        });
-      }
+      db.transaction((tx) => {
+        for (const meal of meals) {
+          const when = meal.at ?? new Date();
+          const id = createUncheckedMeal(tx, {
+            source: 'text',
+            inputText: meal.foods.join(', '),
+            loggedAt: when.toISOString(),
+          });
+          savedMeals.push({ id, name: meal.foods.join(', '), when });
+        }
+        if (symptoms.length > 0) {
+          symptomsId = createSymptomLog(tx, {
+            items: symptoms.map((key) => ({ key })),
+            foodLogId: latestOf(savedMeals)?.id,
+            ...(meals.length === 0 && at ? { loggedAt: at.toISOString(), tz: currentTimeZone() } : {}),
+          });
+        }
+      });
     } catch (error) {
       logger.error('saveVoiceLog', error);
       setSaving(false);
@@ -265,24 +295,29 @@ export default function LogVoiceScreen() {
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     playChing();
-    // One swap to the completion page, like the other logs; a meal (with any symptoms after it) is a meal log.
+    // One swap to the completion page, like the other logs; meals (with any symptoms after them) are a meal log,
+    // shown for the latest meal, the one the symptoms are linked to.
+    const latestMeal = latestOf(savedMeals);
     router.replace({
       pathname: '/completion',
-      params:
-        mealId !== undefined
-          ? { kind: 'meal', id: String(mealId) }
-          : { kind: 'symptoms', id: String(symptomsId) },
+      params: latestMeal
+        ? { kind: 'meal', id: String(latestMeal.id) }
+        : { kind: 'symptoms', id: String(symptomsId) },
     });
-    if (mealId !== undefined) {
+    if (savedMeals.length > 0) {
       void checkPendingMeals(db);
-      if (typeof settings.checkInReminderMinutes === 'number') {
-        void scheduleCheckIn({
-          mealId,
-          mealName: heard.foods.join(', '),
-          eatenAt: when,
-          minutes: settings.checkInReminderMinutes,
-          bedtime: settings.bedtime,
-        });
+      const minutes = settings.checkInReminderMinutes;
+      if (typeof minutes === 'number') {
+        // Each meal gets its own check-in, counted from when that meal was eaten.
+        for (const meal of savedMeals) {
+          void scheduleCheckIn({
+            mealId: meal.id,
+            mealName: meal.name,
+            eatenAt: meal.when,
+            minutes,
+            bedtime: settings.bedtime,
+          });
+        }
       }
     }
   };
@@ -301,10 +336,10 @@ export default function LogVoiceScreen() {
       )}
       {phase === 'confirm' && (
         <VoiceConfirm
-          foods={heard.foods}
+          meals={heard.meals}
           symptoms={heard.symptoms}
           at={heard.at}
-          onFixFood={(index) => setFoodSheet({ index, open: true })}
+          onFixFood={(meal, index) => setFoodSheet({ meal, index, open: true })}
           onFixSymptom={(key) => setSymptomSheet({ key, open: true })}
           onFixTime={pickTime}
           onSave={save}
@@ -316,20 +351,39 @@ export default function LogVoiceScreen() {
       <FixFoodSheet
         visible={foodSheet?.open ?? false}
         onClose={closeFoodSheet}
-        initial={foodSheet ? (heard.foods[foodSheet.index] ?? '') : ''}
+        initial={foodSheet ? (heard.meals[foodSheet.meal]?.foods[foodSheet.index] ?? '') : ''}
         sources={sources}
         onUpdate={(text) => {
           if (foodSheet) {
             setHeard({
               ...heard,
-              foods: heard.foods.map((food, index) => (index === foodSheet.index ? capitalise(text) : food)),
+              meals: heard.meals.map((meal, mealIndex) =>
+                mealIndex === foodSheet.meal
+                  ? {
+                      ...meal,
+                      foods: meal.foods.map((food, index) =>
+                        index === foodSheet.index ? capitalise(text) : food,
+                      ),
+                    }
+                  : meal,
+              ),
             });
           }
           closeFoodSheet();
         }}
         onRemove={() => {
           if (foodSheet) {
-            setHeard({ ...heard, foods: heard.foods.filter((_, index) => index !== foodSheet.index) });
+            // A meal left with no foods goes too, so there is never an empty card.
+            setHeard({
+              ...heard,
+              meals: heard.meals
+                .map((meal, mealIndex) =>
+                  mealIndex === foodSheet.meal
+                    ? { ...meal, foods: meal.foods.filter((_, index) => index !== foodSheet.index) }
+                    : meal,
+                )
+                .filter((meal) => meal.foods.length > 0),
+            });
           }
           closeFoodSheet();
         }}
@@ -361,10 +415,10 @@ export default function LogVoiceScreen() {
         visible={timeOpen}
         question="When was it?"
         confirmLabel="Update"
-        initial={heard.at ?? undefined}
+        initial={(timeMeal === null ? heard.at : heard.meals[timeMeal]?.at) ?? undefined}
         onConfirm={(picked) => {
           setTimeOpen(false);
-          if (picked) setHeard({ ...heard, at: picked });
+          if (picked) setTimeFor(timeMeal, picked);
         }}
         onClose={() => setTimeOpen(false)}
       />

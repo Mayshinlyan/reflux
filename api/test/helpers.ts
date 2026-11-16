@@ -63,9 +63,9 @@ export const goodInsight = {
 };
 
 export const goodVoice = {
-  foods: ['Pasta', 'Glass of wine'],
+  meals: [{ label: 'dinner', foods: ['Pasta', 'Glass of wine'], at: '2026-11-13T20:00:00-08:00' }],
   symptoms: ['heartburn'],
-  at: '2026-11-13T20:00:00-08:00',
+  at: null,
 };
 
 export const goodFridge = { items: ['Eggs', 'rice', 'Kimchi  ', 'eggs', 'spinach'] };

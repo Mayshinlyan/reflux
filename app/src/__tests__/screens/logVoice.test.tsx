@@ -29,6 +29,11 @@ jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, init
 jest.mock('@/lib/ching', () => ({ playChing: () => mockChing() }));
 jest.mock('@/services/pendingChecks', () => ({ checkPendingMeals: jest.fn(() => Promise.resolve()) }));
 jest.mock('@/services/relayClient', () => ({ fetchVoiceLog: jest.fn() }));
+// The real one, except a test can make saving the symptoms fail, to check the meals saved before it are rolled back.
+jest.mock('@/db/repositories/symptoms', () => {
+  const actual = jest.requireActual('@/db/repositories/symptoms');
+  return { ...actual, createSymptomLog: jest.fn(actual.createSymptomLog) };
+});
 jest.mock('@/services/useVoiceRecorder', () => ({ useVoiceRecorder: () => mockRecorder }));
 jest.mock('expo-file-system', () => ({
   File: class {
@@ -345,5 +350,109 @@ describe('Log voice screen', () => {
     await advance(100);
 
     expect(screen.getByText("Didn't catch that")).toBeTruthy();
+  });
+});
+
+describe('Log voice screen: meals at their own times (Figma row 49)', () => {
+  const LUNCH_AT = '2026-11-13T12:30:00-08:00';
+  const DINNER_AT = '2026-11-13T19:00:00-08:00';
+  const HEARD_MEALS = {
+    transcript: 'lunch was a salad and dinner was pasta, and now my chest is burning',
+    foods: ['Salad', 'Pasta'],
+    symptoms: ['heartburn'],
+    at: DINNER_AT,
+    meals: [
+      { label: 'lunch', foods: ['Salad', 'Iced tea'], at: LUNCH_AT },
+      { label: 'dinner', foods: ['Pasta'], at: DINNER_AT },
+    ],
+  };
+  const atMs = (iso: string) => new Date(iso).getTime();
+
+  beforeEach(() => mockFetch.mockResolvedValue(HEARD_MEALS));
+
+  it('shows one card per meal, titled by what was said, each with its own time and no When card', async () => {
+    await speakAndConfirm();
+
+    expect(screen.getByText('Lunch')).toBeTruthy();
+    expect(screen.getByText('Dinner')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Salad' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Pasta' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Lunch time, .*Change it$/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Dinner time, .*Change it$/ })).toBeTruthy();
+    expect(screen.queryByText('When')).toBeNull();
+  });
+
+  it('saves each meal as its own diary meal at its own time, with the symptoms linked to the latest', async () => {
+    await speakAndConfirm();
+
+    await press('Save');
+
+    const meals = listDiaryFoodLogs(mockDb, ALL_TIME);
+    expect(meals).toHaveLength(2);
+    const lunch = meals.find((meal) => meal.mealName === 'Salad, Iced tea');
+    const dinner = meals.find((meal) => meal.mealName === 'Pasta');
+    expect(atMs(lunch?.loggedAt ?? '')).toBe(atMs(LUNCH_AT));
+    expect(atMs(dinner?.loggedAt ?? '')).toBe(atMs(DINNER_AT));
+    const [symptoms] = listSymptomLogs(mockDb, ALL_TIME);
+    expect(symptoms?.foodLogId).toBe(dinner?.id);
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/completion',
+      params: { kind: 'meal', id: String(dinner?.id) },
+    });
+  });
+
+  it("changes only that meal's time from its own chevron", async () => {
+    await speakAndConfirm();
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Dinner time, .*Change it$/ }));
+
+    expect(screen.getByText('When was it?')).toBeTruthy();
+  });
+
+  it('removes a meal when its last food is removed', async () => {
+    await speakAndConfirm();
+
+    await press('Pasta');
+    await press('Remove this food');
+    await act(async () => {
+      jest.advanceTimersByTime(600);
+    });
+
+    expect(screen.queryByText('Dinner')).toBeNull();
+    expect(screen.getByText('Lunch')).toBeTruthy();
+    await press('Save');
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME).map((meal) => meal.mealName)).toEqual(['Salad, Iced tea']);
+  });
+
+  it('saves nothing at all when something fails part-way, so a retry cannot double up', async () => {
+    const { createSymptomLog } = jest.requireMock('@/db/repositories/symptoms') as {
+      createSymptomLog: jest.Mock;
+    };
+    createSymptomLog.mockImplementationOnce(() => {
+      throw new Error('disk full');
+    });
+    await speakAndConfirm();
+
+    await press('Save');
+
+    expect(listDiaryFoodLogs(mockDb, ALL_TIME)).toHaveLength(0);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('still works with a relay that sends one list of foods and one time', async () => {
+    mockFetch.mockResolvedValue({
+      transcript: 'pasta and wine',
+      foods: ['Pasta', 'Glass of wine'],
+      symptoms: [],
+      at: DINNER_AT,
+    });
+    await speakAndConfirm();
+
+    expect(screen.getByText('Food')).toBeTruthy();
+    await press('Save');
+
+    const [meal] = listDiaryFoodLogs(mockDb, ALL_TIME);
+    expect(meal).toMatchObject({ mealName: 'Pasta, Glass of wine' });
+    expect(atMs(meal?.loggedAt ?? '')).toBe(atMs(DINNER_AT));
   });
 });
