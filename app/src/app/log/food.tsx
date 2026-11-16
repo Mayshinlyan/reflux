@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 
 import { FoodFlow, type MyFoodTarget } from '@/components/FoodFlow';
 import { FoodList } from '@/components/FoodList';
+import { useCanSwitchKind } from '@/components/LogKindSwitcher';
 import { useDb } from '@/db/DatabaseProvider';
 import { getSavedFood, type StoredSavedFood } from '@/db/repositories/savedFoods';
 import { getSetting } from '@/db/repositories/settings';
@@ -25,6 +26,7 @@ import { isQuickLogAllowed } from '@/lib/widgetLinks';
  */
 export default function LogFoodScreen() {
   const db = useDb();
+  const canSwitchKind = useCanSwitchKind();
   const { camera, myFood, food, manage, date, quickLog, t, details, prefill } = useLocalSearchParams<{
     camera?: string;
     myFood?: string;
@@ -74,6 +76,9 @@ export default function LogFoodScreen() {
       quickLog={quickFood}
       detailsFor={detailsFor}
       initialText={prefill ? prefill.slice(0, 200) : undefined}
+      // The kind tabs live in the Type modal (`/log/type`) and belong to a fresh log, not to a favorite food, the
+      // widget, a meal's details or a Kitchen recipe.
+      switchKinds={canSwitchKind && !target && !quickFood && detailsFor === undefined && !prefill}
     />
   );
 }

@@ -7,17 +7,20 @@ const arch = (open: boolean, onClosed: () => void, onPick = jest.fn()) => (
 );
 
 // Jest never applies the animated opacity, so the buttons read as hidden until they are asked for as hidden.
-const food = () => screen.getByRole('button', { name: 'Food', hidden: true });
+const typeButton = () => screen.getByRole('button', { name: 'Type', hidden: true });
 
 describe('QuickLogArch', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  it('fans out food, symptom, tell me and medication', async () => {
+  it('fans out Tell me and Type, and nothing else', async () => {
     await render(arch(true, jest.fn()));
 
-    for (const name of ['Food', 'How I feel', 'Tell me', 'Medication']) {
+    for (const name of ['Tell me', 'Type']) {
       expect(screen.getByRole('button', { name, hidden: true })).toBeTruthy();
+    }
+    for (const name of ['Food', 'How I feel', 'Medication']) {
+      expect(screen.queryByRole('button', { name, hidden: true })).toBeNull();
     }
   });
 
@@ -30,7 +33,7 @@ describe('QuickLogArch', () => {
     expect(onClosed).not.toHaveBeenCalled();
 
     await rerender(arch(false, onClosed));
-    expect(food()).toBeTruthy();
+    expect(typeButton()).toBeTruthy();
     expect(onClosed).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -56,7 +59,7 @@ describe('QuickLogArch', () => {
     });
 
     expect(onClosed).not.toHaveBeenCalled();
-    expect(food()).toBeTruthy();
+    expect(typeButton()).toBeTruthy();
   });
 
   it('lets touches through to the screen while it closes', async () => {
@@ -72,9 +75,9 @@ describe('QuickLogArch', () => {
     const onPick = jest.fn();
     await render(arch(true, jest.fn(), onPick));
 
-    await fireEvent.press(food());
+    await fireEvent.press(typeButton());
 
-    expect(onPick).toHaveBeenCalledWith('food');
+    expect(onPick).toHaveBeenCalledWith('type');
   });
 
   it('opens the voice log from Tell me', async () => {

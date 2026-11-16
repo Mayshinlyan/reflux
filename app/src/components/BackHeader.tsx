@@ -14,6 +14,7 @@ export function BackHeader({
   onBack,
   close,
   right,
+  tabs,
 }: {
   /** Omit for a bare bar: just the back circle. */
   title?: string;
@@ -21,12 +22,15 @@ export function BackHeader({
   /** A close X instead of the back arrow. */
   close?: boolean;
   right?: ReactNode;
+  /** A row of tabs under the bar (the log kind switcher), 8pt below it. */
+  tabs?: ReactNode;
 }) {
   return (
     <View style={styles.wrap}>
       <TopBar title={title} onBack={onBack} close={close} right={right} />
+      {tabs ? <View style={styles.tabs}>{tabs}</View> : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({ wrap: { marginBottom: space.s4 } });
+const styles = StyleSheet.create({ wrap: { marginBottom: space.s4 }, tabs: { marginTop: space.s1 } });

@@ -17,6 +17,7 @@ import { AppText } from '@/components/AppText';
 import { BackHeader } from '@/components/BackHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
+import { LogKindSwitcher, useCanSwitchKind } from '@/components/LogKindSwitcher';
 import { Screen } from '@/components/Screen';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
@@ -98,6 +99,7 @@ export default function MedicationScreen() {
   // From About you > Medications: tap to see and edit. From Log: tap to log.
   const { manage: manageParam, date } = useLocalSearchParams<{ manage?: string; date?: string }>();
   const manage = manageParam === '1';
+  const canSwitchKind = useCanSwitchKind();
   // A day tapped in Today's week strip: doses are logged at noon of that earlier day instead of now.
   const dayAt = date ? dayToLoggedAt(date, new Date()) : null;
 
@@ -416,7 +418,8 @@ export default function MedicationScreen() {
 
   return (
     <Screen style={styles.screen}>
-      <BackHeader />
+      {/* Figma 48d: the kind tabs show when logging a dose, not when managing the list from About you. */}
+      <BackHeader tabs={canSwitchKind && !manage ? <LogKindSwitcher current="medication" /> : undefined} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <AppText variant="display" accessibilityRole="header" style={manage ? styles.manageTitle : undefined}>
           {manage ? 'Medications' : 'Which medication?'}

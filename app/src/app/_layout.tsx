@@ -86,6 +86,8 @@ function RootLayout() {
                   name="welcome"
                   options={{ gestureEnabled: false, animation: reduceMotion ? 'none' : 'fade' }}
                 />
+                {/* Type: one modal that holds Food, How I feel and Medication as tabs, so switching never navigates. */}
+                <Stack.Screen name="log/type" options={{ presentation: 'modal' }} />
                 <Stack.Screen
                   name="log/food"
                   options={({ route }) => ({

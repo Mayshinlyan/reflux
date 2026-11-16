@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import * as Notifications from 'expo-notifications';
 
 import LogFoodScreen from '@/app/log/food';
+import { SwitchKindProvider } from '@/components/LogKindSwitcher';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createUncheckedMeal, listDiaryFoodLogs, listMealTags } from '@/db/repositories/food';
 import { createSavedFood, listSavedFoods, saveCheckedFood } from '@/db/repositories/savedFoods';
@@ -255,6 +256,43 @@ describe('Log food screen: Save to favorite foods', () => {
 
     expect(listSavedFoods(mockDb)).toHaveLength(0);
     expect(mockToast).not.toHaveBeenCalled(); // the completion page, not a toast
+  });
+});
+
+describe('Log food screen: kind tabs (Figma 48b)', () => {
+  const inTypeModal = (
+    <SwitchKindProvider onSwitch={jest.fn()}>
+      <LogFoodScreen />
+    </SwitchKindProvider>
+  );
+
+  it('shows Food / How I feel / Medication in the Type modal, with Food selected', async () => {
+    mockParams = {};
+    await render(inTypeModal);
+
+    expect(screen.getAllByRole('tab').map((el) => el.props.accessibilityState.selected)).toEqual([
+      true,
+      false,
+      false,
+    ]);
+  });
+
+  it('has no tabs on its own, e.g. from the widget or a link', async () => {
+    mockParams = {};
+    await render(<LogFoodScreen />);
+
+    expect(screen.queryByRole('tab')).toBeNull();
+  });
+
+  it('hides them for a Kitchen recipe and for a favorite food', async () => {
+    mockParams = { prefill: 'Kimchi egg fried rice' };
+    await render(inTypeModal);
+    expect(screen.queryByRole('tab')).toBeNull();
+    await screen.unmount();
+
+    mockParams = { myFood: '1' };
+    await render(inTypeModal);
+    expect(screen.queryByRole('tab')).toBeNull();
   });
 });
 
