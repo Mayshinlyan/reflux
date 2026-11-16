@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronUp, X } from 'lucide-react-native';
+import { ChevronDown, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -7,7 +7,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Toggle } from '@/components/Toggle';
-import { CUISINES, type CuisineKey, cuisineLabel } from '@/constants/cuisines';
+import type { CuisineKey } from '@/constants/cuisines';
 import {
   MAX_PLAN_CUISINES,
   PLAN_MODES,
@@ -20,7 +20,9 @@ import {
   WEEK_DAYS,
 } from '@/constants/mealPlan';
 import { itemsLine, updatedLine } from '@/lib/fridge';
-import { cardEdge, minTouchTarget, radius, selectedEdge, selectedFill, space, useColors } from '@/theme';
+import { cardEdge, minTouchTarget, radius, selectedEdge, space, useColors } from '@/theme';
+
+import { CuisineStrip } from './CuisineStrip';
 
 type Props = {
   visible: boolean;
@@ -41,15 +43,9 @@ const DAYS = WEEK_DAYS;
 /** "Sunday": the name of a weekday. */
 const dayName = (weekday: number): string => DAYS.find((day) => day.weekday === weekday)?.name ?? 'Sunday';
 
-/** "Korean", "Korean +1": the cuisines picked, as one short value for the row. */
-export function cuisinesValue(cuisines: readonly CuisineKey[]): string {
-  const first = cuisines[0] ? cuisineLabel(cuisines[0]) : 'Any';
-  return cuisines.length > 1 ? `${first} +${cuisines.length - 1}` : first;
-}
-
 /**
  * "Plan your week" (Figma "meal planning flow" B): the few choices a week plan needs, all prefilled from last time.
- * Days (tap one off for eating out or travelling), meals, cuisines (the row opens a list to tick up to four), whether
+ * The cuisines (the illustrated strip on top: tap up to four), days (tap one off for eating out or travelling), meals, whether
  * to use the fridge, how you cook (once, or daily) and, for cook once, how long the prep session may be and which day
  * to cook on (a honey pill that opens the list of days, Figma "meal planning flow" B5 and B6). Give it a new
  * `key` each time it opens so it starts from the last choices.
@@ -70,7 +66,6 @@ export function PlanSetupSheet({
   const [mode, setMode] = useState<PlanMode>(initial.mode);
   const [prep, setPrep] = useState(String(initial.prepMinutes));
   const [fridgeOn, setFridgeOn] = useState(initial.useFridge);
-  const [cuisineOpen, setCuisineOpen] = useState(false);
   const [prepDay, setPrepDay] = useState(prepWeekday(initial));
   const [prepDayOpen, setPrepDayOpen] = useState(false);
   const hasFridge = fridge.count > 0;
@@ -132,6 +127,9 @@ export function PlanSetupSheet({
       </View>
 
       <View style={styles.rows}>
+        {/* First, straight on the sheet and running to its edges (Figma B8 and B9). */}
+        <CuisineStrip value={cuisines} onToggle={toggleCuisine} />
+
         <View style={[styles.card, styles.days, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
           <AppText>Days</AppText>
           <View style={styles.dayRow}>
@@ -181,50 +179,6 @@ export function PlanSetupSheet({
               );
             })}
           </View>
-        </View>
-
-        <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Cuisine, ${cuisinesValue(cuisines)}`}
-            accessibilityState={{ expanded: cuisineOpen }}
-            onPress={() => setCuisineOpen((open) => !open)}
-            style={styles.row}>
-            <AppText style={styles.rowLabel}>Cuisine</AppText>
-            <AppText variant="bodyEm">{cuisinesValue(cuisines)}</AppText>
-            {cuisineOpen ? (
-              <ChevronUp size={20} color={colors.inkMuted} strokeWidth={2} />
-            ) : (
-              <ChevronDown size={20} color={colors.inkMuted} strokeWidth={2} />
-            )}
-          </Pressable>
-          {cuisineOpen && (
-            <View style={[styles.cuisines, { borderTopColor: colors.edge }]}>
-              {CUISINES.map((cuisine) => {
-                const on = cuisines.includes(cuisine.key);
-                return (
-                  <Pressable
-                    key={cuisine.key}
-                    accessibilityRole="checkbox"
-                    accessibilityLabel={cuisine.label}
-                    accessibilityState={{ checked: on }}
-                    onPress={() => toggleCuisine(cuisine.key)}
-                    style={[
-                      styles.cuisine,
-                      {
-                        backgroundColor: selectedFill(colors, on, 'transparent'),
-                        ...selectedEdge(colors, on),
-                      },
-                    ]}>
-                    <AppText variant="small" color={on ? 'ink' : 'inkSoft'}>
-                      {cuisine.label}
-                    </AppText>
-                    {on && <Check size={14} color={colors.sageInk} strokeWidth={2.5} />}
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
         </View>
 
         {hasFridge ? (
@@ -355,21 +309,6 @@ const styles = StyleSheet.create({
   },
   track: { flexDirection: 'row', padding: 4, gap: 4, borderRadius: radius.pill },
   segment: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill },
-  cuisines: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space.s1,
-    padding: space.s2,
-    borderTopWidth: 1,
-  },
-  cuisine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    minHeight: 36,
-    paddingHorizontal: space.s1_5,
-    borderRadius: radius.pill,
-  },
   dayPill: {
     flexDirection: 'row',
     alignItems: 'center',

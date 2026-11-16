@@ -112,6 +112,8 @@ const dish = (id: string, title: string): PlanDish => ({ ...recipe(title), id, k
 
 const press = async (name: string | RegExp) => fireEvent.press(screen.getByRole('button', { name }));
 const tick = async (name: string) => fireEvent.press(screen.getByRole('checkbox', { name }));
+const chosen = (name: string) =>
+  screen.getByRole('checkbox', { name }).props.accessibilityState.checked === true;
 
 beforeEach(() => {
   const { db, sqlite } = createTestDb();
@@ -167,7 +169,7 @@ describe('Kitchen: the set-up sheet', () => {
     expect(screen.getByRole('checkbox', { name: 'Lunch' }).props.accessibilityState.checked).toBe(true);
     expect(screen.getByRole('checkbox', { name: 'Dinner' }).props.accessibilityState.checked).toBe(true);
     expect(screen.getByRole('checkbox', { name: 'Breakfast' }).props.accessibilityState.checked).toBe(false);
-    expect(screen.getByRole('button', { name: 'Cuisine, Any' })).toBeTruthy();
+    expect(chosen('Any')).toBe(true);
     expect(screen.getByRole('tab', { name: 'Cook once' }).props.accessibilityState.selected).toBe(true);
     expect(screen.getByRole('tab', { name: '2 hrs' }).props.accessibilityState.selected).toBe(true);
   });
@@ -203,26 +205,50 @@ describe('Kitchen: the set-up sheet', () => {
     expect(screen.getByRole('checkbox', { name: 'Dinner' }).props.accessibilityState.checked).toBe(true);
   });
 
-  it('picks cuisines from a list: Any stands alone, up to four, and unticking the last falls back to Any', async () => {
+  it('shows the cuisines as an illustrated strip, with Any chosen to begin with', async () => {
     await render(<KitchenScreen />);
     await press('Plan my week');
-    await press('Cuisine, Any');
+
+    for (const name of [
+      'Any',
+      'Chinese',
+      'Indian',
+      'Italian',
+      'Japanese',
+      'Korean',
+      'Mediterranean',
+      'Mexican',
+      'Thai',
+      'Vietnamese',
+    ])
+      expect(screen.getByRole('checkbox', { name })).toBeTruthy();
+    expect(chosen('Any')).toBe(true);
+    expect(chosen('Korean')).toBe(false);
+    // The dropdown is gone.
+    expect(screen.queryByRole('button', { name: /^Cuisine, / })).toBeNull();
+  });
+
+  it('picks cuisines from the strip: Any stands alone, up to four, and unticking the last falls back to Any', async () => {
+    await render(<KitchenScreen />);
+    await press('Plan my week');
 
     await tick('Korean');
-    expect(screen.getByRole('button', { name: 'Cuisine, Korean' })).toBeTruthy();
+    expect(chosen('Korean')).toBe(true);
+    expect(chosen('Any')).toBe(false);
     await tick('Thai');
-    expect(screen.getByRole('button', { name: 'Cuisine, Korean +1' })).toBeTruthy();
     await tick('Italian');
     await tick('Mexican');
     await tick('Indian'); // a fifth is ignored
-    expect(screen.getByRole('button', { name: 'Cuisine, Korean +3' })).toBeTruthy();
+    expect(['Korean', 'Thai', 'Italian', 'Mexican'].every(chosen)).toBe(true);
+    expect(chosen('Indian')).toBe(false);
 
     await tick('Any');
-    expect(screen.getByRole('button', { name: 'Cuisine, Any' })).toBeTruthy();
+    expect(chosen('Any')).toBe(true);
+    expect(chosen('Korean')).toBe(false);
 
     await tick('Korean');
     await tick('Korean');
-    expect(screen.getByRole('button', { name: 'Cuisine, Any' })).toBeTruthy();
+    expect(chosen('Any')).toBe(true);
   });
 
   it('has no note under the choices, even with foods to avoid', async () => {
@@ -283,7 +309,6 @@ describe('Kitchen: the set-up sheet', () => {
     await press('Plan my week');
     await tick('Friday');
     await tick('Breakfast');
-    await press('Cuisine, Any');
     await tick('Korean');
     await fireEvent.press(screen.getByRole('tab', { name: 'Cook daily' }));
 
