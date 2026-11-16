@@ -4,11 +4,15 @@ import { listSymptomLogs } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
 
 import { addDays } from './localDay';
+import { weekdayOf } from './mealPlan';
 import { weekResult } from './planToday';
 
-/** A plan's week is over once it is Saturday or later in it: that is when the Kitchen offers the next one. */
+/**
+ * A plan's week is ending once it is its Saturday or later: that is when the Kitchen offers the next one. The week
+ * starts on a Sunday, so its Saturday is the sixth day after it (a Monday start from before, the fifth).
+ */
 export function weekIsEnding(plan: StoredPlan, today: string): boolean {
-  return today >= addDays(plan.weekStart, 5);
+  return today >= addDays(plan.weekStart, weekdayOf(plan.weekStart) === 1 ? 5 : 6);
 }
 
 /**

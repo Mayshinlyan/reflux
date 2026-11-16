@@ -12,6 +12,7 @@ import { Screen } from '@/components/Screen';
 import { Toggle } from '@/components/Toggle';
 import { TopBarButton } from '@/components/TopBar';
 import { useDb } from '@/db/DatabaseProvider';
+import { prepWeekday } from '@/constants/mealPlan';
 import { getCurrentPlan } from '@/db/repositories/mealPlans';
 import { getPlanChecks, setChecked } from '@/db/repositories/planChecks';
 import { getPrepPlan, savePrepPlan } from '@/db/repositories/planPrep';
@@ -113,7 +114,7 @@ export default function PrepDayScreen() {
     );
   }
 
-  const cookDay = prepDay(plan.meals, plan.weekStart, today);
+  const cookDay = prepDay(plan.weekStart, today, prepWeekday(plan.choices));
   const dayName = prepDayName(cookDay);
   const summary = prepSummary(dishes, plan.choices.prepMinutes);
 
@@ -158,6 +159,16 @@ export default function PrepDayScreen() {
     } catch (error) {
       logger.error('tickPrepStep', error);
     }
+  };
+
+  /** Marks the cooking done (the Kitchen's banner goes), then goes back. */
+  const finish = () => {
+    try {
+      setChecked(db, plan.id, 'prep', 'done', true);
+    } catch (error) {
+      logger.error('finishPrep', error);
+    }
+    goBack();
   };
 
   const toggleReminder = async (on: boolean) => {
@@ -284,7 +295,7 @@ export default function PrepDayScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.bg }]}>
-        <Button label="Done cooking" onPress={goBack} />
+        <Button label="Done cooking" onPress={finish} />
       </View>
     </Screen>
   );

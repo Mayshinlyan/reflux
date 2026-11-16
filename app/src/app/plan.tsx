@@ -38,6 +38,7 @@ import {
   planSummary,
   planWeek,
   planWeekStart,
+  prepDateFor,
 } from '@/lib/mealPlan';
 import { dishFromRecipe } from '@/lib/planDish';
 import { prepDishes, prepSummary } from '@/lib/prep';
@@ -48,7 +49,7 @@ import { fetchMealPlan, fetchRecipeIdeas } from '@/services/relayClient';
 import { cancelPrepReminder } from '@/services/reminders';
 import { space, useColors } from '@/theme';
 import type { Recipe } from '@/types/recipe';
-import { slotLabel } from '@/constants/mealPlan';
+import { prepWeekday, slotLabel } from '@/constants/mealPlan';
 
 /** The dishes of the current plan that sat well, from the diary; none if it cannot be read. */
 function keptDishes(db: AppDb): string[] {
@@ -269,7 +270,7 @@ export default function PlanScreen() {
             {!plan && status !== 'error'
               ? 'There is no plan yet. Make one from the Kitchen.'
               : errorCode === 'EMPTY'
-                ? 'There are no days left this week to plan. Pick other days and try again.'
+                ? 'There are no days left to plan after your prep day. Pick other days or an earlier prep day, and try again.'
                 : ideasErrorMessage(errorCode)}
           </AppText>
         </View>
@@ -305,7 +306,13 @@ export default function PlanScreen() {
           </View>
         </View>
 
-        <PlanWeekStrip days={days} selected={shownDay} planned={new Set(byDay.keys())} onSelect={setPicked} />
+        <PlanWeekStrip
+          days={days}
+          selected={shownDay}
+          planned={new Set(byDay.keys())}
+          prepDay={plan.mode === 'once' ? prepDateFor(plan.weekStart, prepWeekday(plan.choices)) : null}
+          onSelect={setPicked}
+        />
 
         <View style={styles.day}>
           <AppText variant="section" accessibilityRole="header">

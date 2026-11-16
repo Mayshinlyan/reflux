@@ -10,6 +10,7 @@ import {
   planSlots,
   planSummary,
   planWeek,
+  prepDateFor,
   planWeekStart,
   weekdayOf,
 } from '../mealPlan';
@@ -28,23 +29,46 @@ const dish: PlanDish = {
 };
 
 describe('plan week', () => {
-  // 2026-11-16 is a Monday.
+  // 2026-11-15 is a Sunday.
   it.each([
-    ['a Monday', '2026-11-16', '2026-11-16'],
-    ['a Wednesday', '2026-11-18', '2026-11-16'],
-    ['a Friday', '2026-11-20', '2026-11-16'],
-    ['a Saturday (plans the week ahead)', '2026-11-21', '2026-11-23'],
-    ['a Sunday (plans the week ahead)', '2026-11-22', '2026-11-23'],
-  ])('starts on the right Monday for %s', (_name, today, monday) => {
-    expect(weekdayOf(monday)).toBe(1);
-    expect(planWeekStart(today)).toBe(monday);
+    ['a Sunday (the week starts today)', '2026-11-15', '2026-11-15'],
+    ['a Wednesday', '2026-11-18', '2026-11-15'],
+    ['a Friday', '2026-11-20', '2026-11-15'],
+    ['a Saturday (plans the week ahead, from tomorrow)', '2026-11-21', '2026-11-22'],
+  ])('starts on the right Sunday for %s', (_name, today, sunday) => {
+    expect(weekdayOf(sunday)).toBe(0);
+    expect(planWeekStart(today)).toBe(sunday);
   });
 
-  it('lists seven days, Monday first', () => {
+  it('lists seven days, Sunday first like Today', () => {
+    const week = planWeek('2026-11-15');
+    expect(week.map((day) => day.letter).join('')).toBe('SMTWTFS');
+    expect(week.map((day) => day.date)).toEqual([15, 16, 17, 18, 19, 20, 21]);
+    expect(week[0]?.name).toBe('Sunday');
+    expect(week[6]?.name).toBe('Saturday');
+  });
+
+  it('still reads a week made before the change, which starts on a Monday', () => {
     const week = planWeek('2026-11-16');
     expect(week.map((day) => day.letter).join('')).toBe('MTWTFSS');
-    expect(week.map((day) => day.date)).toEqual([16, 17, 18, 19, 20, 21, 22]);
     expect(week[0]?.name).toBe('Monday');
+  });
+});
+
+describe('prepDateFor', () => {
+  it('puts Sunday on the first day, Monday to Friday inside the week and Saturday the day before it', () => {
+    expect(prepDateFor('2026-11-15', 0)).toBe('2026-11-15');
+    expect(prepDateFor('2026-11-15', 1)).toBe('2026-11-16');
+    expect(prepDateFor('2026-11-15', 4)).toBe('2026-11-19');
+    expect(prepDateFor('2026-11-15', 5)).toBe('2026-11-20');
+    expect(prepDateFor('2026-11-15', 6)).toBe('2026-11-14');
+  });
+
+  it('keeps the old reading for a week that started on a Monday', () => {
+    expect(prepDateFor('2026-11-16', 0)).toBe('2026-11-15');
+    expect(prepDateFor('2026-11-16', 6)).toBe('2026-11-14');
+    expect(prepDateFor('2026-11-16', 1)).toBe('2026-11-16');
+    expect(prepDateFor('2026-11-16', 4)).toBe('2026-11-19');
   });
 });
 
@@ -68,6 +92,33 @@ describe('planSlots', () => {
     );
     expect(slots.map((slot) => slot.day)[0]).toBe('2026-11-18');
     expect(slots).toHaveLength(5);
+  });
+
+  describe('with a prep day (cook once)', () => {
+    const all = { weekdays: [0, 1, 2, 3, 4, 5, 6], meals: ['dinner' as const], mode: 'once' as const };
+
+    it('plans the whole week for a Sunday prep, Sunday included, since the prep is eaten from that day', () => {
+      const slots = planSlots(all, '2026-11-15', '2026-11-15');
+      expect(slots).toHaveLength(7);
+      expect(slots[0]?.day).toBe('2026-11-15');
+      expect(planSlots({ ...all, prepDay: 0 }, '2026-11-15', '2026-11-15')).toHaveLength(7);
+    });
+
+    it('plans the whole week when the prep day is the Saturday before it', () => {
+      expect(planSlots({ ...all, prepDay: 6 }, '2026-11-15', '2026-11-14')).toHaveLength(7);
+    });
+
+    it('starts the meals on a prep day inside the week, that day included', () => {
+      const monday = planSlots({ ...all, prepDay: 1 }, '2026-11-15', '2026-11-15').map((slot) => slot.day);
+      expect(monday[0]).toBe('2026-11-16');
+      expect(monday).toHaveLength(6);
+      const thursday = planSlots({ ...all, prepDay: 4 }, '2026-11-15', '2026-11-15').map((slot) => slot.day);
+      expect(thursday).toEqual(['2026-11-19', '2026-11-20', '2026-11-21']);
+    });
+
+    it('ignores the prep day when cooking daily', () => {
+      expect(planSlots({ ...all, mode: 'daily', prepDay: 4 }, '2026-11-15', '2026-11-15')).toHaveLength(7);
+    });
   });
 });
 
