@@ -11,7 +11,7 @@ import type { AppDb } from '@/db/types';
 import { AppError } from '@/lib/errors';
 import { todayKey } from '@/lib/kitchen';
 import { addDays } from '@/lib/localDay';
-import { planSlots, planWeekStart } from '@/lib/mealPlan';
+import { planSlots, planWeekStart, weekdayOf } from '@/lib/mealPlan';
 import { getRecipeDraft, setRecipeDraft } from '@/lib/recipeDraft';
 import { fetchMealPlan, fetchRecipeIdeas } from '@/services/relayClient';
 import { cancelPrepReminder } from '@/services/reminders';
@@ -254,6 +254,24 @@ describe('Plan: making a plan', () => {
 });
 
 describe('Plan: the review', () => {
+  it('starts the week on a Sunday and marks the prep day in honey on its strip', async () => {
+    const sunday = addDays(today, -weekdayOf(today));
+    createPlan(mockDb, {
+      weekStart: sunday,
+      choices: DEFAULT_PLAN_CHOICES,
+      meals: [
+        { day: sunday, slot: 'dinner', dish: dish('d1', 'Chicken bowls') },
+        { day: addDays(sunday, 1), slot: 'dinner', dish: dish('d2', 'Miso salmon') },
+      ],
+    });
+    await render(<PlanScreen />);
+
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs[0]!.props.accessibilityLabel).toMatch(/^Sunday \d+, prep day$/);
+    expect(tabs[6]!.props.accessibilityLabel).toMatch(/^Saturday /);
+    expect(tabs.filter((tab) => /prep day/.test(tab.props.accessibilityLabel))).toHaveLength(1);
+  });
+
   it('shows the plan without asking the relay, with the week and the day’s meals', async () => {
     savedPlan();
     await render(<PlanScreen />);

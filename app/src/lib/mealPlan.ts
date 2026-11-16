@@ -15,8 +15,9 @@ import { addDays } from './localDay';
 
 export type PlanSlotRef = { day: string; slot: PlanSlot };
 
-const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+/** By JS weekday, 0 = Sunday. */
+const LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /** 0 (Sunday) to 6 (Saturday) for a "YYYY-MM-DD" day key. */
 export function weekdayOf(dayKey: string): number {
@@ -25,33 +26,43 @@ export function weekdayOf(dayKey: string): number {
 }
 
 /**
- * The Monday a plan starts on: this week's, or next week's when today is a Saturday or Sunday (the weekend is when
- * people plan the week ahead, and a plan for two days would be no plan).
+ * The Sunday a plan starts on, as on Today: this week's (which is today when it is a Sunday), or tomorrow's when today
+ * is a Saturday (a plan for one day would be no plan, and the weekend is when people plan the week ahead).
  */
 export function planWeekStart(today: string): string {
   const weekday = weekdayOf(today);
-  if (weekday === 0) return addDays(today, 1);
-  if (weekday === 6) return addDays(today, 2);
-  return addDays(today, 1 - weekday);
+  return weekday === 6 ? addDays(today, 1) : addDays(today, -weekday);
 }
 
 /**
- * The date to cook on for a plan week: Monday to Friday fall inside the week, and Saturday and Sunday are the days
- * just before it (the Sunday, or the Saturday, before a Monday).
+ * The date to cook on for a plan week. A week that starts on a Sunday: Sunday is its first day, Monday to Friday are
+ * inside it, and Saturday is the day before it. Plans made before the week moved to Sunday start on a Monday and keep
+ * their old reading: Sunday and Saturday are the days just before that Monday.
  */
 export function prepDateFor(weekStart: string, weekday: number): string {
-  if (weekday === 0) return addDays(weekStart, -1);
-  if (weekday === 6) return addDays(weekStart, -2);
-  return addDays(weekStart, weekday - 1);
+  if (weekdayOf(weekStart) === 1) {
+    if (weekday === 0) return addDays(weekStart, -1);
+    if (weekday === 6) return addDays(weekStart, -2);
+    return addDays(weekStart, weekday - 1);
+  }
+  if (weekday === 6) return addDays(weekStart, -1);
+  return addDays(weekStart, weekday);
 }
 
 export type PlanDay = { key: string; letter: string; name: string; date: number; weekday: number };
 
-/** The seven days of a plan week, Monday first. */
+/** The seven days of a plan week, from its first day (a Sunday; a Monday for plans made before). */
 export function planWeek(weekStart: string): PlanDay[] {
-  return LETTERS.map((letter, i) => {
+  return LETTERS.map((_, i) => {
     const key = addDays(weekStart, i);
-    return { key, letter, name: NAMES[i] ?? '', date: Number(key.slice(8, 10)), weekday: weekdayOf(key) };
+    const weekday = weekdayOf(key);
+    return {
+      key,
+      letter: LETTERS[weekday] ?? '',
+      name: NAMES[weekday] ?? '',
+      date: Number(key.slice(8, 10)),
+      weekday,
+    };
   });
 }
 
@@ -65,11 +76,11 @@ export function planSlots(
   today: string,
 ): PlanSlotRef[] {
   const slots: PlanSlotRef[] = [];
-  // Cook once: the meals are reheated from the prep, so they start the day after it.
+  // Cook once: the meals are eaten from the prep, so they start on the prep day itself.
   const cooked = choices.mode === 'once' ? prepDateFor(weekStart, prepWeekday(choices)) : null;
   for (const day of planWeek(weekStart)) {
     if (day.key < today || !choices.weekdays.includes(day.weekday)) continue;
-    if (cooked !== null && day.key <= cooked) continue;
+    if (cooked !== null && day.key < cooked) continue;
     for (const { value } of PLAN_SLOTS)
       if (choices.meals.includes(value)) slots.push({ day: day.key, slot: value });
   }

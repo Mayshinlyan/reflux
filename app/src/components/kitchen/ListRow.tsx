@@ -7,7 +7,7 @@ import { cardEdge, radius, space, useColors } from '@/theme';
 
 type Props = { icon: ReactNode; title: string; subtitle: string; onPress: () => void };
 
-/** A white row with a green icon tile, a title and a line under it, that opens something (Saved recipes, Meal plan, Prep day). */
+/** A white row with a green icon tile, a title and a line under it, that opens something (Saved recipes, Shopping list, Prep day). */
 export function ListRow({ icon, title, subtitle, onPress }: Props) {
   const colors = useColors();
   return (

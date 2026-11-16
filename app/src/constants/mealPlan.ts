@@ -41,18 +41,18 @@ export const PREP_TIMES = [
 /** The relay allows 1 to 4 cuisines in one plan. */
 export const MAX_PLAN_CUISINES = 4;
 
-/** The days of the week, Monday first as the plan week runs; `weekday` is the JS weekday (0 = Sunday). */
+/** The days of the week, Sunday first as the plan week runs (like Today); `weekday` is the JS weekday (0 = Sunday). */
 export const WEEK_DAYS = [
+  { weekday: 0, letter: 'S', name: 'Sunday' },
   { weekday: 1, letter: 'M', name: 'Monday' },
   { weekday: 2, letter: 'T', name: 'Tuesday' },
   { weekday: 3, letter: 'W', name: 'Wednesday' },
   { weekday: 4, letter: 'T', name: 'Thursday' },
   { weekday: 5, letter: 'F', name: 'Friday' },
   { weekday: 6, letter: 'S', name: 'Saturday' },
-  { weekday: 0, letter: 'S', name: 'Sunday' },
 ] as const;
 
-/** The weekday to cook on when none was chosen: Sunday, the day before a Monday plan starts. */
+/** The weekday to cook on when none was chosen: Sunday, the first day of the plan week. */
 export const DEFAULT_PREP_DAY = 0;
 
 /** What the set-up sheet holds, kept so it opens as it was left. Days are weekdays (0 = Sunday to 6 = Saturday). */
@@ -65,9 +65,10 @@ export type PlanChoices = {
   prepMinutes: number;
   useFridge: boolean;
   /**
-   * Cook once only: the weekday to cook on (0 = Sunday). Saturday and Sunday are the days before the plan week;
-   * Monday to Friday are inside it, and the meals then start the day after. Plans saved before this was chosen have
-   * none, which means Sunday (see `prepWeekday`).
+   * Cook once only: the weekday to cook on (0 = Sunday). The plan week runs Sunday to Saturday: Sunday is its first
+   * day, Monday to Friday are inside it, and Saturday is the day before it. The meals start on the prep day itself, so
+   * the food cooked on Sunday is eaten from Sunday. Plans saved before this was chosen have none, which means Sunday
+   * (see `prepWeekday`).
    */
   prepDay?: number;
 };

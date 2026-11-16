@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { Bookmark, CalendarDays, Refrigerator } from 'lucide-react-native';
+import { Bookmark, Refrigerator, ShoppingBasket } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,20 +14,24 @@ import { ListRow } from '@/components/kitchen/ListRow';
 import { PillButton } from '@/components/kitchen/PillButton';
 import { PlanSetupSheet } from '@/components/kitchen/PlanSetupSheet';
 import { PlanWeekStrip } from '@/components/kitchen/PlanWeekStrip';
+import { PrepBanner } from '@/components/kitchen/PrepBanner';
 import { TodayPlanCard } from '@/components/kitchen/TodayPlanCard';
 import { Screen } from '@/components/Screen';
 import { useTourTarget } from '@/components/tour/TourContext';
-import type { PlanChoices } from '@/constants/mealPlan';
+import { type PlanChoices, prepWeekday } from '@/constants/mealPlan';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
 import { fridgeUpdatedAt, listFridgeItems } from '@/db/repositories/fridgeItems';
 import { getCurrentPlan, type StoredMeal, type StoredPlan } from '@/db/repositories/mealPlans';
+import { getPlanChecks } from '@/db/repositories/planChecks';
 import { listSavedRecipes } from '@/db/repositories/savedRecipes';
 import { todayKey } from '@/lib/kitchen';
 import { addDays } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
-import { planWeek, planSummary } from '@/lib/mealPlan';
+import { planWeek, prepDateFor } from '@/lib/mealPlan';
+import { prepDay, prepDayName, prepDishes, prepSummary } from '@/lib/prep';
 import { weekLine } from '@/lib/planToday';
 import { setRecipeDraft } from '@/lib/recipeDraft';
+import { buildShoppingList, shoppingSummary } from '@/lib/shopping';
 import { planWeekResult, weekIsEnding } from '@/lib/weekResult';
 import { cardEdge, radius, space, useColors } from '@/theme';
 
@@ -49,6 +53,10 @@ export default function KitchenScreen() {
   const [savedCount, setSavedCount] = useState(0);
   // How the plan's week went once it is ending: planned meals logged, and the dishes that sat well.
   const [result, setResult] = useState<{ logged: number; well: number; wellTitles: string[] } | null>(null);
+  // What the shopping row says, and whether the prep day was marked done (the banner goes then).
+  const [extra, setExtra] = useState<{ shopping: string; prepDone: boolean } | null>(null);
+  // The day of the week strip whose meals show in the card; today until another is tapped.
+  const [picked, setPicked] = useState<string | null>(null);
   const [fridge, setFridge] = useState<{ count: number; updatedAt: string | null }>({
     count: 0,
     updatedAt: null,
@@ -59,13 +67,37 @@ export default function KitchenScreen() {
   // What to do once the sheet has finished closing: a second screen can't be pushed under a sheet still sliding away.
   const afterClose = useRef<'make' | 'fridge' | null>(null);
 
+  const lastPlan = useRef<number | null>(null);
+
   const reload = useCallback(() => {
     try {
       const latest = getCurrentPlan(db);
       setPlan(latest);
+      // A new plan starts on its own day again, not on a day picked in the old one.
+      if ((latest?.id ?? null) !== lastPlan.current) {
+        lastPlan.current = latest?.id ?? null;
+        setPicked(null);
+      }
       setResult(latest && weekIsEnding(latest, todayKey()) ? planWeekResult(db, latest) : null);
       setSavedCount(listSavedRecipes(db).length);
-      setFridge({ count: listFridgeItems(db).length, updatedAt: fridgeUpdatedAt(db) });
+      const fridgeItems = listFridgeItems(db);
+      setFridge({ count: fridgeItems.length, updatedAt: fridgeUpdatedAt(db) });
+      // The shopping row and the prep banner: if they cannot be worked out, the rest of the page still shows.
+      try {
+        if (latest) {
+          const checks = getPlanChecks(db, latest.id);
+          const names = latest.choices.useFridge ? fridgeItems.map((item) => item.name) : [];
+          setExtra({
+            shopping: shoppingSummary(buildShoppingList(latest.meals, names, checks.own, todayKey())),
+            prepDone: checks.prep.has('done'),
+          });
+        } else {
+          setExtra(null);
+        }
+      } catch (error) {
+        logger.error('loadKitchenExtras', error);
+        setExtra(null);
+      }
     } catch (error) {
       logger.error('loadKitchen', error);
     }
@@ -115,10 +147,25 @@ export default function KitchenScreen() {
     router.push('/recipe');
   };
 
-  const todayMeals = (current?.meals ?? []).filter((meal) => meal.day === today && !meal.skipped);
-  // A plan made at the weekend starts on Monday: until then there is no "today" in it.
+  // A plan made on a Saturday starts on Sunday: until then there is no "today" in it.
   const startsLater = current !== null && today < current.weekStart;
-  const dayName = current ? (planWeek(current.weekStart).find((day) => day.key === today)?.name ?? '') : '';
+  const weekDays = current ? planWeek(current.weekStart) : [];
+  // The picked day (today to begin with, or the first day of a week still to come) and what is on it.
+  const shownDay =
+    picked && weekDays.some((day) => day.key === picked)
+      ? picked
+      : weekDays.some((day) => day.key === today)
+        ? today
+        : (weekDays[0]?.key ?? today);
+  const shownName = weekDays.find((day) => day.key === shownDay)?.name ?? '';
+  const shownMeals = (current?.meals ?? []).filter((meal) => meal.day === shownDay && !meal.skipped);
+
+  // The prep day: shown until the cooking is marked done, honey on the strip and in one banner (Figma F2).
+  const prepList = current && current.mode === 'once' ? prepDishes(current.meals, today) : [];
+  const prepDate =
+    current && current.mode === 'once' ? prepDateFor(current.weekStart, prepWeekday(current.choices)) : null;
+  const cookDay = current ? prepDay(current.weekStart, today, prepWeekday(current.choices)) : today;
+  const showPrep = current !== null && prepList.length > 0 && extra !== null && !extra.prepDone;
 
   const repeat = ending && result !== null && result.wellTitles.length > 0 ? result : null;
   // The card that asks for a week: "Plan your week" with no plan, "Plan next week" once this one is ending.
@@ -174,22 +221,36 @@ export default function KitchenScreen() {
 
         {current ? (
           <>
-            {ending && askCard}
-            {!startsLater && <TodayPlanCard dayName={dayName} meals={todayMeals} onOpen={openMeal} />}
-            <PlanWeekStrip
-              days={planWeek(current.weekStart)}
-              selected={today}
-              planned={new Set(current.meals.filter((meal) => !meal.skipped).map((meal) => meal.day))}
-              onSelect={() => router.push('/plan')}
-            />
             <View ref={planTarget}>
-              <ListRow
-                icon={<CalendarDays size={20} color={colors.sageInk} strokeWidth={2} />}
-                title="Meal plan"
-                subtitle={planSummary(current.meals, current.mode)}
-                onPress={() => router.push('/plan')}
+              <PlanWeekStrip
+                days={weekDays}
+                selected={shownDay}
+                planned={new Set(current.meals.filter((meal) => !meal.skipped).map((meal) => meal.day))}
+                prepDay={prepDate}
+                onSelect={setPicked}
               />
             </View>
+            {ending && askCard}
+            {showPrep && (
+              <PrepBanner
+                title={cookDay === today ? 'Prep day today' : `Prep day ${prepDayName(cookDay)}`}
+                subtitle={prepSummary(prepList, current.choices.prepMinutes)}
+                onPress={() => router.push('/prep-day')}
+              />
+            )}
+            <TodayPlanCard
+              title={shownDay === today ? 'Today' : shownName}
+              isToday={shownDay === today}
+              meals={shownMeals}
+              onOpen={openMeal}
+              onEdit={() => router.push('/plan')}
+            />
+            <ListRow
+              icon={<ShoppingBasket size={20} color={colors.sageInk} strokeWidth={2} />}
+              title="Shopping list"
+              subtitle={extra?.shopping ?? ''}
+              onPress={() => router.push('/shopping-list')}
+            />
             <View style={styles.pills}>
               <View style={styles.fill}>
                 <PillButton

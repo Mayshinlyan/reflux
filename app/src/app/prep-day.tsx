@@ -161,6 +161,16 @@ export default function PrepDayScreen() {
     }
   };
 
+  /** Marks the cooking done (the Kitchen's banner goes), then goes back. */
+  const finish = () => {
+    try {
+      setChecked(db, plan.id, 'prep', 'done', true);
+    } catch (error) {
+      logger.error('finishPrep', error);
+    }
+    goBack();
+  };
+
   const toggleReminder = async (on: boolean) => {
     setNote('');
     try {
@@ -286,7 +296,7 @@ export default function PrepDayScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.bg }]}>
-        <Button label="Done cooking" onPress={goBack} />
+        <Button label="Done cooking" onPress={finish} />
       </View>
     </Screen>
   );

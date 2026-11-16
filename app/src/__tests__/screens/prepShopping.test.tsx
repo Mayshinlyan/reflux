@@ -15,6 +15,7 @@ import type { AppDb } from '@/db/types';
 import { AppError } from '@/lib/errors';
 import { todayKey } from '@/lib/kitchen';
 import { addDays } from '@/lib/localDay';
+import { weekdayOf } from '@/lib/mealPlan';
 import { prepDishes } from '@/lib/prep';
 import { prepSignature } from '@/lib/prepPlan';
 import { fetchPrepPlan } from '@/services/relayClient';
@@ -94,7 +95,8 @@ const dish = (id: string, title: string, over: Partial<PlanDish> = {}): PlanDish
 });
 
 const today = todayKey();
-const firstMeal = addDays(today, 3);
+// The plan week starts on a Sunday, still to come, so the prep day (the Sunday by default) is not today.
+const firstMeal = addDays(today, (7 - weekdayOf(today)) % 7 || 7);
 
 function savedPlan(mode: 'once' | 'daily' = 'once') {
   return createPlan(mockDb, {
@@ -233,25 +235,36 @@ describe('Prep day', () => {
     await fireEvent.press(await screen.findByRole('switch', { name: /^Remind me on / }));
 
     await waitFor(() => expect(getSetting(mockDb, 'prepReminderPlan')).toBe(plan.id));
-    expect(schedule).toHaveBeenCalledWith(addDays(firstMeal, -1));
+    // The prep day is the plan's first day, a Sunday.
+    expect(schedule).toHaveBeenCalledWith(firstMeal);
   });
 
   it('cooks and reminds on the chosen prep day, inside the plan week', async () => {
     createPlan(mockDb, {
-      weekStart: addDays(today, 1),
+      weekStart: firstMeal,
       choices: { ...DEFAULT_PLAN_CHOICES, mode: 'once', prepDay: 4 },
       meals: [
-        { day: addDays(today, 5), slot: 'lunch', dish: dish('a', 'Chicken bowls') },
-        { day: addDays(today, 6), slot: 'lunch', dish: dish('b', 'Congee', { keepsDays: 1 }) },
+        { day: addDays(firstMeal, 4), slot: 'lunch', dish: dish('a', 'Chicken bowls') },
+        { day: addDays(firstMeal, 5), slot: 'lunch', dish: dish('b', 'Congee', { keepsDays: 1 }) },
       ],
     });
     schedule.mockResolvedValue('scheduled');
     await render(<PrepDayScreen />);
 
-    // Thursday of the plan week is its fourth day.
+    // Thursday is the fifth day of a week that starts on Sunday.
     await fireEvent.press(await screen.findByRole('switch', { name: /^Remind me on / }));
 
-    await waitFor(() => expect(schedule).toHaveBeenCalledWith(addDays(today, 4)));
+    await waitFor(() => expect(schedule).toHaveBeenCalledWith(addDays(firstMeal, 4)));
+  });
+
+  it('marks the cooking done from Done cooking, so the Kitchen banner goes', async () => {
+    const plan = savedPlan();
+    await render(<PrepDayScreen />);
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Done cooking' }));
+
+    expect(getPlanChecks(mockDb, plan.id).prep.has('done')).toBe(true);
+    expect(mockBack).toHaveBeenCalled();
   });
 
   it('says so, and stays off, when notifications are not allowed', async () => {
