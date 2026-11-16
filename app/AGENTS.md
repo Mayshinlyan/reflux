@@ -37,6 +37,7 @@ Docs: https://docs.expo.dev/eas/index.md
 ## Worktrees
 
 - A new worktree has no `app/.env` (it is git-ignored). Always copy it in right after creating the worktree: `cp <main checkout>/app/.env <worktree>/app/.env`. Without it the app fails with a misleading `AUTH_FAILED`.
+- Then check the copy: `scripts/check-env.sh app/.env` (or `npm run env:check` from `app/`). It looks at variable names only and never prints a value. A typo such as `:EXPO_PUBLIC_RELAY_URL` leaves the app without a relay address, and every AI feature then fails with a misleading "No signal". `scripts/test-app.sh` runs this check and refuses to start on a bad file. Never open `.env` to check it by eye.
 - At the end of a job that used a worktree, always show its full absolute path and the commands to run the server, e.g. `cd <worktree path>/app && npx expo start --clear`.
 
 ## Rules

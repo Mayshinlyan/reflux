@@ -3,8 +3,9 @@
 #
 # Every worktree uses the same port (8081), so the phone always connects to the same place: starting
 # it here stops the Expo/Metro server another worktree had running there. Before starting, it copies
-# app/.env from the main checkout if this worktree has none, and installs dependencies when
-# package-lock.json changed since the last install here.
+# app/.env from the main checkout if this worktree has none, checks that file with scripts/check-env.sh
+# (names only, and it refuses to start on a typo such as ":EXPO_PUBLIC_RELAY_URL"), and installs
+# dependencies when package-lock.json changed since the last install here.
 #
 # Usage: scripts/test-app.sh [--prepare-only] [--dev-build]
 #   --prepare-only  set everything up but do not start Expo
@@ -51,6 +52,13 @@ if [ ! -f "$APP/.env" ]; then
   else
     echo "! No app/.env here or in $ROOT/app: the app will not be able to reach the relay." >&2
   fi
+fi
+
+# A typo in .env (a stray ":" before a name, a missing variable) makes every AI feature fail with a misleading
+# "No signal", so stop here with a plain message instead of starting a server that cannot work.
+if [ -f "$APP/.env" ] && ! "$HERE/scripts/check-env.sh" "$APP/.env"; then
+  echo "✗ Fix app/.env first (in this worktree, and in $ROOT/app/.env if it came from there), then run this again." >&2
+  exit 1
 fi
 
 # Reinstall only when the lockfile changed since the last install here.
