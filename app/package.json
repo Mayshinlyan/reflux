@@ -70,6 +70,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
+    "env:check": "bash ../scripts/check-env.sh .env",
     "audit:check": "node scripts/audit-check.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
