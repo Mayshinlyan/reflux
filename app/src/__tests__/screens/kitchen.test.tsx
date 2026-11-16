@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import KitchenScreen from '@/app/(tabs)/kitchen';
-import { DEFAULT_PLAN_CHOICES } from '@/constants/mealPlan';
+import { DEFAULT_PLAN_CHOICES, isPlanChoices } from '@/constants/mealPlan';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createAvoidFood } from '@/db/repositories/avoidFoods';
 import { replaceFridge } from '@/db/repositories/fridgeItems';
@@ -225,21 +225,57 @@ describe('Kitchen: the set-up sheet', () => {
     expect(screen.getByRole('button', { name: 'Cuisine, Any' })).toBeTruthy();
   });
 
-  it('says what it skips from the Foods to avoid list', async () => {
+  it('has no note under the choices, even with foods to avoid', async () => {
     createAvoidFood(mockDb, 'peanuts');
-    createAvoidFood(mockDb, 'Pork');
-    createAvoidFood(mockDb, 'raw onion');
     await render(<KitchenScreen />);
     await press('Plan my week');
 
-    expect(screen.getByText('Skips peanuts, pork and 1 more food to avoid. Gentle on reflux.')).toBeTruthy();
+    expect(screen.queryByText(/Skips|Gentle on reflux/)).toBeNull();
   });
 
-  it('only says it is gentle on reflux when nothing is avoided', async () => {
+  it('puts a honey Prep day row under the prep time, Sunday by default, for Cook once only', async () => {
     await render(<KitchenScreen />);
     await press('Plan my week');
 
-    expect(screen.getByText('Gentle on reflux.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Prep day, Sunday' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Cook daily' }));
+    expect(screen.queryByRole('button', { name: /^Prep day/ })).toBeNull();
+  });
+
+  it('lists the days of the week, picks one, and keeps it for the next plan', async () => {
+    await render(<KitchenScreen />);
+    await press('Plan my week');
+    await press('Prep day, Sunday');
+
+    expect(screen.getAllByRole('radio').map((day) => day.props.accessibilityLabel)).toEqual([
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ]);
+    expect(screen.getByRole('radio', { name: 'Sunday' }).props.accessibilityState.checked).toBe(true);
+    await fireEvent.press(screen.getByRole('radio', { name: 'Saturday' }));
+
+    expect(screen.getByRole('button', { name: 'Prep day, Saturday' })).toBeTruthy();
+    await press('Make my plan');
+    await waitFor(() => expect(mockPush).toHaveBeenCalled());
+    expect(getSetting(mockDb, 'planChoices').prepDay).toBe(6);
+
+    await press('Plan my week');
+    expect(screen.getByRole('button', { name: 'Prep day, Saturday' })).toBeTruthy();
+  });
+
+  it('opens on Sunday when the saved choices were made before the prep day could be chosen', async () => {
+    const { prepDay: _unused, ...older } = DEFAULT_PLAN_CHOICES;
+    void _unused;
+    await render(<KitchenScreen />);
+    // Saved choices from an earlier version have no prepDay: they still count as valid.
+    expect(isPlanChoices(older)).toBe(true);
+    await press('Plan my week');
+    expect(screen.getByRole('button', { name: 'Prep day, Sunday' })).toBeTruthy();
   });
 
   it('keeps the choices and opens the plan page once the sheet has closed', async () => {
@@ -263,6 +299,7 @@ describe('Kitchen: the set-up sheet', () => {
       mode: 'daily',
       prepMinutes: 120,
       useFridge: false,
+      prepDay: 0,
     });
   });
 

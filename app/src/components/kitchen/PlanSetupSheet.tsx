@@ -16,9 +16,10 @@ import {
   type PlanMode,
   type PlanSlot,
   PREP_TIMES,
+  prepWeekday,
+  WEEK_DAYS,
 } from '@/constants/mealPlan';
 import { itemsLine, updatedLine } from '@/lib/fridge';
-import { skipsLine } from '@/lib/kitchenCopy';
 import { cardEdge, minTouchTarget, radius, selectedEdge, selectedFill, space, useColors } from '@/theme';
 
 type Props = {
@@ -30,23 +31,15 @@ type Props = {
   initial: PlanChoices;
   /** What the saved fridge holds. With nothing in it the row says so and offers the way to fill it. */
   fridge: { count: number; updatedAt: string | null };
-  /** The "Foods to avoid" list, so the sheet can say what is skipped. */
-  skipped: readonly string[];
   /** "Add items" on an empty fridge: the page closes this sheet and opens the fridge screen. */
   onAddFridge: () => void;
   onSubmit: (choices: PlanChoices) => void;
 };
 
-/** Monday first, as the plan week runs; the values are JS weekdays (0 = Sunday). */
-const DAYS = [
-  { weekday: 1, letter: 'M', name: 'Monday' },
-  { weekday: 2, letter: 'T', name: 'Tuesday' },
-  { weekday: 3, letter: 'W', name: 'Wednesday' },
-  { weekday: 4, letter: 'T', name: 'Thursday' },
-  { weekday: 5, letter: 'F', name: 'Friday' },
-  { weekday: 6, letter: 'S', name: 'Saturday' },
-  { weekday: 0, letter: 'S', name: 'Sunday' },
-] as const;
+const DAYS = WEEK_DAYS;
+
+/** "Sunday": the name of a weekday. */
+const dayName = (weekday: number): string => DAYS.find((day) => day.weekday === weekday)?.name ?? 'Sunday';
 
 /** "Korean", "Korean +1": the cuisines picked, as one short value for the row. */
 export function cuisinesValue(cuisines: readonly CuisineKey[]): string {
@@ -57,7 +50,8 @@ export function cuisinesValue(cuisines: readonly CuisineKey[]): string {
 /**
  * "Plan your week" (Figma "meal planning flow" B): the few choices a week plan needs, all prefilled from last time.
  * Days (tap one off for eating out or travelling), meals, cuisines (the row opens a list to tick up to four), whether
- * to use the fridge, how you cook (once, or daily) and, for cook once, how long the prep session may be. Give it a new
+ * to use the fridge, how you cook (once, or daily) and, for cook once, how long the prep session may be and which day
+ * to cook on (a honey pill that opens the list of days, Figma "meal planning flow" B5 and B6). Give it a new
  * `key` each time it opens so it starts from the last choices.
  */
 export function PlanSetupSheet({
@@ -66,7 +60,6 @@ export function PlanSetupSheet({
   onDismissed,
   initial,
   fridge,
-  skipped,
   onAddFridge,
   onSubmit,
 }: Props) {
@@ -78,8 +71,9 @@ export function PlanSetupSheet({
   const [prep, setPrep] = useState(String(initial.prepMinutes));
   const [fridgeOn, setFridgeOn] = useState(initial.useFridge);
   const [cuisineOpen, setCuisineOpen] = useState(false);
+  const [prepDay, setPrepDay] = useState(prepWeekday(initial));
+  const [prepDayOpen, setPrepDayOpen] = useState(false);
   const hasFridge = fridge.count > 0;
-  const skips = skipsLine(skipped);
 
   const toggleDay = (weekday: number) =>
     setWeekdays((current) =>
@@ -114,6 +108,7 @@ export function PlanSetupSheet({
       mode,
       prepMinutes: Number(prep),
       useFridge: hasFridge && fridgeOn,
+      prepDay,
     });
 
   const fridgeLine = fridge.updatedAt
@@ -266,13 +261,70 @@ export function PlanSetupSheet({
             <SegmentedControl compact options={PREP_TIMES} value={prep} onChange={setPrep} />
           </View>
         )}
+
+        {mode === 'once' && (
+          <View style={[styles.card, styles.row, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+            <AppText style={styles.rowLabel}>Prep day</AppText>
+            {/* Honey, not olive: it is the day you cook, not one of the days you eat from the plan. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Prep day, ${dayName(prepDay)}`}
+              accessibilityHint="Opens the list of days"
+              onPress={() => setPrepDayOpen(true)}
+              hitSlop={4}
+              style={[styles.dayPill, { backgroundColor: colors.honeyTint }]}>
+              <AppText variant="bodyEm" style={{ color: colors.honeyInk }}>
+                {dayName(prepDay)}
+              </AppText>
+              <ChevronDown size={18} color={colors.honeyInk} strokeWidth={2} />
+            </Pressable>
+          </View>
+        )}
       </View>
 
-      <AppText variant="caption" color="inkMuted" style={styles.note}>
-        {skips ? `${skips} ` : ''}Gentle on reflux.
-      </AppText>
-
       <Button label="Make my plan" onPress={submit} />
+
+      <BottomSheet visible={prepDayOpen} onClose={() => setPrepDayOpen(false)} tone="bg">
+        <View style={styles.header}>
+          <AppText variant="displaySmall" accessibilityRole="header" style={styles.title}>
+            Prep day
+          </AppText>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close the list of days"
+            onPress={() => setPrepDayOpen(false)}
+            hitSlop={(minTouchTarget - 36) / 2}
+            style={[styles.close, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+            <X size={18} color={colors.ink} strokeWidth={2} />
+          </Pressable>
+        </View>
+        <View accessibilityRole="radiogroup" style={styles.rows}>
+          {DAYS.map((day) => {
+            const on = day.weekday === prepDay;
+            return (
+              <Pressable
+                key={day.weekday}
+                accessibilityRole="radio"
+                accessibilityLabel={day.name}
+                accessibilityState={{ checked: on }}
+                onPress={() => {
+                  setPrepDay(day.weekday);
+                  setPrepDayOpen(false);
+                }}
+                style={[
+                  styles.card,
+                  styles.row,
+                  {
+                    backgroundColor: on ? colors.sageTint : colors.surface,
+                    ...(on ? selectedEdge(colors, true) : cardEdge(colors)),
+                  },
+                ]}>
+                <AppText variant={on ? 'bodyEm' : 'body'}>{day.name}</AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+      </BottomSheet>
     </BottomSheet>
   );
 }
@@ -318,5 +370,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.s1_5,
     borderRadius: radius.pill,
   },
-  note: { marginBottom: space.s2 },
+  dayPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 36,
+    paddingLeft: 14,
+    paddingRight: 10,
+    borderRadius: radius.pill,
+  },
 });

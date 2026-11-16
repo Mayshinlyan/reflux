@@ -98,7 +98,7 @@ const firstMeal = addDays(today, 3);
 
 function savedPlan(mode: 'once' | 'daily' = 'once') {
   return createPlan(mockDb, {
-    weekStart: today,
+    weekStart: firstMeal,
     choices: { ...DEFAULT_PLAN_CHOICES, mode },
     meals: [
       { day: firstMeal, slot: 'lunch', dish: dish('a', 'Chicken bowls') },
@@ -201,7 +201,7 @@ describe('Prep day', () => {
 
   it('does not ask the relay for a single dish', async () => {
     createPlan(mockDb, {
-      weekStart: today,
+      weekStart: firstMeal,
       choices: { ...DEFAULT_PLAN_CHOICES, mode: 'once' },
       meals: [{ day: firstMeal, slot: 'dinner', dish: dish('a', 'Chicken bowls') }],
     });
@@ -225,7 +225,7 @@ describe('Prep day', () => {
     expect(ticks[0]).toMatch(/:d:a:0$/);
   });
 
-  it('sets the reminder for the day before the first meal and remembers the plan', async () => {
+  it('sets the reminder for the prep day (the Sunday before the week by default) and remembers the plan', async () => {
     const plan = savedPlan();
     schedule.mockResolvedValue('scheduled');
     await render(<PrepDayScreen />);
@@ -234,6 +234,24 @@ describe('Prep day', () => {
 
     await waitFor(() => expect(getSetting(mockDb, 'prepReminderPlan')).toBe(plan.id));
     expect(schedule).toHaveBeenCalledWith(addDays(firstMeal, -1));
+  });
+
+  it('cooks and reminds on the chosen prep day, inside the plan week', async () => {
+    createPlan(mockDb, {
+      weekStart: addDays(today, 1),
+      choices: { ...DEFAULT_PLAN_CHOICES, mode: 'once', prepDay: 4 },
+      meals: [
+        { day: addDays(today, 5), slot: 'lunch', dish: dish('a', 'Chicken bowls') },
+        { day: addDays(today, 6), slot: 'lunch', dish: dish('b', 'Congee', { keepsDays: 1 }) },
+      ],
+    });
+    schedule.mockResolvedValue('scheduled');
+    await render(<PrepDayScreen />);
+
+    // Thursday of the plan week is its fourth day.
+    await fireEvent.press(await screen.findByRole('switch', { name: /^Remind me on / }));
+
+    await waitFor(() => expect(schedule).toHaveBeenCalledWith(addDays(today, 4)));
   });
 
   it('says so, and stays off, when notifications are not allowed', async () => {

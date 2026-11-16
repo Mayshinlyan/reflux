@@ -12,6 +12,7 @@ import { Screen } from '@/components/Screen';
 import { Toggle } from '@/components/Toggle';
 import { TopBarButton } from '@/components/TopBar';
 import { useDb } from '@/db/DatabaseProvider';
+import { prepWeekday } from '@/constants/mealPlan';
 import { getCurrentPlan } from '@/db/repositories/mealPlans';
 import { getPlanChecks, setChecked } from '@/db/repositories/planChecks';
 import { getPrepPlan, savePrepPlan } from '@/db/repositories/planPrep';
@@ -113,7 +114,7 @@ export default function PrepDayScreen() {
     );
   }
 
-  const cookDay = prepDay(plan.meals, plan.weekStart, today);
+  const cookDay = prepDay(plan.weekStart, today, prepWeekday(plan.choices));
   const dayName = prepDayName(cookDay);
   const summary = prepSummary(dishes, plan.choices.prepMinutes);
 

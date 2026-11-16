@@ -19,7 +19,6 @@ import { Screen } from '@/components/Screen';
 import { useTourTarget } from '@/components/tour/TourContext';
 import type { PlanChoices } from '@/constants/mealPlan';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
-import { listAvoidFoods } from '@/db/repositories/avoidFoods';
 import { fridgeUpdatedAt, listFridgeItems } from '@/db/repositories/fridgeItems';
 import { getCurrentPlan, type StoredMeal, type StoredPlan } from '@/db/repositories/mealPlans';
 import { listSavedRecipes } from '@/db/repositories/savedRecipes';
@@ -48,7 +47,6 @@ export default function KitchenScreen() {
   const fridgeTarget = useTourTarget('fridge');
   const [plan, setPlan] = useState<StoredPlan | null>(null);
   const [savedCount, setSavedCount] = useState(0);
-  const [skipped, setSkipped] = useState<string[]>([]);
   // How the plan's week went once it is ending: planned meals logged, and the dishes that sat well.
   const [result, setResult] = useState<{ logged: number; well: number; wellTitles: string[] } | null>(null);
   const [fridge, setFridge] = useState<{ count: number; updatedAt: string | null }>({
@@ -67,7 +65,6 @@ export default function KitchenScreen() {
       setPlan(latest);
       setResult(latest && weekIsEnding(latest, todayKey()) ? planWeekResult(db, latest) : null);
       setSavedCount(listSavedRecipes(db).length);
-      setSkipped(listAvoidFoods(db).map((food) => food.name));
       setFridge({ count: listFridgeItems(db).length, updatedAt: fridgeUpdatedAt(db) });
     } catch (error) {
       logger.error('loadKitchen', error);
@@ -250,7 +247,6 @@ export default function KitchenScreen() {
         onDismissed={dismissed}
         initial={settings.planChoices}
         fridge={fridge}
-        skipped={skipped}
         onAddFridge={addFridge}
         onSubmit={submit}
       />

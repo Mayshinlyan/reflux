@@ -1,5 +1,11 @@
 import type { ConditionKey } from '@/constants/conditions';
-import { PLAN_SLOTS, type PlanChoices, type PlanMode, type PlanSlot } from '@/constants/mealPlan';
+import {
+  PLAN_SLOTS,
+  type PlanChoices,
+  type PlanMode,
+  type PlanSlot,
+  prepWeekday,
+} from '@/constants/mealPlan';
 import type { AppDb } from '@/db/types';
 import type { NewMeal } from '@/db/repositories/mealPlans';
 import type { MealPlanRequest, MealPlanResult } from '@/types/mealPlan';
@@ -29,6 +35,16 @@ export function planWeekStart(today: string): string {
   return addDays(today, 1 - weekday);
 }
 
+/**
+ * The date to cook on for a plan week: Monday to Friday fall inside the week, and Saturday and Sunday are the days
+ * just before it (the Sunday, or the Saturday, before a Monday).
+ */
+export function prepDateFor(weekStart: string, weekday: number): string {
+  if (weekday === 0) return addDays(weekStart, -1);
+  if (weekday === 6) return addDays(weekStart, -2);
+  return addDays(weekStart, weekday - 1);
+}
+
 export type PlanDay = { key: string; letter: string; name: string; date: number; weekday: number };
 
 /** The seven days of a plan week, Monday first. */
@@ -44,13 +60,16 @@ export function planWeek(weekStart: string): PlanDay[] {
  * they are eaten.
  */
 export function planSlots(
-  choices: Pick<PlanChoices, 'weekdays' | 'meals'>,
+  choices: Pick<PlanChoices, 'weekdays' | 'meals'> & Partial<Pick<PlanChoices, 'mode' | 'prepDay'>>,
   weekStart: string,
   today: string,
 ): PlanSlotRef[] {
   const slots: PlanSlotRef[] = [];
+  // Cook once: the meals are reheated from the prep, so they start the day after it.
+  const cooked = choices.mode === 'once' ? prepDateFor(weekStart, prepWeekday(choices)) : null;
   for (const day of planWeek(weekStart)) {
     if (day.key < today || !choices.weekdays.includes(day.weekday)) continue;
+    if (cooked !== null && day.key <= cooked) continue;
     for (const { value } of PLAN_SLOTS)
       if (choices.meals.includes(value)) slots.push({ day: day.key, slot: value });
   }

@@ -269,7 +269,7 @@ export default function PlanScreen() {
             {!plan && status !== 'error'
               ? 'There is no plan yet. Make one from the Kitchen.'
               : errorCode === 'EMPTY'
-                ? 'There are no days left this week to plan. Pick other days and try again.'
+                ? 'There are no days left to plan after your prep day. Pick other days or an earlier prep day, and try again.'
                 : ideasErrorMessage(errorCode)}
           </AppText>
         </View>
