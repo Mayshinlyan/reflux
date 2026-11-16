@@ -136,7 +136,7 @@ describe('Prep day', () => {
     expect(screen.getByRole('header', { name: 'Chicken bowls' })).toBeTruthy();
     expect(screen.getByRole('header', { name: 'Congee' })).toBeTruthy();
     expect(screen.getByRole('header', { name: 'Finish together' })).toBeTruthy();
-    expect(screen.getByRole('checkbox', { name: 'Heat the oven to 425 F, Both dishes' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Heat the oven to 425 F' })).toBeTruthy();
     expect(screen.getByRole('checkbox', { name: 'Roast the carrots' })).toBeTruthy();
     expect(screen.getByText('Fridge: Chicken bowls.')).toBeTruthy();
     expect(screen.getByText('Freezer: Congee.')).toBeTruthy();
@@ -280,6 +280,14 @@ describe('Shopping list', () => {
     await fireEvent.press(screen.getByRole('checkbox', { name: 'Rice' }));
 
     expect([...getPlanChecks(mockDb, plan.id).shop]).toEqual(['rice']);
+  });
+
+  it('has Add an item at the very bottom, after the aisles', async () => {
+    savedPlan();
+    await render(<ShoppingListScreen />);
+
+    const page = JSON.stringify(screen.toJSON());
+    expect(page.indexOf('"Add an item"')).toBeGreaterThan(page.lastIndexOf('"Rice"'));
   });
 
   it('adds an item by hand', async () => {
