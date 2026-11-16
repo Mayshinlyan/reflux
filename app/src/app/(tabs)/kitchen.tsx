@@ -12,6 +12,7 @@ import { tabBarClearance } from '@/components/FloatingTabBar';
 import { FridgeRow } from '@/components/kitchen/FridgeRow';
 import { ListRow } from '@/components/kitchen/ListRow';
 import { PillButton } from '@/components/kitchen/PillButton';
+import { PlanningCard } from '@/components/kitchen/PlanningCard';
 import { PlanSetupSheet } from '@/components/kitchen/PlanSetupSheet';
 import { PlanWeekStrip } from '@/components/kitchen/PlanWeekStrip';
 import { PrepBanner } from '@/components/kitchen/PrepBanner';
@@ -33,13 +34,16 @@ import { weekLine } from '@/lib/planToday';
 import { setRecipeDraft } from '@/lib/recipeDraft';
 import { buildShoppingList, shoppingSummary } from '@/lib/shopping';
 import { planWeekResult, weekIsEnding } from '@/lib/weekResult';
+import { retryPlanJob, usePlanJob } from '@/services/planJob';
 import { cardEdge, radius, space, useColors } from '@/theme';
 
 /**
  * Kitchen: planning the week (Figma "meal planning flow" A and F). With no plan, one card and one button open the
  * set-up sheet, and the plan is made on the page that follows. With a plan for the current week it is "this week":
  * today's meals, the week, a way back into the plan, and Saved and My fridge. Saved recipes and the fridge scan keep
- * working as before; only the recipe ideas became the week plan.
+ * working as before; only the recipe ideas became the week plan. While the week is being made (it goes on when the
+ * person leaves the plan page), the plan card is replaced by a Planning card (F3), or by "Planning is taking too long"
+ * and Try again (F3b).
  */
 export default function KitchenScreen() {
   const colors = useColors();
@@ -102,7 +106,15 @@ export default function KitchenScreen() {
       logger.error('loadKitchen', error);
     }
   }, [db]);
-  useFocusEffect(reload);
+  const job = usePlanJob();
+  // Also when a plan finishes while this page is open: show it.
+  const finishedAt = job.finishedAt;
+  useFocusEffect(
+    useCallback(() => {
+      void finishedAt;
+      reload();
+    }, [reload, finishedAt]),
+  );
 
   const today = todayKey();
   // A plan is "this week" until its Sunday has passed; after that the Kitchen asks for a new one.
@@ -209,17 +221,43 @@ export default function KitchenScreen() {
             Kitchen
           </AppText>
           <AppText variant="voiceSmall" color="inkSoft">
-            {ending
-              ? 'A new week is coming'
-              : current
-                ? startsLater
-                  ? 'Next week'
-                  : 'This week'
-                : 'What shall we cook?'}
+            {job.status !== 'idle'
+              ? 'What shall we cook?'
+              : ending
+                ? 'A new week is coming'
+                : current
+                  ? startsLater
+                    ? 'Next week'
+                    : 'This week'
+                  : 'What shall we cook?'}
           </AppText>
         </View>
 
-        {current ? (
+        {job.status !== 'idle' ? (
+          <>
+            <View ref={planTarget}>
+              <PlanningCard status={job.status} onRetry={() => void retryPlanJob(db)} />
+            </View>
+            <ListRow
+              icon={<Bookmark size={20} color={colors.sageInk} strokeWidth={2} />}
+              title="Saved recipes"
+              subtitle={savedCount === 1 ? '1 recipe' : `${savedCount} recipes`}
+              onPress={() => router.push('/saved-recipes')}
+            />
+            <View style={styles.section}>
+              <AppText variant="section" accessibilityRole="header">
+                My fridge
+              </AppText>
+              <View ref={fridgeTarget}>
+                <FridgeRow
+                  count={fridge.count}
+                  updatedAt={fridge.updatedAt}
+                  onPress={() => router.push('/fridge')}
+                />
+              </View>
+            </View>
+          </>
+        ) : current ? (
           <>
             <View ref={planTarget}>
               <PlanWeekStrip

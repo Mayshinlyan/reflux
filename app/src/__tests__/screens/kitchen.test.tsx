@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import KitchenScreen from '@/app/(tabs)/kitchen';
 import { DEFAULT_PLAN_CHOICES, isPlanChoices } from '@/constants/mealPlan';
@@ -16,7 +16,10 @@ import { todayKey } from '@/lib/kitchen';
 import { addDays } from '@/lib/localDay';
 import { planWeek } from '@/lib/mealPlan';
 import { getRecipeDraft, setRecipeDraft } from '@/lib/recipeDraft';
-import type { PlanDish } from '@/types/mealPlan';
+import { AppError } from '@/lib/errors';
+import { resetPlanJob, startPlanJob } from '@/services/planJob';
+import { fetchMealPlan } from '@/services/relayClient';
+import type { MealPlanRequest, PlanDish } from '@/types/mealPlan';
 import type { Recipe } from '@/types/recipe';
 
 let mockDb: AppDb;
@@ -49,7 +52,11 @@ jest.mock('@/db/DatabaseProvider', () => ({
   },
 }));
 // The Feedback button on this page imports the relay client, which loads Firebase; the Kitchen itself calls nothing.
-jest.mock('@/services/relayClient', () => ({ sendFeedback: jest.fn() }));
+jest.mock('@/services/relayClient', () => ({
+  sendFeedback: jest.fn(),
+  fetchMealPlan: jest.fn(),
+  fetchPrepPlan: jest.fn(),
+}));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -123,6 +130,8 @@ beforeEach(() => {
   closeDb = () => sqlite.close();
   mockPush.mockClear();
   setRecipeDraft(null);
+  resetPlanJob();
+  (fetchMealPlan as jest.Mock).mockReset();
 });
 afterEach(() => closeDb());
 
@@ -593,5 +602,56 @@ describe('Kitchen: next week', () => {
 
     expect(screen.getByText('Plan next week')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Dinner, Miso salmon' })).toBeTruthy();
+  });
+});
+
+describe('Kitchen while the week is being planned', () => {
+  const planFetch = fetchMealPlan as jest.Mock;
+  const answer = async (request: MealPlanRequest) => ({
+    dishes: [dish('d1', 'Chicken bowls')],
+    meals: request.slots.map((slot) => ({ day: slot.day, slot: slot.slot, dish: 'd1' })),
+  });
+
+  it('shows Planning your week in place of the plan card, then the plan once it is ready', async () => {
+    let finish: () => void = () => {};
+    planFetch.mockImplementation(
+      (request: MealPlanRequest) =>
+        new Promise((resolve) => {
+          finish = () => resolve(answer(request));
+        }),
+    );
+    await act(async () => {
+      startPlanJob(mockDb, { repeat: false });
+    });
+    await render(<KitchenScreen />);
+
+    expect(screen.getByLabelText('Planning your week')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Plan my week' })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Saved recipes/ })).toBeTruthy();
+    expect(screen.getByText('My fridge')).toBeTruthy();
+
+    await act(async () => {
+      finish();
+    });
+
+    await waitFor(() => expect(screen.queryByLabelText('Planning your week')).toBeNull());
+    expect(screen.getByRole('button', { name: 'Edit plan' })).toBeTruthy();
+  });
+
+  it('says planning is taking too long, with a Try again link that asks again', async () => {
+    planFetch.mockRejectedValueOnce(new AppError('AI_TIMEOUT')).mockImplementation(answer);
+    await act(async () => {
+      startPlanJob(mockDb, { repeat: false });
+    });
+    await render(<KitchenScreen />);
+
+    expect(await screen.findByText('Planning is taking too long')).toBeTruthy();
+    expect(screen.queryByLabelText('Planning your week')).toBeNull();
+
+    await press('Try again');
+
+    await waitFor(() => expect(screen.queryByText('Planning is taking too long')).toBeNull());
+    expect(planFetch).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole('button', { name: 'Edit plan' })).toBeTruthy();
   });
 });

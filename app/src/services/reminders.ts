@@ -36,11 +36,13 @@ export function setupReminders(): void {
   });
 }
 
+const PLAN_CHANNEL = 'meal-plan';
+
 /** Android 8+ needs a channel before anything can show. */
-async function ensureChannel(): Promise<void> {
+async function ensureChannel(channel: 'check-in' | 'meal-plan' = CHANNEL): Promise<void> {
   if (Platform.OS !== 'android') return;
-  await Notifications.setNotificationChannelAsync(CHANNEL, {
-    name: 'Check-in reminders',
+  await Notifications.setNotificationChannelAsync(channel, {
+    name: channel === PLAN_CHANNEL ? 'Meal plan' : 'Check-in reminders',
     importance: AndroidImportance.DEFAULT,
   });
 }
@@ -179,6 +181,43 @@ export async function schedulePrepReminder(
     logger.error('schedulePrepReminder', error);
     return 'failed';
   }
+}
+
+const PLAN_READY_ID = 'plan-ready';
+
+/**
+ * Says the week plan is ready (Figma "meal planning flow" N1), right away, for someone who left while it was being
+ * made. A local notification like the others: nothing about the plan leaves the phone, and it does not ask for
+ * permission itself (the plan job asked when it started).
+ */
+export async function notifyPlanReady(withPrep: boolean): Promise<void> {
+  try {
+    if (!(await remindersAllowed())) return;
+    await ensureChannel(PLAN_CHANNEL);
+    await Notifications.scheduleNotificationAsync({
+      identifier: PLAN_READY_ID,
+      content: {
+        title: 'Your week is ready',
+        body: withPrep ? 'Your meal plan and prep day are ready.' : 'Your meal plan is ready.',
+        data: { plan: true },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: 1,
+        channelId: PLAN_CHANNEL,
+      },
+    });
+  } catch (error) {
+    logger.error('notifyPlanReady', error);
+  }
+}
+
+/** True for a tap on the "Your week is ready" notification itself. */
+export function isPlanResponse(response: Notifications.NotificationResponse): boolean {
+  return (
+    response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER &&
+    response.notification.request.content.data?.plan === true
+  );
 }
 
 /** Drops the prep day reminder. Safe if none is scheduled. */
