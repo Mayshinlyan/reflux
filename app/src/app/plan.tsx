@@ -24,7 +24,7 @@ import {
 } from '@/db/repositories/mealPlans';
 import { listFridgeItems } from '@/db/repositories/fridgeItems';
 import { getPlanChecks } from '@/db/repositories/planChecks';
-import { getSetting } from '@/db/repositories/settings';
+import { getSetting, setSetting } from '@/db/repositories/settings';
 import { type ErrorCode } from '@/lib/errors';
 import { buildRecipeRequest, todayKey } from '@/lib/kitchen';
 import { ideasErrorMessage } from '@/lib/kitchenCopy';
@@ -120,6 +120,17 @@ export default function PlanScreen() {
   const errorCode: ErrorCode | 'EMPTY' = empty ? 'EMPTY' : (job.errorCode ?? 'INTERNAL');
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
+
+  // A plan that was just made is looked over here once; "Start my week" is what tells the Kitchen to show the week.
+  const toReview = plan !== null && getSetting(db, 'reviewPlan') === plan.id;
+  const startWeek = () => {
+    try {
+      if (toReview) setSetting(db, 'reviewPlan', null);
+    } catch (error) {
+      logger.error('startWeek', error);
+    }
+    goBack();
+  };
 
   const days = plan ? planWeek(plan.weekStart) : [];
   const byDay = new Map<string, StoredMeal[]>();
@@ -318,7 +329,7 @@ export default function PlanScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.bg }]}>
-        <Button label={kind ? 'Start my week' : 'Done'} onPress={goBack} />
+        <Button label={toReview ? 'Start my week' : 'Done'} onPress={startWeek} />
       </View>
 
       <SwapSheet

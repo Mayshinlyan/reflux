@@ -139,6 +139,12 @@ async function run(db: AppDb, ask: Ask): Promise<void> {
     if (!meals) throw new AppError('AI_INVALID_OUTPUT');
     const saved = createPlan(db, { weekStart: ask.weekStart, choices: ask.choices, meals });
     dropPrepReminder(db);
+    // Until they have looked it over, the Kitchen offers a "Review your meal plan" banner instead of the week.
+    try {
+      setSetting(db, 'reviewPlan', saved.id);
+    } catch (error) {
+      logger.error('markPlanToReview', error);
+    }
     const withPrep = await makePrep(db, saved);
     // How long it really took, to tune what the waiting page promises. Development only; nothing is sent anywhere.
     logger.debug(`planJob ${Math.round((Date.now() - began) / 1000)}s`);

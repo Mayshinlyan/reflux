@@ -15,7 +15,7 @@ import { PillButton } from '@/components/kitchen/PillButton';
 import { PlanningCard } from '@/components/kitchen/PlanningCard';
 import { PlanSetupSheet } from '@/components/kitchen/PlanSetupSheet';
 import { PlanWeekStrip } from '@/components/kitchen/PlanWeekStrip';
-import { PrepBanner } from '@/components/kitchen/PrepBanner';
+import { PlanBanner } from '@/components/kitchen/PlanBanner';
 import { TodayPlanCard } from '@/components/kitchen/TodayPlanCard';
 import { Screen } from '@/components/Screen';
 import { useTourTarget } from '@/components/tour/TourContext';
@@ -25,25 +25,26 @@ import { fridgeUpdatedAt, listFridgeItems } from '@/db/repositories/fridgeItems'
 import { getCurrentPlan, type StoredMeal, type StoredPlan } from '@/db/repositories/mealPlans';
 import { getPlanChecks } from '@/db/repositories/planChecks';
 import { listSavedRecipes } from '@/db/repositories/savedRecipes';
+import { getSetting } from '@/db/repositories/settings';
 import { todayKey } from '@/lib/kitchen';
 import { addDays } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
-import { planWeek, prepDateFor } from '@/lib/mealPlan';
+import { planSummary, planWeek, prepDateFor } from '@/lib/mealPlan';
 import { prepDay, prepDayName, prepDishes, prepSummary } from '@/lib/prep';
 import { weekLine } from '@/lib/planToday';
 import { setRecipeDraft } from '@/lib/recipeDraft';
 import { buildShoppingList, shoppingSummary } from '@/lib/shopping';
 import { planWeekResult, weekIsEnding } from '@/lib/weekResult';
-import { retryPlanJob, usePlanJob } from '@/services/planJob';
+import { retryPlanJob, startPlanJob, usePlanJob } from '@/services/planJob';
 import { cardEdge, radius, space, useColors } from '@/theme';
 
 /**
  * Kitchen: planning the week (Figma "meal planning flow" A and F). With no plan, one card and one button open the
  * set-up sheet, and the plan is made on the page that follows. With a plan for the current week it is "this week":
  * today's meals, the week, a way back into the plan, and Saved and My fridge. Saved recipes and the fridge scan keep
- * working as before; only the recipe ideas became the week plan. While the week is being made (it goes on when the
- * person leaves the plan page), the plan card is replaced by a Planning card (F3), or by "Planning is taking too long"
- * and Try again (F3b).
+ * working as before; only the recipe ideas became the week plan. Making the plan keeps the person here: while the week
+ * is being made, the plan card is replaced by a Planning card (F3) whose pot opens the waiting page, or by "Planning
+ * is taking too long" and Try again (F3b).
  */
 export default function KitchenScreen() {
   const colors = useColors();
@@ -58,7 +59,7 @@ export default function KitchenScreen() {
   // How the plan's week went once it is ending: planned meals logged, and the dishes that sat well.
   const [result, setResult] = useState<{ logged: number; well: number; wellTitles: string[] } | null>(null);
   // What the shopping row says, and whether the prep day was marked done (the banner goes then).
-  const [extra, setExtra] = useState<{ shopping: string; prepDone: boolean } | null>(null);
+  const [extra, setExtra] = useState<{ shopping: string; prepDone: boolean; review: boolean } | null>(null);
   // The day of the week strip whose meals show in the card; today until another is tapped.
   const [picked, setPicked] = useState<string | null>(null);
   const [fridge, setFridge] = useState<{ count: number; updatedAt: string | null }>({
@@ -94,6 +95,8 @@ export default function KitchenScreen() {
           setExtra({
             shopping: shoppingSummary(buildShoppingList(latest.meals, names, checks.own, todayKey())),
             prepDone: checks.prep.has('done'),
+            // A plan just made waits for a look before the week shows (Figma F4).
+            review: getSetting(db, 'reviewPlan') === latest.id,
           });
         } else {
           setExtra(null);
@@ -142,12 +145,21 @@ export default function KitchenScreen() {
     afterClose.current = 'fridge';
     setAsking(false);
   };
-  const repeatWhatWorked = () => router.push({ pathname: '/plan', params: { make: 'new', repeat: '1' } });
+  /**
+   * Makes the week without leaving the Kitchen: the page says it is planning, and the pot opens the waiting page.
+   * Only "no day left to plan" goes to the plan page, which is where that is explained.
+   */
+  const makePlan = (repeat: boolean) => {
+    if (startPlanJob(db, { repeat }) === 'empty') {
+      router.push({ pathname: '/plan', params: repeat ? { make: 'new', repeat: '1' } : { make: 'new' } });
+    }
+  };
+  const repeatWhatWorked = () => makePlan(true);
   const dismissed = () => {
     const next = afterClose.current;
     afterClose.current = null;
     if (next === 'fridge') router.push('/fridge');
-    if (next === 'make') router.push({ pathname: '/plan', params: { make: 'new' } });
+    if (next === 'make') makePlan(false);
   };
 
   const openMeal = (meal: StoredMeal) => {
@@ -207,6 +219,30 @@ export default function KitchenScreen() {
     </View>
   );
 
+  // Saved and My fridge, last on the page whenever there is a plan, or one being made (Figma F2, F3, F4).
+  const pills = (
+    <View style={styles.pills}>
+      <View style={styles.fill}>
+        <PillButton
+          icon={<Bookmark size={24} color={colors.ink} strokeWidth={2} />}
+          label="Saved"
+          accessibilityLabel="Saved recipes"
+          accessibilityHint="Opens the list of your saved recipes"
+          onPress={() => router.push('/saved-recipes')}
+        />
+      </View>
+      <View ref={fridgeTarget} style={styles.fill}>
+        <PillButton
+          icon={<Refrigerator size={24} color={colors.ink} strokeWidth={2} />}
+          label="My fridge"
+          accessibilityLabel="My fridge"
+          accessibilityHint="Opens your fridge list"
+          onPress={() => router.push('/fridge')}
+        />
+      </View>
+    </View>
+  );
+
   return (
     <Screen edges={['top', 'left', 'right']}>
       <ScrollView
@@ -221,7 +257,7 @@ export default function KitchenScreen() {
             Kitchen
           </AppText>
           <AppText variant="voiceSmall" color="inkSoft">
-            {job.status !== 'idle'
+            {job.status !== 'idle' || (current !== null && extra?.review)
               ? 'What shall we cook?'
               : ending
                 ? 'A new week is coming'
@@ -236,26 +272,26 @@ export default function KitchenScreen() {
         {job.status !== 'idle' ? (
           <>
             <View ref={planTarget}>
-              <PlanningCard status={job.status} onRetry={() => void retryPlanJob(db)} />
+              <PlanningCard
+                status={job.status}
+                onOpen={() => router.push('/plan')}
+                onRetry={() => void retryPlanJob(db)}
+              />
             </View>
-            <ListRow
-              icon={<Bookmark size={20} color={colors.sageInk} strokeWidth={2} />}
-              title="Saved recipes"
-              subtitle={savedCount === 1 ? '1 recipe' : `${savedCount} recipes`}
-              onPress={() => router.push('/saved-recipes')}
-            />
-            <View style={styles.section}>
-              <AppText variant="section" accessibilityRole="header">
-                My fridge
-              </AppText>
-              <View ref={fridgeTarget}>
-                <FridgeRow
-                  count={fridge.count}
-                  updatedAt={fridge.updatedAt}
-                  onPress={() => router.push('/fridge')}
-                />
-              </View>
+            {pills}
+          </>
+        ) : current && extra?.review ? (
+          <>
+            <View ref={planTarget}>
+              <PlanBanner
+                title="Review your meal plan"
+                subtitle={planSummary(current.meals, current.mode)}
+                tone="sage"
+                hint="Opens the plan to look it over"
+                onPress={() => router.push('/plan')}
+              />
             </View>
+            {pills}
           </>
         ) : current ? (
           <>
@@ -270,9 +306,11 @@ export default function KitchenScreen() {
             </View>
             {ending && askCard}
             {showPrep && (
-              <PrepBanner
+              <PlanBanner
                 title={cookDay === today ? 'Prep day today' : `Prep day ${prepDayName(cookDay)}`}
                 subtitle={prepSummary(prepList, current.choices.prepMinutes)}
+                tone="honey"
+                hint="Opens the prep day"
                 onPress={() => router.push('/prep-day')}
               />
             )}
@@ -289,26 +327,7 @@ export default function KitchenScreen() {
               subtitle={extra?.shopping ?? ''}
               onPress={() => router.push('/shopping-list')}
             />
-            <View style={styles.pills}>
-              <View style={styles.fill}>
-                <PillButton
-                  icon={<Bookmark size={24} color={colors.ink} strokeWidth={2} />}
-                  label="Saved"
-                  accessibilityLabel="Saved recipes"
-                  accessibilityHint="Opens the list of your saved recipes"
-                  onPress={() => router.push('/saved-recipes')}
-                />
-              </View>
-              <View ref={fridgeTarget} style={styles.fill}>
-                <PillButton
-                  icon={<Refrigerator size={24} color={colors.ink} strokeWidth={2} />}
-                  label="My fridge"
-                  accessibilityLabel="My fridge"
-                  accessibilityHint="Opens your fridge list"
-                  onPress={() => router.push('/fridge')}
-                />
-              </View>
-            </View>
+            {pills}
           </>
         ) : (
           <>

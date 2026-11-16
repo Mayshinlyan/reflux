@@ -253,6 +253,18 @@ describe('Plan: making a plan', () => {
     expect(screen.queryByText('That took longer than expected. Try again in a moment.')).toBeNull();
   });
 
+  it('says Start my week for a plan not yet looked over, and clears the review banner when pressed', async () => {
+    planFetch.mockImplementation(answerWith('Chicken bowls'));
+    await render(<PlanScreen />);
+
+    await screen.findByRole('header', { name: 'Review the meal plan' });
+    expect(getSetting(mockDb, 'reviewPlan')).toBe(getCurrentPlan(mockDb)!.id);
+    await press('Start my week');
+
+    expect(getSetting(mockDb, 'reviewPlan')).toBeNull();
+    expect(mockBack).toHaveBeenCalled();
+  });
+
   it('keeps nothing when it is not asked to repeat', async () => {
     planFetch.mockImplementation(answerWith('Chicken bowls'));
     await render(<PlanScreen />);
@@ -416,6 +428,15 @@ describe('Plan: the review', () => {
     await render(<PlanScreen />);
 
     expect(screen.getByText('There is no plan yet. Make one from the Kitchen.')).toBeTruthy();
+  });
+
+  it('says Start my week when opened from the Kitchen banner, with no new plan being made', async () => {
+    const plan = savedPlan();
+    setSetting(mockDb, 'reviewPlan', plan.id);
+    await render(<PlanScreen />);
+
+    expect(screen.getByRole('button', { name: 'Start my week' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
   });
 
   it('goes back from Done', async () => {

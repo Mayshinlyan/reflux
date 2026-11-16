@@ -123,6 +123,14 @@ describe('the plan job', () => {
     expect(notify).toHaveBeenCalledWith(true);
   });
 
+  it("marks the new plan as waiting for a look, for the Kitchen's review banner", async () => {
+    planFetch.mockImplementation(oneDish);
+    startPlanJob(db, { repeat: false });
+    await finished();
+
+    expect(getSetting(db, 'reviewPlan')).toBe(getCurrentPlan(db)!.id);
+  });
+
   it('asks for permission to notify as it starts, not when it ends', async () => {
     planFetch.mockImplementation(oneDish);
     startPlanJob(db, { repeat: false });
