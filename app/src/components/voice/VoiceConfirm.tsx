@@ -1,4 +1,5 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ChevronDown } from 'lucide-react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -6,16 +7,18 @@ import { TagChip } from '@/components/TagChip';
 import { type LoggedSymptomKey } from '@/constants/symptomItems';
 import { formatMealTime } from '@/lib/mealTime';
 import { symptomLabel } from '@/lib/timeline';
+import { type HeardMeal, mealTitle } from '@/services/voice';
 import { cardEdge, radius, space, typography, useColors } from '@/theme';
 
 type Props = {
-  foods: string[];
+  meals: HeardMeal[];
   symptoms: LoggedSymptomKey[];
-  /** When it was; null means now. */
+  /** When the symptoms were felt, shown only when no meal was said; null means now. */
   at: Date | null;
-  onFixFood: (index: number) => void;
+  onFixFood: (meal: number, index: number) => void;
   onFixSymptom: (key: LoggedSymptomKey) => void;
-  onFixTime: () => void;
+  /** The meal whose time to change, or null for the symptoms' own time. */
+  onFixTime: (meal: number | null) => void;
   onSave: () => void;
   onTalkAgain: () => void;
   saving: boolean;
@@ -31,12 +34,57 @@ function HeardCard({ title, children }: { title: string; children: React.ReactNo
   );
 }
 
+/** A meal's card: its title and, at the right, its time as plain text with a chevron (tap to change it), then its foods. */
+function MealCard({
+  meal,
+  onFixFood,
+  onFixTime,
+}: {
+  meal: HeardMeal;
+  onFixFood: (index: number) => void;
+  onFixTime: () => void;
+}) {
+  const colors = useColors();
+  const when = formatMealTime(meal.at, new Date());
+  return (
+    <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+      <View style={styles.mealHeader}>
+        <AppText variant="sectionSm">{mealTitle(meal)}</AppText>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${mealTitle(meal)} time, ${when}. Change it`}
+          onPress={onFixTime}
+          hitSlop={8}
+          style={styles.time}>
+          <AppText variant="small" color="inkSoft">
+            {when}
+          </AppText>
+          <ChevronDown size={18} color={colors.inkSoft} strokeWidth={2} />
+        </Pressable>
+      </View>
+      <View style={styles.chips}>
+        {meal.foods.map((food, index) => (
+          <TagChip
+            key={`${index}:${food}`}
+            label={food}
+            selected={false}
+            onCard
+            role="button"
+            onPress={() => onFixFood(index)}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
 /**
- * Figma 45d: "Did I get that?" One card each for what was heard as food, how you feel and when. Every chip is a
- * button that opens its fixing sheet (45h to 45j). Nothing is saved until "Save".
+ * Figma 45d and 49: "Did I get that?" One card for each meal heard (its own title, time and foods), one for how
+ * you feel, and, when nothing was eaten, one for when. Every chip is a button that opens its fixing sheet (45h to
+ * 45j), and a meal's time opens the time sheet for that meal. Nothing is saved until "Save".
  */
 export function VoiceConfirm({
-  foods,
+  meals,
   symptoms,
   at,
   onFixFood,
@@ -46,7 +94,7 @@ export function VoiceConfirm({
   onTalkAgain,
   saving,
 }: Props) {
-  const nothing = foods.length === 0 && symptoms.length === 0;
+  const nothing = meals.length === 0 && symptoms.length === 0;
   return (
     <>
       <ScrollView
@@ -59,20 +107,14 @@ export function VoiceConfirm({
         <AppText variant="voice" color="inkSoft" style={styles.subtitle}>
           Tap anything to fix it.
         </AppText>
-        {foods.length > 0 && (
-          <HeardCard title="Food">
-            {foods.map((food, index) => (
-              <TagChip
-                key={`${index}:${food}`}
-                label={food}
-                selected={false}
-                onCard
-                role="button"
-                onPress={() => onFixFood(index)}
-              />
-            ))}
-          </HeardCard>
-        )}
+        {meals.map((meal, mealIndex) => (
+          <MealCard
+            key={mealIndex}
+            meal={meal}
+            onFixFood={(index) => onFixFood(mealIndex, index)}
+            onFixTime={() => onFixTime(mealIndex)}
+          />
+        ))}
         {symptoms.length > 0 && (
           <HeardCard title="How you feel">
             {symptoms.map((key) => (
@@ -87,14 +129,14 @@ export function VoiceConfirm({
             ))}
           </HeardCard>
         )}
-        {!nothing && (
+        {meals.length === 0 && symptoms.length > 0 && (
           <HeardCard title="When">
             <TagChip
               label={formatMealTime(at, new Date())}
               selected={false}
               onCard
               role="button"
-              onPress={onFixTime}
+              onPress={() => onFixTime(null)}
             />
           </HeardCard>
         )}
@@ -118,5 +160,8 @@ const styles = StyleSheet.create({
   subtitle: { marginBottom: space.s1 },
   card: { borderRadius: radius.lg, padding: space.s2, gap: space.s1_5 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s1 },
+  // Figma 49: the heading row is 38 tall, like a chip, with the time at the far end.
+  mealHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 38 },
+  time: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   footer: { paddingTop: space.s2, paddingBottom: space.s1, gap: space.s1 },
 });
