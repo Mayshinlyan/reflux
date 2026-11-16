@@ -290,12 +290,21 @@ describe('Log voice screen', () => {
     expect(mockRecorder.start).toHaveBeenCalledTimes(2);
   });
 
-  it('opens the typing screen from Type instead', async () => {
+  it('opens the tabbed typing screen from Type instead', async () => {
     await render(<LogVoiceScreen />);
 
     await press('Type instead');
 
-    expect(mockReplace).toHaveBeenCalledWith('/log/food');
+    expect(mockReplace).toHaveBeenCalledWith('/log/type');
+  });
+
+  it('keeps the day when switching to typing', async () => {
+    mockParams = { date: '2026-11-10' };
+    await render(<LogVoiceScreen />);
+
+    await press('Type instead');
+
+    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/log/type', params: { date: '2026-11-10' } });
   });
 
   it('says the mic is off when the demo says so, or the phone does', async () => {
