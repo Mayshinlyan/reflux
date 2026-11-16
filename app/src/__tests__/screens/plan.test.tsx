@@ -4,14 +4,17 @@ import PlanScreen from '@/app/plan';
 import { DEFAULT_PLAN_CHOICES } from '@/constants/mealPlan';
 import { createTestDb } from '@/db/__tests__/testDb';
 import { createAvoidFood } from '@/db/repositories/avoidFoods';
-import { createPlan, getCurrentPlan } from '@/db/repositories/mealPlans';
+import { createFoodLog } from '@/db/repositories/food';
+import { createPlan, getCurrentPlan, markMealLogOffered } from '@/db/repositories/mealPlans';
 import { getSetting, setSetting } from '@/db/repositories/settings';
 import type { AppDb } from '@/db/types';
 import { AppError } from '@/lib/errors';
 import { todayKey } from '@/lib/kitchen';
-import { planSlots, planWeekStart } from '@/lib/mealPlan';
+import { addDays } from '@/lib/localDay';
+import { planSlots, planWeekStart, weekdayOf } from '@/lib/mealPlan';
 import { getRecipeDraft, setRecipeDraft } from '@/lib/recipeDraft';
 import { fetchMealPlan, fetchRecipeIdeas } from '@/services/relayClient';
+import { getPlanJob, resetPlanJob, startPlanJob } from '@/services/planJob';
 import { cancelPrepReminder } from '@/services/reminders';
 import type { MealPlanRequest, PlanDish } from '@/types/mealPlan';
 import type { Recipe } from '@/types/recipe';
@@ -26,7 +29,11 @@ jest.mock('@/db/DatabaseProvider', () => ({
   useDb: () => mockDb,
   useSettings: () => ({ settings: {}, reload: jest.fn(), update: jest.fn() }),
 }));
-jest.mock('@/services/relayClient', () => ({ fetchMealPlan: jest.fn(), fetchRecipeIdeas: jest.fn() }));
+jest.mock('@/services/relayClient', () => ({
+  fetchMealPlan: jest.fn(),
+  fetchPrepPlan: jest.fn(),
+  fetchRecipeIdeas: jest.fn(),
+}));
 // Sentry's SDK starts a cleanup timer on import; not needed here.
 jest.mock('@/lib/sentry', () => ({ Sentry: { captureException: jest.fn() }, initSentry: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -73,7 +80,11 @@ jest.mock('expo-router', () => ({
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('react').useEffect(effect, [effect]),
 }));
-jest.mock('@/services/reminders', () => ({ cancelPrepReminder: jest.fn(() => Promise.resolve()) }));
+jest.mock('@/services/reminders', () => ({
+  cancelPrepReminder: jest.fn(() => Promise.resolve()),
+  askForReminders: jest.fn(() => Promise.resolve(true)),
+  notifyPlanReady: jest.fn(() => Promise.resolve()),
+}));
 
 const planFetch = fetchMealPlan as jest.Mock;
 const ideasFetch = fetchRecipeIdeas as jest.Mock;
@@ -120,6 +131,7 @@ beforeEach(() => {
   planFetch.mockReset();
   ideasFetch.mockReset();
   setRecipeDraft(null);
+  resetPlanJob();
 });
 afterEach(() => closeDb());
 
@@ -138,14 +150,16 @@ describe('Plan: making a plan', () => {
     );
     await render(<PlanScreen />);
 
-    expect(screen.getByText('Planning around what you can eat')).toBeTruthy();
+    expect(
+      screen.getByText('Usually about a minute. Feel free to leave; I will tell you when it is ready.'),
+    ).toBeTruthy();
     expect(screen.getByLabelText('Planning your week')).toBeTruthy();
 
     await waitFor(() => expect(planFetch).toHaveBeenCalledTimes(1));
     finish(undefined);
 
     expect(await screen.findByRole('header', { name: 'Review the meal plan' })).toBeTruthy();
-    expect(screen.queryByText('Planning around what you can eat')).toBeNull();
+    expect(screen.queryByText(/Usually about a minute/)).toBeNull();
     expect(screen.getAllByText('Chicken bowls').length).toBeGreaterThan(0);
   });
 
@@ -173,6 +187,90 @@ describe('Plan: making a plan', () => {
       conditions: ['acid_reflux'],
       avoid: ['pork'],
     });
+  });
+
+  it('keeps the dishes that sat well when asked to repeat what worked', async () => {
+    const lastWeekStart = addDays(today, -7);
+    const old = createPlan(mockDb, {
+      weekStart: lastWeekStart,
+      choices: DEFAULT_PLAN_CHOICES,
+      meals: [{ day: lastWeekStart, slot: 'dinner', dish: dish('d9', 'Miso salmon') }],
+    });
+    markMealLogOffered(mockDb, old.meals[0]!.id, new Date(`${lastWeekStart}T17:00:00`).toISOString());
+    createFoodLog(mockDb, {
+      loggedAt: new Date(`${lastWeekStart}T18:00:00`).toISOString(),
+      entryType: 'diary',
+      source: 'text',
+      inputText: 'Miso salmon',
+      analysis: {
+        isFood: true,
+        mealName: 'Miso salmon',
+        items: [],
+        overall: { verdict: 'ok', confidence: 'medium', reasoning: 'Because.' },
+      },
+      meta: { model: 'm', promptVersion: 'p', rulesetVersion: 'r' },
+    });
+    mockParams = { make: 'new', repeat: '1' };
+    planFetch.mockImplementation(answerWith('Chicken bowls'));
+    await render(<PlanScreen />);
+
+    await screen.findByRole('header', { name: 'Review the meal plan' });
+    expect(planFetch.mock.calls[0]![0].keep).toEqual(['Miso salmon']);
+  });
+
+  it('keeps planning after the page is left, and the plan is there when it comes back', async () => {
+    let finish: () => void = () => {};
+    planFetch.mockImplementation(
+      (request: MealPlanRequest) =>
+        new Promise((resolve) => {
+          finish = () => resolve(answerWith('Chicken bowls')(request));
+        }),
+    );
+    const first = await render(<PlanScreen />);
+    await waitFor(() => expect(planFetch).toHaveBeenCalledTimes(1));
+
+    // They leave: the page goes away, and the plan is made all the same.
+    first.unmount();
+    mockParams = {};
+    finish();
+    await waitFor(() => expect(getCurrentPlan(mockDb)).not.toBeNull());
+    expect(planFetch).toHaveBeenCalledTimes(1);
+
+    await render(<PlanScreen />);
+    expect(screen.getByRole('header', { name: 'Review the meal plan' })).toBeTruthy();
+  });
+
+  it('does not show an old failure when it is opened again, only the new wait', async () => {
+    planFetch.mockRejectedValueOnce(new AppError('AI_TIMEOUT'));
+    startPlanJob(mockDb, { repeat: false });
+    await waitFor(() => expect(getPlanJob().status).toBe('failed'));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    planFetch.mockImplementation(() => new Promise(() => {}));
+    await render(<PlanScreen />);
+
+    expect(screen.getByText(/Usually about a minute/)).toBeTruthy();
+    expect(screen.queryByText('That took longer than expected. Try again in a moment.')).toBeNull();
+  });
+
+  it('says Start my week for a plan not yet looked over, and clears the review banner when pressed', async () => {
+    planFetch.mockImplementation(answerWith('Chicken bowls'));
+    await render(<PlanScreen />);
+
+    await screen.findByRole('header', { name: 'Review the meal plan' });
+    expect(getSetting(mockDb, 'reviewPlan')).toBe(getCurrentPlan(mockDb)!.id);
+    await press('Start my week');
+
+    expect(getSetting(mockDb, 'reviewPlan')).toBeNull();
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('keeps nothing when it is not asked to repeat', async () => {
+    planFetch.mockImplementation(answerWith('Chicken bowls'));
+    await render(<PlanScreen />);
+
+    await screen.findByRole('header', { name: 'Review the meal plan' });
+    expect(planFetch.mock.calls[0]![0].keep).toBeUndefined();
   });
 
   it('keeps the plan on the phone, and says how many meals and dishes to prep', async () => {
@@ -215,6 +313,24 @@ describe('Plan: making a plan', () => {
 });
 
 describe('Plan: the review', () => {
+  it('starts the week on a Sunday and marks the prep day in honey on its strip', async () => {
+    const sunday = addDays(today, -weekdayOf(today));
+    createPlan(mockDb, {
+      weekStart: sunday,
+      choices: DEFAULT_PLAN_CHOICES,
+      meals: [
+        { day: sunday, slot: 'dinner', dish: dish('d1', 'Chicken bowls') },
+        { day: addDays(sunday, 1), slot: 'dinner', dish: dish('d2', 'Miso salmon') },
+      ],
+    });
+    await render(<PlanScreen />);
+
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs[0]!.props.accessibilityLabel).toMatch(/^Sunday \d+, prep day$/);
+    expect(tabs[6]!.props.accessibilityLabel).toMatch(/^Saturday /);
+    expect(tabs.filter((tab) => /prep day/.test(tab.props.accessibilityLabel))).toHaveLength(1);
+  });
+
   it('shows the plan without asking the relay, with the week and the day’s meals', async () => {
     savedPlan();
     await render(<PlanScreen />);
@@ -314,6 +430,15 @@ describe('Plan: the review', () => {
     expect(screen.getByText('There is no plan yet. Make one from the Kitchen.')).toBeTruthy();
   });
 
+  it('says Start my week when opened from the Kitchen banner, with no new plan being made', async () => {
+    const plan = savedPlan();
+    setSetting(mockDb, 'reviewPlan', plan.id);
+    await render(<PlanScreen />);
+
+    expect(screen.getByRole('button', { name: 'Start my week' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
+  });
+
   it('goes back from Done', async () => {
     savedPlan();
     await render(<PlanScreen />);
@@ -346,6 +471,24 @@ describe('Plan: swapping a meal', () => {
     expect(swapped?.dish.title).toBe('Chicken congee');
     expect(screen.getByText('Chicken congee')).toBeTruthy();
     expect(screen.queryByText('Miso salmon')).toBeNull();
+  });
+
+  it("opens straight on the meal named by ?swap, as Today's felt-off offer asks", async () => {
+    const plan = savedPlan();
+    mockParams = { swap: String(plan.meals[1]!.id) };
+    ideasFetch.mockResolvedValue([recipe('Baked cod'), recipe('Chicken congee'), recipe('Tofu stir fry')]);
+    await render(<PlanScreen />);
+
+    expect(await screen.findByRole('header', { name: /^Swap .* dinner$/ })).toBeTruthy();
+    expect(await screen.findByText('Baked cod')).toBeTruthy();
+  });
+
+  it('ignores a ?swap that names no meal of the plan', async () => {
+    savedPlan();
+    mockParams = { swap: '9999' };
+    await render(<PlanScreen />);
+
+    expect(screen.queryByRole('header', { name: /^Swap / })).toBeNull();
   });
 
   it('says it could not find another dish, and tries again', async () => {

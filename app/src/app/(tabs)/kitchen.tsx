@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { Bookmark, CalendarDays, Refrigerator } from 'lucide-react-native';
+import { Bookmark, Refrigerator, ShoppingBasket } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,32 +9,40 @@ import { Belly } from '@/components/Belly';
 import { Button } from '@/components/Button';
 import { FeedbackButton, feedbackButtonClearance } from '@/components/FeedbackButton';
 import { tabBarClearance } from '@/components/FloatingTabBar';
-import { FridgeRow } from '@/components/kitchen/FridgeRow';
 import { ListRow } from '@/components/kitchen/ListRow';
 import { PillButton } from '@/components/kitchen/PillButton';
+import { PlanningCard } from '@/components/kitchen/PlanningCard';
 import { PlanSetupSheet } from '@/components/kitchen/PlanSetupSheet';
 import { PlanWeekStrip } from '@/components/kitchen/PlanWeekStrip';
+import { PlanBanner } from '@/components/kitchen/PlanBanner';
 import { TodayPlanCard } from '@/components/kitchen/TodayPlanCard';
 import { Screen } from '@/components/Screen';
 import { useTourTarget } from '@/components/tour/TourContext';
-import type { PlanChoices } from '@/constants/mealPlan';
+import { type PlanChoices, prepWeekday } from '@/constants/mealPlan';
 import { useDb, useSettings } from '@/db/DatabaseProvider';
-import { listAvoidFoods } from '@/db/repositories/avoidFoods';
 import { fridgeUpdatedAt, listFridgeItems } from '@/db/repositories/fridgeItems';
 import { getCurrentPlan, type StoredMeal, type StoredPlan } from '@/db/repositories/mealPlans';
-import { listSavedRecipes } from '@/db/repositories/savedRecipes';
+import { getPlanChecks } from '@/db/repositories/planChecks';
+import { getSetting } from '@/db/repositories/settings';
 import { todayKey } from '@/lib/kitchen';
 import { addDays } from '@/lib/localDay';
 import { logger } from '@/lib/logger';
-import { planWeek, planSummary } from '@/lib/mealPlan';
+import { planSummary, planWeek, prepDateFor } from '@/lib/mealPlan';
+import { prepDay, prepDayName, prepDishes, prepSummary } from '@/lib/prep';
+import { weekLine } from '@/lib/planToday';
 import { setRecipeDraft } from '@/lib/recipeDraft';
+import { buildShoppingList, shoppingSummary } from '@/lib/shopping';
+import { planWeekResult, weekIsEnding } from '@/lib/weekResult';
+import { retryPlanJob, startPlanJob, usePlanJob } from '@/services/planJob';
 import { cardEdge, radius, space, useColors } from '@/theme';
 
 /**
  * Kitchen: planning the week (Figma "meal planning flow" A and F). With no plan, one card and one button open the
  * set-up sheet, and the plan is made on the page that follows. With a plan for the current week it is "this week":
  * today's meals, the week, a way back into the plan, and Saved and My fridge. Saved recipes and the fridge scan keep
- * working as before; only the recipe ideas became the week plan.
+ * working as before; only the recipe ideas became the week plan. Making the plan keeps the person here: while the week
+ * is being made, the plan card is replaced by a Planning card (F3) whose pot opens the waiting page, or by "Planning
+ * is taking too long" and Try again (F3b).
  */
 export default function KitchenScreen() {
   const colors = useColors();
@@ -45,8 +53,12 @@ export default function KitchenScreen() {
   const planTarget = useTourTarget('plan');
   const fridgeTarget = useTourTarget('fridge');
   const [plan, setPlan] = useState<StoredPlan | null>(null);
-  const [savedCount, setSavedCount] = useState(0);
-  const [skipped, setSkipped] = useState<string[]>([]);
+  // How the plan's week went once it is ending: planned meals logged, and the dishes that sat well.
+  const [result, setResult] = useState<{ logged: number; well: number; wellTitles: string[] } | null>(null);
+  // What the shopping row says, and whether the prep day was marked done (the banner goes then).
+  const [extra, setExtra] = useState<{ shopping: string; prepDone: boolean; review: boolean } | null>(null);
+  // The day of the week strip whose meals show in the card; today until another is tapped.
+  const [picked, setPicked] = useState<string | null>(null);
   const [fridge, setFridge] = useState<{ count: number; updatedAt: string | null }>({
     count: 0,
     updatedAt: null,
@@ -57,21 +69,57 @@ export default function KitchenScreen() {
   // What to do once the sheet has finished closing: a second screen can't be pushed under a sheet still sliding away.
   const afterClose = useRef<'make' | 'fridge' | null>(null);
 
+  const lastPlan = useRef<number | null>(null);
+
   const reload = useCallback(() => {
     try {
-      setPlan(getCurrentPlan(db));
-      setSavedCount(listSavedRecipes(db).length);
-      setSkipped(listAvoidFoods(db).map((food) => food.name));
-      setFridge({ count: listFridgeItems(db).length, updatedAt: fridgeUpdatedAt(db) });
+      const latest = getCurrentPlan(db);
+      setPlan(latest);
+      // A new plan starts on its own day again, not on a day picked in the old one.
+      if ((latest?.id ?? null) !== lastPlan.current) {
+        lastPlan.current = latest?.id ?? null;
+        setPicked(null);
+      }
+      setResult(latest && weekIsEnding(latest, todayKey()) ? planWeekResult(db, latest) : null);
+      const fridgeItems = listFridgeItems(db);
+      setFridge({ count: fridgeItems.length, updatedAt: fridgeUpdatedAt(db) });
+      // The shopping row and the prep banner: if they cannot be worked out, the rest of the page still shows.
+      try {
+        if (latest) {
+          const checks = getPlanChecks(db, latest.id);
+          const names = latest.choices.useFridge ? fridgeItems.map((item) => item.name) : [];
+          setExtra({
+            shopping: shoppingSummary(buildShoppingList(latest.meals, names, checks.own, todayKey())),
+            prepDone: checks.prep.has('done'),
+            // A plan just made waits for a look before the week shows (Figma F4).
+            review: getSetting(db, 'reviewPlan') === latest.id,
+          });
+        } else {
+          setExtra(null);
+        }
+      } catch (error) {
+        logger.error('loadKitchenExtras', error);
+        setExtra(null);
+      }
     } catch (error) {
       logger.error('loadKitchen', error);
     }
   }, [db]);
-  useFocusEffect(reload);
+  const job = usePlanJob();
+  // Also when a plan finishes while this page is open: show it.
+  const finishedAt = job.finishedAt;
+  useFocusEffect(
+    useCallback(() => {
+      void finishedAt;
+      reload();
+    }, [reload, finishedAt]),
+  );
 
   const today = todayKey();
   // A plan is "this week" until its Sunday has passed; after that the Kitchen asks for a new one.
   const current = plan && today <= addDays(plan.weekStart, 6) ? plan : null;
+  // From Saturday on, the next week is offered (Figma "meal planning flow" H), above what is left of this one.
+  const ending = plan !== null && weekIsEnding(plan, today);
 
   const openAsk = () => {
     afterClose.current = null;
@@ -93,11 +141,21 @@ export default function KitchenScreen() {
     afterClose.current = 'fridge';
     setAsking(false);
   };
+  /**
+   * Makes the week without leaving the Kitchen: the page says it is planning, and the pot opens the waiting page.
+   * Only "no day left to plan" goes to the plan page, which is where that is explained.
+   */
+  const makePlan = (repeat: boolean) => {
+    if (startPlanJob(db, { repeat }) === 'empty') {
+      router.push({ pathname: '/plan', params: repeat ? { make: 'new', repeat: '1' } : { make: 'new' } });
+    }
+  };
+  const repeatWhatWorked = () => makePlan(true);
   const dismissed = () => {
     const next = afterClose.current;
     afterClose.current = null;
     if (next === 'fridge') router.push('/fridge');
-    if (next === 'make') router.push({ pathname: '/plan', params: { make: 'new' } });
+    if (next === 'make') makePlan(false);
   };
 
   const openMeal = (meal: StoredMeal) => {
@@ -109,10 +167,77 @@ export default function KitchenScreen() {
     router.push('/recipe');
   };
 
-  const todayMeals = (current?.meals ?? []).filter((meal) => meal.day === today && !meal.skipped);
-  // A plan made at the weekend starts on Monday: until then there is no "today" in it.
+  // A plan made on a Saturday starts on Sunday: until then there is no "today" in it.
   const startsLater = current !== null && today < current.weekStart;
-  const dayName = current ? (planWeek(current.weekStart).find((day) => day.key === today)?.name ?? '') : '';
+  const weekDays = current ? planWeek(current.weekStart) : [];
+  // The picked day (today to begin with, or the first day of a week still to come) and what is on it.
+  const shownDay =
+    picked && weekDays.some((day) => day.key === picked)
+      ? picked
+      : weekDays.some((day) => day.key === today)
+        ? today
+        : (weekDays[0]?.key ?? today);
+  const shownName = weekDays.find((day) => day.key === shownDay)?.name ?? '';
+  const shownMeals = (current?.meals ?? []).filter((meal) => meal.day === shownDay && !meal.skipped);
+
+  // The prep day: shown until the cooking is marked done, honey on the strip and in one banner (Figma F2).
+  const prepList = current && current.mode === 'once' ? prepDishes(current.meals, today) : [];
+  const prepDate =
+    current && current.mode === 'once' ? prepDateFor(current.weekStart, prepWeekday(current.choices)) : null;
+  const cookDay = current ? prepDay(current.weekStart, today, prepWeekday(current.choices)) : today;
+  const showPrep = current !== null && prepList.length > 0 && extra !== null && !extra.prepDone;
+
+  const repeat = ending && result !== null && result.wellTitles.length > 0 ? result : null;
+  // The card that asks for a week: "Plan your week" with no plan, "Plan next week" once this one is ending.
+  const askCard = (
+    <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
+      <View style={styles.cardTop}>
+        <View style={styles.cardText}>
+          <AppText variant="displaySmall">{ending ? 'Plan next week' : 'Plan your week'}</AppText>
+          <AppText variant="subtitle" color="inkSoft">
+            {repeat
+              ? weekLine(repeat.logged, repeat.well)
+              : 'Meals that go easy on your belly, made from what you have.'}
+          </AppText>
+        </View>
+        <Belly mood="happy" size={120} />
+      </View>
+      <View ref={planTarget} style={styles.cardButtons}>
+        {repeat ? (
+          <>
+            <Button label="Repeat what worked" onPress={repeatWhatWorked} />
+            <Button label="Start over" variant="secondary" onPress={openAsk} />
+          </>
+        ) : (
+          <Button label="Plan my week" onPress={openAsk} />
+        )}
+      </View>
+    </View>
+  );
+
+  // Saved recipes and My fridge, always last on the page (Figma A, F2, F3, F4, H).
+  const pills = (
+    <View style={styles.pills}>
+      <View style={styles.fill}>
+        <PillButton
+          icon={<Bookmark size={24} color={colors.ink} strokeWidth={2} />}
+          label="Saved recipes"
+          accessibilityLabel="Saved recipes"
+          accessibilityHint="Opens the list of your saved recipes"
+          onPress={() => router.push('/saved-recipes')}
+        />
+      </View>
+      <View ref={fridgeTarget} style={styles.fill}>
+        <PillButton
+          icon={<Refrigerator size={24} color={colors.ink} strokeWidth={2} />}
+          label="My fridge"
+          accessibilityLabel="My fridge"
+          accessibilityHint="Opens your fridge list"
+          onPress={() => router.push('/fridge')}
+        />
+      </View>
+    </View>
+  );
 
   return (
     <Screen edges={['top', 'left', 'right']}>
@@ -128,84 +253,82 @@ export default function KitchenScreen() {
             Kitchen
           </AppText>
           <AppText variant="voiceSmall" color="inkSoft">
-            {current ? (startsLater ? 'Next week' : 'This week') : 'What shall we cook?'}
+            {job.status !== 'idle' || (current !== null && extra?.review)
+              ? 'What shall we cook?'
+              : ending
+                ? 'A new week is coming'
+                : current
+                  ? startsLater
+                    ? 'Next week'
+                    : 'This week'
+                  : 'What shall we cook?'}
           </AppText>
         </View>
 
-        {current ? (
+        {job.status !== 'idle' ? (
           <>
-            {!startsLater && <TodayPlanCard dayName={dayName} meals={todayMeals} onOpen={openMeal} />}
-            <PlanWeekStrip
-              days={planWeek(current.weekStart)}
-              selected={today}
-              planned={new Set(current.meals.filter((meal) => !meal.skipped).map((meal) => meal.day))}
-              onSelect={() => router.push('/plan')}
-            />
             <View ref={planTarget}>
-              <ListRow
-                icon={<CalendarDays size={20} color={colors.sageInk} strokeWidth={2} />}
-                title="Meal plan"
+              <PlanningCard
+                status={job.status}
+                onOpen={() => router.push('/plan')}
+                onRetry={() => void retryPlanJob(db)}
+              />
+            </View>
+            {pills}
+          </>
+        ) : current && extra?.review ? (
+          <>
+            <View ref={planTarget}>
+              <PlanBanner
+                title="Review your meal plan"
                 subtitle={planSummary(current.meals, current.mode)}
+                tone="sage"
+                hint="Opens the plan to look it over"
                 onPress={() => router.push('/plan')}
               />
             </View>
-            <View style={styles.pills}>
-              <View style={styles.fill}>
-                <PillButton
-                  icon={<Bookmark size={24} color={colors.ink} strokeWidth={2} />}
-                  label="Saved"
-                  accessibilityLabel="Saved recipes"
-                  accessibilityHint="Opens the list of your saved recipes"
-                  onPress={() => router.push('/saved-recipes')}
-                />
-              </View>
-              <View ref={fridgeTarget} style={styles.fill}>
-                <PillButton
-                  icon={<Refrigerator size={24} color={colors.ink} strokeWidth={2} />}
-                  label="My fridge"
-                  accessibilityLabel="My fridge"
-                  accessibilityHint="Opens your fridge list"
-                  onPress={() => router.push('/fridge')}
-                />
-              </View>
+            {pills}
+          </>
+        ) : current ? (
+          <>
+            <View ref={planTarget}>
+              <PlanWeekStrip
+                days={weekDays}
+                selected={shownDay}
+                planned={new Set(current.meals.filter((meal) => !meal.skipped).map((meal) => meal.day))}
+                prepDay={prepDate}
+                onSelect={setPicked}
+              />
             </View>
+            {ending && askCard}
+            {showPrep && (
+              <PlanBanner
+                title={cookDay === today ? 'Prep day today' : `Prep day ${prepDayName(cookDay)}`}
+                subtitle={prepSummary(prepList, current.choices.prepMinutes)}
+                tone="honey"
+                hint="Opens the prep day"
+                onPress={() => router.push('/prep-day')}
+              />
+            )}
+            <TodayPlanCard
+              title={shownDay === today ? 'Today' : shownName}
+              isToday={shownDay === today}
+              meals={shownMeals}
+              onOpen={openMeal}
+              onEdit={() => router.push('/plan')}
+            />
+            <ListRow
+              icon={<ShoppingBasket size={20} color={colors.sageInk} strokeWidth={2} />}
+              title="Shopping list"
+              subtitle={extra?.shopping ?? ''}
+              onPress={() => router.push('/shopping-list')}
+            />
+            {pills}
           </>
         ) : (
           <>
-            <View style={[styles.card, { backgroundColor: colors.surface, ...cardEdge(colors) }]}>
-              <View style={styles.cardTop}>
-                <View style={styles.cardText}>
-                  <AppText variant="displaySmall">Plan your week</AppText>
-                  <AppText variant="subtitle" color="inkSoft">
-                    Meals that go easy on your belly, made from what you have.
-                  </AppText>
-                </View>
-                <Belly mood="happy" size={120} />
-              </View>
-              <View ref={planTarget}>
-                <Button label="Plan my week" onPress={openAsk} />
-              </View>
-            </View>
-
-            <ListRow
-              icon={<Bookmark size={20} color={colors.sageInk} strokeWidth={2} />}
-              title="Saved recipes"
-              subtitle={savedCount === 1 ? '1 recipe' : `${savedCount} recipes`}
-              onPress={() => router.push('/saved-recipes')}
-            />
-
-            <View style={styles.section}>
-              <AppText variant="section" accessibilityRole="header">
-                My fridge
-              </AppText>
-              <View ref={fridgeTarget}>
-                <FridgeRow
-                  count={fridge.count}
-                  updatedAt={fridge.updatedAt}
-                  onPress={() => router.push('/fridge')}
-                />
-              </View>
-            </View>
+            {askCard}
+            {pills}
           </>
         )}
       </ScrollView>
@@ -219,7 +342,6 @@ export default function KitchenScreen() {
         onDismissed={dismissed}
         initial={settings.planChoices}
         fridge={fridge}
-        skipped={skipped}
         onAddFridge={addFridge}
         onSubmit={submit}
       />
@@ -233,7 +355,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, padding: space.s4, paddingHorizontal: space.s3, gap: space.s3 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: space.s2 },
   cardText: { flex: 1, gap: space.s1 },
+  cardButtons: { gap: space.s1_5 },
   pills: { flexDirection: 'row', gap: space.s2 },
   fill: { flex: 1 },
-  section: { gap: space.s1_5 },
 });

@@ -26,6 +26,7 @@ const meal = (day: string, d: PlanDish, over: Partial<StoredMeal> = {}): StoredM
   dish: d,
   locked: false,
   skipped: false,
+  loggedAt: null,
   ...over,
 });
 
@@ -47,10 +48,17 @@ describe('prep day', () => {
     expect(dishes[1]!.meals).toHaveLength(2);
   });
 
-  it('cooks the day before the first meal that is eaten', () => {
-    const meals = [meal('2026-11-16', bowls, { skipped: true }), meal('2026-11-17', bowls)];
-    expect(prepDay(meals, '2026-11-16')).toBe('2026-11-16');
+  it('cooks on the chosen weekday: Sunday unless another was picked, Saturday and Sunday before the week', () => {
+    expect(prepDay('2026-11-16')).toBe('2026-11-15');
+    expect(prepDay('2026-11-16', undefined, 0)).toBe('2026-11-15');
+    expect(prepDay('2026-11-16', undefined, 6)).toBe('2026-11-14');
     expect(prepDayName('2026-11-15')).toBe('Sunday');
+  });
+
+  it('cooks inside the week when a weekday from Monday to Friday is chosen', () => {
+    expect(prepDay('2026-11-16', undefined, 1)).toBe('2026-11-16');
+    expect(prepDay('2026-11-16', undefined, 4)).toBe('2026-11-19');
+    expect(prepDayName('2026-11-19')).toBe('Thursday');
   });
 
   it('puts a dish in the fridge while it keeps and in the freezer after', () => {
@@ -68,8 +76,10 @@ describe('prep day', () => {
     const meals = [meal('2026-11-16', bowls), meal('2026-11-18', congee)];
 
     expect(prepDishes(meals, '2026-11-17').map((entry) => entry.dish.title)).toEqual(['Congee']);
-    expect(prepDay(meals, '2026-11-16', '2026-11-17')).toBe('2026-11-17');
-    expect(prepDay([meal('2026-11-17', bowls)], '2026-11-16', '2026-11-17')).toBe('2026-11-17');
+    // The chosen day (Sunday) has passed, so the cooking is today.
+    expect(prepDay('2026-11-16', '2026-11-17')).toBe('2026-11-17');
+    // A chosen day still to come is kept.
+    expect(prepDay('2026-11-16', '2026-11-17', 4)).toBe('2026-11-19');
   });
 
   it('says about how long it takes', () => {

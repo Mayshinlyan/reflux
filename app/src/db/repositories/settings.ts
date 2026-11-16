@@ -75,6 +75,12 @@ export type Settings = {
   planChoices: PlanChoices;
   /** The id of the plan whose prep day they asked a reminder for (Figma "meal planning flow" E2); null = none. */
   prepReminderPlan: number | null;
+  /** The id of a plan that was just made and not yet reviewed (the Kitchen's green "Review your meal plan" banner); null = none. */
+  reviewPlan: number | null;
+  /** Whether Today offers the next planned meal with "Log it" (Figma "meal planning flow" G2). On unless turned off in Settings; it only asks. */
+  offerPlannedMeals: boolean;
+  /** The planned meal the "Felt off?" swap offer was last shown for, so it asks once; null = none. */
+  swapOfferMeal: number | null;
   /** The check-in days they committed to reaching (the completion flow's goal screen, Figma G3); null = not picked. */
   commitGoal: 7 | 14 | 30 | null;
   /** The check-in day milestones whose gift was already opened, so each shows once. */
@@ -112,6 +118,9 @@ export const DEFAULT_SETTINGS: Settings = {
   kitchenIdeas: null,
   planChoices: DEFAULT_PLAN_CHOICES,
   prepReminderPlan: null,
+  reviewPlan: null,
+  offerPlannedMeals: true,
+  swapOfferMeal: null,
   commitGoal: null,
   giftsSeen: [],
   bellieHat: false,
@@ -196,6 +205,15 @@ function validate<K extends SettingKey>(key: K, value: Settings[K]): void {
   }
   if (key === 'prepReminderPlan' && value !== null && !(Number.isInteger(value) && (value as number) > 0)) {
     throw new Error('prepReminderPlan must be null or a plan id');
+  }
+  if (key === 'reviewPlan' && value !== null && !(Number.isInteger(value) && (value as number) > 0)) {
+    throw new Error('reviewPlan must be null or a plan id');
+  }
+  if (key === 'offerPlannedMeals' && typeof value !== 'boolean') {
+    throw new Error('offerPlannedMeals must be true or false');
+  }
+  if (key === 'swapOfferMeal' && value !== null && !(Number.isInteger(value) && (value as number) > 0)) {
+    throw new Error('swapOfferMeal must be null or a planned meal id');
   }
   if (key === 'commitGoal' && value !== null && ![7, 14, 30].includes(value as number)) {
     throw new Error('commitGoal must be null, 7, 14 or 30');

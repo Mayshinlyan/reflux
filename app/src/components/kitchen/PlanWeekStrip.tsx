@@ -10,28 +10,31 @@ type Props = {
   selected: string | null;
   /** Days that have a meal in the plan: a dot sits under them. Days without one are plain (nothing planned). */
   planned: ReadonlySet<string>;
+  /** The day the food is cooked, shown in honey (Figma D4); null for a plan that cooks every day. */
+  prepDay?: string | null;
   onSelect: (day: string) => void;
 };
 
 const CIRCLE = 40;
 
 /**
- * The week of a plan, Monday first (Figma "meal planning flow" D and F): a letter, the date in a circle and a dot
- * when the day has a meal. The picked day is a filled olive circle. A day with nothing planned is plain text, but can
+ * The week of a plan, Sunday first like Today (Figma "meal planning flow" D4 and F2): a letter, the date in a circle
+ * and a dot when the day has a meal. The picked day is a filled olive circle, and the prep day is honey. A day with nothing planned is plain text, but can
  * still be tapped (it just shows no meals).
  */
-export function PlanWeekStrip({ days, selected, planned, onSelect }: Props) {
+export function PlanWeekStrip({ days, selected, planned, prepDay = null, onSelect }: Props) {
   const colors = useColors();
   return (
     <View style={styles.row} accessibilityRole="tablist">
       {days.map((day) => {
         const isSelected = day.key === selected;
         const has = planned.has(day.key);
+        const prep = day.key === prepDay;
         return (
           <Pressable
             key={day.key}
             accessibilityRole="tab"
-            accessibilityLabel={`${day.name} ${day.date}${has ? '' : ', nothing planned'}`}
+            accessibilityLabel={`${day.name} ${day.date}${prep ? ', prep day' : ''}${has || prep ? '' : ', nothing planned'}`}
             accessibilityState={{ selected: isSelected }}
             onPress={() => onSelect(day.key)}
             style={styles.day}>
@@ -41,15 +44,29 @@ export function PlanWeekStrip({ days, selected, planned, onSelect }: Props) {
             <View
               style={[
                 styles.circle,
-                isSelected
-                  ? { backgroundColor: colors.cta }
-                  : has
-                    ? { backgroundColor: colors.surface, ...cardEdge(colors) }
-                    : null,
+                prep
+                  ? {
+                      backgroundColor: colors.honeyTint,
+                      // Honey says it is the prep day; a ring says it is the picked one too.
+                      ...(isSelected ? { borderWidth: 2, borderColor: colors.sageInk } : null),
+                    }
+                  : isSelected
+                    ? { backgroundColor: colors.cta }
+                    : has
+                      ? { backgroundColor: colors.surface, ...cardEdge(colors) }
+                      : null,
               ]}>
               <AppText
                 variant="bodyEm"
-                style={{ color: isSelected ? colors.ctaInk : has ? colors.ink : colors.inkMuted }}>
+                style={{
+                  color: prep
+                    ? colors.honeyInk
+                    : isSelected
+                      ? colors.ctaInk
+                      : has
+                        ? colors.ink
+                        : colors.inkMuted,
+                }}>
                 {day.date}
               </AppText>
             </View>

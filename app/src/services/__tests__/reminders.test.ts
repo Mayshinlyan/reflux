@@ -5,8 +5,10 @@ import {
   cancelAllCheckIns,
   cancelCheckIn,
   cancelWeeklyReport,
+  isPlanResponse,
   isReportResponse,
   mealIdFromResponse,
+  notifyPlanReady,
   remindersAllowed,
   scheduleCheckIn,
   scheduleWeeklyReport,
@@ -196,5 +198,51 @@ describe('mealIdFromResponse', () => {
     expect(mealIdFromResponse(response(TAP))).toBeNull();
     expect(mealIdFromResponse(response(TAP, { foodLogId: '7' }))).toBeNull();
     expect(mealIdFromResponse(response(TAP, { foodLogId: 7.5 }))).toBeNull();
+  });
+});
+
+describe('notifyPlanReady', () => {
+  it('says the week is ready right away, naming the prep day when there is one', async () => {
+    await notifyPlanReady(true);
+
+    expect(mocked.scheduleNotificationAsync).toHaveBeenCalledWith({
+      identifier: 'plan-ready',
+      content: {
+        title: 'Your week is ready',
+        body: 'Your meal plan and prep day are ready.',
+        data: { plan: true },
+      },
+      trigger: { type: 'timeInterval', seconds: 1, channelId: 'meal-plan' },
+    });
+  });
+
+  it('says only the meal plan is ready when there is no prep day', async () => {
+    await notifyPlanReady(false);
+
+    expect(mocked.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.objectContaining({ body: 'Your meal plan is ready.' }),
+      }),
+    );
+  });
+
+  it('does nothing, and does not ask, when the phone is not allowing notifications', async () => {
+    mocked.getPermissionsAsync.mockResolvedValueOnce({ granted: false } as never);
+
+    await notifyPlanReady(true);
+
+    expect(mocked.scheduleNotificationAsync).not.toHaveBeenCalled();
+    expect(mocked.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('isPlanResponse', () => {
+  const response = (data: object, actionIdentifier = 'expo.modules.notifications.actions.DEFAULT') =>
+    ({ actionIdentifier, notification: { request: { content: { data } } } }) as never;
+
+  it('is true for a tap on the plan notification only', () => {
+    expect(isPlanResponse(response({ plan: true }))).toBe(true);
+    expect(isPlanResponse(response({ report: true }))).toBe(false);
+    expect(isPlanResponse(response({ plan: true }, 'other'))).toBe(false);
   });
 });

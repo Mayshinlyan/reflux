@@ -19,10 +19,6 @@ export const CUISINE_KEYS: readonly CuisineKey[] = CUISINES.map((cuisine) => cui
 export const isCuisineKey = (value: unknown): value is CuisineKey =>
   typeof value === 'string' && (CUISINE_KEYS as readonly string[]).includes(value);
 
-export function cuisineLabel(key: CuisineKey): string {
-  return CUISINES.find((cuisine) => cuisine.key === key)?.label ?? 'Any';
-}
-
 /** "Ready in": a limit on the total time, prep included. Keys match the relay's `RECIPE_TIMES`. */
 export const RECIPE_TIMES = [
   { value: '20', label: '20 min' },

@@ -4,10 +4,14 @@ import { Alert } from 'react-native';
 
 import TodayScreen from '@/app/(tabs)/index';
 import { createTestDb } from '@/db/__tests__/testDb';
+import { DEFAULT_PLAN_CHOICES } from '@/constants/mealPlan';
+import { listAvoidFoods } from '@/db/repositories/avoidFoods';
 import { createFoodLog, listDiaryFoodLogs } from '@/db/repositories/food';
+import { createPlan, getCurrentPlan, markMealLogOffered } from '@/db/repositories/mealPlans';
 import { createMedication, logMedication } from '@/db/repositories/medications';
 import { createSymptomLog } from '@/db/repositories/symptoms';
 import type { AppDb } from '@/db/types';
+import { todayKey } from '@/lib/kitchen';
 import { addDays, localDayKey } from '@/lib/localDay';
 import { closeLogArch, getLogArch } from '@/lib/logArch';
 import { currentTimeZone } from '@/lib/time';
@@ -24,6 +28,8 @@ let mockReduceMotion = true;
 let mockReminderAsked = true;
 let mockReminderMinutes: number | null = null;
 let mockReportSeen = '';
+let mockOfferPlanned = false;
+let mockSwapOffered: number | null = null;
 const mockUpdate = jest.fn();
 const mockToast = jest.fn();
 const mockPush = jest.fn();
@@ -41,6 +47,8 @@ jest.mock('@/db/DatabaseProvider', () => ({
       checkInReminderMinutes: mockReminderMinutes,
       summariesEnabled: true,
       reportSeenWeek: mockReportSeen,
+      offerPlannedMeals: mockOfferPlanned,
+      swapOfferMeal: mockSwapOffered,
     },
     update: mockUpdate,
   }),
@@ -87,6 +95,8 @@ beforeEach(() => {
   mockReminderAsked = true;
   mockReminderMinutes = null;
   mockReportSeen = '';
+  mockOfferPlanned = false;
+  mockSwapOffered = null;
   closeLogArch();
   // Bellie's summary is still on its way unless a test says otherwise.
   jest
@@ -540,5 +550,121 @@ describe('Today: the one-time reminder offer', () => {
     expect(mockUpdate).toHaveBeenCalledWith('reminderAsked', true);
     expect(mockUpdate).not.toHaveBeenCalledWith('checkInReminderMinutes', expect.anything());
     expect(mockToast).not.toHaveBeenCalled();
+  });
+});
+
+describe("Today: the week plan's next meal", () => {
+  const planned = (title: string, ingredients = ['2 salmon fillets']) => ({
+    id: title,
+    title,
+    minutes: 30,
+    serves: 2,
+    why: 'Mild and soft.',
+    tip: '',
+    keepsDays: 2,
+    ingredients,
+    steps: ['Cook.'],
+  });
+  const makePlan = () =>
+    createPlan(mockDb, {
+      weekStart: addDays(todayKey(), -1),
+      choices: DEFAULT_PLAN_CHOICES,
+      meals: [
+        { day: todayKey(), slot: 'dinner', dish: planned('Miso salmon') },
+        { day: addDays(todayKey(), 1), slot: 'dinner', dish: planned('Roast chicken', ['1 chicken']) },
+      ],
+    });
+
+  it('is not shown when Log plan meals is turned off', async () => {
+    makePlan();
+    await render(<TodayScreen />);
+
+    expect(screen.queryByText('From your plan')).toBeNull();
+  });
+
+  it('shows the dish with Log it and Not today, and Log it opens the log without logging anything', async () => {
+    mockOfferPlanned = true;
+    const plan = makePlan();
+    await render(<TodayScreen />);
+
+    expect(screen.getByText('From your plan')).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Miso salmon' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Log it' }));
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/log/food', params: { prefill: 'Miso salmon' } });
+    expect(listDiaryFoodLogs(mockDb, { from: '2000-01-01', to: '2100-01-01' })).toHaveLength(0);
+    expect(
+      getCurrentPlan(mockDb)?.meals.find((meal) => meal.dish.title === 'Miso salmon')?.loggedAt,
+    ).toBeTruthy();
+    expect(plan.id).toBeGreaterThan(0);
+  });
+
+  it('Not today takes the meal off the card and out of the plan for today', async () => {
+    mockOfferPlanned = true;
+    makePlan();
+    await render(<TodayScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Not today' }));
+
+    expect(screen.queryByText('From your plan')).toBeNull();
+    expect(getCurrentPlan(mockDb)?.meals.find((meal) => meal.dish.title === 'Miso salmon')?.skipped).toBe(
+      true,
+    );
+  });
+
+  describe('after a planned meal was logged and a symptom followed', () => {
+    const seedFelt = () => {
+      mockOfferPlanned = true;
+      const plan = makePlan();
+      const dinner = plan.meals.find((meal) => meal.dish.title === 'Miso salmon')!;
+      markMealLogOffered(mockDb, dinner.id, minutesAgo(40));
+      seedMeal('Miso salmon with rice', 'ok', minutesAgo(35));
+      createSymptomLog(mockDb, { items: [{ key: 'heartburn' }], loggedAt: minutesAgo(10) });
+      return { dinner, next: plan.meals.find((meal) => meal.dish.title === 'Roast chicken')! };
+    };
+
+    it('offers to swap the next dinner, and swapping notes the food and opens the swap', async () => {
+      const { dinner, next } = seedFelt();
+      await render(<TodayScreen />);
+
+      expect(screen.getByRole('header', { name: 'Felt off after dinner?' })).toBeTruthy();
+      // Noting the food writes to their avoid list, so it starts unticked.
+      const note = screen.getByRole('checkbox', { name: 'Note salmon fillets as a possible trigger' });
+      expect(note.props.accessibilityState.checked).toBe(false);
+      await fireEvent.press(note);
+      await fireEvent.press(screen.getByRole('button', { name: 'Swap the next dinner' }));
+
+      expect(mockUpdate).toHaveBeenCalledWith('swapOfferMeal', dinner.id);
+      expect(mockPush).toHaveBeenCalledWith({ pathname: '/plan', params: { swap: String(next.id) } });
+      expect(listAvoidFoods(mockDb).map((food) => food.name)).toEqual(['salmon fillets']);
+    });
+
+    it('swaps without noting anything when the box is left unticked', async () => {
+      seedFelt();
+      await render(<TodayScreen />);
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Swap the next dinner' }));
+
+      expect(listAvoidFoods(mockDb)).toHaveLength(0);
+    });
+
+    it('"Not now" asks nothing of the plan and notes nothing', async () => {
+      const { dinner } = seedFelt();
+      await render(<TodayScreen />);
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Not now' }));
+
+      expect(mockUpdate).toHaveBeenCalledWith('swapOfferMeal', dinner.id);
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(listAvoidFoods(mockDb)).toHaveLength(0);
+    });
+
+    it('is not offered again for a meal it was already shown for', async () => {
+      const { dinner } = seedFelt();
+      mockSwapOffered = dinner.id;
+      await render(<TodayScreen />);
+
+      expect(screen.queryByText('Felt off after dinner?')).toBeNull();
+    });
   });
 });
